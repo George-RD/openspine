@@ -1,0 +1,16 @@
+# PRD §6.1/§12.2 reference this workflow id but give no literal `workflow:`
+# YAML block. This is a grounded design choice for the
+# define-core-runtime-schemas change: the declared step sequence mirrors
+# PRD §21's Phase-2 workflow narrative.
+id: selected_thread_email_reply_draft
+schema_version: 1
+lifecycle_state: active
+purpose: Draft a reply to an owner-selected Gmail thread for review, with no send.
+required_agent: email_reply_drafter
+required_capability_pack: selected_thread_email_draft_pack
+steps:
+  - owner selects a thread via the kernel-owned selection flow
+  - kernel mints a single-use selection token and emits email.thread.selected
+  - route to email_reply_drafter with a bounded task grant
+  - "read the selected thread as untrusted data via email.read_thread:selected_no_attachments"
+  - draft a reply via the model gateway and preview it to the owner

@@ -1,0 +1,20 @@
+# Transcribed verbatim (field values) from PRD §6.1 "Selected-thread email route".
+id: owner_email_selected_thread
+schema_version: 1
+lifecycle_state: active
+priority: 90
+effect: allow
+when:
+  source: gmail
+  connector: gmail_primary_connector
+  account_role: owner_mailbox
+  event_type: email.thread.selected
+  verified_source: true
+  lane: external_communication
+  actor:
+    relationship: owner
+    channel_trust: owner_device
+    identity_confidence_min: 0.95
+agent: email_reply_drafter
+workflow: selected_thread_email_reply_draft
+capability_pack: selected_thread_email_draft_pack

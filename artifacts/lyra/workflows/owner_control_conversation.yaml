@@ -1,0 +1,16 @@
+# PRD §6.1/§12.1 reference this workflow id but give no literal `workflow:`
+# YAML block (unlike routes/agents/packs). This is a grounded design choice
+# for the define-core-runtime-schemas change: the declared step sequence
+# mirrors PRD §20.1's Phase-1 workflow narrative.
+id: owner_control_conversation
+schema_version: 1
+lifecycle_state: active
+purpose: Owner-facing conversational orchestration over the verified Telegram owner channel.
+required_agent: main_assistant_agent
+required_capability_pack: owner_control_basic_pack
+steps:
+  - receive verified owner Telegram message
+  - resolve identity and route to main_assistant_agent
+  - compose authority into a task grant
+  - run main_assistant_agent inside the contained shell
+  - "reply to the owner via telegram.reply:owner_channel"

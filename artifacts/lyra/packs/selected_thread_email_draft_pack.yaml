@@ -1,0 +1,35 @@
+# Transcribed verbatim (field values) from PRD §11.2.
+id: selected_thread_email_draft_pack
+schema_version: 1
+lifecycle_state: active
+applies_to:
+  event_type: email.thread.selected
+  connector: gmail_primary_connector
+  account_role: owner_mailbox
+  relationship: owner
+  channel_trust: owner_device
+  verified_source: true
+  lane: external_communication
+candidate_allowed_actions:
+  - "email.read_thread:selected_no_attachments"
+  - "memory.read:writing_preferences_scoped"
+  - "model.generate:approved_provider"
+  - "artifact.write:task_scratch"
+  - lyra.ui.preview
+approval_required:
+  - email.create_draft
+denied_actions:
+  - email.send
+  - email.read_inbox
+  - "email.read_thread:unselected"
+  - email.read_attachment
+  - network.raw_egress
+  - filesystem.host_read
+  - filesystem.host_write
+  - "telegram.reply:owner_channel"
+constraints:
+  data_classification_max: private
+  external_visibility_max: draft_after_approval
+  external_communication_is_instruction: false
+  recovery_required: revert_or_compensate
+  max_runtime_seconds: 180

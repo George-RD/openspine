@@ -1,0 +1,18 @@
+# Transcribed verbatim (field values) from PRD §6.1 "Owner control route".
+id: owner_telegram_main_assistant
+schema_version: 1
+lifecycle_state: active
+priority: 100
+effect: allow
+when:
+  source: telegram
+  event_type: telegram.owner.message
+  verified_source: true
+  lane: owner_control
+  actor:
+    relationship: owner
+    channel_trust: verified_owner_channel
+    identity_confidence_min: 0.95
+agent: main_assistant_agent
+workflow: owner_control_conversation
+capability_pack: owner_control_basic_pack

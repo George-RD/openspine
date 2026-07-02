@@ -1,0 +1,23 @@
+# PRD §8.1/§8.2 name "global policy" as an authority source but give no
+# literal `policy:` YAML block. This is a grounded design choice for the
+# define-core-runtime-schemas change: the global denies are the union of
+# denies that recur across every PRD §10/§11 example (main_assistant_agent,
+# email_reply_drafter, owner_control_basic_pack, selected_thread_email_draft_pack)
+# — i.e. the cross-cutting denies that are policy-level, not pack-level.
+id: global
+schema_version: 1
+lifecycle_state: active
+candidate_allowed_actions: []
+approval_required: []
+denied_actions:
+  - email.send
+  - network.raw_egress
+  - vault.secret_read
+  - filesystem.host_read
+  - filesystem.host_write
+  - policy.modify_direct
+  - coolify.secret_modify
+  - coolify.delete_resource
+constraints:
+  data_classification_max: private
+  recovery_required: revert_or_compensate
