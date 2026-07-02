@@ -1,0 +1,39 @@
+# Transcribed verbatim (field values) from PRD §10.2.
+# Note: PRD §10.2's example has no approval_required_tools entry (unlike
+# §10.1's main_assistant_agent) — omitted here rather than fabricated.
+id: email_reply_drafter
+schema_version: 1
+lifecycle_state: active
+purpose: Draft replies to selected email threads for user review.
+persistence: ephemeral
+persona: concise_professional_helper
+model_policy:
+  allowed_providers: [local, openai, anthropic]
+  private_context_requires_gateway: true
+  max_model_calls_per_task: 5
+memory_scope:
+  allowed_classes: [preference]
+  allowed_scopes: [external_facing_writing]
+  denied_classes: [health, finance, family_private, evaluation]
+designed_tools:
+  - "email.read_thread:selected_no_attachments"
+  - "model.generate:approved_provider"
+  - "memory.read:writing_preferences_scoped"
+  - "artifact.write:task_scratch"
+  - lyra.ui.preview
+  - "email.create_draft:after_payload_approval"
+denied_tools:
+  - email.send
+  - email.read_inbox
+  - "email.read_thread:unselected"
+  - email.read_attachment
+  - network.raw_egress
+  - "telegram.reply:owner_channel"
+limits:
+  max_runtime_seconds: 180
+  max_artifacts: 20
+  max_tokens: 12000
+output_channels:
+  allowed:
+    - lyra.ui.preview
+    - "action_request:email.create_draft"

@@ -1,0 +1,43 @@
+# Transcribed verbatim (field values) from PRD §11.1.
+id: owner_control_basic_pack
+schema_version: 1
+lifecycle_state: active
+applies_to:
+  event_type: telegram.owner.message
+  relationship: owner
+  channel_trust: verified_owner_channel
+  verified_source: true
+  lane: owner_control
+candidate_allowed_actions:
+  - openspine.status.read
+  - "workflow.invoke:approved"
+  - artifact.propose
+  - setup.workflow.start
+  - "memory.read:owner_preferences_limited"
+  - "model.generate:approved_provider"
+  - "telegram.reply:owner_channel"
+approval_required:
+  - connector.enable
+  - route.activate
+  - capability_pack.change
+  - workflow.activate
+  - policy.change_proposal
+denied_actions:
+  - email.read_inbox
+  - "email.read_thread:unselected"
+  - email.read_attachment
+  - email.send
+  - network.raw_egress
+  - vault.secret_read
+  - filesystem.host_read
+  - filesystem.host_write
+  - policy.modify_direct
+  - coolify.deploy
+  - coolify.rollback
+  - coolify.secret_modify
+  - coolify.delete_resource
+constraints:
+  data_classification_max: private
+  external_visibility_max: owner_channel_reply
+  recovery_required: revert_or_compensate
+  max_runtime_seconds: 120

@@ -1,0 +1,52 @@
+# Transcribed verbatim (field values) from PRD §10.1.
+id: main_assistant_agent
+schema_version: 1
+lifecycle_state: active
+purpose: Owner-facing conversational orchestrator.
+persistence: persistent
+persona: concise_practical_operator
+model_policy:
+  allowed_providers: [local, openai, anthropic]
+  private_context_requires_gateway: true
+  max_model_calls_per_task: 8
+memory_scope:
+  allowed_classes: [owner_preference, setup_state, workflow_state]
+  allowed_scopes: [owner_control, product_usage, external_facing_writing_preferences]
+  denied_classes: [health, finance, family_private, raw_email_body, attachment_content, infrastructure_secret]
+designed_tools:
+  - openspine.status.read
+  - "workflow.invoke:approved"
+  - artifact.propose
+  - setup.workflow.start
+  - "memory.read:owner_preferences_limited"
+  - "model.generate:approved_provider"
+  - lyra.ui.preview
+  - "telegram.reply:owner_channel"
+approval_required_tools:
+  - connector.enable
+  - route.activate
+  - capability_pack.change
+  - workflow.activate
+  - policy.change_proposal
+denied_tools:
+  - email.read_inbox
+  - "email.read_thread:unselected"
+  - email.send
+  - email.read_attachment
+  - network.raw_egress
+  - vault.secret_read
+  - policy.modify_direct
+  - filesystem.host_read
+  - filesystem.host_write
+  - coolify.deploy
+  - coolify.rollback
+  - coolify.secret_modify
+limits:
+  max_runtime_seconds: 120
+  max_artifacts: 20
+  max_tokens: 12000
+output_channels:
+  allowed:
+    - telegram.owner.reply
+    - lyra.ui.preview
+    - "action_request:approval"
