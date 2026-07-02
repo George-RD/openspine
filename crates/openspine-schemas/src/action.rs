@@ -69,6 +69,15 @@ pub enum GateDecision {
 }
 
 /// A typed request to perform one effectful action, submitted to `gate()`.
+///
+/// `target_digest` is not part of any literal PRD example — it exists
+/// because a digest-bound approval (D-011) binds a target digest whose
+/// composition is action-specific (e.g. Step 6's email draft target digest
+/// hashes `{thread_id, connector, account_role, to}`, not a generic
+/// `TargetRef`). `ActionRequest` stays domain-agnostic by letting the
+/// caller compute and attach whatever target digest that action's approval
+/// flow requires; `payload_digest` needs no separate field since it is
+/// always `payload_ref.digest` when a payload ref is present.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActionRequest {
@@ -77,6 +86,7 @@ pub struct ActionRequest {
     pub action: ActionId,
     pub target_ref: Option<TargetRef>,
     pub payload_ref: Option<ArtifactRef>,
+    pub target_digest: Option<crate::digest::Digest>,
     pub requested_at: jiff::Timestamp,
     pub schema_version: u32,
 }

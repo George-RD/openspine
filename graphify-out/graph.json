@@ -208,6 +208,258 @@
       "norm_label": "lib.rs"
     },
     {
+      "label": "gate.rs",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L1",
+      "id": "openspine_gate_src_gate_rs",
+      "community": 4,
+      "norm_label": "gate.rs"
+    },
+    {
+      "label": "GateContext",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L21",
+      "id": "src_gate_gatecontext",
+      "community": 4,
+      "norm_label": "gatecontext"
+    },
+    {
+      "label": "AuditMeta",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L43",
+      "id": "src_gate_auditmeta",
+      "community": 4,
+      "norm_label": "auditmeta"
+    },
+    {
+      "label": "GateOutcome",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L55",
+      "id": "src_gate_gateoutcome",
+      "community": 4,
+      "norm_label": "gateoutcome"
+    },
+    {
+      "label": "gate()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L65",
+      "id": "src_gate_gate",
+      "community": 4,
+      "norm_label": "gate()"
+    },
+    {
+      "label": "resolve()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L84",
+      "id": "src_gate_resolve",
+      "community": 4,
+      "norm_label": "resolve()"
+    },
+    {
+      "label": "resolve_approval_required()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L115",
+      "id": "src_gate_resolve_approval_required",
+      "community": 4,
+      "norm_label": "resolve_approval_required()"
+    },
+    {
+      "label": "digest()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L165",
+      "id": "src_gate_digest",
+      "community": 4,
+      "norm_label": "digest()"
+    },
+    {
+      "label": "grant_with()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L169",
+      "id": "src_gate_grant_with",
+      "community": 4,
+      "norm_label": "grant_with()"
+    },
+    {
+      "label": "request_for()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L203",
+      "id": "src_gate_request_for",
+      "community": 4,
+      "norm_label": "request_for()"
+    },
+    {
+      "label": "MockContext",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L225",
+      "id": "src_gate_mockcontext",
+      "community": 4,
+      "norm_label": "mockcontext"
+    },
+    {
+      "label": ".approval_for_request()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L230",
+      "id": "src_gate_mockcontext_approval_for_request",
+      "community": 4,
+      "norm_label": ".approval_for_request()"
+    },
+    {
+      "label": ".find_selection_token()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L234",
+      "id": "src_gate_mockcontext_find_selection_token",
+      "community": 4,
+      "norm_label": ".find_selection_token()"
+    },
+    {
+      "label": "approval_for()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L239",
+      "id": "src_gate_approval_for",
+      "community": 4,
+      "norm_label": "approval_for()"
+    },
+    {
+      "label": "allowed_action_returns_allow()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L261",
+      "id": "src_gate_allowed_action_returns_allow",
+      "community": 4,
+      "norm_label": "allowed_action_returns_allow()"
+    },
+    {
+      "label": "denied_action_returns_deny()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L270",
+      "id": "src_gate_denied_action_returns_deny",
+      "community": 4,
+      "norm_label": "denied_action_returns_deny()"
+    },
+    {
+      "label": "approval_required_action_returns_approval_required()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L284",
+      "id": "src_gate_approval_required_action_returns_approval_required",
+      "community": 4,
+      "norm_label": "approval_required_action_returns_approval_required()"
+    },
+    {
+      "label": "approval_required_action_does_not_execute()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L298",
+      "id": "src_gate_approval_required_action_does_not_execute",
+      "community": 4,
+      "norm_label": "approval_required_action_does_not_execute()"
+    },
+    {
+      "label": "allowed_plus_denied_returns_deny()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L309",
+      "id": "src_gate_allowed_plus_denied_returns_deny",
+      "community": 4,
+      "norm_label": "allowed_plus_denied_returns_deny()"
+    },
+    {
+      "label": "allowed_plus_approval_required_returns_approval_required()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L323",
+      "id": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "community": 4,
+      "norm_label": "allowed_plus_approval_required_returns_approval_required()"
+    },
+    {
+      "label": "unspecified_action_returns_deny()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L335",
+      "id": "src_gate_unspecified_action_returns_deny",
+      "community": 4,
+      "norm_label": "unspecified_action_returns_deny()"
+    },
+    {
+      "label": "expired_grant_denies_even_an_allowed_action()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L349",
+      "id": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "community": 4,
+      "norm_label": "expired_grant_denies_even_an_allowed_action()"
+    },
+    {
+      "label": "matching_approval_allows_the_exact_request()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L363",
+      "id": "src_gate_matching_approval_allows_the_exact_request",
+      "community": 4,
+      "norm_label": "matching_approval_allows_the_exact_request()"
+    },
+    {
+      "label": "approved_but_payload_changed_since_is_denied_not_reasked()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L375",
+      "id": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "community": 4,
+      "norm_label": "approved_but_payload_changed_since_is_denied_not_reasked()"
+    },
+    {
+      "label": "expired_approval_is_denied_not_reasked()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L397",
+      "id": "src_gate_expired_approval_is_denied_not_reasked",
+      "community": 4,
+      "norm_label": "expired_approval_is_denied_not_reasked()"
+    },
+    {
+      "label": "rejected_approval_is_denied_not_reasked()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L415",
+      "id": "src_gate_rejected_approval_is_denied_not_reasked",
+      "community": 4,
+      "norm_label": "rejected_approval_is_denied_not_reasked()"
+    },
+    {
+      "label": "audit_metadata_records_action_grant_and_refs_not_plaintext()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L432",
+      "id": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "community": 4,
+      "norm_label": "audit_metadata_records_action_grant_and_refs_not_plaintext()"
+    },
+    {
+      "label": "denial_audit_metadata_still_carries_refs()",
+      "file_type": "code",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L448",
+      "id": "src_gate_denial_audit_metadata_still_carries_refs",
+      "community": 4,
+      "norm_label": "denial_audit_metadata_still_carries_refs()"
+    },
+    {
       "label": "main.rs",
       "file_type": "code",
       "source_file": "openspine-kernel/src/main.rs",
@@ -699,7 +951,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L1",
       "id": "openspine_schemas_tests_fixtures_rs",
-      "community": 11,
+      "community": 10,
       "norm_label": "fixtures.rs"
     },
     {
@@ -708,7 +960,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L14",
       "id": "tests_fixtures_artifacts_dir",
-      "community": 11,
+      "community": 10,
       "norm_label": "artifacts_dir()"
     },
     {
@@ -717,7 +969,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L18",
       "id": "tests_fixtures_read",
-      "community": 11,
+      "community": 10,
       "norm_label": "read()"
     },
     {
@@ -726,7 +978,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L24",
       "id": "tests_fixtures_owner_telegram_route_is_expressible_declaratively",
-      "community": 11,
+      "community": 10,
       "norm_label": "owner_telegram_route_is_expressible_declaratively()"
     },
     {
@@ -735,7 +987,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L41",
       "id": "tests_fixtures_owner_email_selected_thread_route_is_expressible_declaratively",
-      "community": 11,
+      "community": 10,
       "norm_label": "owner_email_selected_thread_route_is_expressible_declaratively()"
     },
     {
@@ -744,7 +996,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L53",
       "id": "tests_fixtures_agent_manifests_round_trip",
-      "community": 11,
+      "community": 10,
       "norm_label": "agent_manifests_round_trip()"
     },
     {
@@ -753,7 +1005,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L74",
       "id": "tests_fixtures_email_grant_pack_excludes_read_inbox_and_send",
-      "community": 11,
+      "community": 10,
       "norm_label": "email_grant_pack_excludes_read_inbox_and_send()"
     },
     {
@@ -762,7 +1014,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L92",
       "id": "tests_fixtures_owner_control_pack_round_trips",
-      "community": 11,
+      "community": 10,
       "norm_label": "owner_control_pack_round_trips()"
     },
     {
@@ -771,7 +1023,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L103",
       "id": "tests_fixtures_workflow_manifests_round_trip",
-      "community": 11,
+      "community": 10,
       "norm_label": "workflow_manifests_round_trip()"
     },
     {
@@ -780,7 +1032,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L115",
       "id": "tests_fixtures_global_policy_round_trips_and_denies_send",
-      "community": 11,
+      "community": 10,
       "norm_label": "global_policy_round_trips_and_denies_send()"
     },
     {
@@ -789,7 +1041,7 @@
       "source_file": "openspine-schemas/tests/fixtures.rs",
       "source_location": "L125",
       "id": "tests_fixtures_every_fixture_file_is_covered_by_a_test",
-      "community": 11,
+      "community": 10,
       "norm_label": "every_fixture_file_is_covered_by_a_test()"
     },
     {
@@ -852,7 +1104,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L1",
       "id": "openspine_schemas_src_action_rs",
-      "community": 8,
+      "community": 11,
       "norm_label": "action.rs"
     },
     {
@@ -861,7 +1113,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L21",
       "id": "src_action_actionid",
-      "community": 8,
+      "community": 11,
       "norm_label": "actionid"
     },
     {
@@ -879,7 +1131,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L28",
       "id": "src_action_actionid_as_str",
-      "community": 8,
+      "community": 11,
       "norm_label": ".as_str()"
     },
     {
@@ -888,7 +1140,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L34",
       "id": "src_action_actionid_fmt",
-      "community": 8,
+      "community": 11,
       "norm_label": ".fmt()"
     },
     {
@@ -897,7 +1149,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L40",
       "id": "src_action_actionid_from",
-      "community": 8,
+      "community": 4,
       "norm_label": ".from()"
     },
     {
@@ -906,7 +1158,7 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L48",
       "id": "src_action_denialreason",
-      "community": 8,
+      "community": 11,
       "norm_label": "denialreason"
     },
     {
@@ -915,52 +1167,52 @@
       "source_file": "openspine-schemas/src/action.rs",
       "source_location": "L65",
       "id": "src_action_gatedecision",
-      "community": 8,
+      "community": 11,
       "norm_label": "gatedecision"
     },
     {
       "label": "ActionRequest",
       "file_type": "code",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L74",
+      "source_location": "L83",
       "id": "src_action_actionrequest",
-      "community": 8,
+      "community": 11,
       "norm_label": "actionrequest"
     },
     {
       "label": "action_id_qualifier_is_part_of_identity()",
       "file_type": "code",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L89",
+      "source_location": "L99",
       "id": "src_action_action_id_qualifier_is_part_of_identity",
-      "community": 8,
+      "community": 11,
       "norm_label": "action_id_qualifier_is_part_of_identity()"
     },
     {
       "label": "action_id_serializes_as_bare_string()",
       "file_type": "code",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L96",
+      "source_location": "L106",
       "id": "src_action_action_id_serializes_as_bare_string",
-      "community": 8,
+      "community": 11,
       "norm_label": "action_id_serializes_as_bare_string()"
     },
     {
       "label": "gate_decision_round_trips_with_tag()",
       "file_type": "code",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L105",
+      "source_location": "L115",
       "id": "src_action_gate_decision_round_trips_with_tag",
-      "community": 8,
+      "community": 11,
       "norm_label": "gate_decision_round_trips_with_tag()"
     },
     {
       "label": "approval_required_never_serializes_as_allow()",
       "file_type": "code",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L117",
+      "source_location": "L127",
       "id": "src_action_approval_required_never_serializes_as_allow",
-      "community": 8,
+      "community": 11,
       "norm_label": "approval_required_never_serializes_as_allow()"
     },
     {
@@ -969,7 +1221,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L1",
       "id": "openspine_schemas_src_route_rs",
-      "community": 9,
+      "community": 8,
       "norm_label": "route.rs"
     },
     {
@@ -978,7 +1230,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L16",
       "id": "src_route_routeactorwhen",
-      "community": 9,
+      "community": 8,
       "norm_label": "routeactorwhen"
     },
     {
@@ -987,7 +1239,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L28",
       "id": "src_route_routewhen",
-      "community": 9,
+      "community": 8,
       "norm_label": "routewhen"
     },
     {
@@ -996,7 +1248,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L42",
       "id": "src_route_routewhen_specificity",
-      "community": 9,
+      "community": 8,
       "norm_label": ".specificity()"
     },
     {
@@ -1005,7 +1257,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L82",
       "id": "src_route_routeeffect",
-      "community": 9,
+      "community": 8,
       "norm_label": "routeeffect"
     },
     {
@@ -1014,7 +1266,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L91",
       "id": "src_route_route",
-      "community": 9,
+      "community": 8,
       "norm_label": "route"
     },
     {
@@ -1023,7 +1275,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L112",
       "id": "src_route_routeresolution",
-      "community": 9,
+      "community": 8,
       "norm_label": "routeresolution"
     },
     {
@@ -1032,7 +1284,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L157",
       "id": "src_route_round_trips_through_serde",
-      "community": 9,
+      "community": 8,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -1041,7 +1293,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L165",
       "id": "src_route_effect_defaults_to_allow_when_omitted",
-      "community": 9,
+      "community": 8,
       "norm_label": "effect_defaults_to_allow_when_omitted()"
     },
     {
@@ -1050,7 +1302,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L173",
       "id": "src_route_specificity_counts_explicit_when_fields",
-      "community": 9,
+      "community": 8,
       "norm_label": "specificity_counts_explicit_when_fields()"
     },
     {
@@ -1059,7 +1311,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L182",
       "id": "src_route_ambiguous_resolution_names_the_fallback_route_verbatim",
-      "community": 9,
+      "community": 8,
       "norm_label": "ambiguous_resolution_names_the_fallback_route_verbatim()"
     },
     {
@@ -1068,7 +1320,7 @@
       "source_file": "openspine-schemas/src/route.rs",
       "source_location": "L193",
       "id": "src_route_route_can_be_a_deny_route",
-      "community": 9,
+      "community": 8,
       "norm_label": "route_can_be_a_deny_route()"
     },
     {
@@ -1446,7 +1698,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L1",
       "id": "openspine_schemas_src_event_rs",
-      "community": 5,
+      "community": 6,
       "norm_label": "event.rs"
     },
     {
@@ -1455,7 +1707,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L11",
       "id": "src_event_source",
-      "community": 5,
+      "community": 6,
       "norm_label": "source"
     },
     {
@@ -1464,7 +1716,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L27",
       "id": "src_event_connector",
-      "community": 5,
+      "community": 6,
       "norm_label": "connector"
     },
     {
@@ -1473,7 +1725,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L40",
       "id": "src_event_accountrole",
-      "community": 5,
+      "community": 6,
       "norm_label": "accountrole"
     },
     {
@@ -1482,7 +1734,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L53",
       "id": "src_event_eventtype",
-      "community": 5,
+      "community": 6,
       "norm_label": "eventtype"
     },
     {
@@ -1491,7 +1743,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L63",
       "id": "src_event_verificationmethod",
-      "community": 5,
+      "community": 6,
       "norm_label": "verificationmethod"
     },
     {
@@ -1500,7 +1752,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L77",
       "id": "src_event_dataclassification",
-      "community": 5,
+      "community": 6,
       "norm_label": "dataclassification"
     },
     {
@@ -1509,7 +1761,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L87",
       "id": "src_event_lane",
-      "community": 5,
+      "community": 6,
       "norm_label": "lane"
     },
     {
@@ -1518,7 +1770,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L101",
       "id": "src_event_channeltrust",
-      "community": 5,
+      "community": 6,
       "norm_label": "channeltrust"
     },
     {
@@ -1527,7 +1779,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L114",
       "id": "src_event_interactionmode",
-      "community": 5,
+      "community": 6,
       "norm_label": "interactionmode"
     },
     {
@@ -1536,7 +1788,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L125",
       "id": "src_event_trustcontext",
-      "community": 5,
+      "community": 6,
       "norm_label": "trustcontext"
     },
     {
@@ -1545,7 +1797,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L133",
       "id": "src_event_actorhint",
-      "community": 5,
+      "community": 6,
       "norm_label": "actorhint"
     },
     {
@@ -1554,7 +1806,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L144",
       "id": "src_event_targetrefkind",
-      "community": 5,
+      "community": 6,
       "norm_label": "targetrefkind"
     },
     {
@@ -1563,7 +1815,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L155",
       "id": "src_event_targetref",
-      "community": 5,
+      "community": 6,
       "norm_label": "targetref"
     },
     {
@@ -1572,7 +1824,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L165",
       "id": "src_event_eventenvelope",
-      "community": 5,
+      "community": 6,
       "norm_label": "eventenvelope"
     },
     {
@@ -1581,7 +1833,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L193",
       "id": "src_event_sample_ref",
-      "community": 5,
+      "community": 6,
       "norm_label": "sample_ref()"
     },
     {
@@ -1590,7 +1842,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L200",
       "id": "src_event_sample_envelope",
-      "community": 5,
+      "community": 6,
       "norm_label": "sample_envelope()"
     },
     {
@@ -1599,7 +1851,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L228",
       "id": "src_event_round_trips_through_serde",
-      "community": 5,
+      "community": 6,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -1608,7 +1860,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L236",
       "id": "src_event_event_type_serializes_as_dotted_string",
-      "community": 5,
+      "community": 6,
       "norm_label": "event_type_serializes_as_dotted_string()"
     },
     {
@@ -1617,7 +1869,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L244",
       "id": "src_event_unknown_field_is_rejected",
-      "community": 5,
+      "community": 6,
       "norm_label": "unknown_field_is_rejected()"
     },
     {
@@ -1626,7 +1878,7 @@
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L255",
       "id": "src_event_actor_hint_defaults_to_all_none",
-      "community": 5,
+      "community": 6,
       "norm_label": "actor_hint_defaults_to_all_none()"
     },
     {
@@ -2241,7 +2493,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skills index (markdown)",
       "id": "skills_index_doc"
     },
@@ -2254,7 +2506,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skills index (plain text)",
       "id": "skills_index_txt_doc"
     },
@@ -2267,7 +2519,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "agents.md \u2014 agent instructions",
       "id": "agents_md_doc"
     },
@@ -2280,7 +2532,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "claude.md \u2014 claude instructions",
       "id": "claude_md_doc"
     },
@@ -2293,7 +2545,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "repo index (markdown)",
       "id": "repo_index_doc"
     },
@@ -2306,7 +2558,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "repo index (plain text)",
       "id": "repo_index_txt_doc"
     },
@@ -2319,7 +2571,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "openspine review bundle",
       "id": "openspine_review_bundle_doc"
     },
@@ -2449,7 +2701,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "define openspine development process package readme",
       "id": "define_devprocess_readme_doc"
     },
@@ -2462,7 +2714,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "decision log note d-024",
       "id": "decision_log_d024_doc"
     },
@@ -2475,7 +2727,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "openspine change backlog",
       "id": "change_backlog_doc"
     },
@@ -2488,7 +2740,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define dev process \u2014 tasks",
       "id": "change_devprocess_tasks_doc"
     },
@@ -2501,7 +2753,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define dev process \u2014 design",
       "id": "change_devprocess_design_doc"
     },
@@ -2514,7 +2766,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define dev process \u2014 proposal",
       "id": "change_devprocess_proposal_doc"
     },
@@ -2527,7 +2779,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "openspine (runtime substrate)",
       "id": "openspine_substrate"
     },
@@ -2540,7 +2792,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "lyra (product built on openspine)",
       "id": "lyra_product"
     },
@@ -2553,7 +2805,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "openspec (development/change-management layer)",
       "id": "openspec_framework"
     },
@@ -2709,7 +2961,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "graphify knowledge graph tool",
       "id": "graphify_tool"
     },
@@ -2722,7 +2974,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skill: openspec-apply-change",
       "id": "skill_openspec_apply_change"
     },
@@ -2735,7 +2987,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skill: openspec-archive-change",
       "id": "skill_openspec_archive_change"
     },
@@ -2748,7 +3000,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skill: openspec-explore",
       "id": "skill_openspec_explore"
     },
@@ -2761,7 +3013,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 10,
+      "community": 9,
       "norm_label": "skill: openspec-propose",
       "id": "skill_openspec_propose"
     },
@@ -2774,7 +3026,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define-openspine-development-process",
       "id": "change_define_devprocess"
     },
@@ -2787,7 +3039,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define-core-runtime-schemas",
       "id": "change_define_core_runtime_schemas"
     },
@@ -2800,7 +3052,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-authority-composition",
       "id": "change_implement_authority_composition"
     },
@@ -2813,7 +3065,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-gate-action-api",
       "id": "change_implement_gate_action_api"
     },
@@ -2826,7 +3078,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-telegram-owner-control-slice",
       "id": "change_implement_telegram_owner_control"
     },
@@ -2839,7 +3091,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-selected-thread-email-preview-slice",
       "id": "change_implement_email_preview"
     },
@@ -2852,7 +3104,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "rationale: openspec must not grant runtime authority",
       "id": "rationale_openspec_runtime_boundary"
     },
@@ -2891,7 +3143,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "rationale: openspine and lyra must remain distinct",
       "id": "rationale_openspine_lyra_separation"
     },
@@ -2969,7 +3221,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "openspine remaining openspec bundle",
       "id": "bundle_remaining_openspec"
     },
@@ -2982,7 +3234,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "openspine change sequence",
       "id": "change_sequence"
     },
@@ -2995,7 +3247,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: define-openspine-development-process (baseline)",
       "id": "change_define_development_process"
     },
@@ -3008,7 +3260,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 0,
       "norm_label": "change: implement-selected-thread-email-preview-slice",
       "id": "change_implement_selected_thread_email_preview"
     },
@@ -3021,7 +3273,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-digest-bound-draft-approval",
       "id": "change_implement_digest_bound_draft_approval"
     },
@@ -3034,7 +3286,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "change: implement-model-gateway (future)",
       "id": "change_implement_model_gateway"
     },
@@ -3346,7 +3598,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "proposal: implement selected-thread email preview slice",
       "id": "selected_thread_email_preview_proposal"
     },
@@ -3385,7 +3637,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "email.thread.selected event envelope",
       "id": "email_thread_selected_event"
     },
@@ -3411,7 +3663,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "gmail / google workspace owner-mailbox connector",
       "id": "gmail_connector"
     },
@@ -3424,7 +3676,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "rationale: email limited to selected thread to reduce risk of broad inbox access",
       "id": "rationale_selected_thread_limit"
     },
@@ -3489,7 +3741,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "approval record schema",
       "id": "approval_record"
     },
@@ -3554,7 +3806,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "bundle: digest-bound draft approval tasks",
       "id": "bundle_digest_bound_approval_tasks"
     },
@@ -3567,7 +3819,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "bundle: digest-bound draft approval design",
       "id": "bundle_digest_bound_approval_design"
     },
@@ -3580,7 +3832,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "bundle: digest-bound draft approval proposal",
       "id": "bundle_digest_bound_approval_proposal"
     },
@@ -3593,7 +3845,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "bundle: digest-bound draft approval spec",
       "id": "bundle_digest_bound_approval_spec"
     },
@@ -3619,7 +3871,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "openspec conventions",
       "id": "openspec_conventions"
     },
@@ -3645,7 +3897,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "spec: authority composition",
       "id": "openspec_authority_composition_spec"
     },
@@ -3658,7 +3910,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "spec: openspine development process",
       "id": "openspec_development_process_spec"
     },
@@ -3723,7 +3975,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "spec: digest-bound draft approval",
       "id": "openspec_digest_bound_draft_approval_spec"
     },
@@ -3801,7 +4053,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "payload digest",
       "id": "payload_digest"
     },
@@ -3814,7 +4066,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "target digest",
       "id": "target_digest"
     },
@@ -3827,7 +4079,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "email.create_draft action",
       "id": "email_create_draft"
     },
@@ -3840,7 +4092,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "email.send action (denied)",
       "id": "email_send"
     },
@@ -3892,7 +4144,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "immutable draft artifact",
       "id": "immutable_draft_artifact"
     },
@@ -3905,7 +4157,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "openspine governed runtime substrate",
       "id": "openspine_runtime"
     },
@@ -3918,7 +4170,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 0,
+      "community": 5,
       "norm_label": "openspec change management layer",
       "id": "openspec_layer"
     },
@@ -3996,7 +4248,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "tasks: implement selected-thread email preview slice",
       "id": "selected_thread_email_tasks"
     },
@@ -4009,7 +4261,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "design: selected-thread email preview slice",
       "id": "selected_thread_email_design"
     },
@@ -4022,7 +4274,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 2,
       "norm_label": "proposal: implement selected-thread email preview slice",
       "id": "selected_thread_email_proposal"
     },
@@ -4074,7 +4326,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "tasks: implement digest-bound draft approval",
       "id": "digest_bound_approval_tasks"
     },
@@ -4087,7 +4339,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "design: digest-bound draft approval",
       "id": "digest_bound_approval_design"
     },
@@ -4100,7 +4352,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 2,
       "norm_label": "proposal: implement digest-bound draft approval",
       "id": "digest_bound_approval_proposal"
     },
@@ -4230,7 +4482,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "selected-thread token",
       "id": "selected_thread_token"
     },
@@ -4243,7 +4495,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "draft preview artifact",
       "id": "draft_preview_artifact"
     },
@@ -4256,7 +4508,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 0,
       "norm_label": "digest-bound approval record",
       "id": "digest_bound_approval_record"
     },
@@ -4282,7 +4534,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 2,
       "norm_label": "rationale: digest binding prevents show-a-execute-b attack",
       "id": "rationale_digest_binding"
     },
@@ -4295,7 +4547,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 2,
       "norm_label": "rationale: selected-thread-only limits early email risk",
       "id": "rationale_selected_thread_only"
     },
@@ -4337,6 +4589,1038 @@
       "source": "src_main_main",
       "target": "openspine_kernel_src_main_rs",
       "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_gatecontext",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_gatecontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_auditmeta",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_auditmeta",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_gateoutcome",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_gateoutcome",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L65",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_gate",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L84",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_resolve",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_resolve",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L115",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_resolve_approval_required",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_resolve_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L165",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_digest",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_digest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_grant_with",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_grant_with",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L203",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_request_for",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_request_for",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L225",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_mockcontext",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_mockcontext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L239",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_approval_for",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_approval_for",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L261",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_allowed_action_returns_allow",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_allowed_action_returns_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L270",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_denied_action_returns_deny",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_denied_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L284",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_approval_required_action_returns_approval_required",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_approval_required_action_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L298",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_approval_required_action_does_not_execute",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_approval_required_action_does_not_execute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L309",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_allowed_plus_denied_returns_deny",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_allowed_plus_denied_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L323",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L335",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_unspecified_action_returns_deny",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_unspecified_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L349",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L363",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_matching_approval_allows_the_exact_request",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_matching_approval_allows_the_exact_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L397",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_expired_approval_is_denied_not_reasked",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_expired_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L415",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_rejected_approval_is_denied_not_reasked",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_rejected_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L432",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L448",
+      "weight": 1.0,
+      "_src": "openspine_gate_src_gate_rs",
+      "_tgt": "src_gate_denial_audit_metadata_still_carries_refs",
+      "source": "openspine_gate_src_gate_rs",
+      "target": "src_gate_denial_audit_metadata_still_carries_refs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_src": "src_gate_gate",
+      "_tgt": "src_gate_resolve",
+      "source": "src_gate_gate",
+      "target": "src_gate_resolve",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L265",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_action_returns_allow",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_allowed_action_returns_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L274",
+      "weight": 1.0,
+      "_src": "src_gate_denied_action_returns_deny",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_denied_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L288",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_returns_approval_required",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_approval_required_action_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L304",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_does_not_execute",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_approval_required_action_does_not_execute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L313",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_denied_returns_deny",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_allowed_plus_denied_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L327",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L339",
+      "weight": 1.0,
+      "_src": "src_gate_unspecified_action_returns_deny",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_unspecified_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L353",
+      "weight": 1.0,
+      "_src": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L370",
+      "weight": 1.0,
+      "_src": "src_gate_matching_approval_allows_the_exact_request",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_matching_approval_allows_the_exact_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L387",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L405",
+      "weight": 1.0,
+      "_src": "src_gate_expired_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_expired_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L422",
+      "weight": 1.0,
+      "_src": "src_gate_rejected_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_rejected_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L436",
+      "weight": 1.0,
+      "_src": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L452",
+      "weight": 1.0,
+      "_src": "src_gate_denial_audit_metadata_still_carries_refs",
+      "_tgt": "src_gate_gate",
+      "source": "src_gate_gate",
+      "target": "src_gate_denial_audit_metadata_still_carries_refs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L103",
+      "weight": 1.0,
+      "_src": "src_gate_resolve",
+      "_tgt": "src_gate_resolve_approval_required",
+      "source": "src_gate_resolve",
+      "target": "src_gate_resolve_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "_src": "src_gate_resolve_approval_required",
+      "_tgt": "src_gate_mockcontext_approval_for_request",
+      "source": "src_gate_resolve_approval_required",
+      "target": "src_gate_mockcontext_approval_for_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L213",
+      "weight": 1.0,
+      "_src": "src_gate_request_for",
+      "_tgt": "src_gate_digest",
+      "source": "src_gate_digest",
+      "target": "src_gate_request_for",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L381",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_gate_digest",
+      "source": "src_gate_digest",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "_src": "src_gate_digest",
+      "_tgt": "src_digest_digest_parse",
+      "source": "src_gate_digest",
+      "target": "src_digest_digest_parse"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L262",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_action_returns_allow",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_allowed_action_returns_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L271",
+      "weight": 1.0,
+      "_src": "src_gate_denied_action_returns_deny",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_denied_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L285",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_returns_approval_required",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_approval_required_action_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L301",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_does_not_execute",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_approval_required_action_does_not_execute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L310",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_denied_returns_deny",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_allowed_plus_denied_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L324",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L336",
+      "weight": 1.0,
+      "_src": "src_gate_unspecified_action_returns_deny",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_unspecified_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L350",
+      "weight": 1.0,
+      "_src": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L364",
+      "weight": 1.0,
+      "_src": "src_gate_matching_approval_allows_the_exact_request",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_matching_approval_allows_the_exact_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L376",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L398",
+      "weight": 1.0,
+      "_src": "src_gate_expired_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_expired_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L416",
+      "weight": 1.0,
+      "_src": "src_gate_rejected_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_rejected_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L433",
+      "weight": 1.0,
+      "_src": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L449",
+      "weight": 1.0,
+      "_src": "src_gate_denial_audit_metadata_still_carries_refs",
+      "_tgt": "src_gate_grant_with",
+      "source": "src_gate_grant_with",
+      "target": "src_gate_denial_audit_metadata_still_carries_refs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L172",
+      "weight": 1.0,
+      "_src": "src_gate_grant_with",
+      "_tgt": "src_action_actionid_new",
+      "source": "src_gate_grant_with",
+      "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_action_returns_allow",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_allowed_action_returns_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L272",
+      "weight": 1.0,
+      "_src": "src_gate_denied_action_returns_deny",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_denied_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L286",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_returns_approval_required",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_approval_required_action_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L302",
+      "weight": 1.0,
+      "_src": "src_gate_approval_required_action_does_not_execute",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_approval_required_action_does_not_execute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L311",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_denied_returns_deny",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_allowed_plus_denied_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L325",
+      "weight": 1.0,
+      "_src": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_allowed_plus_approval_required_returns_approval_required",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L337",
+      "weight": 1.0,
+      "_src": "src_gate_unspecified_action_returns_deny",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_unspecified_action_returns_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L351",
+      "weight": 1.0,
+      "_src": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_expired_grant_denies_even_an_allowed_action",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L365",
+      "weight": 1.0,
+      "_src": "src_gate_matching_approval_allows_the_exact_request",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_matching_approval_allows_the_exact_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L377",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L399",
+      "weight": 1.0,
+      "_src": "src_gate_expired_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_expired_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "_src": "src_gate_rejected_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_rejected_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "_src": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L450",
+      "weight": 1.0,
+      "_src": "src_gate_denial_audit_metadata_still_carries_refs",
+      "_tgt": "src_gate_request_for",
+      "source": "src_gate_request_for",
+      "target": "src_gate_denial_audit_metadata_still_carries_refs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "_src": "src_gate_request_for",
+      "_tgt": "src_action_actionid_new",
+      "source": "src_gate_request_for",
+      "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L230",
+      "weight": 1.0,
+      "_src": "src_gate_mockcontext",
+      "_tgt": "src_gate_mockcontext_approval_for_request",
+      "source": "src_gate_mockcontext",
+      "target": "src_gate_mockcontext_approval_for_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L234",
+      "weight": 1.0,
+      "_src": "src_gate_mockcontext",
+      "_tgt": "src_gate_mockcontext_find_selection_token",
+      "source": "src_gate_mockcontext",
+      "target": "src_gate_mockcontext_find_selection_token",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L366",
+      "weight": 1.0,
+      "_src": "src_gate_matching_approval_allows_the_exact_request",
+      "_tgt": "src_gate_approval_for",
+      "source": "src_gate_approval_for",
+      "target": "src_gate_matching_approval_allows_the_exact_request",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L378",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_gate_approval_for",
+      "source": "src_gate_approval_for",
+      "target": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "_src": "src_gate_expired_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_approval_for",
+      "source": "src_gate_approval_for",
+      "target": "src_gate_expired_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L418",
+      "weight": 1.0,
+      "_src": "src_gate_rejected_approval_is_denied_not_reasked",
+      "_tgt": "src_gate_approval_for",
+      "source": "src_gate_approval_for",
+      "target": "src_gate_rejected_approval_is_denied_not_reasked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L246",
+      "weight": 1.0,
+      "_src": "src_gate_approval_for",
+      "_tgt": "src_action_actionid_new",
+      "source": "src_gate_approval_for",
+      "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L368",
+      "weight": 1.0,
+      "_src": "src_gate_matching_approval_allows_the_exact_request",
+      "_tgt": "src_action_actionid_from",
+      "source": "src_gate_matching_approval_allows_the_exact_request",
+      "target": "src_action_actionid_from"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L385",
+      "weight": 1.0,
+      "_src": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "_tgt": "src_action_actionid_from",
+      "source": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
+      "target": "src_action_actionid_from"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L403",
+      "weight": 1.0,
+      "_src": "src_gate_expired_approval_is_denied_not_reasked",
+      "_tgt": "src_action_actionid_from",
+      "source": "src_gate_expired_approval_is_denied_not_reasked",
+      "target": "src_action_actionid_from"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "openspine-gate/src/gate.rs",
+      "source_location": "L420",
+      "weight": 1.0,
+      "_src": "src_gate_rejected_approval_is_denied_not_reasked",
+      "_tgt": "src_action_actionid_from",
+      "source": "src_gate_rejected_approval_is_denied_not_reasked",
+      "target": "src_action_actionid_from"
     },
     {
       "relation": "contains",
@@ -7270,7 +8554,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L74",
+      "source_location": "L83",
       "weight": 1.0,
       "_src": "openspine_schemas_src_action_rs",
       "_tgt": "src_action_actionrequest",
@@ -7282,7 +8566,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L89",
+      "source_location": "L99",
       "weight": 1.0,
       "_src": "openspine_schemas_src_action_rs",
       "_tgt": "src_action_action_id_qualifier_is_part_of_identity",
@@ -7294,7 +8578,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L96",
+      "source_location": "L106",
       "weight": 1.0,
       "_src": "openspine_schemas_src_action_rs",
       "_tgt": "src_action_action_id_serializes_as_bare_string",
@@ -7306,7 +8590,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L105",
+      "source_location": "L115",
       "weight": 1.0,
       "_src": "openspine_schemas_src_action_rs",
       "_tgt": "src_action_gate_decision_round_trips_with_tag",
@@ -7318,7 +8602,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L117",
+      "source_location": "L127",
       "weight": 1.0,
       "_src": "openspine_schemas_src_action_rs",
       "_tgt": "src_action_approval_required_never_serializes_as_allow",
@@ -7378,7 +8662,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L90",
+      "source_location": "L100",
       "weight": 1.0,
       "_src": "src_action_action_id_qualifier_is_part_of_identity",
       "_tgt": "src_action_actionid_new",
@@ -7390,7 +8674,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "openspine-schemas/src/action.rs",
-      "source_location": "L97",
+      "source_location": "L107",
       "weight": 1.0,
       "_src": "src_action_action_id_serializes_as_bare_string",
       "_tgt": "src_action_actionid_new",
