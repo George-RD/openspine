@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install openspec CLI
+        run: npm install -g @fission-ai/openspec@1.3.1
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run local gate
+        run: ./scripts/check.sh

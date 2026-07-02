@@ -1,0 +1,19 @@
+[package]
+name = "openspine-gate"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenSpine gate/action API: the mediation point every effectful action passes through."
+
+[lints.clippy]
+all = "warn"
+
+[dependencies]
+openspine-schemas = { path = "../openspine-schemas" }
+openspine-authority = { path = "../openspine-authority" }
+jiff.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

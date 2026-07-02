@@ -1,0 +1,26 @@
+[package]
+name = "openspine-shell"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenSpine shell: the contained per-task process that runs agent/workflow logic and calls the kernel API for every effect."
+
+[[bin]]
+name = "openspine-shell"
+path = "src/main.rs"
+
+[lints.clippy]
+all = "warn"
+
+[dependencies]
+openspine-schemas = { path = "../openspine-schemas" }
+tokio.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

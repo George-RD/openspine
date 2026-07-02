@@ -1,0 +1,22 @@
+[package]
+name = "openspine-schemas"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenSpine core runtime schemas: event envelopes, identity, routes, grants, actions, approvals, artifacts."
+
+[lints.clippy]
+all = "warn"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+ulid.workspace = true
+jiff.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

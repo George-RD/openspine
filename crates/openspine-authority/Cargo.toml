@@ -1,0 +1,17 @@
+[package]
+name = "openspine-authority"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenSpine authority composition: route resolution and task-grant materialization."
+
+[lints.clippy]
+all = "warn"
+
+[dependencies]
+openspine-schemas = { path = "../openspine-schemas" }
+jiff.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]

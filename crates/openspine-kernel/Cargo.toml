@@ -1,0 +1,42 @@
+[package]
+name = "openspine-kernel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "OpenSpine kernel: event pipeline, storage, artifact store, connectors, model gateway, kernel API."
+
+[[bin]]
+name = "openspine"
+path = "src/main.rs"
+
+[lints.clippy]
+all = "warn"
+
+[dependencies]
+openspine-schemas = { path = "../openspine-schemas" }
+openspine-authority = { path = "../openspine-authority" }
+openspine-gate = { path = "../openspine-gate" }
+tokio = { workspace = true, features = ["signal"] }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+ulid.workspace = true
+jiff.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+axum = "0.8.9"
+teloxide = "0.17.0"
+aes-gcm = "0.11.0"
+rand = "0.10.2"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
+oauth2 = "5.0.0"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+wiremock = "0.6.5"

@@ -1,0 +1,56 @@
+schema: spec-driven
+
+context: |
+  Project: OpenSpine.
+
+  OpenSpine is the reusable governed agent runtime substrate.
+  Lyra is the first governed personal assistant product built on OpenSpine.
+
+  OpenSpine owns reusable runtime concepts:
+  - event envelope
+  - source verification
+  - identity resolution
+  - deterministic route resolution
+  - authority composition
+  - task grants
+  - gate-mediated actions
+  - connectors
+  - model gateway
+  - selection tokens
+  - artifact lifecycle
+  - audit and recovery
+
+  Lyra owns the first user-facing product experience:
+  - Telegram owner control
+  - main assistant behavior
+  - setup guidance
+  - selected-thread email reply drafting
+  - preview and approval UX
+  - personal-assistant preferences within OpenSpine policy
+
+  OpenSpec is the development/change-management layer for OpenSpine.
+  OpenSpec artifacts do not grant OpenSpine runtime authority.
+
+rules:
+  proposal:
+    - State whether the change affects OpenSpine core, Lyra product, or both.
+    - State whether the change affects runtime authority, private data, external communication, connector access, or system operations.
+    - Include explicit non-goals.
+    - If the change reverses or weakens an accepted decision, require a new decision-log entry.
+
+  spec:
+    - Requirements must use RFC-style language: MUST, SHOULD, MAY.
+    - Security and authority requirements must be testable.
+    - Runtime authority must be expressed through task grants and gate-mediated actions, not OpenSpec artifacts.
+    - Distinguish OpenSpine substrate requirements from Lyra product requirements.
+
+  design:
+    - Include authority, containment, audit, and failure-mode considerations where relevant.
+    - Include trade-offs and rejected alternatives for security-sensitive decisions.
+    - Cite the PRD or decision log when adopting or modifying existing architecture.
+
+  tasks:
+    - Split work into small implementation slices.
+    - Include verification tasks for authority, containment, audit, and prompt-injection boundaries where relevant.
+    - Include a documentation update task when user-facing terminology changes.
+    - Include a decision-log update task when a decision is added, reversed, or materially refined.
