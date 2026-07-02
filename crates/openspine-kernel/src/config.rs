@@ -48,8 +48,13 @@ pub struct GmailConfig {
     /// never the literal value in `openspine.yaml`).
     pub client_secret_env: String,
     /// Env var naming the long-lived refresh token obtained once via
-    /// Google's OAuth consent screen (D-037) — see `docs/telegram-setup.md`.
+    /// Google's OAuth consent screen (D-037) — see `docs/gmail-setup.md`.
     pub refresh_token_env: String,
+    /// The owner's own Gmail address (D-042) — used to find the correct
+    /// reply recipient by skipping the owner's own messages when walking
+    /// a thread newest-first. Static and operator-supplied rather than
+    /// queried from Gmail on every preview (see D-042's trade-off).
+    pub mailbox_address: String,
 }
 
 /// `providers.yaml`'s `auth` clause: either a plain API key sourced from an

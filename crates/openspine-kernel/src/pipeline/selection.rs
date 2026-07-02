@@ -20,20 +20,7 @@ use openspine_schemas::selection::{
 use crate::sandbox;
 use ulid::Ulid;
 
-use super::{empty_session_policy, resolve_owner_identity, AppState};
-
-/// Best-effort owner notification for a `/draft` failure the owner can
-/// actually act on (unknown thread id, transient Gmail error, no Gmail
-/// configured) — distinct from a security denial (route/authority reject
-/// for a legitimate reason), which stays silent-and-audited like every
-/// other denial in this pipeline. A failed reply here is logged, never
-/// propagated: notifying the owner is a courtesy, not part of the
-/// audited authority decision itself.
-async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
-    if let Err(err) = state.telegram.send_reply(chat_id, text).await {
-        tracing::warn!(error = %err, "failed to notify owner of a /draft failure");
-    }
-}
+use super::{empty_session_policy, notify_owner_best_effort, resolve_owner_identity, AppState};
 
 /// Bound how long a freshly minted selection token remains valid (PRD §15:
 /// "expires quickly") — generous enough to survive the Gmail existence

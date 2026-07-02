@@ -20,6 +20,7 @@
 //! shares this module's [`AppState`], `resolve_owner_identity`, and
 //! `empty_session_policy` helpers.
 
+mod approval;
 mod selection;
 #[cfg(test)]
 mod tests;
@@ -38,6 +39,7 @@ use crate::sandbox::{self, Sandbox};
 use crate::store::Store;
 use crate::telegram::{self, TelegramConnector, VerifiedUpdate};
 
+use approval::handle_draft_approval_callback;
 use selection::handle_thread_selection;
 
 /// Everything the pipeline needs to turn one Telegram update into an
@@ -111,6 +113,21 @@ fn resolve_owner_identity(
     }
 }
 
+/// Best-effort owner notification for a pipeline failure the owner can
+/// actually act on (a `/draft` failure, a post-approval draft-creation
+/// failure) — distinct from a security denial (route/authority reject
+/// for a legitimate reason), which stays silent-and-audited like every
+/// other denial in this pipeline. A failed reply here is logged, never
+/// propagated: notifying the owner is a courtesy, not part of the
+/// audited authority decision itself. Shared by [`selection`] and
+/// [`approval`] — both are "tell the owner why their tap/command didn't
+/// work" call sites, not just the selection flow.
+async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
+    if let Err(err) = state.telegram.send_reply(chat_id, text).await {
+        tracing::warn!(error = %err, "failed to notify owner of a pipeline failure");
+    }
+}
+
 /// Long-poll Telegram forever, dispatching every verified owner update
 /// through [`handle_owner_update`]. Replay protection (design.md):
 /// **at-most-once**, not at-least-once — `update_id` is persisted to
@@ -171,6 +188,40 @@ pub async fn handle_owner_update(
 ) -> anyhow::Result<Option<TaskGrant>> {
     let (chat_id, text) = match telegram::verify_update(update, state.owner_user_id) {
         VerifiedUpdate::OwnerMessage { chat_id, text } => (chat_id, text),
+        VerifiedUpdate::OwnerCallback {
+            chat_id,
+            callback_query_id,
+            data,
+        } => {
+            // D-039/D-044: the inline "Approve" button is the entire trust
+            // boundary for "did the owner approve this exact draft" — it
+            // must be handled here, ahead of any other routing, exactly
+            // like `/draft` (D-036).
+            if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
+                handle_draft_approval_callback(
+                    state,
+                    chat_id,
+                    &callback_query_id,
+                    action_request_id,
+                )
+                .await?;
+            } else {
+                state
+                    .telegram
+                    .answer_callback_query(&callback_query_id)
+                    .await;
+                state.store.append_audit(
+                    "telegram.callback_unrecognized",
+                    None,
+                    None,
+                    Some(&data),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
+            return Ok(None);
+        }
         VerifiedUpdate::Ignored { reason } => {
             state.store.append_audit(
                 "telegram.update.ignored",

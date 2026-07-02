@@ -75,6 +75,7 @@ fn gmail_connector(token_server: &MockServer, api_server: &MockServer) -> GmailC
         "client-id".to_string(),
         "client-secret".to_string(),
         "refresh-token".to_string(),
+        "owner@example.com".to_string(),
     )
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri())
 }
@@ -309,6 +310,7 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
         "client-id".to_string(),
         "client-secret".to_string(),
         "refresh-token".to_string(),
+        "owner@example.com".to_string(),
     ));
     let (grant, _token) = mint_grant_with_selection_token(
         &state,

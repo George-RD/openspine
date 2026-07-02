@@ -38,6 +38,7 @@ kernel:
 #   client_id: "your-client-id.apps.googleusercontent.com"
 #   client_secret_env: OPENSPINE_GMAIL_CLIENT_SECRET
 #   refresh_token_env: OPENSPINE_GMAIL_REFRESH_TOKEN
+#   mailbox_address: "you@yourdomain.com"  # D-042 - your own Gmail address
 #
 # unsafe_allow_uncontained_private_data: true  # required to exercise
 # /draft under driver: process — see docs/gmail-setup.md §5.

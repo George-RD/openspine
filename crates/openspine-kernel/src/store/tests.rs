@@ -1,10 +1,11 @@
 use super::*;
-use openspine_schemas::action::DenialReason;
-use openspine_schemas::approval::{ApprovalDecision, TimeoutBehavior};
+use openspine_schemas::action::{ActionRequest, DenialReason};
+use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord, TimeoutBehavior};
 use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::GrantLimits;
 use openspine_schemas::selection::{
-    SelectionScope, SelectionTokenType, SelectionVerificationMethod,
+    SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod,
 };
 
 fn sample_grant(task_token: &str) -> TaskGrant {
@@ -52,6 +53,25 @@ fn sample_approval(action_request_id: Ulid) -> ApprovalRecord {
         decision: ApprovalDecision::Approved,
         timeout_behavior: TimeoutBehavior::DoNothing,
         approval_channel: "telegram_inline".to_string(),
+    }
+}
+
+fn sample_action_request() -> ActionRequest {
+    ActionRequest {
+        id: Ulid::new(),
+        task_grant_id: Ulid::new(),
+        action: ActionId::new("email.create_draft"),
+        target_ref: Some(TargetRef {
+            kind: TargetRefKind::EmailThread,
+            id: Some("thread-1".to_string()),
+        }),
+        payload_ref: Some(ArtifactRef {
+            digest: Digest::parse(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            schema_version: 1,
+        }),
+        target_digest: Some(Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap()),
+        requested_at: Timestamp::now(),
+        schema_version: 1,
     }
 }
 
@@ -279,4 +299,66 @@ fn kv_state_round_trips_and_upserts() {
         store.get_kv("last_telegram_update_id").unwrap(),
         Some("43".to_string())
     );
+}
+
+#[test]
+fn action_request_round_trips_by_id() {
+    let store = Store::open_in_memory().unwrap();
+    let request = sample_action_request();
+    store.insert_action_request(&request).unwrap();
+    let back = store.find_action_request(request.id).unwrap().unwrap();
+    assert_eq!(back, request);
+    assert!(store.find_action_request(Ulid::new()).unwrap().is_none());
+}
+
+#[test]
+fn action_request_consume_is_single_use() {
+    // D-044: the callback-driven approval flow must be at-most-once per
+    // request, mirroring `try_consume_selection_token`'s guarantee — a
+    // second tap on a live "Approve" button (or Telegram redelivering the
+    // same `callback_query` update) must not be able to consume the same
+    // request twice.
+    let store = Store::open_in_memory().unwrap();
+    let request = sample_action_request();
+    store.insert_action_request(&request).unwrap();
+
+    assert!(store.try_consume_action_request(request.id).unwrap());
+    assert!(!store.try_consume_action_request(request.id).unwrap());
+}
+
+#[test]
+fn consuming_an_unknown_action_request_id_is_a_no_op_failure() {
+    assert!(!Store::open_in_memory()
+        .unwrap()
+        .try_consume_action_request(Ulid::new())
+        .unwrap());
+}
+
+#[test]
+fn opening_a_pre_existing_db_without_the_used_column_is_migrated_in_place() {
+    // Simulates a `data/kernel.db` created before `action_requests.used`
+    // existed (this table originally shipped without it) — `Store::open`
+    // must ALTER the table in place rather than failing, per the module
+    // doc comment's warning that `CREATE TABLE IF NOT EXISTS` alone never
+    // helps an already-existing file.
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("kernel.db");
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE action_requests (id TEXT PRIMARY KEY, request_json TEXT NOT NULL);",
+        )
+        .unwrap();
+    }
+
+    let store = Store::open(&path).unwrap();
+    let request = sample_action_request();
+    store.insert_action_request(&request).unwrap();
+    assert!(store.try_consume_action_request(request.id).unwrap());
+    assert!(!store.try_consume_action_request(request.id).unwrap());
+
+    // Re-opening the now-migrated file must also stay a no-op (the
+    // "duplicate column name" branch of `apply_ad_hoc_migrations`).
+    drop(store);
+    assert!(Store::open(&path).is_ok());
 }

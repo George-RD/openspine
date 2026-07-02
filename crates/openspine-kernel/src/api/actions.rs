@@ -9,7 +9,8 @@ use axum::Json;
 use jiff::Timestamp;
 use openspine_gate::gate;
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
-use openspine_schemas::digest::canonical_json;
+use openspine_schemas::digest::{canonical_json, digest_of};
+use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::selection::SelectionTokenType;
 use serde::{Deserialize, Serialize};
@@ -252,16 +253,7 @@ async fn dispatch_allowed_action(
                         .to_string(),
                 )
             })?;
-            let text = truncate_for_telegram(&format!(
-                "Draft preview\nSubject: {}\n\n{}",
-                preview.subject, preview.body
-            ));
-            state
-                .telegram
-                .send_reply(bound_chat_id, &text)
-                .await
-                .map_err(DispatchError::Internal)?;
-            Ok(json!({"sent": true}))
+            dispatch_lyra_preview(state, grant, bound_chat_id, &preview).await
         }
         "workflow.invoke:approved" => Ok(json!({
             "stub": true,
@@ -280,6 +272,117 @@ async fn dispatch_allowed_action(
             "note": format!("{other} has no Step 4 kernel-side implementation yet"),
         })),
     }
+}
+
+/// `lyra.ui.preview`'s real implementation (build plan Step 5, extended by
+/// Step 6 / D-043): shows the draft to the owner AND, in the same
+/// dispatch, proposes it for approval — the two must never drift apart
+/// (D-043's whole rationale: a separate propose action could let "what
+/// was shown" and "what was proposed" diverge). If proposing fails for
+/// any reason (no Gmail connector, no selection token on this grant, the
+/// thread no longer resolves, no non-owner correspondent found), the
+/// preview is still shown — the owner sees the draft but the message
+/// carries no approval button, an honest reflection of "propose failed"
+/// rather than a silently-broken button.
+async fn dispatch_lyra_preview(
+    state: &AppState,
+    grant: &TaskGrant,
+    bound_chat_id: i64,
+    preview: &PreviewPayload,
+) -> Result<Value, DispatchError> {
+    let text = truncate_for_telegram(&format!(
+        "Draft preview\nSubject: {}\n\n{}",
+        preview.subject, preview.body
+    ));
+    match propose_draft_creation(state, grant, preview).await {
+        Ok(action_request_id) => {
+            state
+                .telegram
+                .send_reply_with_approval_button(bound_chat_id, &text, action_request_id)
+                .await
+                .map_err(DispatchError::Internal)?;
+        }
+        Err(reason) => {
+            let _ = state.store.append_audit(
+                "draft.proposal_failed",
+                Some(&ActionId::new("email.create_draft")),
+                None,
+                Some(reason),
+                Some(grant.id),
+                &[],
+                &[],
+            );
+            state
+                .telegram
+                .send_reply(bound_chat_id, &text)
+                .await
+                .map_err(DispatchError::Internal)?;
+        }
+    }
+    Ok(json!({"sent": true}))
+}
+
+/// D-043: derive the target (D-042, never trusting anything from the
+/// shell for it), store the payload artifact, and persist the pending
+/// `email.create_draft` [`ActionRequest`] (D-040/D-041) that a later
+/// `callback_query` approval (D-044) will be bound to.
+async fn propose_draft_creation(
+    state: &AppState,
+    grant: &TaskGrant,
+    preview: &PreviewPayload,
+) -> Result<Ulid, &'static str> {
+    let gmail = state.gmail.as_ref().ok_or("no_gmail_connector")?;
+    let token_id = grant
+        .selection_tokens
+        .first()
+        .copied()
+        .ok_or("no_selection_token_on_grant")?;
+    let token = state
+        .store
+        .find_selection_token(token_id)
+        .map_err(|_| "selection_token_lookup_failed")?
+        .ok_or("selection_token_not_found")?;
+    let thread = gmail
+        .fetch_thread(&token.target_id)
+        .await
+        .map_err(|_| "gmail_thread_fetch_failed")?;
+    let target = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
+        .ok_or("no_non_owner_recipient_found")?;
+
+    let payload_bytes =
+        canonical_json(&json!({ "subject": preview.subject, "body": preview.body }));
+    let payload_ref = state
+        .artifacts
+        .put(payload_bytes.as_bytes())
+        .map_err(|_| "artifact_store_failed")?;
+    // D-041: recipients as a list, not a bare string — so a future
+    // reply-all/Cc addition widens this shape without changing what the
+    // field name itself means to an already-approved digest.
+    let target_digest = digest_of(&json!({
+        "thread_id": token.target_id,
+        "connector": "gmail_primary",
+        "account_role": "owner_mailbox",
+        "recipients": [target.recipient],
+    }));
+
+    let request = ActionRequest {
+        id: Ulid::new(),
+        task_grant_id: grant.id,
+        action: ActionId::new("email.create_draft"),
+        target_ref: Some(TargetRef {
+            kind: TargetRefKind::EmailThread,
+            id: Some(token.target_id.clone()),
+        }),
+        payload_ref: Some(payload_ref),
+        target_digest: Some(target_digest),
+        requested_at: Timestamp::now(),
+        schema_version: 1,
+    };
+    state
+        .store
+        .insert_action_request(&request)
+        .map_err(|_| "action_request_persist_failed")?;
+    Ok(request.id)
 }
 
 /// `email.read_thread:selected_no_attachments`'s real implementation

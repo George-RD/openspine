@@ -111,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
                 gmail_cfg.client_id.clone(),
                 client_secret,
                 refresh_token,
+                gmail_cfg.mailbox_address.clone(),
             ))
         }
         None => None,

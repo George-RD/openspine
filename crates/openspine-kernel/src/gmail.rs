@@ -61,6 +61,11 @@ pub struct GmailMessage {
     pub from: String,
     pub subject: String,
     pub body_text: String,
+    /// The `Message-ID` header, used (D-042) to set `In-Reply-To`/
+    /// `References` on a draft reply for correct Gmail threading. Empty
+    /// if the header was absent — [`GmailConnector::create_draft`] omits
+    /// the reply headers entirely in that case rather than fabricating one.
+    pub message_id: String,
 }
 
 /// A bounded, attachment-free thread (build plan Step 5 / PRD §21.1).
@@ -94,10 +99,17 @@ pub struct GmailConnector {
     token_url: String,
     api_base_url: String,
     cached: Mutex<Option<CachedToken>>,
+    /// The owner's own Gmail address (D-042) — see [`newest_non_owner_recipient`].
+    mailbox_address: String,
 }
 
 impl GmailConnector {
-    pub fn new(client_id: String, client_secret: String, refresh_token: String) -> Self {
+    pub fn new(
+        client_id: String,
+        client_secret: String,
+        refresh_token: String,
+        mailbox_address: String,
+    ) -> Self {
         Self {
             http: http_client(),
             client_id,
@@ -106,7 +118,13 @@ impl GmailConnector {
             token_url: DEFAULT_TOKEN_URL.to_string(),
             api_base_url: DEFAULT_API_BASE_URL.to_string(),
             cached: Mutex::new(None),
+            mailbox_address,
         }
+    }
+
+    /// The owner's own address (D-042), used by [`newest_non_owner_recipient`].
+    pub fn mailbox_address(&self) -> &str {
+        &self.mailbox_address
     }
 
     #[cfg(test)]
@@ -207,6 +225,126 @@ impl GmailConnector {
         }
         Ok(true)
     }
+
+    /// Create a Gmail draft replying to `thread_id` (D-044 / PRD's
+    /// `email.create_draft`). This method performs no authorization of its
+    /// own — it is the connector's raw effect, only ever reached after
+    /// `gate()` has confirmed a matching, unexpired, digest-bound approval
+    /// (D-011, D-041). Returns the provider's own draft id.
+    pub async fn create_draft(
+        &self,
+        thread_id: &str,
+        target: &ReplyTarget,
+        subject: &str,
+        body: &str,
+    ) -> Result<String, GmailError> {
+        let token = self.access_token().await?;
+        let raw = build_raw_reply_message(
+            &target.recipient,
+            subject,
+            body,
+            target.in_reply_to_message_id.as_deref(),
+        );
+        let url = format!("{}/gmail/v1/users/me/drafts", self.api_base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .bearer_auth(token)
+            .json(&serde_json::json!({
+                "message": { "raw": raw, "threadId": thread_id }
+            }))
+            .send()
+            .await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(GmailError::Api {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        let json: Value = resp.json().await?;
+        json["id"]
+            .as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| GmailError::Api {
+                status: status.as_u16(),
+                body: "draft create response missing \"id\"".to_string(),
+            })
+    }
+}
+
+/// Who a drafted reply should go to, and (if known) which message it is
+/// replying to — the latter sets `In-Reply-To`/`References` for correct
+/// Gmail threading (D-042).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplyTarget {
+    pub recipient: String,
+    pub in_reply_to_message_id: Option<String>,
+}
+
+/// D-042: find who a reply should actually go to by walking the thread
+/// newest-first and skipping the owner's own messages — a naive "last
+/// message's sender" rule breaks when the owner sent the most recent
+/// message (a self-addressed follow-up). Returns `None` if every message
+/// is from the owner, or no message has a parseable `From` address.
+pub fn newest_non_owner_recipient(
+    thread: &GmailThread,
+    owner_mailbox: &str,
+) -> Option<ReplyTarget> {
+    let owner = owner_mailbox.trim().to_lowercase();
+    thread.messages.iter().rev().find_map(|m| {
+        let addr = extract_email_address(&m.from)?;
+        (addr != owner).then(|| ReplyTarget {
+            recipient: addr,
+            in_reply_to_message_id: (!m.message_id.is_empty()).then(|| m.message_id.clone()),
+        })
+    })
+}
+
+/// Extract the bare address from a `From`-style header value — either
+/// `"Name <addr@example.com>"` or a bare `"addr@example.com"`. `None` if
+/// nothing `@`-shaped is found at all (not a parseable address).
+fn extract_email_address(header: &str) -> Option<String> {
+    let candidate = header
+        .rsplit_once('<')
+        .and_then(|(_, rest)| rest.split_once('>'))
+        .map(|(addr, _)| addr)
+        .unwrap_or(header)
+        .trim();
+    candidate.contains('@').then(|| candidate.to_lowercase())
+}
+
+/// Build a base64url-encoded RFC 2822 message for Gmail's `raw` draft
+/// field. Minimal by design (PRD/Step 6 scope: single plain-text reply,
+/// no attachments, no Cc/Bcc) — sets `In-Reply-To`/`References` only when
+/// the original message's `Message-ID` was captured; omits them rather
+/// than fabricating a value when it wasn't (better a plainly-unthreaded
+/// draft than one carrying a made-up header).
+///
+/// `subject`/`body` are written byte-for-byte, never reformatted here
+/// (e.g. no "Re: " prefixing — the shell already composes the final
+/// subject before it is ever previewed): D-041's approval binds a digest
+/// over the exact reviewed payload, so what gets written to Gmail must
+/// match what the owner approved exactly, not a value this function
+/// silently touches up after the fact.
+///
+/// Headers are written as raw ASCII with no RFC 2047 encoding — a
+/// non-ASCII subject/recipient will produce a technically invalid header.
+/// Out of scope for this phase (English-language usage assumed); a future
+/// phase adding non-ASCII support must encode `Subject` per RFC 2047.
+fn build_raw_reply_message(
+    to: &str,
+    subject: &str,
+    body: &str,
+    in_reply_to: Option<&str>,
+) -> String {
+    let mut headers =
+        format!("To: {to}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n");
+    if let Some(id) = in_reply_to.filter(|s| !s.is_empty()) {
+        headers.push_str(&format!("In-Reply-To: {id}\r\nReferences: {id}\r\n"));
+    }
+    URL_SAFE_NO_PAD.encode(format!("{headers}\r\n{body}").as_bytes())
 }
 
 fn header_value(headers: &[Value], name: &str) -> String {
@@ -262,6 +400,7 @@ fn parse_thread(thread_id: &str, json: &Value) -> GmailThread {
             from: header_value(&headers, "From"),
             subject: header_value(&headers, "Subject"),
             body_text: extract_body_text(&msg["payload"]),
+            message_id: header_value(&headers, "Message-ID"),
         });
     }
     GmailThread {
@@ -271,161 +410,4 @@ fn parse_thread(thread_id: &str, json: &Value) -> GmailThread {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
-
-    fn connector(token_server: &MockServer, api_server: &MockServer) -> GmailConnector {
-        GmailConnector::new(
-            "client-id".to_string(),
-            "client-secret".to_string(),
-            "refresh-token".to_string(),
-        )
-        .with_urls(format!("{}/token", token_server.uri()), api_server.uri())
-    }
-
-    async fn mount_token_endpoint(server: &MockServer) {
-        Mock::given(method("POST"))
-            .and(path("/token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "access_token": "test-access-token",
-                "expires_in": 3600,
-            })))
-            .mount(server)
-            .await;
-    }
-
-    fn sample_thread_json() -> Value {
-        json!({
-            "messages": [{
-                "payload": {
-                    "mimeType": "multipart/mixed",
-                    "headers": [],
-                    "parts": [
-                        {
-                            "mimeType": "text/plain",
-                            "headers": [
-                                {"name": "From", "value": "alice@example.com"},
-                                {"name": "Subject", "value": "Re: invoice"},
-                            ],
-                            "body": {"data": URL_SAFE_NO_PAD.encode(b"hello owner")},
-                        },
-                        {
-                            "mimeType": "application/pdf",
-                            "filename": "invoice.pdf",
-                            "body": {"data": URL_SAFE_NO_PAD.encode(b"not-a-real-pdf")},
-                        },
-                    ],
-                },
-            }],
-        })
-    }
-
-    #[tokio::test]
-    async fn fetch_thread_extracts_text_and_skips_attachments() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        mount_token_endpoint(&token_server).await;
-        Mock::given(method("GET"))
-            .and(path("/gmail/v1/users/me/threads/thread-1"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
-            .mount(&api_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        let thread = connector.fetch_thread("thread-1").await.unwrap();
-
-        assert_eq!(thread.thread_id, "thread-1");
-        assert_eq!(thread.messages.len(), 1);
-        assert_eq!(thread.messages[0].body_text, "hello owner");
-        assert!(!thread.messages[0].body_text.contains("not-a-real-pdf"));
-    }
-
-    #[tokio::test]
-    async fn thread_exists_is_true_for_a_real_thread() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        mount_token_endpoint(&token_server).await;
-        Mock::given(method("GET"))
-            .and(path("/gmail/v1/users/me/threads/thread-1"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
-            .mount(&api_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        assert!(connector.thread_exists("thread-1").await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn thread_exists_is_false_for_a_missing_thread() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        mount_token_endpoint(&token_server).await;
-        Mock::given(method("GET"))
-            .and(path("/gmail/v1/users/me/threads/missing"))
-            .respond_with(ResponseTemplate::new(404).set_body_json(json!({"error": "not found"})))
-            .mount(&api_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        assert!(!connector.thread_exists("missing").await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn a_non_404_api_error_is_not_treated_as_missing() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        mount_token_endpoint(&token_server).await;
-        Mock::given(method("GET"))
-            .and(path("/gmail/v1/users/me/threads/thread-1"))
-            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
-            .mount(&api_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        let err = connector.fetch_thread("thread-1").await.unwrap_err();
-        assert!(matches!(err, GmailError::Api { status: 500, .. }));
-    }
-
-    #[tokio::test]
-    async fn a_failed_token_refresh_surfaces_as_an_error() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/token"))
-            .respond_with(ResponseTemplate::new(401).set_body_string("invalid_grant"))
-            .mount(&token_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        let err = connector.fetch_thread("thread-1").await.unwrap_err();
-        assert!(matches!(err, GmailError::TokenRefresh { status: 401, .. }));
-    }
-
-    #[tokio::test]
-    async fn the_access_token_is_cached_across_calls() {
-        let token_server = MockServer::start().await;
-        let api_server = MockServer::start().await;
-        // Only expect exactly one token POST despite two thread fetches.
-        Mock::given(method("POST"))
-            .and(path("/token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "access_token": "test-access-token",
-                "expires_in": 3600,
-            })))
-            .expect(1)
-            .mount(&token_server)
-            .await;
-        Mock::given(method("GET"))
-            .and(path("/gmail/v1/users/me/threads/thread-1"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
-            .mount(&api_server)
-            .await;
-
-        let connector = connector(&token_server, &api_server);
-        connector.fetch_thread("thread-1").await.unwrap();
-        connector.fetch_thread("thread-1").await.unwrap();
-    }
-}
+mod tests;
