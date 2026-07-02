@@ -11,9 +11,5 @@ all = "warn"
 
 [dependencies]
 openspine-schemas = { path = "../openspine-schemas" }
-openspine-authority = { path = "../openspine-authority" }
 jiff.workspace = true
-thiserror.workspace = true
-
-[dev-dependencies]
-tempfile.workspace = true
+ulid.workspace = true

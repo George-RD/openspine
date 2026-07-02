@@ -1658,10 +1658,8 @@ name = "openspine-gate"
 version = "0.1.0"
 dependencies = [
  "jiff",
- "openspine-authority",
  "openspine-schemas",
- "tempfile",
- "thiserror 2.0.18",
+ "ulid",
 ]
 
 [[package]]
