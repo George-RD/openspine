@@ -12,6 +12,17 @@
 //! construction the identity here IS the owner. A persisted multi-identity
 //! graph is future work (a second real identity source), not fabricated
 //! ahead of one.
+//!
+//! [`selection::handle_thread_selection`] (build plan Step 5, D-036/D-037)
+//! is the parallel `/draft <thread_id>` entry point, split into its own
+//! module because it is a whole separate workflow (Gmail existence check,
+//! selection-token minting, `email_reply_drafter` routing) that merely
+//! shares this module's [`AppState`], `resolve_owner_identity`, and
+//! `empty_session_policy` helpers.
+
+mod selection;
+#[cfg(test)]
+mod tests;
 
 use jiff::Timestamp;
 use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
@@ -26,6 +37,8 @@ use crate::artifact_store::ArtifactStore;
 use crate::sandbox::{self, Sandbox};
 use crate::store::Store;
 use crate::telegram::{self, TelegramConnector, VerifiedUpdate};
+
+use selection::handle_thread_selection;
 
 /// Everything the pipeline needs to turn one Telegram update into an
 /// audited, sandboxed task. Built once at kernel startup and shared
@@ -42,6 +55,9 @@ pub struct AppState {
     pub kernel_endpoint: String,
     /// D-025 / PRD §16 escape hatch. See [`sandbox::refuses_external_communication_without_containment`].
     pub unsafe_allow_uncontained_private_data: bool,
+    /// `None` disables the `/draft <thread_id>` selection command entirely
+    /// (build plan Step 5 / D-036, D-037) — no Gmail connector configured.
+    pub gmail: Option<crate::gmail::GmailConnector>,
     /// The single configured model provider (build plan 4c: "one provider
     /// call", not real multi-provider routing — that is
     /// `implement-model-gateway`'s deferred scope).
@@ -69,13 +85,26 @@ fn empty_session_policy() -> SessionPolicy {
 /// grant of authority itself (D-006) — but by the time this runs, the
 /// Telegram connector has already verified sender id + private chat, so
 /// confidence is 1.0 and `source_verified` is `true` unconditionally.
-fn resolve_owner_identity(envelope: &EventEnvelope) -> IdentityResolution {
+///
+/// `channel_trust` is caller-supplied, not hardcoded (D-038): both
+/// pipelines share the identical underlying signal (a Telegram sender-id and
+/// private-chat match — Phase 1/2 has no separate "device" attestation), but
+/// the PRD's own route fixtures require a *stronger* trust tier for the
+/// external-communication-triggering selection flow (`owner_device`,
+/// `owner_email_selected_thread.yaml`) than for ordinary owner-control chat
+/// (`verified_owner_channel`, `owner_telegram_main_assistant.yaml`) — see
+/// D-038 for why this is a real distinction here, not an inconsistency to
+/// paper over.
+fn resolve_owner_identity(
+    envelope: &EventEnvelope,
+    channel_trust: ChannelTrust,
+) -> IdentityResolution {
     IdentityResolution {
         event_id: envelope.id,
         matched_identity_id: None,
         confidence: 1.0,
         matched_identifier_type: MatchedIdentifierType::TelegramUserId,
-        channel_trust: ChannelTrust::VerifiedOwnerChannel,
+        channel_trust,
         source_verified: true,
         authority_warning: None,
         schema_version: 1,
@@ -156,6 +185,14 @@ pub async fn handle_owner_update(
         }
     };
 
+    // D-036: recognize the structured thread-selection command *before*
+    // any normal owner-control routing — this is the entire trust boundary
+    // for "did the owner select this thread", so it must run here, ahead
+    // of `main_assistant_agent`'s route, not inside it.
+    if let Some(thread_id) = telegram::parse_draft_command(&text) {
+        return handle_thread_selection(state, chat_id, thread_id).await;
+    }
+
     let now = Timestamp::now();
     let raw_ref = state.artifacts.put(text.as_bytes())?;
     let envelope = telegram::build_owner_envelope(chat_id, raw_ref.clone(), now);
@@ -169,7 +206,7 @@ pub async fn handle_owner_update(
         std::slice::from_ref(&raw_ref),
     )?;
 
-    let identity = resolve_owner_identity(&envelope);
+    let identity = resolve_owner_identity(&envelope, ChannelTrust::VerifiedOwnerChannel);
     let route_resolution = resolve_route(
         &envelope,
         &identity,
@@ -347,47 +384,4 @@ pub async fn handle_owner_update(
     }
 
     Ok(Some(grant))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_support::fixtures::*;
-
-    #[tokio::test]
-    async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
-        let state = test_state();
-        let mut update = owner_update("hi");
-        update.sender_user_id = Some(999);
-        handle_owner_update(&state, &update).await.unwrap();
-        assert_eq!(state.store.count_task_grants().unwrap(), 0);
-    }
-
-    #[tokio::test]
-    async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat() {
-        let state = test_state();
-        let update = owner_update("hello lyra");
-        // ProcessDriver spawning a real shell binary will fail in this test
-        // environment (no `openspine-shell` on PATH) — that's fine, the
-        // pipeline still must reach `insert_task_grant` before the spawn
-        // attempt, which is what this test asserts by inspecting the
-        // returned grant and the store directly.
-        let grant = handle_owner_update(&state, &update)
-            .await
-            .unwrap()
-            .expect("owner message must compose a grant");
-        assert_eq!(grant.agent_id, "main_assistant_agent");
-        assert_eq!(grant.workflow_id, "owner_control_conversation");
-        assert_eq!(grant.route_id, "owner_telegram_main_assistant");
-
-        let (stored_grant, pending_ref, bound_chat_id) = state
-            .store
-            .find_task_grant_by_token(&grant.task_token)
-            .unwrap()
-            .expect("grant must be persisted");
-        assert_eq!(stored_grant, grant);
-        assert_eq!(bound_chat_id, 555);
-        assert_eq!(state.artifacts.get(&pending_ref).unwrap(), b"hello lyra");
-        assert!(state.store.verify_audit_chain().unwrap());
-    }
 }

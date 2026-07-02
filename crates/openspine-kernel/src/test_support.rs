@@ -12,6 +12,7 @@ pub(crate) mod fixtures {
 
     use crate::artifact_store::ArtifactStore;
     use crate::config::{ProviderAuth, ProviderConfig, ProviderKind};
+    use crate::gmail::GmailConnector;
     use crate::model_gateway::ProviderClient;
     use crate::pipeline::AppState;
     use crate::sandbox::{ProcessDriver, Sandbox};
@@ -35,6 +36,7 @@ pub(crate) mod fixtures {
             owner_user_id: 42,
             kernel_endpoint: "http://127.0.0.1:0".to_string(),
             unsafe_allow_uncontained_private_data: false,
+            gmail: None,
             provider: ProviderClient::from_config(
                 &ProviderConfig {
                     id: "test-provider".to_string(),
@@ -54,6 +56,12 @@ pub(crate) mod fixtures {
     pub(crate) fn test_state_with_telegram(telegram: TelegramConnector) -> AppState {
         let mut state = test_state();
         state.telegram = telegram;
+        state
+    }
+
+    pub(crate) fn test_state_with_gmail(gmail: GmailConnector) -> AppState {
+        let mut state = test_state();
+        state.gmail = Some(gmail);
         state
     }
 

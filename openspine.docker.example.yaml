@@ -31,5 +31,15 @@ kernel:
   bind_addr: "0.0.0.0:7777" # reachable from shell containers on the compose network
   advertise_endpoint: "http://kernel:7777" # the compose service DNS name
 
+# gmail block omitted: the /draft <thread_id> selection command (Step 5,
+# see docs/gmail-setup.md) is unavailable until this is set. Uncomment and
+# fill in to enable it — no unsafe_allow_uncontained_private_data flag
+# needed under driver: docker, the container boundary itself satisfies the
+# D-025 containment guard:
+# gmail:
+#   client_id: "your-client-id.apps.googleusercontent.com"
+#   client_secret_env: OPENSPINE_GMAIL_CLIENT_SECRET
+#   refresh_token_env: OPENSPINE_GMAIL_REFRESH_TOKEN
+
 # lyra_dir defaults to ./artifacts/lyra; if the fixtures aren't baked into
 # the kernel image at that path, set this explicitly and mount accordingly.

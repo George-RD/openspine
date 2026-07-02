@@ -24,7 +24,7 @@ use crate::pipeline::AppState;
 use crate::telegram::TelegramConnector;
 use crate::test_support::fixtures::*;
 
-async fn start_server(state: AppState) -> (SocketAddr, JoinHandle<()>) {
+pub(super) async fn start_server(state: AppState) -> (SocketAddr, JoinHandle<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let app = router(Arc::new(state));
@@ -32,7 +32,7 @@ async fn start_server(state: AppState) -> (SocketAddr, JoinHandle<()>) {
     (addr, handle)
 }
 
-async fn post_action(
+pub(super) async fn post_action(
     addr: SocketAddr,
     token: &str,
     action: &str,

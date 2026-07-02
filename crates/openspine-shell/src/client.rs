@@ -44,6 +44,12 @@ pub struct TaskView {
     /// `ps`/`docker inspect`, which would otherwise leak private content
     /// outside the encrypted-artifact containment boundary.
     pub pending_message: String,
+    /// Build plan Step 5 (PRD §15): the selection token(s) this grant may
+    /// spend. Empty for every agent that has no selection-flow concept
+    /// (e.g. `main_assistant_agent`). Defaulted so an older kernel that
+    /// predates this field doesn't break deserialization.
+    #[serde(default)]
+    pub selection_tokens: Vec<String>,
 }
 
 /// Gate outcome of `POST /v1/actions`.
@@ -75,6 +81,8 @@ struct ActionBody<'a> {
 struct GenerateBody<'a> {
     purpose: &'a str,
     user_message: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    untrusted_context: Option<&'a str>,
     max_tokens: u32,
 }
 
@@ -171,12 +179,14 @@ impl KernelClient {
         &self,
         purpose: &str,
         user_message: &str,
+        untrusted_context: Option<&str>,
         max_tokens: u32,
     ) -> Result<ModelOutcome> {
         let url = format!("{}/v1/model/generate", self.base_url);
         let body = GenerateBody {
             purpose,
             user_message,
+            untrusted_context,
             max_tokens,
         };
         let resp = self
@@ -209,7 +219,7 @@ impl KernelClient {
 mod tests {
     use super::*;
     use openspine_schemas::action::DenialReason;
-    use wiremock::matchers::{header, method, path};
+    use wiremock::matchers::{body_json, header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn task_view_json() -> serde_json::Value {
@@ -228,7 +238,8 @@ mod tests {
                 "max_runtime_seconds": 120
             },
             "expires_at": "2099-01-01T00:00:00Z",
-            "pending_message": "hello"
+            "pending_message": "hello",
+            "selection_tokens": ["01J2RMVP6J4HJHKV0W2L7M3C6Q", "01J2RMVP6J4HJHKV0W2M7N4D7R"]
         })
     }
 
@@ -251,6 +262,28 @@ mod tests {
             .expect("should succeed with matching bearer");
         assert_eq!(view.agent_id, "main_assistant_agent");
         assert_eq!(view.limits.max_model_calls, 8);
+    }
+
+    /// (Step 5) `GET /v1/task` deserializes the `selection_tokens` array bound to this grant.
+    #[tokio::test]
+    async fn get_task_deserializes_selection_tokens() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/task"))
+            .and(header("Authorization", "Bearer secret-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(task_view_json()))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = KernelClient::new(server.uri(), "secret-token".to_string());
+        let view = client
+            .get_task()
+            .await
+            .expect("should deserialize task view");
+        assert_eq!(view.selection_tokens.len(), 2);
+        assert_eq!(view.selection_tokens[0], "01J2RMVP6J4HJHKV0W2L7M3C6Q");
+        assert_eq!(view.selection_tokens[1], "01J2RMVP6J4HJHKV0W2M7N4D7R");
     }
 
     /// (d) `POST /v1/actions` also carries the Bearer token.
@@ -293,7 +326,37 @@ mod tests {
 
         let client = KernelClient::new(server.uri(), "gen-token".to_string());
         let outcome = client
-            .generate("reply_to_owner", "hi", 12_000)
+            .generate("reply_to_owner", "hi", None, 12_000)
+            .await
+            .expect("should succeed");
+        assert_eq!(outcome.decision, GateDecision::Allow);
+        assert_eq!(outcome.text.as_deref(), Some("hello from model"));
+    }
+
+    /// (Step 5) `POST /v1/model/generate` includes `untrusted_context` in the JSON body.
+    #[tokio::test]
+    async fn generate_sends_untrusted_context_in_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/model/generate"))
+            .and(header("Authorization", "Bearer gen-token"))
+            .and(body_json(serde_json::json!({
+                "purpose": "reply_to_owner",
+                "user_message": "hi",
+                "untrusted_context": "some untrusted text",
+                "max_tokens": 12_000
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "decision": {"outcome": "allow"},
+                "text": "hello from model"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = KernelClient::new(server.uri(), "gen-token".to_string());
+        let outcome = client
+            .generate("reply_to_owner", "hi", Some("some untrusted text"), 12_000)
             .await
             .expect("should succeed");
         assert_eq!(outcome.decision, GateDecision::Allow);

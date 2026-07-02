@@ -2,54 +2,54 @@
 
 ## 1. Gmail connector skeleton
 
-- [ ] Add Gmail / Google Workspace owner-mailbox connector skeleton.
-- [ ] Configure minimal OAuth scope for selected-thread read where possible.
-- [ ] Ensure send scope is not used unless unavoidable and denied by policy.
+- [x] Add Gmail / Google Workspace owner-mailbox connector skeleton.
+- [x] Configure minimal OAuth scope for selected-thread read where possible.
+- [x] Ensure send scope is not used unless unavoidable and denied by policy.
 
 ## 2. Selection token
 
-- [ ] Define selected-thread token.
-- [ ] Implement trusted owner selection path or controlled test stub.
-- [ ] Bind token to thread ID, owner, connector, and expiry.
+- [x] Define selected-thread token.
+- [x] Implement trusted owner selection path or controlled test stub.
+- [x] Bind token to thread ID, owner, connector, and expiry.
 
 ## 3. Event and route
 
-- [ ] Normalize selected thread into `email.thread.selected`.
-- [ ] Add selected-thread email route artifact.
-- [ ] Add `email_reply_drafter` manifest.
-- [ ] Add selected-thread email draft workflow.
-- [ ] Add selected-thread email draft capability pack.
+- [x] Normalize selected thread into `email.thread.selected`.
+- [x] Add selected-thread email route artifact.
+- [x] Add `email_reply_drafter` manifest.
+- [x] Add selected-thread email draft workflow.
+- [x] Add selected-thread email draft capability pack.
 
 ## 4. Email read
 
-- [ ] Implement selected-thread read.
-- [ ] Exclude attachments.
-- [ ] Deny inbox-wide read.
-- [ ] Deny unselected thread read.
+- [x] Implement selected-thread read.
+- [x] Exclude attachments.
+- [x] Deny inbox-wide read.
+- [x] Deny unselected thread read.
 
 ## 5. Model gateway
 
-- [ ] Route private email context through model gateway.
-- [ ] Wrap email content as untrusted quoted data.
-- [ ] Store prompt/output as protected artifact refs where applicable.
+- [x] Route private email context through model gateway.
+- [x] Wrap email content as untrusted quoted data.
+- [x] Store prompt/output as protected artifact refs where applicable.
 
 ## 6. Preview
 
-- [ ] Create draft preview artifact.
-- [ ] Present preview to owner.
-- [ ] Ensure no email send occurs.
+- [x] Create draft preview artifact.
+- [x] Present preview to owner.
+- [x] Ensure no email send occurs.
 
 ## 7. Tests
 
-- [ ] Test valid selection token allows selected-thread read.
-- [ ] Test direct shell-provided thread ID is denied.
-- [ ] Test inbox-wide read is denied.
-- [ ] Test attachments are denied.
-- [ ] Test prompt injection text is treated as data.
-- [ ] Test private model call goes through gateway.
-- [ ] Test email send is denied.
+- [x] Test valid selection token allows selected-thread read.
+- [x] Test direct shell-provided thread ID is denied.
+- [x] Test inbox-wide read is denied.
+- [x] Test attachments are denied.
+- [x] Test prompt injection text is treated as data.
+- [x] Test private model call goes through gateway.
+- [x] Test email send is denied.
 
 ## 8. Validation
 
-- [ ] Run tests.
-- [ ] Run `openspec validate --changes implement-selected-thread-email-preview-slice --strict`.
+- [x] Run tests: `cargo test --workspace -- --test-threads=2` (196 passed, 0 failed).
+- [x] Run `openspec validate --changes implement-selected-thread-email-preview-slice --strict` (passed).

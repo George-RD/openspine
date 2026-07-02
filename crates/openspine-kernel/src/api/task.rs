@@ -7,6 +7,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde::Serialize;
 use serde_json::Value;
+use ulid::Ulid;
 
 use super::{authenticate, internal_error};
 use crate::pipeline::AppState;
@@ -31,6 +32,11 @@ pub(super) struct TaskViewBody {
     limits: TaskLimitsBody,
     expires_at: String,
     pending_message: String,
+    /// Build plan Step 5: which selection token(s) this grant may spend
+    /// (PRD §15 — "only usable inside matching task grant"). Empty for
+    /// every Phase 1 grant; populated by `pipeline::handle_thread_selection`
+    /// for a selected-thread email task.
+    selection_tokens: Vec<String>,
 }
 
 pub(super) async fn get_task(
@@ -61,5 +67,6 @@ pub(super) async fn get_task(
         },
         expires_at: grant.expires_at.to_string(),
         pending_message,
+        selection_tokens: grant.selection_tokens.iter().map(Ulid::to_string).collect(),
     }))
 }

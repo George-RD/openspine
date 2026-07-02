@@ -31,4 +31,15 @@ kernel:
   # advertise_endpoint omitted: derives http://127.0.0.1:7777, correct when
   # the kernel and shell share one host (the process driver's only mode).
 
+# gmail block omitted: the /draft <thread_id> selection command (Step 5,
+# see docs/gmail-setup.md) is unavailable until this is set. Uncomment and
+# fill in to enable it:
+# gmail:
+#   client_id: "your-client-id.apps.googleusercontent.com"
+#   client_secret_env: OPENSPINE_GMAIL_CLIENT_SECRET
+#   refresh_token_env: OPENSPINE_GMAIL_REFRESH_TOKEN
+#
+# unsafe_allow_uncontained_private_data: true  # required to exercise
+# /draft under driver: process — see docs/gmail-setup.md §5.
+
 # lyra_dir omitted: defaults to ./artifacts/lyra, this repo's fixtures.
