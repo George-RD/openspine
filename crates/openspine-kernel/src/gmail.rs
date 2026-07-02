@@ -183,13 +183,29 @@ impl GmailConnector {
     /// path (`pipeline::handle_thread_selection`) validates this before
     /// ever minting a [`openspine_schemas::selection::SelectionToken`] — the
     /// kernel must never mint a selection token for a thread that turns out
-    /// not to exist.
+    /// not to exist. Uses `format=minimal` rather than [`Self::fetch_thread`]'s
+    /// `format=full` — this call only needs a 404-vs-200 answer, not the
+    /// thread's messages, so there is no reason to pay for (and parse) the
+    /// full payload.
     pub async fn thread_exists(&self, thread_id: &str) -> Result<bool, GmailError> {
-        match self.fetch_thread(thread_id).await {
-            Ok(_) => Ok(true),
-            Err(GmailError::ThreadNotFound(_)) => Ok(false),
-            Err(err) => Err(err),
+        let token = self.access_token().await?;
+        let url = format!(
+            "{}/gmail/v1/users/me/threads/{thread_id}?format=minimal",
+            self.api_base_url
+        );
+        let resp = self.http.get(&url).bearer_auth(token).send().await?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(false);
         }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(GmailError::Api {
+                status: status.as_u16(),
+                body,
+            });
+        }
+        Ok(true)
     }
 }
 

@@ -164,13 +164,18 @@ async fn draft_command_is_refused_without_the_unsafe_flag_under_process_driver()
             "access_token": "test-token",
             "expires_in": 3600,
         })))
+        .expect(0)
         .mount(&token_server)
         .await;
+    // The containment guard must refuse before Gmail is ever contacted
+    // (D-025) — `.expect(0)` fails the test if `thread_exists` reaches
+    // this mock at all, catching a regression in the check's ordering.
     Mock::given(method("GET"))
         .and(path("/gmail/v1/users/me/threads/thread-1"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "messages": [{"payload": {"mimeType": "text/plain", "headers": [], "body": {"data": "aGk"}}}],
         })))
+        .expect(0)
         .mount(&api_server)
         .await;
 

@@ -72,7 +72,7 @@ Phases 1-3 (D-036) is a structured command the **kernel itself** recognizes
 directly in the Telegram poll loop, before any shell/agent ever sees the
 message:
 
-```
+```text
 /draft <gmail_thread_id>
 ```
 

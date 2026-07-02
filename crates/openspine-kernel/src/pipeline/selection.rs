@@ -76,6 +76,30 @@ pub(super) async fn handle_thread_selection(
         return Ok(None);
     };
 
+    // D-025 / O-003 / PRD §16: refuse before ever contacting Gmail or
+    // minting a token — this workflow's lane is statically
+    // `Lane::ExternalCommunication`, so the guard needs no envelope to
+    // evaluate. Checking this only after `thread_exists`/token-mint (as a
+    // prior revision did) meant a refused request still burned a live
+    // Gmail API call and left an orphaned, never-granted selection token
+    // sitting in the store.
+    if sandbox::refuses_external_communication_without_containment(
+        Lane::ExternalCommunication,
+        &state.sandbox,
+        state.unsafe_allow_uncontained_private_data,
+    ) {
+        state.store.append_audit(
+            "route.refused_uncontained",
+            None,
+            None,
+            Some("external_communication lane requires a containing sandbox driver"),
+            None,
+            &[],
+            &[],
+        )?;
+        return Ok(None);
+    }
+
     // The kernel itself proves the thread is real before ever minting a
     // token for it — a selection token must never be issued for something
     // Gmail can't actually serve.
@@ -148,7 +172,6 @@ pub(super) async fn handle_thread_selection(
         },
         single_use: true,
     };
-    state.store.insert_selection_token(&token)?;
 
     let raw_ref = state.artifacts.put(thread_id.as_bytes())?;
     let envelope = EventEnvelope {
@@ -223,26 +246,6 @@ pub(super) async fn handle_thread_selection(
         .iter()
         .find(|r| r.id == route_id)
         .ok_or_else(|| anyhow::anyhow!("resolved route {route_id} not found in registry"))?;
-
-    // D-025 / O-003 / PRD §16: same containment guard as the main
-    // pipeline — an `email.thread.selected` grant is exactly the kind of
-    // external-communication authority this guard exists to gate.
-    if sandbox::refuses_external_communication_without_containment(
-        envelope.lane,
-        &state.sandbox,
-        state.unsafe_allow_uncontained_private_data,
-    ) {
-        state.store.append_audit(
-            "route.refused_uncontained",
-            None,
-            None,
-            Some("external_communication lane requires a containing sandbox driver"),
-            None,
-            &[],
-            &[],
-        )?;
-        return Ok(None);
-    }
 
     let agent_id = route
         .agent
@@ -319,6 +322,11 @@ pub(super) async fn handle_thread_selection(
             return Ok(None);
         }
     };
+
+    // PRD §15: the token is only ever persisted once every earlier
+    // refusal path (containment, route, authority) has already returned —
+    // an orphaned, never-granted token must never reach the store.
+    state.store.insert_selection_token(&token)?;
 
     // PRD §12's `selection_tokens`: this grant may use exactly the one
     // token minted for it. `compose_authority` has no selection-flow
