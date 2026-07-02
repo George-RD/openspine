@@ -59,6 +59,8 @@ pub struct OutputChannels {
 pub struct AgentManifest {
     pub id: ArtifactId,
     pub schema_version: u32,
+    #[serde(default = "crate::artifact::default_version")]
+    pub version: u32,
     pub lifecycle_state: Lifecycle,
     pub purpose: String,
     pub persistence: Persistence,
@@ -85,6 +87,7 @@ mod tests {
         AgentManifest {
             id: "main_assistant_agent".to_string(),
             schema_version: 1,
+            version: 1,
             lifecycle_state: Lifecycle::Active,
             purpose: "Owner-facing conversational orchestrator.".to_string(),
             persistence: Persistence::Persistent,

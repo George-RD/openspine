@@ -17,6 +17,13 @@ pub struct ArtifactRef {
     pub schema_version: u32,
 }
 
+/// Default content version for a versioned declarative artifact (D-028:
+/// "monotonically increasing `v<N>` per artifact id"). Distinct from
+/// `schema_version`, which versions the *shape*, not the *content*.
+pub fn default_version() -> u32 {
+    1
+}
+
 /// Artifact lifecycle state (PRD §13.1).
 ///
 /// `proposed → validated → review_required → approved → active → quarantined | retired`.

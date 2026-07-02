@@ -14,3 +14,8 @@ steps:
   - compose authority into a task grant
   - run main_assistant_agent inside the contained shell
   - "reply to the owner via telegram.reply:owner_channel"
+candidate_allowed_actions:
+  - openspine.status.read
+  - "telegram.reply:owner_channel"
+approval_required: []
+denied_actions: []

@@ -1648,7 +1648,9 @@ version = "0.1.0"
 dependencies = [
  "jiff",
  "openspine-schemas",
+ "rand 0.10.2",
  "thiserror 2.0.18",
+ "ulid",
 ]
 
 [[package]]

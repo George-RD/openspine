@@ -31,6 +31,8 @@ pub struct AppliesTo {
 pub struct CapabilityPack {
     pub id: ArtifactId,
     pub schema_version: u32,
+    #[serde(default = "crate::artifact::default_version")]
+    pub version: u32,
     pub lifecycle_state: Lifecycle,
     #[serde(default)]
     pub applies_to: AppliesTo,
@@ -52,6 +54,7 @@ mod tests {
         CapabilityPack {
             id: "owner_control_basic_pack".to_string(),
             schema_version: 1,
+            version: 1,
             lifecycle_state: Lifecycle::Active,
             applies_to: AppliesTo {
                 event_type: Some(EventType::TelegramOwnerMessage),

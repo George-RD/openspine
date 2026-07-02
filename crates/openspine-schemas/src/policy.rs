@@ -34,6 +34,8 @@ pub struct Constraints {
 pub struct Policy {
     pub id: ArtifactId,
     pub schema_version: u32,
+    #[serde(default = "crate::artifact::default_version")]
+    pub version: u32,
     pub lifecycle_state: Lifecycle,
     #[serde(default)]
     pub candidate_allowed_actions: Vec<ActionId>,
@@ -71,6 +73,7 @@ mod tests {
         let policy = Policy {
             id: "global".to_string(),
             schema_version: 1,
+            version: 1,
             lifecycle_state: Lifecycle::Active,
             candidate_allowed_actions: vec![ActionId::new("openspine.status.read")],
             approval_required: vec![],

@@ -91,6 +91,8 @@ pub enum RouteEffect {
 pub struct Route {
     pub id: ArtifactId,
     pub schema_version: u32,
+    #[serde(default = "crate::artifact::default_version")]
+    pub version: u32,
     pub lifecycle_state: crate::artifact::Lifecycle,
     pub priority: Option<u32>,
     #[serde(default)]
@@ -129,6 +131,7 @@ mod tests {
         Route {
             id: "owner_telegram_main_assistant".to_string(),
             schema_version: 1,
+            version: 1,
             lifecycle_state: Lifecycle::Active,
             priority: Some(100),
             effect: RouteEffect::Allow,
