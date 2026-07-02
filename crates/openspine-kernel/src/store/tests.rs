@@ -227,23 +227,23 @@ fn most_recent_approval_wins_when_multiple_exist_for_one_request() {
 }
 
 #[test]
-fn selection_token_round_trips_and_marks_used() {
+fn selection_token_round_trips_and_consumes_once() {
     let store = Store::open_in_memory().unwrap();
     let token = sample_selection_token();
     store.insert_selection_token(&token).unwrap();
     let back = store.find_selection_token(token.id).unwrap().unwrap();
     assert_eq!(back, token);
 
-    store.mark_selection_token_used(token.id).unwrap();
-    let conn = store.conn.lock();
-    let used: i64 = conn
-        .query_row(
-            "SELECT used FROM selection_tokens WHERE id = ?1",
-            params![token.id.to_string()],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(used, 1);
+    assert!(store.try_consume_selection_token(token.id).unwrap());
+    // A second consumption attempt on the same token must fail — this is
+    // the entire single-use enforcement mechanism (PRD §15).
+    assert!(!store.try_consume_selection_token(token.id).unwrap());
+}
+
+#[test]
+fn consuming_an_unknown_selection_token_id_is_a_no_op_failure() {
+    let store = Store::open_in_memory().unwrap();
+    assert!(!store.try_consume_selection_token(Ulid::new()).unwrap());
 }
 
 #[test]

@@ -130,6 +130,22 @@ mod tests {
         assert!(registry.packs.contains_key("owner_control_basic_pack"));
         assert!(registry.policies.contains_key("global"));
         assert!(registry.templates.contains_key("owner_control_template"));
+
+        // Step 5 (implement-selected-thread-email-preview-slice) fixtures.
+        assert!(registry.agents.contains_key("email_reply_drafter"));
+        assert!(registry
+            .workflows
+            .contains_key("selected_thread_email_reply_draft"));
+        assert!(registry
+            .packs
+            .contains_key("selected_thread_email_draft_pack"));
+        assert!(registry
+            .routes
+            .iter()
+            .any(|r| r.id == "owner_email_selected_thread"));
+        assert!(registry
+            .templates
+            .contains_key("email_reply_draft_template"));
     }
 
     #[test]

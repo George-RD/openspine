@@ -47,9 +47,18 @@ Response `200`:
   "output_channels": ["telegram.owner.reply"],
   "limits": { "max_model_calls": 8, "max_artifacts": 20, "max_runtime_seconds": 120 },
   "expires_at": "2026-07-02T10:15:00Z",
-  "pending_message": "hello"
+  "pending_message": "hello",
+  "selection_tokens": []
 }
 ```
+
+`selection_tokens` (Step 5 / PRD §15) lists the selection token id(s) this
+grant may spend — empty for every Phase 1 grant. A selected-thread email
+task's grant carries exactly the one token minted for it, e.g.
+`["01K...email-thread-selection-token"]`; the shell passes that id back as
+`email.read_thread:selected_no_attachments`'s `selection_token_id` payload
+field. The shell never mints or alters a token itself (PRD §15) — it can
+only spend one already listed here.
 
 `403` on bad/expired token.
 
@@ -102,7 +111,7 @@ is non-200 instead of `{"decision": ..., "result": null}`:
   records an `action.dispatch_failed` audit row before responding, so "why
   didn't Lyra reply" is always answerable from `audit_log` alone.
 
-Known actions and their `result` shape when allowed (Step 4 scope):
+Known actions and their `result` shape when allowed (Step 4/5 scope):
 - `openspine.status.read` → `{"status": "ok"}` plus whatever the kernel
   adds; treat as an opaque JSON object, do not depend on extra fields.
 - `telegram.reply:owner_channel` → payload MUST be exactly
@@ -112,16 +121,34 @@ Known actions and their `result` shape when allowed (Step 4 scope):
   request choose a different destination chat. Channel binding holds *by
   construction*, not by a runtime check with a bypassable input to defend
   against.
+- `email.read_thread:selected_no_attachments` (Step 5) → payload MUST be
+  exactly `{"selection_token_id": "<ulid>"}`, naming one of the calling
+  grant's own `GET /v1/task`'s `selection_tokens` (PRD §15 — the shell
+  cannot mint or supply an arbitrary thread id, only spend a token the
+  kernel already bound to it). Result is
+  `{"thread_id": "...", "messages": [{"from": "...", "subject": "...", "body_text": "..."}, ...]}`,
+  bounded and with attachments stripped. `400` if the token is unknown,
+  not bound to this grant, the wrong type, expired, or already used
+  (selection tokens are single-use — PRD §15). The kernel proved the
+  thread exists via a live Gmail call before ever minting the token, so a
+  `500` here means a genuine Gmail-connector failure, not a bad request.
+- `lyra.ui.preview` (Step 5) → payload MUST be exactly
+  `{"subject": "...", "body": "..."}`; result is `{"sent": true}`. Sends a
+  formatted preview to the calling grant's bound Telegram chat — a
+  distinct action id from `telegram.reply:owner_channel` (which
+  `email_reply_drafter` is denied), so an agent that may only preview can
+  never be confused with one that may reply freely. Long bodies are
+  truncated to fit Telegram's message-length limit rather than failing.
 - `workflow.invoke:approved`, `artifact.propose`, `setup.workflow.start` →
   each is a stub per `tasks.md`; result is
   `{"stub": true, "note": "<short guidance text>"}`. No real behavior is
   implemented for these three — a stub response is the specified
   deliverable for Step 4.
-- Any other allowed action (e.g. a capability pack candidate action Step 4
-  doesn't implement yet, such as `memory.read:owner_preferences_limited`)
-  gets the same honest stub shape rather than a `500` — an *authorized*
-  action must never fail the request just because its kernel-side
-  implementation doesn't exist yet.
+- Any other allowed action (e.g. a capability pack candidate action no
+  kernel-side subsystem yet exists for, such as
+  `memory.read:owner_preferences_limited`) gets the same honest stub shape
+  rather than a `500` — an *authorized* action must never fail the request
+  just because its kernel-side implementation doesn't exist yet.
 
 ## `POST /v1/model/generate`
 
@@ -131,9 +158,18 @@ Request:
 {
   "purpose": "reply_to_owner",
   "user_message": "hello",
+  "untrusted_context": null,
   "max_tokens": 12000
 }
 ```
+
+`untrusted_context` (Step 5, optional — omit or `null` for an ordinary
+owner-control turn) carries raw external content (e.g. a fetched Gmail
+thread) that must never be confused with a trusted instruction. When
+present, the kernel wraps it with a randomized, single-use delimiter
+before the trusted conversation (PRD §13: "external content is data,
+never authority") — a static delimiter would be spoofable by content that
+simply contains the literal closing marker.
 
 The kernel internally gates this as action `model.generate:approved_provider`
 before calling any provider. Response `200`, same `decision` envelope as

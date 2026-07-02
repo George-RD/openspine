@@ -47,6 +47,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-032 | Kernel↔shell transport is HTTP/JSON with a per-task bearer token          | Accepted       |
 | D-033 | Action identifiers are exact-match dotted strings; unverified senders are audited and ignored | Accepted |
 | D-034 | `email.create_draft` is the one canonical action id (PRD §10.2's qualified spelling dropped) | Accepted |
+| D-035 | Kernel `advertise_endpoint` split from `bind_addr`; `ProcessDriver` uses plain TCP loopback | Accepted |
+| D-036 | Phase-2 selection trigger is a kernel-recognized `/draft <thread_id>` command | Accepted |
+| D-037 | Gmail OAuth token exchange is a plain refresh-token POST; no `oauth2` crate | Accepted |
 
 ---
 
@@ -989,6 +992,51 @@ permission-scoped UDS access control would matter) — that would justify
 revisiting the no-new-deps tradeoff above with fresh rationale, not a
 silent reversal of this one.
 
+# D-036 — Phase-2 thread selection is a kernel-recognized `/draft <thread_id>` command, not free-form NLU or a shell-supplied id
+
+## Decision
+
+The "trusted owner selection path" PRD §15/§21.1 requires is, for Phases 1–3, a single structured Telegram command the **kernel itself** recognizes before any shell/agent ever sees the message: `/draft <gmail_thread_id>`. Recognizing it is a pure function (`telegram::parse_draft_command`) that runs in the same place `verify_update` already runs — strictly before routing. A match short-circuits the normal `owner_telegram_main_assistant` route entirely and enters a separate path (`pipeline::handle_thread_selection`) that verifies the thread exists via a live Gmail call, mints the `SelectionToken` itself, builds the `email.thread.selected` envelope, and composes authority for `email_reply_drafter` as a new task.
+
+The event envelope's `verification_method` is `kernel_ui_selection` (the kernel is the "UI" that produced the selection); the selection token's own `verification_method` is `approved_owner_control_selection` (the trigger arrived over the already-verified owner-control Telegram channel) — PRD §15 offers both terms without saying which applies to which record, and this is the disambiguation.
+
+## Rationale
+
+`tasks.md` for `implement-selected-thread-email-preview-slice` explicitly permits "the trusted owner selection path **or a controlled test stub**." A real thread-browsing picker (list threads, natural-language "the one from Alex about the invoice") is a genuine NLU/UX problem orthogonal to this slice's actual subject — the security boundary around *using* a selection (single-use token, shell cannot mint or forge one, untrusted-data wrapping downstream). A narrow, kernel-recognized command satisfies the letter and spirit of the PRD rule ("shell cannot mint or alter... issued only by kernel-owned UI, verified picker, or approved owner-control selection flow") without fabricating a features-complete picker nobody asked this slice to build. The real cost is UX: the owner must already know a Gmail thread id (visible in the Gmail web UI's URL) — materially worse than a picker, and documented as follow-up scope in `docs/gmail-setup.md`, not built here.
+
+## Consequences
+
+- A real picker/NLU-based selection (browsing recent threads, subject search) is explicit future work — not fabricated ahead of a real need.
+- `telegram::parse_draft_command` is the entire trust boundary for "did the owner actually select this" on the Telegram side; it is unit-tested exhaustively (exact-prefix match, no fuzzy matching, empty-id rejection).
+- No additional Gmail scope or thread-listing endpoint exists solely to support this command.
+
+## Would change if
+
+A kernel-owned UI/picker (PRD's other named option) is built — this decision's command-based stub is superseded, not reversed; the selection-token/gate architecture underneath is unaffected either way.
+
+---
+
+# D-037 — Gmail OAuth via a plain refresh-token POST (no `oauth2` crate); `base64` promoted from transitive to direct dependency
+
+## Decision
+
+`GmailConnector` (Step 5) exchanges a long-lived refresh token for short-lived access tokens with one `POST https://oauth2.googleapis.com/token` (`grant_type=refresh_token`), implemented as a plain `reqwest` form POST — the same "raw HTTP client, no vendor SDK" pattern `model_gateway::providers::ProviderClient` already uses for Anthropic/OpenAI. The refresh token itself is supplied via an env var (`OPENSPINE_GMAIL_REFRESH_TOKEN`, named by `openspine.yaml`'s `gmail.refresh_token_env`), obtained once by a human manually completing Google's OAuth consent screen outside this codebase (documented in `docs/gmail-setup.md`) for the scopes D-029 already settled (`gmail.readonly` + `gmail.compose`) — this decision covers only how the token exchange itself is implemented, not which scopes are requested.
+
+Decoding Gmail API message bodies (`body.data`, base64url-encoded) uses the `base64` crate rather than a hand-rolled decoder: `cargo metadata` already resolves `base64 0.22.1` transitively (pulled in by the existing `reqwest`/`rustls` dependency tree), so adding it as a direct `openspine-kernel` dependency introduces zero new transitive dependencies — it only promotes a crate already vetted-by-inclusion to a direct, visible one. This is a better fit for the no-new-deps convention's intent than hand-rolling base64, which the convention reserves for surfaces with no acceptable existing option.
+
+## Rationale
+
+The `oauth2` crate (named as a candidate workspace dependency in the original implementation plan) is built for interactive authorization-code/PKCE flows with redirect handling — machinery this slice never exercises, since the human-in-the-loop consent step happens once, outside the kernel process, and the kernel only ever performs the mechanically simple, extremely stable refresh-token grant. Pulling in a general OAuth client crate for one documented endpoint would be dependency weight against a capability this slice doesn't use, and is exactly the case the no-new-deps convention asks to justify against a smaller alternative first. If a future phase needs the full authorization-code/PKCE flow (e.g. a self-serve "connect your Gmail" setup wizard), `oauth2` becomes justified then — this decision does not preclude adding it, it only declines to add it ahead of a real caller. The refresh-token env-var intake is the same documented secret-intake shortcut as the bot token/artifact key (D-014's deferral) — a richer secret-intake flow remains future work.
+
+## Consequences
+
+- `crates/openspine-kernel/Cargo.toml` gains `base64.workspace = true` (direct); the `oauth2 = "5.0.0"` line Step 0's bootstrap pre-declared (for a not-yet-built provider-OAuth-login feature, per `ProviderAuth::Oauth`'s doc comment — never `oauth2::`-imported by any code) is removed rather than left as dead weight. Re-adding it is cheap once a real caller exists.
+- `docs/gmail-setup.md` documents the one-time manual OAuth consent step and the two scopes requested.
+
+## Would change if
+
+A future phase needs the interactive consent flow itself run from inside the kernel (not just a human completing it once) — that is when `oauth2` earns its place.
+
 ---
 
 
@@ -1012,7 +1060,7 @@ silent reversal of this one.
 
 Potential areas to research before implementation decisions:
 
-1. Gmail OAuth scopes for read selected thread, create draft, and whether send authority is bundled.
+1. ~~Gmail OAuth scopes for read selected thread, create draft, and whether send authority is bundled.~~ Closed by D-029: `gmail.readonly` + `gmail.compose` requested together; `gmail.send` never requested (hard-denied at the gate regardless).
 2. Telegram bot security model, owner user ID verification, and webhook vs polling trade-offs.
 3. Practical Linux containment options for shell worker: Docker, rootless container, bubblewrap, firejail, systemd-run, gVisor, nsjail.
 4. Secret intake UX patterns for self-hosted agents.
@@ -1031,3 +1079,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-02 | Added D-025–D-033 (Rust/Tokio stack, containment driver, model-gateway auth, artifact format/digests, Gmail scopes, Telegram-only UX, deploy target, transport, action-id/non-owner handling); closed O-001–O-008 (Step 0 of the implementation plan). |
 | 2026-07-02 | Added D-034: normalized the email-drafter's create-draft action id to the bare `email.create_draft`, dropping PRD §10.2's qualified spelling to close a would-be approval-bypass gap discovered while implementing Step 2 (`implement-authority-composition`). |
 | 2026-07-02 | Added D-035: split `kernel.advertise_endpoint` from `bind_addr` (fixes Docker-compose shell↔kernel reachability) and narrowed D-032's `ProcessDriver` transport to plain loopback TCP instead of a Unix domain socket, discovered while implementing Step 4 (`implement-telegram-owner-control-slice`). |
+| 2026-07-02 | Added D-036 (Phase-2 thread selection via a kernel-recognized `/draft <thread_id>` command) and D-037 (Gmail OAuth token exchange via a plain refresh-token POST, `base64` promoted to a direct dependency, no `oauth2` crate), discovered while implementing Step 5 (`implement-selected-thread-email-preview-slice`). |

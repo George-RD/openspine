@@ -33,7 +33,7 @@ teloxide = "0.17.0"
 aes-gcm = "0.11.0"
 rand.workspace = true
 rusqlite = { version = "0.40.1", features = ["bundled"] }
-oauth2 = "5.0.0"
+base64.workspace = true
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 parking_lot = "0.12.5"

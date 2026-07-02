@@ -94,6 +94,39 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
     }
 }
 
+/// PRD §21.1 step 1 / D-036: the Phase-2 thread-selection trigger is this
+/// exact structured command, recognized by the kernel itself before any
+/// shell/agent ever sees the message — the shell can never claim on the
+/// owner's behalf that a thread was selected. Returns `None` for anything
+/// that is not `/draft <id>` with a well-formed id, so a malformed command
+/// falls through to ordinary owner-control routing instead of silently
+/// misparsing.
+///
+/// The id is validated against Gmail's thread-id alphabet
+/// (`[A-Za-z0-9_-]`, in practice lowercase hex) and a generous length
+/// bound — this is the *entire* trust boundary for "did the owner select
+/// this thread" on the Telegram side (D-036), so a stray `/`, `?`, `&`, or
+/// `#` in the text must never reach the Gmail connector's request URL.
+const MAX_THREAD_ID_LEN: usize = 64;
+
+pub fn parse_draft_command(text: &str) -> Option<&str> {
+    let rest = text.trim().strip_prefix("/draft")?;
+    // Require a whitespace boundary right after the literal `/draft` token
+    // — without this, `/draftabc` or `/drafts` would wrongly strip to a
+    // "valid-looking" id, which is exactly the fuzzy matching D-036 rules
+    // out ("exact-prefix match, no fuzzy matching").
+    if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+        return None;
+    }
+    let id = rest.trim();
+    let valid = !id.is_empty()
+        && id.len() <= MAX_THREAD_ID_LEN
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
+    valid.then_some(id)
+}
+
 /// Build the PRD §4.1/§4.2A `telegram.owner.message` envelope for a
 /// verified owner message. `raw_event_ref` must already point at the raw
 /// message text encrypted in the artifact store — this function never
@@ -279,5 +312,56 @@ mod tests {
         assert_eq!(envelope.event_type, EventType::TelegramOwnerMessage);
         assert_eq!(envelope.lane, Lane::OwnerControl);
         assert_eq!(envelope.channel_account, "555");
+    }
+
+    #[test]
+    fn draft_command_extracts_a_well_formed_thread_id() {
+        assert_eq!(
+            parse_draft_command("/draft abc123DEF-_"),
+            Some("abc123DEF-_")
+        );
+    }
+
+    #[test]
+    fn draft_command_trims_surrounding_whitespace() {
+        assert_eq!(parse_draft_command("  /draft   thread1  "), Some("thread1"));
+    }
+
+    #[test]
+    fn draft_command_with_no_id_is_rejected() {
+        assert_eq!(parse_draft_command("/draft"), None);
+        assert_eq!(parse_draft_command("/draft   "), None);
+    }
+
+    #[test]
+    fn text_without_the_draft_prefix_is_not_a_draft_command() {
+        assert_eq!(parse_draft_command("please draft something"), None);
+        assert_eq!(parse_draft_command("hello"), None);
+    }
+
+    #[test]
+    fn a_prefix_without_a_whitespace_boundary_is_not_a_draft_command() {
+        // `/draftabc123` must not be misread as command `/draft` + id
+        // `abc123` — no space was actually typed after the token.
+        assert_eq!(parse_draft_command("/draftabc123"), None);
+        assert_eq!(parse_draft_command("/drafts"), None);
+    }
+
+    #[test]
+    fn a_thread_id_with_path_or_query_metacharacters_is_rejected() {
+        // D-036: this parser is the entire trust boundary for the id that
+        // ends up interpolated into the Gmail API request URL — a stray
+        // `/`, `?`, `&`, or `#` must never reach the connector.
+        assert_eq!(parse_draft_command("/draft foo/bar"), None);
+        assert_eq!(parse_draft_command("/draft foo?x=1"), None);
+        assert_eq!(parse_draft_command("/draft foo&bar"), None);
+        assert_eq!(parse_draft_command("/draft foo#bar"), None);
+        assert_eq!(parse_draft_command("/draft ../../etc/passwd"), None);
+    }
+
+    #[test]
+    fn an_overly_long_thread_id_is_rejected() {
+        let too_long = "a".repeat(65);
+        assert_eq!(parse_draft_command(&format!("/draft {too_long}")), None);
     }
 }

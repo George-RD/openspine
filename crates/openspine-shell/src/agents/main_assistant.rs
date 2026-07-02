@@ -136,7 +136,9 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
 }
 
 async fn cmd_freeform(client: &KernelClient, message: &str) -> Result<()> {
-    let model_outcome: ModelOutcome = client.generate(MODEL_PURPOSE, message, MAX_TOKENS).await?;
+    let model_outcome: ModelOutcome = client
+        .generate(MODEL_PURPOSE, message, None, MAX_TOKENS)
+        .await?;
     match model_outcome.decision {
         GateDecision::Allow => {
             let text = model_outcome.text.unwrap_or_default();

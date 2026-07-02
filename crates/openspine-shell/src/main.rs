@@ -1,8 +1,10 @@
 //! `openspine-shell` — the contained per-task worker process.
 //!
-//! Implements `openspec/changes/implement-telegram-owner-control-slice/` (4d):
-//! fetches its task-grant view from the kernel, runs the `main_assistant_agent`
-//! command layer for the incoming owner message, and exits.
+//! Implements `implement-telegram-owner-control-slice` (4d) and
+//! `implement-selected-thread-email-preview-slice` (Step 5): fetches its
+//! task-grant view from the kernel, then runs whichever agent command
+//! layer the grant names (`main_assistant_agent` or `email_reply_drafter`)
+//! before exiting.
 //!
 //! Every external effect goes through `POST /v1/actions` on the kernel —
 //! this process has no other I/O.  It is invoked once per task; a single
@@ -73,17 +75,20 @@ async fn run(cli: Cli) -> Result<()> {
         task_view.agent_id, task_view.workflow_id
     );
 
-    // Route to the agent implementation selected by the grant.
-    // Phase 1 only ships `main_assistant_agent`; other agent IDs are
-    // rejected here so a misconfigured grant fails loudly rather than
-    // silently doing nothing.
+    // Route to the agent implementation selected by the grant. Phases 1-2
+    // ship `main_assistant_agent` and `email_reply_drafter`; other agent
+    // ids are rejected here so a misconfigured grant fails loudly rather
+    // than silently doing nothing.
     match task_view.agent_id.as_str() {
         "main_assistant_agent" => {
             agents::main_assistant::run(&client, &task_view.pending_message).await
         }
+        "email_reply_drafter" => {
+            agents::email_reply_drafter::run(&client, &task_view.selection_tokens).await
+        }
         other => {
             anyhow::bail!(
-                "unsupported agent_id '{}' — only main_assistant_agent is implemented in Phase 1",
+                "unsupported agent_id '{}' — only main_assistant_agent and email_reply_drafter are implemented",
                 other
             )
         }

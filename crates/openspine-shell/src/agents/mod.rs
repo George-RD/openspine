@@ -4,4 +4,5 @@
 //! the shell fetches its grant view, routes to the matching agent, the agent
 //! runs to completion and exits.
 
+pub mod email_reply_drafter;
 pub mod main_assistant;

@@ -362,11 +362,8 @@ impl Store {
 
     // ---- selection tokens ----------------------------------------------
 
-    /// No live caller yet — selection tokens are Step 5's concept
-    /// (choosing an email thread). Exercised today only by this module's
-    /// own round-trip test; see `find_selection_token`, which the
-    /// `GateContext` impl already calls unconditionally in Step 4.
-    #[allow(dead_code)]
+    /// Called by `pipeline::handle_thread_selection` (Step 5) when it
+    /// mints a new thread-selection token.
     pub fn insert_selection_token(&self, token: &SelectionToken) -> Result<(), StoreError> {
         let conn = self.conn.lock();
         conn.execute(
@@ -389,15 +386,25 @@ impl Store {
         Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
     }
 
-    /// No live caller yet, same as `insert_selection_token` above.
-    #[allow(dead_code)]
-    pub fn mark_selection_token_used(&self, id: Ulid) -> Result<(), StoreError> {
+    /// Atomically consume a single-use selection token (PRD §15):
+    /// `UPDATE ... WHERE used = 0` in one locked statement, returning
+    /// whether *this call* was the one that flipped it. Checking
+    /// (`SELECT used`) and marking (`UPDATE ... SET used = 1`) as two
+    /// separate calls would be a TOCTOU race — the dispatch path awaits a
+    /// Gmail HTTP call between "is it used" and "mark it used", so two
+    /// concurrent requests for the same token could both observe `unused`
+    /// before either marks it. Consumed *before* the Gmail call, same
+    /// at-most-once philosophy as the Telegram `update_id` offset
+    /// (persisted before handling, not after): a token whose consumption
+    /// wins but whose subsequent Gmail fetch fails is burned, not
+    /// refunded — the owner just runs `/draft` again for a fresh one.
+    pub fn try_consume_selection_token(&self, id: Ulid) -> Result<bool, StoreError> {
         let conn = self.conn.lock();
-        conn.execute(
-            "UPDATE selection_tokens SET used = 1 WHERE id = ?1",
+        let rows = conn.execute(
+            "UPDATE selection_tokens SET used = 1 WHERE id = ?1 AND used = 0",
             params![id.to_string()],
         )?;
-        Ok(())
+        Ok(rows > 0)
     }
 
     // ---- conversation state ----------------------------------------------

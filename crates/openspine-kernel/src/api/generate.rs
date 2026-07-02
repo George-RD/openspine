@@ -17,7 +17,9 @@ use serde_json::{json, Value};
 use ulid::Ulid;
 
 use super::{authenticate, internal_error};
-use crate::model_gateway::{build_prompt, PromptMessage, PromptRole};
+use crate::model_gateway::{
+    build_prompt, build_prompt_with_untrusted_context, PromptMessage, PromptRole,
+};
 use crate::pipeline::AppState;
 
 const CONVERSATION_HISTORY_LIMIT: usize = 20;
@@ -27,7 +29,28 @@ pub(super) struct GenerateRequestBody {
     #[allow(dead_code)] // carried for audit/future routing; not yet branched on
     purpose: String,
     user_message: String,
+    /// Build plan Step 5: raw external content (e.g. a fetched Gmail
+    /// thread) that must never be confused with a trusted instruction —
+    /// see `model_gateway::build_prompt_with_untrusted_context`. `None`
+    /// for ordinary owner-control turns (Step 4's only caller so far).
+    #[serde(default)]
+    untrusted_context: Option<String>,
     max_tokens: u32,
+}
+
+/// Which prompt template artifact an agent's `model.generate` calls
+/// resolve to. A small, hardcoded map rather than a new
+/// `AgentManifest.prompt_template` schema field: the PRD's `§10.1`/`§10.2`
+/// agent fixtures are transcribed verbatim from the spec with no such
+/// field, and the Phase 1-3 agent set is fixed and small (two agents) —
+/// adding a schema field not in the PRD's literal example for a mapping
+/// this simple isn't justified yet.
+fn template_id_for_agent(agent_id: &str) -> Option<&'static str> {
+    match agent_id {
+        "main_assistant_agent" => Some("owner_control_template"),
+        "email_reply_drafter" => Some("email_reply_draft_template"),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -49,6 +72,7 @@ pub(super) async fn post_model_generate(
     let payload_value = json!({
         "purpose": body.purpose,
         "user_message": body.user_message,
+        "untrusted_context": body.untrusted_context,
         "max_tokens": body.max_tokens,
     });
     let payload_ref = state
@@ -88,11 +112,14 @@ pub(super) async fn post_model_generate(
         }));
     };
 
+    let template_id = template_id_for_agent(&grant.agent_id)
+        .ok_or_else(|| anyhow::anyhow!("agent {} has no known prompt template", grant.agent_id))
+        .map_err(internal_error)?;
     let template = state
         .registry
         .templates
-        .get("owner_control_template")
-        .ok_or_else(|| anyhow::anyhow!("owner_control_template not in registry"))
+        .get(template_id)
+        .ok_or_else(|| anyhow::anyhow!("{template_id} not in registry"))
         .map_err(internal_error)?;
 
     // Persist the user turn, then load history (oldest-first, this turn
@@ -134,7 +161,12 @@ pub(super) async fn post_model_generate(
         });
     }
 
-    let prompt = build_prompt(template, conversation, body.max_tokens);
+    let prompt = match &body.untrusted_context {
+        Some(untrusted) => {
+            build_prompt_with_untrusted_context(template, untrusted, conversation, body.max_tokens)
+        }
+        None => build_prompt(template, conversation, body.max_tokens),
+    };
     let text = state
         .provider
         .generate(&prompt)

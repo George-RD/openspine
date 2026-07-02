@@ -21,6 +21,12 @@ mod task;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod dispatch_tests;
+
+#[cfg(test)]
+mod generate_tests;
+
 use std::sync::Arc;
 
 use axum::extract::State;

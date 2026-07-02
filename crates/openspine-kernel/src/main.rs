@@ -10,6 +10,7 @@ mod api;
 mod artifact_loader;
 mod artifact_store;
 mod config;
+mod gmail;
 mod model_gateway;
 mod pipeline;
 mod sandbox;
@@ -102,6 +103,19 @@ async fn main() -> anyhow::Result<()> {
 
     let telegram = telegram::TelegramConnector::new(bot_token);
 
+    let gmail = match &cfg.gmail {
+        Some(gmail_cfg) => {
+            let client_secret = config::gmail_client_secret(gmail_cfg)?;
+            let refresh_token = config::gmail_refresh_token(gmail_cfg)?;
+            Some(gmail::GmailConnector::new(
+                gmail_cfg.client_id.clone(),
+                client_secret,
+                refresh_token,
+            ))
+        }
+        None => None,
+    };
+
     let state = Arc::new(pipeline::AppState {
         store,
         artifacts,
@@ -115,6 +129,7 @@ async fn main() -> anyhow::Result<()> {
             .clone()
             .unwrap_or_else(|| format!("http://{}", cfg.kernel.bind_addr)),
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
+        gmail,
         provider,
         started_at: Instant::now(),
     });

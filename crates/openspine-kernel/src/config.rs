@@ -36,6 +36,22 @@ pub struct OwnerConfig {
     pub display_name: String,
 }
 
+/// `openspine.yaml`'s `gmail` block (build plan Step 5 / D-037). `None`
+/// when unset — the kernel then refuses `/draft` commands (no connector to
+/// serve them) rather than failing to start, since Phase 1's Telegram-only
+/// slice must keep working with no Gmail configured at all.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GmailConfig {
+    pub client_id: String,
+    /// Env var naming the OAuth client secret (D-014-style secret intake:
+    /// never the literal value in `openspine.yaml`).
+    pub client_secret_env: String,
+    /// Env var naming the long-lived refresh token obtained once via
+    /// Google's OAuth consent screen (D-037) — see `docs/telegram-setup.md`.
+    pub refresh_token_env: String,
+}
+
 /// `providers.yaml`'s `auth` clause: either a plain API key sourced from an
 /// env var, or a future OAuth mode (Step 4c wires only `api_key` for
 /// Anthropic/OpenAI-compat; `oauth` is accepted here so config parsing
@@ -119,6 +135,11 @@ pub struct Config {
     /// the in-repo dev fixtures; a real deploy sets this explicitly.
     #[serde(default = "default_lyra_dir")]
     pub lyra_dir: PathBuf,
+    /// `None` disables the `/draft <thread_id>` selection command entirely
+    /// (Step 5 / D-036/D-037) — Phase 1's Telegram-only slice keeps working
+    /// with no Gmail connector configured.
+    #[serde(default)]
+    pub gmail: Option<GmailConfig>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -168,6 +189,18 @@ pub fn artifact_key_bytes() -> Result<[u8; 32], ConfigError> {
     let hex = std::env::var("OPENSPINE_ARTIFACT_KEY")
         .map_err(|_| ConfigError::MissingEnv("OPENSPINE_ARTIFACT_KEY".to_string()))?;
     parse_hex_key(&hex)
+}
+
+/// Resolve a [`GmailConfig`]'s OAuth client secret from its configured env var.
+pub fn gmail_client_secret(cfg: &GmailConfig) -> Result<String, ConfigError> {
+    std::env::var(&cfg.client_secret_env)
+        .map_err(|_| ConfigError::MissingEnv(cfg.client_secret_env.clone()))
+}
+
+/// Resolve a [`GmailConfig`]'s long-lived refresh token from its configured env var.
+pub fn gmail_refresh_token(cfg: &GmailConfig) -> Result<String, ConfigError> {
+    std::env::var(&cfg.refresh_token_env)
+        .map_err(|_| ConfigError::MissingEnv(cfg.refresh_token_env.clone()))
 }
 
 fn parse_hex_key(hex: &str) -> Result<[u8; 32], ConfigError> {

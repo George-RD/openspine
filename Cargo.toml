@@ -17,11 +17,12 @@ ulid = { version = "1.2.1", features = ["serde"] }
 jiff = { version = "0.2.31", features = ["serde"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros"] }
-reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "form"] }
 clap = { version = "4.6.1", features = ["derive"] }
 anyhow = "1.0.103"
 tempfile = "3.27.0"
 rand = "0.10.2"
+base64 = "0.22.1"
 
 [workspace.package]
 edition = "2021"
