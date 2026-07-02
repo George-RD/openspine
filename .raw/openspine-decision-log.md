@@ -928,6 +928,69 @@ D-033 makes action ids exact-match strings with no wildcard/prefix semantics —
 A future action-id scheme intentionally adds qualified variants with their own independent approval requirements (i.e. `:qualifier` becomes meaningful for approval routing, not just descriptive) — that would be its own decision, not a quiet exception carved out for this one action.
 
 ---
+# D-035 — Kernel advertises a separate `advertise_endpoint` from its `bind_addr`; no Unix-domain-socket transport for `ProcessDriver`
+
+## Decision
+
+`openspine.yaml`'s `kernel` block gets a second, optional field,
+`advertise_endpoint`, distinct from `bind_addr`. `bind_addr` is what the
+kernel's HTTP listener binds to; `advertise_endpoint` (default: derived as
+`http://<bind_addr>`) is what the kernel tells the shell to connect to via
+the `KERNEL_ENDPOINT` environment variable. Under `DockerDriver`, an
+operator sets `bind_addr: 0.0.0.0:7777` (so the shell's container can reach
+it) and `advertise_endpoint: http://kernel:7777` (the compose service DNS
+name — `0.0.0.0` is not a connectable destination). Separately, this
+decision narrows D-032's stated transport for `ProcessDriver`: the kernel
+listens on plain TCP loopback (`127.0.0.1:<port>`) under `ProcessDriver`
+too, **not** the Unix domain socket (`data/kernel.sock`) D-032 originally
+specified.
+
+## Rationale
+
+The `advertise_endpoint` split fixes a real reachability bug: `KERNEL_ENDPOINT
+= http://{bind_addr}` breaks the moment `bind_addr` is a wildcard address,
+which it must be for the kernel to be reachable from a Docker container on
+the compose-internal network at all. This is a pure bugfix with no
+downside — the field is optional and defaults to today's loopback-only
+behavior.
+
+The `ProcessDriver` transport narrowing is a real, deliberate walk-back of
+D-032's literal text, not an oversight. Implementing a Unix-domain-socket
+HTTP client for the shell would need either a new dependency (`reqwest`
+has no built-in UDS transport; the closest crates — e.g. `hyperlocal` —
+are not in the approved dependency set and the no-new-deps convention
+requires justification this doesn't clear) or a bespoke `hyper`-based UDS
+connector, disproportionate effort for the security benefit actually
+gained: `ProcessDriver` is already documented as dev/testing-only with "no
+network or filesystem isolation beyond the OS user boundary" (`sandbox.rs`).
+A loopback-only TCP bind is not reachable from any other host and offers
+no materially different exposure than a UDS for a single local dev
+process — the marginal gain of Unix-file-permission-scoped access control
+over "only this machine can connect" doesn't justify the cost here.
+`DockerDriver` (the production path) already gets the real isolation
+guarantee D-032 cares about — an internal-only compose network with no
+host port published for shell↔kernel traffic — via TCP, unchanged.
+
+## Consequences
+
+- `openspine.yaml`'s `kernel.advertise_endpoint` is optional
+  (`#[serde(default)]`); omitting it preserves today's behavior exactly.
+- `ProcessDriver` deployments have no OS-level access control on the
+  kernel API beyond "who can reach 127.0.0.1 on this host" — acceptable
+  per its existing "dev/testing only" flag, not a new exposure.
+- `docs/kernel-http-contract.md` documents both the wire contract and this
+  bind-vs-advertise distinction.
+
+## Would change if
+
+A same-host multi-tenant deployment of `ProcessDriver` becomes a real
+target (several unrelated owners' kernels on one box, where OS-file-
+permission-scoped UDS access control would matter) — that would justify
+revisiting the no-new-deps tradeoff above with fresh rationale, not a
+silent reversal of this one.
+
+---
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -967,3 +1030,4 @@ Potential areas to research before implementation decisions:
 | 2026-04-26 | Initial companion decisions log created from PRD v4–v8 review thread. |
 | 2026-07-02 | Added D-025–D-033 (Rust/Tokio stack, containment driver, model-gateway auth, artifact format/digests, Gmail scopes, Telegram-only UX, deploy target, transport, action-id/non-owner handling); closed O-001–O-008 (Step 0 of the implementation plan). |
 | 2026-07-02 | Added D-034: normalized the email-drafter's create-draft action id to the bare `email.create_draft`, dropping PRD §10.2's qualified spelling to close a would-be approval-bypass gap discovered while implementing Step 2 (`implement-authority-composition`). |
+| 2026-07-02 | Added D-035: split `kernel.advertise_endpoint` from `bind_addr` (fixes Docker-compose shell↔kernel reachability) and narrowed D-032's `ProcessDriver` transport to plain loopback TCP instead of a Unix domain socket, discovered while implementing Step 4 (`implement-telegram-owner-control-slice`). |

@@ -1,0 +1,71 @@
+# compose.yaml — OpenSpine reference deployment (kernel only).
+#
+# SHELL CONTAINERS ARE NOT DEFINED HERE.
+# Shell containers are spawned per-task by the kernel itself using the Docker
+# API via the mounted socket (/var/run/docker.sock).  They run on the
+# openspine-internal network so they can reach the kernel at kernel:7777 but
+# have no public-internet egress (internal: true).  Each shell container is
+# ephemeral (--rm) and is managed entirely by the kernel's DockerDriver; they
+# are not compose-managed services.
+#
+# Secrets: copy .env.example to .env and fill in real values before running.
+# The .env file is gitignored and must never be committed.
+
+name: openspine
+
+networks:
+  # Internal-only network: containers on this network can reach each other
+  # but have no route to the public internet.  The kernel exposes port 7777
+  # here so spawned shell containers can call the kernel API; the shell
+  # containers have no other network attachment, enforcing egress containment
+  # (decision O-003 / PRD §16).
+  openspine-internal:
+    driver: bridge
+    internal: true
+    # Pin the real Docker network name.  Without this, Compose prefixes it with
+    # the project name (e.g. "openspine_openspine-internal"), which would cause
+    # the kernel's `docker run --network openspine-internal` to fail with
+    # "network not found" at runtime.
+    name: openspine-internal
+
+services:
+  kernel:
+    build:
+      context: .
+      dockerfile: Dockerfile.kernel
+    restart: unless-stopped
+    networks:
+      # The kernel needs both networks:
+      # - default (bridge): internet access for Telegram long-polling and
+      #   provider API calls (Anthropic, OpenAI-compat, etc.)
+      # - openspine-internal: reachable as "kernel:7777" by the shell
+      #   containers that DockerDriver spawns onto this network.
+      - default
+      - openspine-internal
+    volumes:
+      # The kernel's config file — copy openspine.docker.example.yaml to
+      # openspine.yaml first (see docs/telegram-setup.md). `bind_addr`/
+      # `advertise_endpoint`/`sandbox.docker_*` all live in here now, not
+      # in this compose file's `environment:` (D-035) — there used to be
+      # KERNEL_ENDPOINT/SHELL_IMAGE_TAG/SHELL_NETWORK env vars here, but
+      # the kernel never read any of the three; they were silently
+      # ignored. Config-file-driven avoids a second, parallel config
+      # surface that could drift from what `config.rs` actually parses.
+      - ./openspine.yaml:/app/openspine.yaml:ro
+      # Persistent data: SQLite DB, encrypted artifact blobs, credentials.
+      - ./data:/app/data
+      # Docker socket: the kernel uses this to spawn per-task shell containers
+      # via DockerDriver (docker run --rm --network openspine-internal ...).
+      # The socket grants significant privileges; in production restrict the
+      # kernel process to the docker group and use a socket proxy (e.g.
+      # tecnativa/docker-socket-proxy) if the threat model requires it.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # All secrets come from the .env file; nothing is hardcoded here.
+    # Copy .env.example to .env and fill in real values.
+    env_file:
+      - .env
+    # Port 7777 is NOT published to the host; the kernel API is only reachable
+    # from inside the openspine-internal network (by shell containers) and from
+    # the kernel's own process.  Expose it here only for documentation clarity.
+    expose:
+      - "7777"
