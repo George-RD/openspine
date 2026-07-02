@@ -23,6 +23,12 @@ pub struct GrantLimits {
 /// kernel↔shell transport bearer secret minted at grant issuance (D-032),
 /// recorded here because the kernel must be able to look up "which grant
 /// does this token authenticate" from the grant alone.
+///
+/// **Redaction warning (for Step 4/the kernel):** `task_token` is a live
+/// bearer secret. Any place a `TaskGrant` is serialized outward — audit
+/// rows, `GET /v1/status`, logs — MUST project through a redacted view
+/// that omits it, never serialize this struct directly to an
+/// external-facing surface.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TaskGrant {

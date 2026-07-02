@@ -46,6 +46,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-031 | Docker Compose is the first reference deployment target                  | Accepted       |
 | D-032 | Kernel↔shell transport is HTTP/JSON with a per-task bearer token          | Accepted       |
 | D-033 | Action identifiers are exact-match dotted strings; unverified senders are audited and ignored | Accepted |
+| D-034 | `email.create_draft` is the one canonical action id (PRD §10.2's qualified spelling dropped) | Accepted |
 
 ---
 
@@ -907,6 +908,28 @@ Action-id volume grows large enough that hierarchical/prefix matching is needed 
 
 ---
 
+# D-034 — `email.create_draft` is the one canonical action id; the qualified PRD §10.2 spelling is dropped
+
+## Decision
+
+The only action id for creating a Gmail draft is the bare `email.create_draft` (matching PRD §11.2's pack and §12.2's task-grant example). PRD §10.2's `email_reply_drafter.designed_tools` entry `email.create_draft:after_payload_approval` is treated as a PRD-internal inconsistency and is **not** used anywhere in the implementation; the Lyra fixture (`artifacts/lyra/agents/email_reply_drafter.yaml`) transcribes the bare id instead, with an inline note.
+
+## Rationale
+
+D-033 makes action ids exact-match strings with no wildcard/prefix semantics — two different spellings of "the same" action are, to `gate()` and to authority composition, two unrelated actions. Authority composition (Step 2, `implement-authority-composition`) unions an agent's `designed_tools` into the candidate-allow set. Keeping the qualified spelling would put `email.create_draft:after_payload_approval` into `allowed_actions` as a **plain allow** — with no corresponding entry in any pack's `approval_required` list — silently bypassing the digest-bound approval gate (D-011) that the qualifier's own name claims to require. PRD §12.2's task grant example is unambiguous ground truth: no `create_draft` variant ever appears in `allowed_actions`, only in `approval_required_actions`, and only as the bare id. Discovered while implementing Step 2's compose_authority merge logic; caught before any code shipped that could have made the bug live.
+
+## Consequences
+
+- `email.create_draft` is the only spelling used in Lyra fixtures, `openspine-authority` tests, and (later) `openspine-kernel`'s Gmail draft connector action.
+- `openspine-authority`'s test suite includes a regression test asserting the composed selected-thread-email task grant exactly matches PRD §12.2: no `create_draft` variant in `allowed_actions`, exactly `email.create_draft` in `approval_required_actions`.
+
+## Would change if
+
+A future action-id scheme intentionally adds qualified variants with their own independent approval requirements (i.e. `:qualifier` becomes meaningful for approval routing, not just descriptive) — that would be its own decision, not a quiet exception carved out for this one action.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -943,3 +966,4 @@ Potential areas to research before implementation decisions:
 | ---------- | --------------------------------------------------------------------- |
 | 2026-04-26 | Initial companion decisions log created from PRD v4–v8 review thread. |
 | 2026-07-02 | Added D-025–D-033 (Rust/Tokio stack, containment driver, model-gateway auth, artifact format/digests, Gmail scopes, Telegram-only UX, deploy target, transport, action-id/non-owner handling); closed O-001–O-008 (Step 0 of the implementation plan). |
+| 2026-07-02 | Added D-034: normalized the email-drafter's create-draft action id to the bare `email.create_draft`, dropping PRD §10.2's qualified spelling to close a would-be approval-bypass gap discovered while implementing Step 2 (`implement-authority-composition`). |

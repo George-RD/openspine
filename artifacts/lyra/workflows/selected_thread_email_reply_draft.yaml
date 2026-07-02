@@ -14,3 +14,9 @@ steps:
   - route to email_reply_drafter with a bounded task grant
   - "read the selected thread as untrusted data via email.read_thread:selected_no_attachments"
   - draft a reply via the model gateway and preview it to the owner
+candidate_allowed_actions:
+  - "email.read_thread:selected_no_attachments"
+  - "model.generate:approved_provider"
+approval_required:
+  - email.create_draft
+denied_actions: []

@@ -1,6 +1,17 @@
 # Transcribed verbatim (field values) from PRD §10.2.
 # Note: PRD §10.2's example has no approval_required_tools entry (unlike
 # §10.1's main_assistant_agent) — omitted here rather than fabricated.
+# Resolved inconsistency: PRD §10.2's designed_tools lists
+# "email.create_draft:after_payload_approval", but PRD §11.2's pack and
+# §12.2's task-grant example both use the bare "email.create_draft" for
+# approval_required. Under D-033 exact-match action ids these are two
+# different identifiers — keeping the qualified spelling here would let
+# authority composition (Step 2) union it into allowed_actions as a plain
+# allow, bypassing the digest-bound approval gate the qualifier's own name
+# claims to require. The bare id is authoritative (PRD §12.2's task grant
+# is the ground truth: no create_draft variant ever appears in
+# allowed_actions, only in approval_required_actions) — normalized here to
+# `email.create_draft` so one action id means one thing everywhere.
 id: email_reply_drafter
 schema_version: 1
 lifecycle_state: active
@@ -21,7 +32,7 @@ designed_tools:
   - "memory.read:writing_preferences_scoped"
   - "artifact.write:task_scratch"
   - lyra.ui.preview
-  - "email.create_draft:after_payload_approval"
+  - email.create_draft
 denied_tools:
   - email.send
   - email.read_inbox

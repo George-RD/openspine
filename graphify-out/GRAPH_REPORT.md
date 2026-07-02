@@ -1,12 +1,12 @@
 # Graph Report - openspine  (2026-07-02)
 
 ## Corpus Check
-- 22 files · ~21,757 words
+- 26 files · ~25,967 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 335 nodes · 738 edges · 19 communities detected
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 60 edges (avg confidence: 0.84)
+- 388 nodes · 951 edges · 20 communities detected
+- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 179 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -29,26 +29,27 @@
 - [[_COMMUNITY_Community 16|Community 16]]
 - [[_COMMUNITY_Community 17|Community 17]]
 - [[_COMMUNITY_Community 18|Community 18]]
+- [[_COMMUNITY_Community 19|Community 19]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `gate() — Action Mediation Function` - 48 edges
 2. `Task Grant (Live Authority Object)` - 41 edges
-3. `Audit Event` - 19 edges
-4. `Approval Record Schema` - 19 edges
-5. `Selected-Thread Selection Token` - 17 edges
-6. `Deny-by-Default Authority Policy` - 16 edges
-7. `Design: Core Runtime Schemas` - 16 edges
-8. `Event Envelope` - 14 edges
-9. `Change: Define Dev Process — Proposal` - 13 edges
-10. `Gate Decision Type` - 13 edges
+3. `owner_route()` - 23 edges
+4. `owner_event()` - 22 edges
+5. `Audit Event` - 19 edges
+6. `Approval Record Schema` - 19 edges
+7. `Selected-Thread Selection Token` - 17 edges
+8. `Deny-by-Default Authority Policy` - 16 edges
+9. `Design: Core Runtime Schemas` - 16 edges
+10. `compose_authority()` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Repo Index (Markdown)` --semantically_similar_to--> `Repo Index (Plain Text)`  [INFERRED] [semantically similar]
   repo-index.md → repo-index.txt
 - `Selected-Thread Selection Token` --semantically_similar_to--> `Approval Record Schema`  [INFERRED] [semantically similar]
   openspine-full-openspec-conflux-bundle/openspec/specs/core-runtime-schemas/spec.md → openspine-remaining-openspec-bundle/openspec/changes/define-core-runtime-schemas/design.md
-- `Deny-by-Default Authority Policy` --semantically_similar_to--> `Authority-Sensitive Change Marking`  [INFERRED] [semantically similar]
-  openspine-full-openspec-conflux-bundle/openspec/specs/authority-composition/spec.md → openspec/changes/define-openspine-development-process/design.md
+- `Selected-Thread Selection Token` --semantically_similar_to--> `Selected-Thread Token`  [INFERRED] [semantically similar]
+  openspine-full-openspec-conflux-bundle/openspec/specs/core-runtime-schemas/spec.md → openspec/changes/implement-selected-thread-email-preview-slice/design.md
 - `Skills Index (Markdown)` --semantically_similar_to--> `Skills Index (Plain Text)`  [INFERRED] [semantically similar]
   skills-index.md → skills-index.txt
 - `Selected-Thread Selection Token` --semantically_similar_to--> `Route Artifact Schema`  [INFERRED] [semantically similar]
@@ -72,104 +73,108 @@
 
 ### Community 0 - "Community 0"
 Cohesion: 0.11
-Nodes (60): Action Request Type, Agent Manifest Schema, Artifact Ref (protected reference for private payloads), Audit Event, Gate Audit Metadata, Authority Composition (Runtime Concept), Tasks: Implement Authority Composition, Bundle: Core Runtime Schemas Spec (+52 more)
+Nodes (63): Action Request Type, Agent Manifest Schema, Artifact Ref (protected reference for private payloads), Audit Event, Gate Audit Metadata, Authority Composition, Bundle: Define Core Runtime Schemas Proposal, Bundle: Core Runtime Schemas Spec (+55 more)
 
 ### Community 1 - "Community 1"
+Cohesion: 0.12
+Nodes (52): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), empty_session_policy(), global_policy(), owner_control_conversation_workflow(), owner_control_input() (+44 more)
+
+### Community 2 - "Community 2"
+Cohesion: 0.1
+Nodes (37): Approval-Required Overrides Plain Allow, Authority Composer (produces task grants from intersected sources), Authority Composition (Runtime Concept), Design: Authority Composition, Proposal: Implement Authority Composition, Spec: Authority Composition, Tasks: Implement Authority Composition, Authority-Sensitive Change Marking (+29 more)
+
+### Community 3 - "Community 3"
 Cohesion: 0.08
 Nodes (18): ApprovalDecision, ApprovalRecord, matches_rejects_expired_approval(), matches_rejects_non_approved_decisions(), matches_requires_both_digests_and_approved_decision(), round_trips_through_serde(), sample_approval(), TimeoutBehavior (+10 more)
 
-### Community 2 - "Community 2"
-Cohesion: 0.08
-Nodes (24): action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionId, ActionRequest, DenialReason, GateDecision, InstructionSources, ModelRequest (+16 more)
-
-### Community 3 - "Community 3"
-Cohesion: 0.18
-Nodes (27): Authority Composition, OpenSpine Remaining OpenSpec Bundle, OpenSpine Change Backlog, Change: define-core-runtime-schemas, Change: define-openspine-development-process (baseline), Change: define-openspine-development-process, Change: Define Dev Process — Design, Change: Define Dev Process — Proposal (+19 more)
-
 ### Community 4 - "Community 4"
-Cohesion: 0.21
-Nodes (25): Approval Record Schema, Bundle: Define Core Runtime Schemas Proposal, Bundle: Digest-Bound Draft Approval Design, Bundle: Digest-Bound Draft Approval Proposal, Bundle: Digest-Bound Draft Approval Spec, Bundle: Digest-Bound Draft Approval Tasks, Capability Pack, Design: Digest-Bound Draft Approval (+17 more)
+Cohesion: 0.19
+Nodes (27): Approval Record Schema, Bundle: Digest-Bound Draft Approval Design, Bundle: Digest-Bound Draft Approval Proposal, Bundle: Digest-Bound Draft Approval Spec, Bundle: Digest-Bound Draft Approval Tasks, Design: Digest-Bound Draft Approval, Proposal: Implement Digest-Bound Draft Approval, Digest-Bound Approval Record (+19 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.17
-Nodes (23): Authority-Sensitive Change Marking, Change Layer Classification (Core / Product / Both / Tooling), Main Assistant Agent, OpenSpec/OpenSpine Development Boundary, OpenSpine Development Lifecycle (explore→propose→spec→apply→archive), Design: OpenSpine Development Process, Proposal: Define OpenSpine Development Process, Spec: OpenSpine Development Process (+15 more)
-
-### Community 6 - "Community 6"
 Cohesion: 0.11
 Nodes (18): AccountRole, ActorHint, ChannelTrust, Connector, DataClassification, EventEnvelope, EventType, InteractionMode (+10 more)
+
+### Community 6 - "Community 6"
+Cohesion: 0.23
+Nodes (21): OpenSpine Remaining OpenSpec Bundle, OpenSpine Change Backlog, Change: define-core-runtime-schemas, Change: define-openspine-development-process (baseline), Change: define-openspine-development-process, Change: Define Dev Process — Design, Change: Define Dev Process — Proposal, Change: Define Dev Process — Tasks (+13 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.18
 Nodes (13): deny_unknown_fields_rejects_capability_pack_id(), EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity, identity_json_has_no_authority_field(), IdentityResolution (+5 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.19
-Nodes (9): effect_defaults_to_allow_when_omitted(), owner_route(), round_trips_through_serde(), Route, route_can_be_a_deny_route(), RouteActorWhen, RouteEffect, RouteResolution (+1 more)
+Cohesion: 0.17
+Nodes (6): action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionId, ActionRequest, DenialReason, GateDecision
 
 ### Community 9 - "Community 9"
-Cohesion: 0.22
-Nodes (13): Approval-Required Overrides Plain Allow, Authority Composer (produces task grants from intersected sources), Design: Authority Composition, Proposal: Implement Authority Composition, Spec: Authority Composition, Deny-by-Default Authority Policy, Explicit Deny Overrides Allow, Rationale: Authority Composition Must Be Deny-by-Default (+5 more)
+Cohesion: 0.17
+Nodes (8): effect_defaults_to_allow_when_omitted(), round_trips_through_serde(), Route, route_can_be_a_deny_route(), RouteActorWhen, RouteEffect, RouteResolution, RouteWhen
 
 ### Community 10 - "Community 10"
 Cohesion: 0.35
 Nodes (12): AGENTS.md — Agent Instructions, CLAUDE.md — Claude Instructions, Graphify Knowledge Graph Tool, OpenSpine Review Bundle, Repo Index (Markdown), Repo Index (Plain Text), Skill: openspec-apply-change, Skill: openspec-archive-change (+4 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.24
-Nodes (7): round_trips_through_serde(), sample_token(), SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod, single_use_defaults_to_true_when_omitted()
+Cohesion: 0.35
+Nodes (10): agent_manifests_round_trip(), artifacts_dir(), email_grant_pack_excludes_read_inbox_and_send(), every_fixture_file_is_covered_by_a_test(), global_policy_round_trips_and_denies_send(), owner_control_pack_round_trips(), owner_email_selected_thread_route_is_expressible_declaratively(), owner_telegram_route_is_expressible_declaratively() (+2 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.24
-Nodes (9): AgentLimits, AgentManifest, main_assistant_agent(), main_assistant_denies_broad_email_access(), MemoryScope, ModelPolicy, OutputChannels, Persistence (+1 more)
+Nodes (7): round_trips_through_serde(), sample_token(), SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod, single_use_defaults_to_true_when_omitted()
 
 ### Community 13 - "Community 13"
-Cohesion: 0.25
-Nodes (2): ArtifactRef, Lifecycle
+Cohesion: 0.2
+Nodes (8): InstructionSources, ModelRequest, OutputPolicy, Provider, RedactionRequirement, RetentionMode, round_trips_through_serde(), StoreOutputPolicy
 
 ### Community 14 - "Community 14"
+Cohesion: 0.22
+Nodes (2): ArtifactRef, Lifecycle
+
+### Community 15 - "Community 15"
+Cohesion: 0.22
+Nodes (8): AgentLimits, AgentManifest, main_assistant_denies_broad_email_access(), MemoryScope, ModelPolicy, OutputChannels, Persistence, round_trips_through_serde()
+
+### Community 16 - "Community 16"
 Cohesion: 0.36
 Nodes (6): authority_sources_use_kind_id_version_format(), GrantLimits, is_expired_uses_expires_at(), owner_control_grant(), round_trips_through_serde(), TaskGrant
 
-### Community 15 - "Community 15"
+### Community 17 - "Community 17"
 Cohesion: 0.33
 Nodes (3): Constraints, Policy, SessionPolicy
 
-### Community 16 - "Community 16"
-Cohesion: 0.47
-Nodes (5): allow_and_deny_lists_never_overlap_in_the_fixture(), AppliesTo, CapabilityPack, owner_control_basic_pack(), round_trips_through_serde()
+### Community 18 - "Community 18"
+Cohesion: 0.5
+Nodes (1): WorkflowManifest
 
-### Community 17 - "Community 17"
+### Community 19 - "Community 19"
 Cohesion: 0.67
 Nodes (1): main()
 
-### Community 18 - "Community 18"
-Cohesion: 0.67
-Nodes (1): WorkflowManifest
-
 ## Knowledge Gaps
-- **76 isolated node(s):** `Constraints`, `Policy`, `SessionPolicy`, `DenialReason`, `GateDecision` (+71 more)
+- **78 isolated node(s):** `AuthorityInput`, `AuthorityOutcome`, `Constraints`, `Policy`, `SessionPolicy` (+73 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 13`** (8 nodes): `artifact.rs`, `artifact_ref_rejects_unknown_fields()`, `ArtifactRef`, `can_transition()`, `happy_path_chain_is_legal()`, `Lifecycle`, `no_skipping_stages()`, `terminal_states_have_no_outgoing_transitions()`
+- **Thin community `Community 14`** (9 nodes): `artifact.rs`, `artifact_ref_rejects_unknown_fields()`, `ArtifactRef`, `can_transition()`, `default_version()`, `happy_path_chain_is_legal()`, `Lifecycle`, `no_skipping_stages()`, `terminal_states_have_no_outgoing_transitions()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 17`** (3 nodes): `main.rs`, `main.rs`, `main()`
+- **Thin community `Community 18`** (4 nodes): `workflow.rs`, `action_lists_default_to_empty_when_omitted()`, `round_trips_through_serde()`, `WorkflowManifest`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 18`** (3 nodes): `workflow.rs`, `round_trips_through_serde()`, `WorkflowManifest`
+- **Thin community `Community 19`** (3 nodes): `main.rs`, `main.rs`, `main()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `gate() — Action Mediation Function` connect `Community 0` to `Community 9`, `Community 3`, `Community 4`, `Community 5`?**
-  _High betweenness centrality (0.073) - this node is a cross-community bridge._
-- **Why does `Task Grant (Live Authority Object)` connect `Community 0` to `Community 9`, `Community 3`, `Community 4`, `Community 5`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **Why does `OpenSpec (Development/Change-Management Layer)` connect `Community 3` to `Community 10`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `gate() — Action Mediation Function` connect `Community 0` to `Community 2`, `Community 4`, `Community 6`?**
+  _High betweenness centrality (0.055) - this node is a cross-community bridge._
+- **Why does `sample_envelope()` connect `Community 5` to `Community 1`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
+- **Why does `owner_route()` connect `Community 1` to `Community 9`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `gate() — Action Mediation Function` (e.g. with `Action Request Type` and `Gate Decision Type`) actually correct?**
   _`gate() — Action Mediation Function` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `Task Grant (Live Authority Object)` (e.g. with `Owner-Control Task Grant` and `Authority Composition`) actually correct?**
   _`Task Grant (Live Authority Object)` has 2 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 6 inferred relationships involving `Approval Record Schema` (e.g. with `gate() — Action Mediation Function` and `Selected-Thread Selection Token`) actually correct?**
-  _`Approval Record Schema` has 6 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 4 inferred relationships involving `Selected-Thread Selection Token` (e.g. with `Digest-Bound Approval` and `Approval Record Schema`) actually correct?**
-  _`Selected-Thread Selection Token` has 4 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 10 inferred relationships involving `owner_route()` (e.g. with `owner_control_grant_matches_prd_12_1()` and `no_candidate_allow_means_action_is_not_granted()`) actually correct?**
+  _`owner_route()` has 10 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 11 inferred relationships involving `owner_event()` (e.g. with `owner_control_grant_matches_prd_12_1()` and `no_candidate_allow_means_action_is_not_granted()`) actually correct?**
+  _`owner_event()` has 11 INFERRED edges - model-reasoned connections that need verification._
