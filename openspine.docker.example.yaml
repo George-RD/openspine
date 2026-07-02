@@ -1,0 +1,35 @@
+# openspine.yaml — Docker Compose example (DockerDriver, compose-internal
+# network). Copy to openspine.yaml before `docker compose up` — compose.yaml
+# mounts that file into the kernel container at /app/openspine.yaml.
+#
+# See docs/kernel-http-contract.md's "Environment" section and decision
+# D-035 for why bind_addr and advertise_endpoint differ here: the kernel
+# must bind a wildcard address to be reachable from the shell's container,
+# but "0.0.0.0" is not a connectable destination, so the shell is told the
+# compose service DNS name instead.
+
+data_dir: /app/data
+
+sandbox:
+  driver: docker
+  docker_image: openspine-shell:latest
+  docker_network: openspine-internal
+
+owner:
+  telegram_user_id: 123456789 # replace with your own numeric Telegram user id
+  display_name: "Your Name"
+
+providers:
+  - id: anthropic
+    kind: anthropic
+    model: claude-sonnet-4-20250514 # pick a real, currently-supported model id
+    auth:
+      mode: api_key
+      env: ANTHROPIC_API_KEY
+
+kernel:
+  bind_addr: "0.0.0.0:7777" # reachable from shell containers on the compose network
+  advertise_endpoint: "http://kernel:7777" # the compose service DNS name
+
+# lyra_dir defaults to ./artifacts/lyra; if the fixtures aren't baked into
+# the kernel image at that path, set this explicitly and mount accordingly.

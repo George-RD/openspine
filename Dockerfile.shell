@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Dockerfile.shell — multi-stage build for the OpenSpine shell binary.
+#
+# The shell container is the sandboxed agent worker: it receives only
+# KERNEL_ENDPOINT and TASK_TOKEN from the kernel (via DockerDriver), has no
+# access to any secrets, and is attached to an internal-only Docker network
+# so it cannot reach the public internet (decision O-003 / PRD §16).
+#
+# The runtime stage uses distroless/cc (glibc + minimal libs, no shell, no
+# package manager) to minimize the attack surface of a container that runs
+# untrusted-adjacent logic.
+# ──────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: build ────────────────────────────────────────────────────────
+FROM rust:1-slim AS builder
+
+WORKDIR /build
+
+# System build dependencies (see Dockerfile.kernel for rationale).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the entire workspace (inter-crate deps require it).
+COPY . .
+
+# Build only the shell binary in release mode.
+RUN cargo build --release -p openspine-shell
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────
+# distroless/cc-debian12 provides glibc + libgcc (sufficient for a standard
+# Rust dynamically-linked binary) with no shell, no package manager, and
+# minimal installed software.  The "nonroot" variant runs as uid 65532 by
+# default.
+FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+
+# Copy the shell binary from the builder stage.
+COPY --from=builder /build/target/release/openspine-shell /usr/local/bin/openspine-shell
+
+# The nonroot distroless image already sets USER to a non-root uid (65532).
+# No WORKDIR needed: the shell has no persistent state (scratch is tmpfs).
+
+ENTRYPOINT ["/usr/local/bin/openspine-shell"]

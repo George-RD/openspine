@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Dockerfile.kernel — multi-stage build for the OpenSpine kernel binary.
+#
+# The kernel needs the Docker CLI installed in the final image so it can
+# shell out to `docker run` for DockerDriver (SandboxDriver trait, decision
+# O-003).  The compose.yaml mounts the host Docker socket at
+# /var/run/docker.sock; the kernel never runs a Docker daemon itself.
+# ──────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1: build ────────────────────────────────────────────────────────
+FROM rust:1-slim AS builder
+
+WORKDIR /build
+
+# Install system build dependencies.
+# - pkg-config / libssl-dev: needed if any transitive dep uses native-tls
+#   (teloxide's reqwest may pull it in before our rustls override takes effect).
+# - ca-certificates: needed for HTTPS in the build environment.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the entire workspace (inter-crate deps require it).
+COPY . .
+
+# Build only the kernel binary in release mode.
+RUN cargo build --release -p openspine-kernel
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
+
+# Install only the Docker CLI (docker-ce-cli from Docker's official apt repo —
+# much smaller than debian's docker.io meta-package which drags in containerd,
+# runc, iptables, etc.).  The Docker daemon is NOT started inside this
+# container; the kernel talks to the host daemon via the mounted socket.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
+           -o /etc/apt/keyrings/docker.asc \
+    && chmod a+r /etc/apt/keyrings/docker.asc \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+             https://download.docker.com/linux/debian bookworm stable" \
+           > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends docker-ce-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for the kernel process.
+RUN groupadd --gid 10001 openspine \
+    && useradd --uid 10001 --gid 10001 --shell /bin/false --no-create-home openspine
+
+# Copy the kernel binary from the builder stage.
+COPY --from=builder /build/target/release/openspine /usr/local/bin/openspine
+
+# The docker socket and data volume are mounted at runtime by compose.yaml.
+WORKDIR /app
+
+# Expose the kernel API port (internal network only — see compose.yaml).
+EXPOSE 7777
+
+# Run as non-root.  The Docker socket (/var/run/docker.sock) must be
+# accessible to this user; in the compose deployment the socket's group
+# ownership matches the host's docker group and the openspine user is added
+# to a supplemental group in the compose override if needed.
+USER openspine
+
+ENTRYPOINT ["/usr/local/bin/openspine"]

@@ -112,6 +112,17 @@ pub fn digest_of<T: Serialize>(v: &T) -> Digest {
     Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
 }
 
+/// Digest raw bytes directly (no canonical-JSON step). Used by the
+/// artifact store (Step 4) to content-address encrypted blob plaintext
+/// before encryption — the digest must be over the *plaintext* content, not
+/// ciphertext (which varies per random nonce), so digest-bound approvals
+/// (D-011) and content-addressed storage both see the same identity.
+pub fn digest_of_bytes(bytes: &[u8]) -> Digest {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
+}
+
 fn to_hex(bytes: &[u8]) -> String {
     use fmt::Write as _;
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -173,5 +184,19 @@ mod tests {
         let json = serde_json::to_string(&d).unwrap();
         let back: Digest = serde_json::from_str(&json).unwrap();
         assert_eq!(d, back);
+    }
+
+    #[test]
+    fn digest_of_bytes_hashes_raw_content_directly() {
+        let d = digest_of_bytes(b"hello world");
+        // Independently computed sha256("hello world").
+        assert_eq!(
+            d.as_str(),
+            "sha256:b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+        // Different from digesting the same bytes as a JSON string (which
+        // canonical-JSON-quotes them first) — these are deliberately
+        // different pre-images.
+        assert_ne!(d, digest_of(&"hello world"));
     }
 }

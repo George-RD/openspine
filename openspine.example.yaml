@@ -1,0 +1,34 @@
+# openspine.yaml — dev/local example (ProcessDriver, loopback-only).
+#
+# Copy to openspine.yaml (gitignored) and fill in your own owner/provider
+# details. See docs/telegram-setup.md for the full walkthrough — bot token,
+# owner Telegram user ID, and artifact key are all sourced from environment
+# variables, never from this file.
+#
+# For a Docker Compose deployment, start from openspine.docker.example.yaml
+# instead — the sandbox driver, network reachability, and bind address all
+# differ (see docs/kernel-http-contract.md's "Environment" section, D-035).
+
+data_dir: ./data
+
+sandbox:
+  driver: process # dev/testing only — see docs/telegram-setup.md §5
+
+owner:
+  telegram_user_id: 123456789 # replace with your own numeric Telegram user id
+  display_name: "Your Name"
+
+providers:
+  - id: anthropic
+    kind: anthropic
+    model: claude-sonnet-4-20250514 # pick a real, currently-supported model id
+    auth:
+      mode: api_key
+      env: ANTHROPIC_API_KEY
+
+kernel:
+  bind_addr: "127.0.0.1:7777"
+  # advertise_endpoint omitted: derives http://127.0.0.1:7777, correct when
+  # the kernel and shell share one host (the process driver's only mode).
+
+# lyra_dir omitted: defaults to ./artifacts/lyra, this repo's fixtures.
