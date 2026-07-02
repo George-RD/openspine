@@ -1,6 +1,8 @@
 use super::*;
 use crate::test_support::fixtures::*;
 
+mod approval;
+
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
     let state = test_state();
@@ -75,6 +77,7 @@ async fn draft_command_for_a_missing_thread_mints_no_grant() {
         "id".to_string(),
         "secret".to_string(),
         "refresh".to_string(),
+        "owner@example.com".to_string(),
     )
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri());
     let state = test_state_with_gmail(gmail);
@@ -112,6 +115,7 @@ async fn draft_command_for_a_real_thread_composes_a_bound_selection_grant() {
         "id".to_string(),
         "secret".to_string(),
         "refresh".to_string(),
+        "owner@example.com".to_string(),
     )
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri());
     let mut state = test_state_with_gmail(gmail);
@@ -183,6 +187,7 @@ async fn draft_command_is_refused_without_the_unsafe_flag_under_process_driver()
         "id".to_string(),
         "secret".to_string(),
         "refresh".to_string(),
+        "owner@example.com".to_string(),
     )
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri());
     // D-025 / O-003: `unsafe_allow_uncontained_private_data` stays at

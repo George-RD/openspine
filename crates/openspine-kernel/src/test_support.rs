@@ -72,6 +72,7 @@ pub(crate) mod fixtures {
             is_private_chat: true,
             sender_user_id: Some(42),
             text: Some(text.to_string()),
+            ..Default::default()
         }
     }
 }

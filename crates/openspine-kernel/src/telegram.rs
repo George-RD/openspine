@@ -16,10 +16,11 @@ use openspine_schemas::event::{
     InteractionMode, Lane, Source, TrustContext, VerificationMethod,
 };
 use teloxide::prelude::*;
+use teloxide::types::{CallbackQueryId, InlineKeyboardButton, InlineKeyboardMarkup};
 use ulid::Ulid;
 
 /// Minimal, testable projection of one Telegram update.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TelegramUpdate {
     pub update_id: i64,
     pub chat_id: i64,
@@ -33,17 +34,44 @@ pub struct TelegramUpdate {
     pub is_private_chat: bool,
     pub sender_user_id: Option<i64>,
     pub text: Option<String>,
+    /// Set only for a tap on an inline keyboard button (D-039) — `text`
+    /// is always `None` on the same update, never both at once.
+    pub callback_query: Option<CallbackQueryUpdate>,
+}
+
+/// A tap on an inline keyboard button. `id` must be echoed back via
+/// `answerCallbackQuery` (stops the tapping client's loading spinner);
+/// `data` is the button's `callback_data`, `None` only for Telegram's own
+/// game/`inline_message_id` callback shapes this connector never sends.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CallbackQueryUpdate {
+    pub id: String,
+    pub data: Option<String>,
 }
 
 fn project_update(update: &teloxide::types::Update) -> TelegramUpdate {
-    let (chat_id, is_private_chat, sender_user_id, text) = match &update.kind {
+    let (chat_id, is_private_chat, sender_user_id, text, callback_query) = match &update.kind {
         teloxide::types::UpdateKind::Message(msg) => (
             Some(msg.chat.id.0),
             msg.chat.is_private(),
             msg.from.as_ref().map(|u| u.id.0 as i64),
             msg.text().map(str::to_string),
+            None,
         ),
-        _ => (None, false, None, None),
+        teloxide::types::UpdateKind::CallbackQuery(cb) => {
+            let chat = cb.message.as_ref().map(|m| m.chat());
+            (
+                chat.map(|c| c.id.0),
+                chat.is_some_and(|c| c.is_private()),
+                Some(cb.from.id.0 as i64),
+                None,
+                Some(CallbackQueryUpdate {
+                    id: cb.id.0.clone(),
+                    data: cb.data.clone(),
+                }),
+            )
+        }
+        _ => (None, false, None, None, None),
     };
     TelegramUpdate {
         update_id: update.id.0 as i64,
@@ -51,6 +79,7 @@ fn project_update(update: &teloxide::types::Update) -> TelegramUpdate {
         is_private_chat,
         sender_user_id,
         text,
+        callback_query,
     }
 }
 
@@ -59,19 +88,51 @@ fn project_update(update: &teloxide::types::Update) -> TelegramUpdate {
 pub enum VerifiedUpdate {
     /// A text message from the configured owner, in their private chat.
     OwnerMessage { chat_id: i64, text: String },
-    /// Anything else — non-owner sender, no sender, a non-text update, or
-    /// (even from the owner) a non-private chat. Audited and ignored,
-    /// never routed (spec.md: "the event MUST NOT receive owner-control
-    /// authority").
+    /// A tap on an inline keyboard button from the configured owner, in
+    /// their private chat (D-039) — same verification guarantee as
+    /// `OwnerMessage`, just a different input shape.
+    OwnerCallback {
+        chat_id: i64,
+        callback_query_id: String,
+        data: String,
+    },
+    /// Anything else — non-owner sender, no sender, a non-text/callback
+    /// update, or (even from the owner) a non-private chat. Audited and
+    /// ignored, never routed (spec.md: "the event MUST NOT receive
+    /// owner-control authority").
     Ignored { reason: &'static str },
 }
 
 /// Verify one update against `owner_user_id`. Pure function — the entire
 /// owner-verification decision lives here, unit-tested exhaustively.
-/// Requires BOTH the sender id match AND a private chat: a message from
-/// the owner posted in a group they belong to must never be treated as
-/// owner-control (the reply would be visible to the whole group).
+/// Requires BOTH the sender id match AND a private chat: a message (or
+/// callback tap) from the owner in a group they belong to must never be
+/// treated as owner-control (the reply/effect would be visible to the
+/// whole group).
 pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpdate {
+    if let Some(cb) = &update.callback_query {
+        return match (update.sender_user_id, &cb.data) {
+            (Some(uid), Some(_)) if uid == owner_user_id && !update.is_private_chat => {
+                VerifiedUpdate::Ignored {
+                    reason: "owner_message_outside_private_chat",
+                }
+            }
+            (Some(uid), Some(data)) if uid == owner_user_id => VerifiedUpdate::OwnerCallback {
+                chat_id: update.chat_id,
+                callback_query_id: cb.id.clone(),
+                data: data.clone(),
+            },
+            (Some(_), Some(_)) => VerifiedUpdate::Ignored {
+                reason: "unknown_telegram_user",
+            },
+            (None, _) => VerifiedUpdate::Ignored {
+                reason: "no_sender",
+            },
+            (_, None) => VerifiedUpdate::Ignored {
+                reason: "callback_query_missing_data",
+            },
+        };
+    }
     match (update.sender_user_id, &update.text) {
         (Some(uid), Some(_)) if uid == owner_user_id && !update.is_private_chat => {
             VerifiedUpdate::Ignored {
@@ -92,6 +153,17 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
             reason: "non_text_update",
         },
     }
+}
+
+/// D-039: parse the inline "Approve" button's `callback_data`. Returns
+/// `None` for anything that isn't this exact, well-formed shape (missing
+/// prefix, or a suffix that isn't a valid [`Ulid`]) — a malformed or
+/// foreign `callback_data` value must never be misread as approving some
+/// other request.
+const APPROVE_CALLBACK_PREFIX: &str = "approve_draft:";
+
+pub fn parse_approve_callback(data: &str) -> Option<Ulid> {
+    data.strip_prefix(APPROVE_CALLBACK_PREFIX)?.parse().ok()
 }
 
 /// PRD §21.1 step 1 / D-036: the Phase-2 thread-selection trigger is this
@@ -218,12 +290,49 @@ impl TelegramConnector {
         self.bot.send_message(ChatId(chat_id), text).await?;
         Ok(())
     }
+
+    /// Send `text` to `chat_id` with a single inline "Approve" button
+    /// (D-039/D-043) whose `callback_data` names `action_request_id` —
+    /// [`parse_approve_callback`] is the only thing that ever reads it
+    /// back. Same channel-binding caveat as [`Self::send_reply`]: the
+    /// caller must already have verified `chat_id`.
+    pub async fn send_reply_with_approval_button(
+        &self,
+        chat_id: i64,
+        text: &str,
+        action_request_id: Ulid,
+    ) -> anyhow::Result<()> {
+        let button = InlineKeyboardButton::callback(
+            "Approve",
+            format!("{APPROVE_CALLBACK_PREFIX}{action_request_id}"),
+        );
+        let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
+        self.bot
+            .send_message(ChatId(chat_id), text)
+            .reply_markup(markup)
+            .await?;
+        Ok(())
+    }
+
+    /// Stop the tapping client's loading spinner (D-039). Best-effort:
+    /// the approval decision itself is already recorded by the time this
+    /// is called, so a failure here is logged, never propagated — the
+    /// owner's tap has already done its job regardless of whether
+    /// Telegram's own UI acknowledgment succeeds.
+    pub async fn answer_callback_query(&self, callback_query_id: &str) {
+        if let Err(err) = self
+            .bot
+            .answer_callback_query(CallbackQueryId(callback_query_id.to_string()))
+            .await
+        {
+            tracing::warn!(error = %err, "failed to answer a Telegram callback query");
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
     fn update(sender: Option<i64>, text: Option<&str>) -> TelegramUpdate {
         TelegramUpdate {
             update_id: 1,
@@ -231,6 +340,7 @@ mod tests {
             is_private_chat: true,
             sender_user_id: sender,
             text: text.map(str::to_string),
+            ..Default::default()
         }
     }
 

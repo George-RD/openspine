@@ -22,12 +22,10 @@ use std::path::Path;
 
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
-use openspine_schemas::approval::ApprovalRecord;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::digest::{canonical_json, Digest};
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::selection::SelectionToken;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest as _, Sha256};
@@ -63,6 +61,11 @@ CREATE TABLE IF NOT EXISTS selection_tokens (
     id TEXT PRIMARY KEY,
     used INTEGER NOT NULL DEFAULT 0,
     token_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS action_requests (
+    id TEXT PRIMARY KEY,
+    request_json TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS conversation_state (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +108,7 @@ impl Store {
         }
         let conn = Connection::open(path)?;
         conn.execute_batch(SCHEMA_SQL)?;
+        Self::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -114,9 +118,36 @@ impl Store {
     pub fn open_in_memory() -> Result<Self, StoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA_SQL)?;
+        Self::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// Ad-hoc, no-`PRAGMA user_version` migrations for schema changes made
+    /// after a `data/kernel.db` may already exist on disk (see the module
+    /// doc comment: `CREATE TABLE IF NOT EXISTS` alone only ever helps a
+    /// fresh file). Each statement here must be safe to run against both a
+    /// brand-new database (where `SCHEMA_SQL` already created the column,
+    /// so this is a harmless no-op) and an old one predating the column —
+    /// SQLite's "duplicate column name" failure on the former case is
+    /// swallowed; any other error still propagates.
+    fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreError> {
+        // D-040 follow-up: `action_requests.used` backs
+        // `try_consume_action_request`'s single-approval guard, added
+        // after this table first shipped.
+        match conn.execute(
+            "ALTER TABLE action_requests ADD COLUMN used INTEGER NOT NULL DEFAULT 0",
+            [],
+        ) {
+            Ok(_) => Ok(()),
+            Err(rusqlite::Error::SqliteFailure(_, Some(msg)))
+                if msg.contains("duplicate column name") =>
+            {
+                Ok(())
+            }
+            Err(err) => Err(err.into()),
+        }
     }
 
     // ---- task grants ----------------------------------------------------
@@ -182,12 +213,63 @@ impl Store {
         )))
     }
 
+    /// Backs D-044's approved-draft dispatch: the `callback_query` handler
+    /// has a `task_grant_id` (from the persisted [`ActionRequest`]), not a
+    /// `task_token` — the shell that originally requested the preview is
+    /// long gone by the time the owner taps approve.
+    pub fn find_task_grant_by_id(
+        &self,
+        id: Ulid,
+    ) -> Result<Option<(TaskGrant, ArtifactRef, i64)>, StoreError> {
+        let conn = self.conn.lock();
+        let row: Option<(String, String, i64)> = conn
+            .query_row(
+                "SELECT grant_json, pending_message_digest, bound_chat_id FROM task_grants WHERE id = ?1",
+                params![id.to_string()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .optional()?;
+        let Some((grant_json, digest, bound_chat_id)) = row else {
+            return Ok(None);
+        };
+        let grant: TaskGrant = serde_json::from_str(&grant_json)?;
+        let digest = Digest::parse(digest)
+            .map_err(|_| StoreError::BadDigest("pending_message_digest".into()))?;
+        Ok(Some((
+            grant,
+            ArtifactRef {
+                digest,
+                schema_version: 1,
+            },
+            bound_chat_id,
+        )))
+    }
+
     #[cfg(test)]
     pub fn count_task_grants(&self) -> Result<usize, StoreError> {
         let conn = self.conn.lock();
         let count: i64 =
             conn.query_row("SELECT COUNT(*) FROM task_grants", [], |row| row.get(0))?;
         Ok(count as usize)
+    }
+
+    #[cfg(test)]
+    pub fn count_audit_events_of_kind(&self, kind: &str) -> Result<usize, StoreError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM audit_log WHERE kind = ?1",
+            params![kind],
+            |row| row.get(0),
+        )?;
+        Ok(count as usize)
+    }
+
+    #[cfg(test)]
+    pub fn all_audit_event_jsons(&self) -> Result<Vec<String>, StoreError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT event_json FROM audit_log ORDER BY seq")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
 
     // ---- audit log --------------------------------------------------------
@@ -320,93 +402,6 @@ impl Store {
         Ok(true)
     }
 
-    // ---- approvals ----------------------------------------------------
-
-    /// No Step 4 action is `approval_required` (the owner-control basic
-    /// pack's four approval-gated actions — `connector.enable`,
-    /// `route.activate`, `capability_pack.change`, `workflow.activate` —
-    /// are none of the three actions this slice's shell actually calls),
-    /// so this has no live caller yet; Phase 2/3's approval UX will call
-    /// it once a real approval flow exists. Exercised today only by this
-    /// module's own round-trip test.
-    #[allow(dead_code)]
-    pub fn insert_approval(&self, approval: &ApprovalRecord) -> Result<(), StoreError> {
-        let conn = self.conn.lock();
-        conn.execute(
-            "INSERT INTO approvals (id, action_request_id, approval_json) VALUES (?1, ?2, ?3)",
-            params![
-                approval.id.to_string(),
-                approval.action_request_id.to_string(),
-                serde_json::to_string(approval)?,
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Most recent approval decision recorded against `action_request_id`,
-    /// if any (backs `openspine_gate::GateContext::approval_for_request`).
-    pub fn find_approval_for_request(
-        &self,
-        action_request_id: Ulid,
-    ) -> Result<Option<ApprovalRecord>, StoreError> {
-        let conn = self.conn.lock();
-        let json: Option<String> = conn
-            .query_row(
-                "SELECT approval_json FROM approvals WHERE action_request_id = ?1 ORDER BY rowid DESC LIMIT 1",
-                params![action_request_id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
-    }
-
-    // ---- selection tokens ----------------------------------------------
-
-    /// Called by `pipeline::handle_thread_selection` (Step 5) when it
-    /// mints a new thread-selection token.
-    pub fn insert_selection_token(&self, token: &SelectionToken) -> Result<(), StoreError> {
-        let conn = self.conn.lock();
-        conn.execute(
-            "INSERT INTO selection_tokens (id, used, token_json) VALUES (?1, 0, ?2)",
-            params![token.id.to_string(), serde_json::to_string(token)?],
-        )?;
-        Ok(())
-    }
-
-    /// Backs `openspine_gate::GateContext::find_selection_token` (Step 5).
-    pub fn find_selection_token(&self, id: Ulid) -> Result<Option<SelectionToken>, StoreError> {
-        let conn = self.conn.lock();
-        let json: Option<String> = conn
-            .query_row(
-                "SELECT token_json FROM selection_tokens WHERE id = ?1",
-                params![id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
-    }
-
-    /// Atomically consume a single-use selection token (PRD §15):
-    /// `UPDATE ... WHERE used = 0` in one locked statement, returning
-    /// whether *this call* was the one that flipped it. Checking
-    /// (`SELECT used`) and marking (`UPDATE ... SET used = 1`) as two
-    /// separate calls would be a TOCTOU race — the dispatch path awaits a
-    /// Gmail HTTP call between "is it used" and "mark it used", so two
-    /// concurrent requests for the same token could both observe `unused`
-    /// before either marks it. Consumed *before* the Gmail call, same
-    /// at-most-once philosophy as the Telegram `update_id` offset
-    /// (persisted before handling, not after): a token whose consumption
-    /// wins but whose subsequent Gmail fetch fails is burned, not
-    /// refunded — the owner just runs `/draft` again for a fresh one.
-    pub fn try_consume_selection_token(&self, id: Ulid) -> Result<bool, StoreError> {
-        let conn = self.conn.lock();
-        let rows = conn.execute(
-            "UPDATE selection_tokens SET used = 1 WHERE id = ?1 AND used = 0",
-            params![id.to_string()],
-        )?;
-        Ok(rows > 0)
-    }
-
     // ---- conversation state ----------------------------------------------
 
     pub fn append_conversation_message(
@@ -479,5 +474,6 @@ impl Store {
     }
 }
 
+mod gate_support;
 #[cfg(test)]
 mod tests;

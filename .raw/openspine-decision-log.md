@@ -50,6 +50,13 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-035 | Kernel `advertise_endpoint` split from `bind_addr`; `ProcessDriver` uses plain TCP loopback | Accepted |
 | D-036 | Phase-2 selection trigger is a kernel-recognized `/draft <thread_id>` command | Accepted |
 | D-037 | Gmail OAuth token exchange is a plain refresh-token POST; no `oauth2` crate | Accepted |
+| D-038 | `resolve_owner_identity`'s `channel_trust` is caller-supplied, not hardcoded | Accepted |
+| D-039 | Draft-approval channel is a Telegram inline button (`callback_query`)     | Accepted |
+| D-040 | Pending `ActionRequest`s are persisted in a new `action_requests` table   | Accepted |
+| D-041 | `email.create_draft` digests: payload `{subject, body}`, target `{thread_id, connector, account_role, recipients}` | Accepted |
+| D-042 | Reply recipient is kernel-derived (newest non-owner sender), never shell-supplied | Accepted |
+| D-043 | `lyra.ui.preview` is extended to propose the exact reviewed draft + approval button | Accepted |
+| D-044 | Approved draft creation dispatches kernel-side; no new shell spawn        | Accepted |
 
 ---
 
@@ -1039,6 +1046,167 @@ A future phase needs the interactive consent flow itself run from inside the ker
 
 ---
 
+# D-038 — `resolve_owner_identity`'s `channel_trust` is caller-supplied, not hardcoded
+
+## Decision
+
+`resolve_owner_identity(envelope, channel_trust)` takes `channel_trust` as a parameter rather than hardcoding `ChannelTrust::VerifiedOwnerChannel` internally. Ordinary owner-control chat (`handle_owner_update`) passes `VerifiedOwnerChannel`; the `/draft` thread-selection flow (`handle_thread_selection`) passes the stronger `OwnerDevice` tier, matching the PRD's own route fixtures (`owner_telegram_main_assistant.yaml` requires `verified_owner_channel`; `owner_email_selected_thread.yaml` requires `owner_device`).
+
+## Rationale
+
+Both pipelines share the identical underlying signal — a Telegram sender-id match plus a private-chat check (Phase 1/2 has no separate device-attestation mechanism) — so there is no *stronger proof* backing `OwnerDevice` today. The distinction exists because the PRD's fixtures deliberately require a higher trust tier for the flow that triggers external-communication authority (reading a private mailbox, drafting a reply) than for ordinary conversational chat. Hardcoding one `ChannelTrust` value inside `resolve_owner_identity` would either force the selection flow down to the weaker tier (silently under-matching the PRD's own fixture) or force ordinary chat up to the stronger one (misrepresenting what was actually verified).
+
+## Consequences
+
+- `resolve_owner_identity` stays a thin, honest mapping — it reports the trust tier the caller asserts, not one it invents.
+- The distinction is a deliberate design choice, not an inconsistency: it is documented at the call site, not silently smoothed over.
+
+## Would change if
+
+A future phase adds real device attestation (an actual second factor distinguishing "this specific device" from "this Telegram account"), at which point `OwnerDevice` would carry genuine additional evidence over `VerifiedOwnerChannel` rather than sharing its verification method.
+
+---
+
+# D-039 — Draft-approval channel is a Telegram inline button (`callback_query`), not a text command
+
+## Decision
+
+Step 6's owner approval of a drafted Gmail reply uses a Telegram inline keyboard button ("Approve"), not a `/approve <id>` text command. `ApprovalRecord.approval_channel` records `"telegram_inline"` (the value already anticipated by `approval.rs`'s doc comment when the schema was defined in Step 3).
+
+## Rationale
+
+`/draft <thread_id>` (D-036) is a text command because the owner is *naming* something (a thread id they already know from their own Gmail client) — free text is the natural input. Draft approval is a *yes/no* decision on content the kernel already fully controls and already sent to the owner as `lyra.ui.preview`; a tap is a strictly better UX than typing a ULID back, and only a tap-based flow avoids the owner needing to transcribe an id imprecisely (a mistyped id must fail closed, whereas a button's `callback_data` is exact by construction).
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| `/approve <id>` text command | Reuses the existing text-command parsing path (`parse_draft_command`'s pattern); no new Telegram API surface | Owner must copy/type a ULID exactly; typos fail silently-to-deny with no obvious cause |
+| Inline button (`callback_query`) | Exact `callback_data` binding, no transcription; matches the schema's own anticipated value | New Telegram update kind (`callback_query`) must be polled, verified, and `answerCallbackQuery`'d |
+
+## Consequences
+
+- `TelegramUpdate` gains an `Option<CallbackQueryUpdate>` field; `verify_update` gains an owner-callback branch with the same sender-id + private-chat verification guarantee as text messages (D-036's "entire trust boundary" principle applies identically here).
+- `TelegramConnector` gains `send_reply_with_approval_button` (attaches the inline keyboard) and `answer_callback_query` (stops the client's loading spinner; best-effort, never blocks the approval decision itself on its success).
+
+## Would change if
+
+A future channel (WhatsApp, a native app) becomes the primary owner-control surface and does not support inline buttons equivalently — at that point the approval-channel abstraction (already a free-form `String` on `ApprovalRecord`) accommodates a new channel-specific mechanism without a schema change.
+
+---
+
+# D-040 — Pending (pre-approval) `ActionRequest`s are persisted in a new `action_requests` table
+
+## Decision
+
+`openspine_gate::gate()`'s `GateContext::approval_for_request(action_request_id)` correlates an `ApprovalRecord` back to the exact `ActionRequest` it decides — which requires the *same* `ActionRequest` (same `id`, same digests) to exist both when it is first proposed (`ApprovalRequired`) and when it is resubmitted after approval (`Allow`). The kernel persists proposed `ActionRequest`s in a new SQLite table (`action_requests`), keyed by `id`, mirroring the existing `insert_selection_token`/`find_selection_token` and `insert_approval`/`find_approval_for_request` pattern.
+
+## Rationale
+
+No Step 3/4/5 action was ever `approval_required` in practice (the crate's own comment: "this has no live caller yet"), so this gap — *where does the first-proposed request live between "shown to the owner" and "owner taps approve"?* — was never closed. `email.create_draft` is the first action that actually needs it.
+
+## Consequences
+
+- No separate expiry field on the persisted row: usefulness is already bounded by the owning task grant's own `expires_at` (`gate()` denies an expired grant before consulting approval at all, per its existing precedence rule), so a second TTL would be redundant.
+- The row is a single INSERT with no UPDATE path — an `ActionRequest` is immutable once proposed by design (mutating it after the fact would be exactly the digest-spoofing attack D-011 exists to prevent).
+
+## Would change if
+
+A future action needs a bounded proposal lifetime shorter than its grant's (e.g. "this specific draft proposal expires in 10 minutes even though the grant runs longer") — an explicit `expires_at` column would be added then, not speculatively now.
+
+---
+
+# D-041 — `email.create_draft`'s digest composition: payload = `{subject, body}`, target = `{thread_id, connector, account_role, recipients}`
+
+## Decision
+
+The draft's reviewed text (`subject`, `body`) is stored as a protected artifact and hashed as `ActionRequest.payload_ref.digest` (no separate payload-digest field, matching `action.rs`'s existing documented contract). The target — everything that names *where* the draft would be created and *who* it would be visible to — is hashed separately as `ActionRequest.target_digest` over canonical JSON of `{thread_id, connector, account_role, recipients}`.
+
+## Rationale
+
+The spec's two invalidation scenarios are deliberately distinct ("draft body changes" vs. "recipient changes") and D-011 requires *both* digests to still match for an approval to authorize a request. Folding recipients into the payload digest (or thread id into it) would conflate "what the owner read and approved" with "where it goes" — a compromised or buggy caller could then swap the target while leaving the reviewed text's digest untouched, which is exactly the "show draft A, execute draft B" failure `implement-digest-bound-draft-approval`'s proposal names as the reason this change exists.
+
+## Consequences
+
+- `mailbox` is represented by `account_role` (already an existing enum, `OwnerMailbox`) rather than a new free-form field — no new schema type needed.
+- Any future support for a second connector/account (D-021's "email domain is broader than Gmail") only changes what populates `connector`/`account_role`, not the hashing shape.
+
+## Would change if
+
+A future phase adds Cc/Bcc or multiple recipients with independently variable trust (e.g. some auto-populated, some owner-added) — the recipients field would need its own internal structure, but the two-digest split (payload vs. target) stays.
+
+---
+
+# D-042 — Reply recipient is kernel-derived, never shell-supplied: newest non-owner sender, matched against a configured mailbox address
+
+## Decision
+
+At `lyra.ui.preview` dispatch time, the kernel independently re-derives the reply recipient by walking the already-fetched Gmail thread newest-message-first and taking the first message whose `From` address does not match the owner's own mailbox address (a new required `openspine.yaml` field, `gmail.mailbox_address`, documented in `docs/gmail-setup.md`). The shell is never asked for, and can never supply, a recipient.
+
+## Rationale
+
+A naive "last message's sender" rule breaks for an ongoing thread where the owner sent the most recent message (a self-addressed follow-up, or the owner replying to themselves while waiting on the other party) — the reply would then be addressed back to the owner's own mailbox, silently wrong. Skipping the owner's own messages when walking backward correctly finds "whoever we are actually replying to" regardless of who spoke last. This must be a kernel-derived target (D-041's target digest depends on it) exactly like `thread_id` — never something the shell's payload can influence, matching the existing "the shell has no way to name a thread directly" trust boundary from Step 5.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Query Gmail's `users/me/profile` for the owner's address at request time | No new config field | Extra API call and failure mode on every preview; address is static, querying it repeatedly is unnecessary work |
+| Configured `gmail.mailbox_address` | One static, operator-supplied value; no extra call | Operator must set it correctly (documented, validated to be non-empty at config parse time) |
+
+## Consequences
+
+- `openspine.yaml`'s `gmail` block gains a required `mailbox_address` field once `gmail:` is present at all.
+- If every message in the thread is from the owner's own address (no non-owner sender found), the preview dispatch fails closed with an audited denial rather than guessing — this can only happen for a thread with no correspondent, which is not a thread `email_reply_drafter` should ever be drafting a reply into.
+
+## Would change if
+
+A future phase supports genuinely multi-recipient replies (reply-all) or Cc — this decision only resolves *the* single reply-to address for the minimal Phase-2 slice.
+
+---
+
+# D-043 — `lyra.ui.preview` is extended (not duplicated) to propose the exact reviewed draft and attach the approval button
+
+## Decision
+
+`lyra.ui.preview`'s existing dispatch (Step 5) is the single moment that both *shows* the draft to the owner and *proposes* it for approval: it derives the target (D-042), stores the payload artifact, persists the pending `ActionRequest` (D-040) with the digests from D-041, and sends the Telegram preview message with an inline "Approve" button (D-039) whose `callback_data` names that `ActionRequest`'s id. No new action id is introduced for "propose."
+
+## Rationale
+
+A separate `email.propose_draft` action would let "what was shown" and "what was proposed" drift apart (e.g. a caller previews one draft but proposes another) — exactly the attack D-041 exists to prevent, reintroduced one layer up. Making the single existing preview action responsible for both closes that gap by construction: there is only ever one thing the owner could be approving, because it is the same payload/target the preview action just computed.
+
+## Consequences
+
+- `lyra.ui.preview`'s response contract (`{"sent": true}`) is unchanged for the shell — the shell does not need to know approval-proposal happened; that stays entirely kernel-internal, matching Step 5's dispatch-layer trust boundary.
+- `email_reply_drafter`'s task grant needs `email.create_draft` marked `approval_required` (via its capability pack) even though the shell process that requested the preview will already have exited by the time the owner taps approve — this is safe because grant lookup and dispatch both happen kernel-side, not against a live shell connection (see D-044).
+
+## Would change if
+
+A future phase supports proposing a draft the owner has *not yet* been shown a rendered preview of (e.g. an approval queue UI) — at that point "propose" and "show" would need to split back into two actions.
+
+---
+
+# D-044 — Approved draft creation dispatches kernel-side; no new shell spawn
+
+## Decision
+
+When the owner taps "Approve," the kernel's `callback_query` handler creates the `ApprovalRecord`, persists it, then immediately re-runs `gate()` against the same persisted `ActionRequest` and the original (already-issued) `email_reply_drafter` task grant. On `Allow`, the kernel calls `GmailConnector::create_draft` directly and audits the result — no new task grant is minted and no new `openspine-shell` process is spawned.
+
+## Rationale
+
+`email.create_draft` is a simple, fully deterministic, non-agentic effect once approved (store a body against a thread via one Gmail API call) — it needs no model call, no untrusted-content handling beyond what was already reviewed and approved verbatim, and the original shell process that requested the preview is long gone by the time a human has read a Telegram message and tapped a button. This exactly mirrors how `/draft`'s own thread-selection flow (D-036) runs kernel-internal pipeline code rather than spawning an interactive shell to ask the kernel to ask the shell.
+
+## Consequences
+
+- `Store` gains a task-grant-by-id lookup (existing lookup is by `task_token` only, which the callback handler does not have — it has `task_grant_id` from the persisted `ActionRequest`).
+- Draft creation is audited the same way `/draft`'s selection flow is (`authority.granted`-style rows are not applicable here since no new grant is issued; a dedicated `draft.created` / `draft.creation_failed` audit pair is added instead).
+
+## Would change if
+
+A future action requiring post-approval dispatch needs genuine agentic behavior (e.g. the approved step itself calls a model) — that action would need a real (short-lived, narrowly-scoped) follow-up task grant and shell spawn, not this direct-dispatch shortcut.
+
+---
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -1080,3 +1248,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-02 | Added D-034: normalized the email-drafter's create-draft action id to the bare `email.create_draft`, dropping PRD §10.2's qualified spelling to close a would-be approval-bypass gap discovered while implementing Step 2 (`implement-authority-composition`). |
 | 2026-07-02 | Added D-035: split `kernel.advertise_endpoint` from `bind_addr` (fixes Docker-compose shell↔kernel reachability) and narrowed D-032's `ProcessDriver` transport to plain loopback TCP instead of a Unix domain socket, discovered while implementing Step 4 (`implement-telegram-owner-control-slice`). |
 | 2026-07-02 | Added D-036 (Phase-2 thread selection via a kernel-recognized `/draft <thread_id>` command) and D-037 (Gmail OAuth token exchange via a plain refresh-token POST, `base64` promoted to a direct dependency, no `oauth2` crate), discovered while implementing Step 5 (`implement-selected-thread-email-preview-slice`). |
+| 2026-07-02 | Added D-038 (retroactively documenting `resolve_owner_identity`'s already-implemented caller-supplied `channel_trust`, cited by code comments but never recorded) and D-039–D-044 (Telegram inline-button approval channel, pending-`ActionRequest` persistence, `email.create_draft` digest composition, kernel-derived reply recipient, `lyra.ui.preview` extended to propose+persist+button, kernel-side approved-draft dispatch), discovered while implementing Step 6 (`implement-digest-bound-draft-approval`). |
