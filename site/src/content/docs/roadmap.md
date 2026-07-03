@@ -3,6 +3,8 @@ title: Roadmap
 description: What has shipped, what was backfilled, and what's deliberately deferred.
 ---
 
+This page shows what we have built so far and what we plan to build next.
+
 Phase-honest, no dates — see
 [`openspec/openspine-change-sequence.md`](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)
 for the underlying OpenSpec change sequence and

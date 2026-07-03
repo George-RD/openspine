@@ -4,6 +4,8 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://george-rd.github.io',
+	base: '/openspine',
 	integrations: [
 		starlight({
 			title: 'OpenSpine',

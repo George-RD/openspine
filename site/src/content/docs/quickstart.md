@@ -1,54 +1,37 @@
 ---
 title: Quickstart
-description: Build OpenSpine and stand up a local Lyra instance.
+description: Build OpenSpine and run a local Lyra instance.
 ---
 
-## Build and run the local gate
+## Build and run the check script
 
 ```sh
 git clone https://github.com/George-RD/openspine.git
 cd openspine
+npm ci # dev tools used by the check script
 cargo build --workspace
-./scripts/check.sh    # fmt, clippy -D warnings, tests, file-size gate, claims gate, openspec validate --all --strict
+./scripts/check.sh # runs every test and check - same as CI
 ```
 
-`scripts/check.sh` is the real gate — it runs everything CI would, plus the
-[threat-claims register](/threat-model/) check, locally.
+The check script runs all local tests and checks. This is the exact same check that runs on GitHub.
 
-## Configure a real kernel instance
+## Configure a real server
 
-1. Copy `.env.example` to `.env` and fill in real values — this file is
-   gitignored and must never be committed. At minimum you need:
-   - `OPENSPINE_TELEGRAM_BOT_TOKEN` — from
-     [`@BotFather`](https://t.me/BotFather).
-   - `OPENSPINE_ARTIFACT_KEY` — 32 random bytes, hex-encoded
-     (`openssl rand -hex 32`). Every private payload (a raw Telegram
-     message, an email body, a model prompt/output, a draft body) is
-     stored encrypted at rest with this key.
-   - A model-provider API key (e.g. `ANTHROPIC_API_KEY`).
-2. Copy `openspine.docker.example.yaml` (Docker deployment) or
-   `openspine.example.yaml` (local/dev) to `openspine.yaml` and set
-   `owner.telegram_user_id` to your own numeric Telegram user ID (message
-   [`@userinfobot`](https://t.me/userinfobot) to find it — identity is not
-   authority, but the kernel still needs to know who the owner is).
-3. `docker compose up --build` (or `cargo run -p openspine-kernel` for a
-   bare-metal dev run under the unsafe `process` sandbox driver).
+1. Copy `.env.example` to `.env` and fill in the values. This file holds your secrets. It is ignored by Git and must never be shared. At a minimum, you need:
+   - `OPENSPINE_TELEGRAM_BOT_TOKEN`: Get this from [@BotFather](https://t.me/BotFather).
+   - `OPENSPINE_ARTIFACT_KEY`: A random 32-byte key. You can make one by running `openssl rand -hex 32`. Every private message, email, and prompt is stored encrypted with this key.
+   - Your model provider API key (like `ANTHROPIC_API_KEY`).
+2. Copy `openspine.docker.example.yaml` (for Docker) or `openspine.example.yaml` (for local running) to `openspine.yaml`. Set `owner.telegram_user_id` to your Telegram user ID. You can find your ID by messaging [@userinfobot](https://t.me/userinfobot).
+3. Run `docker compose up --build`. (For a bare-metal run, run `cargo run -p openspine-kernel`).
 
-Full walkthroughs, including the Gmail connector setup and the exact
-`openspine.yaml` shape, live in the repository:
-
-- [`docs/telegram-setup.md`](https://github.com/George-RD/openspine/blob/main/docs/telegram-setup.md) — the owner-control channel, step by step.
-- [`docs/gmail-setup.md`](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md) — the selected-thread Gmail connector and the `/draft <thread_id>` command.
+Full setup guides live in the repository:
+- [docs/telegram-setup.md](https://github.com/George-RD/openspine/blob/main/docs/telegram-setup.md): Setting up the Telegram control channel.
+- [docs/gmail-setup.md](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md): Setting up Gmail connection and the draft command.
 
 ## Try it
 
-DM your bot from the owner Telegram account:
+Send a direct message to your bot from your Telegram owner account:
 
-- `/status` — reads kernel status through the gate-mediated action API.
-- `/draft <thread_id>` — fetches a Gmail thread (its id is the trailing hex
-  string in Gmail's own web UI URL) and drafts a reply, previewed over
-  Telegram. Tap "Approve" to create the exact reviewed Gmail draft — no
-  email is ever sent by this flow.
-- `/propose <kind>` followed by a YAML artifact on the next line — proposes
-  a new route, agent, workflow, capability pack, or policy. It stays inert
-  until you approve the exact YAML via the same digest-bound button.
+- `/status`: Checks server status.
+- `/draft <thread_id>`: Fetches a Gmail thread (using the thread ID from the Gmail web URL) and drafts a reply. The reply is previewed on Telegram. Tap Approve to create the draft in Gmail.
+- `/propose <kind>` followed by YAML rules: Proposes a new rule, route, or policy. The rule stays inactive until you approve the exact text you see.

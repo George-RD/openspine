@@ -3,6 +3,8 @@ title: Decisions
 description: How the decision-log practice keeps the architecture's reasoning legible and catches real bugs.
 ---
 
+This page records the architectural decisions we made and the reasons behind them.
+
 ## Why a decision log
 
 Code shows *what* the system does. A decision log records *why* it does
