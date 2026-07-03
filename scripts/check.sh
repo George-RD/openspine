@@ -23,10 +23,10 @@ scripts/check-file-sizes.sh
 if [ "$#" -ge 1 ]; then
   change_id="$1"
   echo "== openspec validate ${change_id} --strict =="
-  openspec validate "$change_id" --strict
+  npx --no-install openspec validate "$change_id" --strict
 else
   echo "== openspec validate --all --strict =="
-  openspec validate --all --strict
+  npx --no-install openspec validate --all --strict
 fi
 
 echo "All checks passed."

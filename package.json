@@ -1,0 +1,7 @@
+{
+  "name": "openspine-dev-tools",
+  "private": true,
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.5.0"
+  }
+}
