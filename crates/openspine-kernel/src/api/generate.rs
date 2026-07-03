@@ -9,7 +9,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use jiff::Timestamp;
 use openspine_gate::gate;
-use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
+use openspine_schemas::action::{ActionId, ActionRequest, DenialReason, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::canonical_json;
 use serde::{Deserialize, Serialize};
@@ -60,6 +60,35 @@ pub(super) struct GenerateResponseBody {
     text: Option<String>,
 }
 
+/// D-046: audits and returns a `limit_exceeded` denial before any payload
+/// is stored or the provider is ever called — shared by both budget checks
+/// in [`post_model_generate`], which differ only in which budget tripped.
+fn deny_limit_exceeded(
+    state: &AppState,
+    action: &ActionId,
+    grant_id: Ulid,
+) -> Result<Json<GenerateResponseBody>, (StatusCode, Json<Value>)> {
+    let decision = GateDecision::Deny {
+        reason: DenialReason::LimitExceeded,
+    };
+    state
+        .store
+        .append_audit(
+            "model.generate.gated",
+            Some(action),
+            Some(&decision),
+            None,
+            Some(grant_id),
+            &[],
+            &[],
+        )
+        .map_err(internal_error)?;
+    Ok(Json(GenerateResponseBody {
+        decision,
+        text: None,
+    }))
+}
+
 pub(super) async fn post_model_generate(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -68,6 +97,26 @@ pub(super) async fn post_model_generate(
     let (grant, _pending_ref, _bound_chat_id) = authenticate(&state, &headers).await?;
     let now = Timestamp::now();
     let action = ActionId::new("model.generate:approved_provider");
+
+    // D-046: grant budgets are enforced kernel-dispatch-side (same
+    // placement precedent as selection-token single-use, see
+    // `openspine_gate::gate`'s `GateContext` doc comment) — checked before
+    // any payload is put or the new user turn is appended, so a limit of
+    // `N` allows exactly `N` calls.
+    let prior_calls = state
+        .store
+        .count_conversation_turns(grant.id, "user")
+        .map_err(internal_error)?;
+    if prior_calls >= grant.limits.max_model_calls {
+        return deny_limit_exceeded(&state, &action, grant.id);
+    }
+    if !state
+        .store
+        .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
+        .map_err(internal_error)?
+    {
+        return deny_limit_exceeded(&state, &action, grant.id);
+    }
 
     let payload_value = json!({
         "purpose": body.purpose,

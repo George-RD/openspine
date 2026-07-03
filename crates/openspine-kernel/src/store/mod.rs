@@ -34,11 +34,16 @@ use ulid::Ulid;
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS task_grants (
     id TEXT PRIMARY KEY,
+    -- D-047: sha256:<hex> hash of the bearer token, never the plaintext.
     task_token TEXT NOT NULL UNIQUE,
     expires_at TEXT NOT NULL,
     grant_json TEXT NOT NULL,
     pending_message_digest TEXT NOT NULL,
     bound_chat_id INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS grant_counters (
+    grant_id TEXT PRIMARY KEY,
+    artifact_puts INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS audit_log (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -170,14 +175,23 @@ impl Store {
         pending_message_ref: &ArtifactRef,
         bound_chat_id: i64,
     ) -> Result<(), StoreError> {
+        // D-047: sweep grants that expired well over a day ago before
+        // inserting the new one — no separate scheduled job exists yet, so
+        // every new grant is itself a sweep trigger.
+        self.sweep_expired_grants(Timestamp::now())?;
+        // D-047: never persist the plaintext bearer token — the column
+        // stores its hash, and the embedded copy inside `grant_json` is
+        // blanked so the raw token cannot be recovered from either place.
+        let mut redacted = grant.clone();
+        redacted.task_token = String::new();
         let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 grant.id.to_string(),
-                grant.task_token,
+                budget_support::hash_task_token(&grant.task_token),
                 grant.expires_at.to_string(),
-                serde_json::to_string(grant)?,
+                serde_json::to_string(&redacted)?,
                 pending_message_ref.digest.as_str(),
                 bound_chat_id,
             ],
@@ -193,7 +207,7 @@ impl Store {
         let row: Option<(String, String, i64)> = conn
             .query_row(
                 "SELECT grant_json, pending_message_digest, bound_chat_id FROM task_grants WHERE task_token = ?1",
-                params![token],
+                params![budget_support::hash_task_token(token)],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
@@ -474,6 +488,7 @@ impl Store {
     }
 }
 
+mod budget_support;
 mod gate_support;
 #[cfg(test)]
 mod tests;

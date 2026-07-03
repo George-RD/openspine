@@ -57,6 +57,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-042 | Reply recipient is kernel-derived (newest non-owner sender), never shell-supplied | Accepted |
 | D-043 | `lyra.ui.preview` is extended to propose the exact reviewed draft + approval button | Accepted |
 | D-044 | Approved draft creation dispatches kernel-side; no new shell spawn        | Accepted |
+| D-045 | WYSIWYS: a truncated preview refuses an approval button rather than splitting the message | Accepted |
+| D-046 | Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts | Accepted |
+| D-047 | Task tokens are hashed at rest; expired grants are swept | Accepted |
 
 ---
 
@@ -1205,6 +1208,67 @@ When the owner taps "Approve," the kernel's `callback_query` handler creates the
 
 A future action requiring post-approval dispatch needs genuine agentic behavior (e.g. the approved step itself calls a model) — that action would need a real (short-lived, narrowly-scoped) follow-up task grant and shell spawn, not this direct-dispatch shortcut.
 
+# D-045 — WYSIWYS: a truncated preview refuses an approval button rather than splitting the message
+
+## Decision
+
+`dispatch_lyra_preview` builds the full draft text first, then truncates it for Telegram. If the truncated text differs from the full text, the kernel does not call `propose_draft_creation` at all — the owner is shown a plain message with a notice that the draft is too long to approve via Telegram, and no `ActionRequest` is persisted. Only an untruncated preview may be proposed for approval.
+
+## Rationale
+
+Digest-bound approval (D-011/D-043) exists so a tap on "Approve" can never authorize content the owner did not review. A truncated preview breaks that guarantee at the source: the owner sees only a prefix, but `propose_draft_creation` was binding approval to the *full* body regardless. Rejected alternative: split the preview across multiple Telegram messages with the approval button on the last one — rejected because of drift risk between what is shown across parts and what a single approval record binds as a whole; refusing the button entirely is simpler and strictly safer.
+
+## Consequences
+
+- An owner who wants to approve a very long draft must ask the agent to shorten it — there is no in-band way to approve a truncated draft as shown.
+- `dispatch_lyra_preview` and `propose_draft_creation` diverge slightly in error handling (a truncated preview is not attempted at all, versus the existing "propose failed for another reason" fallback which still shows the preview without a button).
+
+## Would change if
+
+A future owner-control channel supports arbitrarily long messages (removing the truncation problem entirely) or a review UX that can bind approval to a paginated/scrollable view rather than one flat message.
+
+---
+
+# D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts
+
+## Decision
+
+`GrantLimits.max_model_calls` and `GrantLimits.max_artifacts` are enforced in kernel dispatch (`post_model_generate`, `propose_draft_creation`), not inside the pure `gate()` function — the same placement precedent as selection-token single-use consumption. `max_model_calls` is checked by counting prior `"user"` conversation turns before the new one is appended, so a limit of `N` allows exactly `N` calls. `max_artifacts` is checked with one atomic SQL statement against a new `grant_counters` table, and counts only artifact blobs created *at the shell's request* (the `model.generate` payload snapshot, the draft-proposal payload) — never internal kernel bookkeeping blobs like conversation turns, which would otherwise collide with the default `max_artifacts: 20` limit under ordinary use. Separately, `notify_owner_best_effort`'s kernel-originated Telegram sends stay ungated but are now audited as `owner.notified`.
+
+## Rationale
+
+`gate()` is a pure decision function over an `ActionRequest`; it has no natural place to hold cross-request counters, and mixing side-effecting counter updates into it would make its precedence rules (explicit deny > approval-required > allow) harder to reason about. Dispatch already owns one other atomic, side-effecting authorization check (selection-token consumption), so extending that pattern is the smallest correct change. Counting only shell-initiated puts against `max_artifacts` keeps the default limits meaningful for ordinary conversations instead of being silently exhausted by bookkeeping.
+
+## Consequences
+
+- A grant that never calls `model.generate` or proposes a draft can still exceed no artifact budget from kernel-internal bookkeeping alone.
+- Budget state (`grant_counters`) is swept alongside its grant (D-047) rather than living forever.
+
+## Would change if
+
+A future action needs to consume artifact-put budget outside `model.generate` and `propose_draft_creation` — it must call `try_count_artifact_put` itself rather than relying on a generic hook.
+
+---
+
+# D-047 — Task tokens are hashed at rest; expired grants are swept
+
+## Decision
+
+`task_grants.task_token` stores `sha256:<hex>` of the bearer token (the same raw-bytes digest helper the artifact store uses for content addressing), never the plaintext; `find_task_grant_by_token` hashes its input before the lookup. The token is also blanked before the grant is serialized into the `grant_json` column, so it cannot be recovered from either place. Expired grants (and their `grant_counters` rows) are swept — `DELETE ... WHERE expires_at < now - 24h` — at the top of every `insert_task_grant` call; no separate scheduled job exists yet.
+
+## Rationale
+
+A leaked or exfiltrated `data/kernel.db` file previously handed out live bearer tokens directly; hashing closes that exposure at negligible cost (tokens are 32 random bytes with no realistic timing-attack surface worth constant-time comparison at the SQL layer). The column name is left unchanged — a rename requires a full SQLite table rebuild for no behavioural benefit — with a doc comment recording the semantic change instead. A 24-hour retention window is comfortably past the ≤180s task-grant/approval TTLs already in use, so nothing live is ever at risk of being swept.
+
+## Consequences
+
+- Existing dev databases need no migration: plaintext rows simply stop matching once this ships, and task tokens expire in ≤180s regardless.
+- Every call site that reads `.task_token` off a grant must do so on a freshly-minted, in-memory grant — never on a value loaded back from the store (verified: `grep -rn "\.task_token" crates/` finds no such site).
+
+## Would change if
+
+A future feature needs to recover the plaintext token from a persisted grant (e.g. a token-rotation UI) — that would need a separate, explicitly-scoped secret store, not a weakening of this hash.
+
 ---
 
 
@@ -1249,3 +1313,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-02 | Added D-035: split `kernel.advertise_endpoint` from `bind_addr` (fixes Docker-compose shell↔kernel reachability) and narrowed D-032's `ProcessDriver` transport to plain loopback TCP instead of a Unix domain socket, discovered while implementing Step 4 (`implement-telegram-owner-control-slice`). |
 | 2026-07-02 | Added D-036 (Phase-2 thread selection via a kernel-recognized `/draft <thread_id>` command) and D-037 (Gmail OAuth token exchange via a plain refresh-token POST, `base64` promoted to a direct dependency, no `oauth2` crate), discovered while implementing Step 5 (`implement-selected-thread-email-preview-slice`). |
 | 2026-07-02 | Added D-038 (retroactively documenting `resolve_owner_identity`'s already-implemented caller-supplied `channel_trust`, cited by code comments but never recorded) and D-039–D-044 (Telegram inline-button approval channel, pending-`ActionRequest` persistence, `email.create_draft` digest composition, kernel-derived reply recipient, `lyra.ui.preview` extended to propose+persist+button, kernel-side approved-draft dispatch), discovered while implementing Step 6 (`implement-digest-bound-draft-approval`). |
+| 2026-07-03 | Added D-045 (WYSIWYS: truncated previews refuse approval buttons), D-046 (grant budgets enforced kernel-dispatch-side; artifact budget counts shell-initiated puts only), and D-047 (task tokens hashed at rest, redacted from persisted grant JSON, 24h expired-grant sweep), discovered while implementing `harden-approval-and-budgets`. |

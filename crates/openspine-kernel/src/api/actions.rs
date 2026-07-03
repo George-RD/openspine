@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use std::str::FromStr;
 use ulid::Ulid;
 
+use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
 use super::{authenticate, internal_error};
 use crate::pipeline::AppState;
 
@@ -173,30 +174,6 @@ enum DispatchError {
     Internal(anyhow::Error),
 }
 
-/// Telegram hard-caps a single message at 4096 UTF-16 code units — a
-/// model-drafted body long enough to exceed that would otherwise turn a
-/// successful draft into a failed `send_reply` call (`500`, from the
-/// *kernel's* side, after everything upstream genuinely succeeded).
-/// Truncates by actual UTF-16 unit count (`char::len_utf16`), not `char`
-/// count — a `char` can be up to 2 UTF-16 units (e.g. many emoji), so
-/// counting `char`s alone under-truncates for unit-count limits like
-/// Telegram's.
-const TELEGRAM_MAX_MESSAGE_UTF16_UNITS: usize = 4000;
-
-fn truncate_for_telegram(text: &str) -> String {
-    let mut units = 0usize;
-    for (idx, ch) in text.char_indices() {
-        let w = ch.len_utf16();
-        if units + w > TELEGRAM_MAX_MESSAGE_UTF16_UNITS {
-            let mut truncated = text[..idx].to_string();
-            truncated.push_str("… [truncated]");
-            return truncated;
-        }
-        units += w;
-    }
-    text.to_string()
-}
-
 /// Run the effect of one `gate()`-allowed action. Only reached after
 /// `Allow` — a deny/approval-required decision never calls this.
 ///
@@ -275,25 +252,51 @@ async fn dispatch_allowed_action(
 }
 
 /// `lyra.ui.preview`'s real implementation (build plan Step 5, extended by
-/// Step 6 / D-043): shows the draft to the owner AND, in the same
-/// dispatch, proposes it for approval — the two must never drift apart
-/// (D-043's whole rationale: a separate propose action could let "what
-/// was shown" and "what was proposed" diverge). If proposing fails for
-/// any reason (no Gmail connector, no selection token on this grant, the
-/// thread no longer resolves, no non-owner correspondent found), the
-/// preview is still shown — the owner sees the draft but the message
-/// carries no approval button, an honest reflection of "propose failed"
-/// rather than a silently-broken button.
+/// Step 6 / D-043, hardened by D-045): shows the draft to the owner AND, in
+/// the same dispatch, proposes it for approval — the two must never drift
+/// apart (D-043's whole rationale: a separate propose action could let
+/// "what was shown" and "what was proposed" diverge). D-045 extends that
+/// guarantee to truncation: `propose_draft_creation` always binds approval
+/// to the *full* `preview.body`, so if the message shown to the owner had
+/// to be cut short, no approval may be proposed for it at all — the owner
+/// must never be able to tap Approve on content they were not shown in
+/// full. If proposing fails for any other reason (no Gmail connector, no
+/// selection token on this grant, the thread no longer resolves, no
+/// non-owner correspondent found, artifact budget exhausted), the preview
+/// is still shown — the owner sees the draft but the message carries no
+/// approval button, an honest reflection of "propose failed" rather than a
+/// silently-broken button.
 async fn dispatch_lyra_preview(
     state: &AppState,
     grant: &TaskGrant,
     bound_chat_id: i64,
     preview: &PreviewPayload,
 ) -> Result<Value, DispatchError> {
-    let text = truncate_for_telegram(&format!(
+    let full = format!(
         "Draft preview\nSubject: {}\n\n{}",
         preview.subject, preview.body
-    ));
+    );
+    let text = truncate_for_telegram(&full);
+    let was_truncated = text != full;
+
+    if was_truncated {
+        let _ = state.store.append_audit(
+            "draft.proposal_failed",
+            Some(&ActionId::new("email.create_draft")),
+            None,
+            Some("preview_truncated"),
+            Some(grant.id),
+            &[],
+            &[],
+        );
+        state
+            .telegram
+            .send_reply(bound_chat_id, &truncate_with_notice(&full))
+            .await
+            .map_err(DispatchError::Internal)?;
+        return Ok(json!({"sent": true}));
+    }
+
     match propose_draft_creation(state, grant, preview).await {
         Ok(action_request_id) => {
             state
@@ -349,6 +352,16 @@ async fn propose_draft_creation(
     let target = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
         .ok_or("no_non_owner_recipient_found")?;
 
+    // D-046: the draft-proposal payload is a shell-initiated artifact put
+    // — counts against `max_artifacts` the same way `model.generate`'s
+    // payload snapshot does.
+    if !state
+        .store
+        .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
+        .map_err(|_| "artifact_budget_check_failed")?
+    {
+        return Err("artifact_budget_exhausted");
+    }
     let payload_bytes =
         canonical_json(&json!({ "subject": preview.subject, "body": preview.body }));
     let payload_ref = state

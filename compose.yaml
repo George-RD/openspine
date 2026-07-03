@@ -69,3 +69,41 @@ services:
     # the kernel's own process.  Expose it here only for documentation clarity.
     expose:
       - "7777"
+
+  # ── Optional: docker-socket-proxy (harden-approval-and-budgets, 2f) ──────
+  # Uncomment this service and swap the kernel's socket bind mount above for
+  # a DOCKER_HOST env var pointing at it, to stop granting the kernel the
+  # full, unrestricted Docker API. The proxy allow-lists only the calls
+  # DockerDriver actually makes (container create/start/stop/remove; no
+  # image builds, no exec, no swarm, no host info). No active behaviour
+  # change: this is a documented opt-in hardening path, not the default.
+  #
+  # docker-socket-proxy:
+  #   image: tecnativa/docker-socket-proxy
+  #   restart: unless-stopped
+  #   networks:
+  #     - openspine-internal
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   environment:
+  #     CONTAINERS: 1
+  #     POST: 1
+  #     SERVICES: 0
+  #     TASKS: 0
+  #     NETWORKS: 0
+  #     IMAGES: 0
+  #     VOLUMES: 0
+  #     EXEC: 0
+  #     INFO: 0
+  #     BUILD: 0
+  #     COMMIT: 0
+  #     CONFIGS: 0
+  #     DISTRIBUTION: 0
+  #     PLUGINS: 0
+  #     SWARM: 0
+  #     SYSTEM: 0
+  #     AUTH: 0
+  #
+  # Then on the kernel service: drop the `/var/run/docker.sock` volume mount
+  # above and add `DOCKER_HOST=tcp://docker-socket-proxy:2375` to its
+  # `environment:` (or `.env`, via `env_file`) instead.

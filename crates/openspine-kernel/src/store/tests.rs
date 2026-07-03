@@ -116,7 +116,10 @@ fn task_grant_round_trips_by_token() {
         .unwrap();
     let (back, back_ref, bound_chat_id) =
         store.find_task_grant_by_token("token-a").unwrap().unwrap();
-    assert_eq!(back, grant);
+    // D-047: the persisted grant's task_token is redacted, never round-tripped.
+    let mut expected = grant.clone();
+    expected.task_token = String::new();
+    assert_eq!(back, expected);
     assert_eq!(back_ref, pending_message_ref);
     assert_eq!(bound_chat_id, 555);
     assert!(store
@@ -361,4 +364,97 @@ fn opening_a_pre_existing_db_without_the_used_column_is_migrated_in_place() {
     // "duplicate column name" branch of `apply_ad_hoc_migrations`).
     drop(store);
     assert!(Store::open(&path).is_ok());
+}
+
+#[test]
+fn find_task_grant_by_token_rejects_the_raw_hash_value() {
+    let store = Store::open_in_memory().unwrap();
+    let grant = sample_grant("token-b");
+    let pending_message_ref = ArtifactRef {
+        digest: Digest::parse(format!("sha256:{}", "d".repeat(64))).unwrap(),
+        schema_version: 1,
+    };
+    store
+        .insert_task_grant(&grant, &pending_message_ref, 555)
+        .unwrap();
+
+    // Proves hashing actually happened, not merely a naive one-way store:
+    // looking a grant up by the STORED HASH STRING itself must miss.
+    let stored_hash: String = {
+        let conn = store.conn.lock();
+        conn.query_row("SELECT task_token FROM task_grants LIMIT 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap()
+    };
+    assert_ne!(stored_hash, "token-b");
+    assert!(store
+        .find_task_grant_by_token(&stored_hash)
+        .unwrap()
+        .is_none());
+    assert!(store.find_task_grant_by_token("token-b").unwrap().is_some());
+}
+
+#[test]
+fn persisted_grant_json_contains_no_task_token() {
+    let store = Store::open_in_memory().unwrap();
+    let grant = sample_grant("super-secret-raw-token-value");
+    let pending_message_ref = ArtifactRef {
+        digest: Digest::parse(format!("sha256:{}", "e".repeat(64))).unwrap(),
+        schema_version: 1,
+    };
+    store
+        .insert_task_grant(&grant, &pending_message_ref, 555)
+        .unwrap();
+
+    let grant_json: String = {
+        let conn = store.conn.lock();
+        conn.query_row("SELECT grant_json FROM task_grants LIMIT 1", [], |row| {
+            row.get(0)
+        })
+        .unwrap()
+    };
+    assert!(!grant_json.contains("super-secret-raw-token-value"));
+}
+
+#[test]
+fn sweep_removes_only_grants_expired_more_than_a_day() {
+    let store = Store::open_in_memory().unwrap();
+    let now = Timestamp::now();
+    let old_id = Ulid::new().to_string();
+    let recent_id = Ulid::new().to_string();
+    {
+        let conn = store.conn.lock();
+        for (id, expires_at) in [
+            (&old_id, now - std::time::Duration::from_secs(25 * 60 * 60)),
+            (&recent_id, now - std::time::Duration::from_secs(60 * 60)),
+        ] {
+            conn.execute(
+                "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    id,
+                    format!("hash-for-{id}"),
+                    expires_at.to_string(),
+                    "{}",
+                    format!("sha256:{}", "0".repeat(64)),
+                    555,
+                ],
+            )
+            .unwrap();
+        }
+    }
+
+    store.sweep_expired_grants(now).unwrap();
+
+    let remaining: Vec<String> = {
+        let conn = store.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT id FROM task_grants ORDER BY id")
+            .unwrap();
+        stmt.query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    assert_eq!(remaining, vec![recent_id]);
 }
