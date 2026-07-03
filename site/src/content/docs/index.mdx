@@ -1,0 +1,31 @@
+---
+title: Give your agent a backbone.
+description: OpenSpine is a self-hostable runtime substrate for governed agents.
+template: splash
+hero:
+  tagline: Most agent frameworks answer "what can my agent do?" OpenSpine answers "what is my agent allowed to do — and can I prove it?"
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+    - text: Why OpenSpine
+      link: /why-openspine/
+      icon: right-arrow
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Three pillars
+
+<CardGrid stagger>
+	<Card title="Composed authority" icon="code-branch">
+		Identity alone never grants trust. Routes, agents, workflows, capability packs, and policies are candidate inputs — authority composition merges them, deny-by-default, into the one short-lived task grant a running agent actually holds.
+	</Card>
+	<Card title="One gate" icon="forward-slash">
+		Every effectful action — reads, model calls, connector writes — passes through a single `gate()` boundary before anything happens, and every decision is hash-chain audited.
+	</Card>
+	<Card title="Provable claims" icon="approve-check">
+		Every security claim OpenSpine makes maps to a named test. The [claims register](/threat-model/) is the source of truth; `./scripts/check.sh` runs all of it on every change.
+	</Card>
+</CardGrid>

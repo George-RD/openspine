@@ -1,11 +1,11 @@
 # Graph Report - openspine  (2026-07-03)
 
 ## Corpus Check
-- 63 files · ~76,256 words
+- 65 files · ~80,328 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 855 nodes · 2057 edges · 33 communities detected
+- 857 nodes · 2057 edges · 33 communities detected
 - Extraction: 74% EXTRACTED · 26% INFERRED · 0% AMBIGUOUS · INFERRED: 539 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -240,9 +240,9 @@ Nodes (1): PromptTemplate
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `post_model_generate()` connect `Community 9` to `Community 2`, `Community 4`, `Community 5`?**
-  _High betweenness centrality (0.308) - this node is a cross-community bridge._
+  _High betweenness centrality (0.306) - this node is a cross-community bridge._
 - **Why does `Model Gateway` connect `Community 0` to `Community 9`?**
-  _High betweenness centrality (0.288) - this node is a cross-community bridge._
+  _High betweenness centrality (0.287) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `gate() — Action Mediation Function` (e.g. with `Action Request Type` and `Gate Decision Type`) actually correct?**
   _`gate() — Action Mediation Function` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `Task Grant (Live Authority Object)` (e.g. with `Owner-Control Task Grant` and `Authority Composition`) actually correct?**
