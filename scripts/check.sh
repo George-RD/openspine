@@ -20,6 +20,9 @@ cargo test --workspace
 echo "== scripts/check-file-sizes.sh =="
 scripts/check-file-sizes.sh
 
+echo "== scripts/check-claims.sh =="
+scripts/check-claims.sh
+
 if [ "$#" -ge 1 ]; then
   change_id="$1"
   echo "== openspec validate ${change_id} --strict =="
