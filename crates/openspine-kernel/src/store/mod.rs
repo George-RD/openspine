@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS task_grants (
 );
 CREATE TABLE IF NOT EXISTS grant_counters (
     grant_id TEXT PRIMARY KEY,
-    artifact_puts INTEGER NOT NULL DEFAULT 0
+    artifact_puts INTEGER NOT NULL DEFAULT 0,
+    model_calls INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS audit_log (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,7 +116,7 @@ impl Store {
         }
         let conn = Connection::open(path)?;
         conn.execute_batch(SCHEMA_SQL)?;
-        Self::apply_ad_hoc_migrations(&conn)?;
+        migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -125,39 +126,10 @@ impl Store {
     pub fn open_in_memory() -> Result<Self, StoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA_SQL)?;
-        Self::apply_ad_hoc_migrations(&conn)?;
+        migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
         })
-    }
-
-    /// Ad-hoc, no-`PRAGMA user_version` migrations for schema changes made
-    /// after a `data/kernel.db` may already exist on disk (see the module
-    /// doc comment: `CREATE TABLE IF NOT EXISTS` alone only ever helps a
-    /// fresh file). Each statement here must be safe to run against both a
-    /// brand-new database (where `SCHEMA_SQL` already created the column,
-    /// so this is a harmless no-op) and an old one predating the column —
-    /// SQLite's "duplicate column name" failure on the former case is
-    /// swallowed; any other error still propagates.
-    fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreError> {
-        // D-040 follow-up: `action_requests.used` backs
-        // `try_consume_action_request`'s single-approval guard, added
-        // after this table first shipped.
-        match conn.execute(
-            "ALTER TABLE action_requests ADD COLUMN used INTEGER NOT NULL DEFAULT 0",
-            [],
-        ) {
-            Ok(_) => {}
-            Err(rusqlite::Error::SqliteFailure(_, Some(msg)))
-                if msg.contains("duplicate column name") =>
-            {
-                // already migrated
-            }
-            Err(err) => return Err(err.into()),
-        }
-        // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
-        proposed_artifacts::ensure_schema(conn)?;
-        Ok(())
     }
 
     // ---- task grants ----------------------------------------------------
@@ -494,7 +466,10 @@ impl Store {
 }
 
 mod budget_support;
+#[cfg(test)]
+mod budget_support_tests;
 mod gate_support;
+mod migrations;
 pub(crate) mod proposed_artifacts;
 #[cfg(test)]
 mod tests;

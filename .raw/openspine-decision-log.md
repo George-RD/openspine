@@ -62,6 +62,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-047 | Task tokens are hashed at rest; expired grants are swept | Accepted |
 | D-048 | `artifact.activate` is the single canonical activation action id; all runtime proposals require uniform owner approval; prompt templates are not proposable | Accepted |
 | D-049 | Capability specs are backfilled for subsystems implemented inside earlier slices | Accepted |
+| D-050 | `max_model_calls` is enforced with an atomic upsert, not a count-then-compare | Accepted |
 
 ---
 
@@ -1315,6 +1316,28 @@ A subsystem's behaviour changes enough that its backfilled spec no longer matche
 
 ---
 
+# D-050 — `max_model_calls` is enforced with an atomic upsert, not a count-then-compare
+
+## Decision
+
+`POST /v1/model/generate`'s `max_model_calls` budget check counted `conversation_state` rows for role `"user"` with a plain `SELECT COUNT`, compared to the limit in application code, then appended the new turn afterwards. Two concurrent requests on the same grant could both read the same pre-increment count and both be allowed through, exceeding the budget by the number of racing callers. Found in an independent adversarial review of `harden-approval-and-budgets` and `implement-artifact-lifecycle-slice`, after both had already merged. Fixed by adding a `grant_counters.model_calls` column and a `try_count_model_call` method with the same atomic `INSERT ... ON CONFLICT DO UPDATE ... WHERE model_calls < ?` upsert pattern `try_count_artifact_put` (D-046) already used for the artifact-put budget — the `WHERE` clause makes the check-and-increment a single SQL statement, so two concurrent callers racing for the same last call can never both pass.
+
+## Rationale
+
+D-046 correctly reasoned that `try_count_artifact_put` needed to be atomic, but `max_model_calls` was left as a separate count-then-compare because it reused an existing `conversation_state` table rather than introducing a new counter — the atomicity gap this created was not caught by any test, since the existing coverage (`max_model_calls_of_one_denies_the_second_call_with_a_single_provider_hit`) only issues calls sequentially. A budget that can be exceeded under concurrency is not a budget; kernel-dispatch-side enforcement (D-046's placement decision) is only as good as the primitive backing it.
+
+## Consequences
+
+- `grant_counters` gains a `model_calls` column (ad-hoc `ALTER TABLE`, safe against pre-existing databases per the existing migration pattern); `count_conversation_turns` is removed as dead code, no other caller used it.
+- A new regression test (`store::budget_support_tests::try_count_model_call_allows_exactly_one_concurrent_winner_at_max_one`) spawns real OS threads racing the same grant and asserts exactly one wins — sequential tests alone cannot prove a concurrency invariant.
+- `store/mod.rs`'s migration logic was split into its own `migrations.rs` module (mirroring the existing `budget_support`/`gate_support` split) to stay under the 500-line file-size gate after the new migration statement was added; the new test was similarly split into `store/budget_support_tests.rs` to keep `store/tests.rs` under the same gate.
+
+## Would change if
+
+A future budget-style check is added against a plain `SELECT COUNT` (or any other check-then-act pattern) without routing it through an atomic upsert — this decision's precedent is that every grant-scoped counter enforced kernel-dispatch-side must be atomic at the SQL layer, not just correct under sequential testing.
+
+---
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -1360,3 +1383,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-03 | Added D-045 (WYSIWYS: truncated previews refuse approval buttons), D-046 (grant budgets enforced kernel-dispatch-side; artifact budget counts shell-initiated puts only), and D-047 (task tokens hashed at rest, redacted from persisted grant JSON, 24h expired-grant sweep), discovered while implementing `harden-approval-and-budgets`. |
 | 2026-07-03 | Added D-048 (`artifact.activate` is the single canonical activation action id, mirroring D-034's precedent; uniform owner approval for every proposable kind; prompt templates excluded from proposable kinds), discovered while implementing `implement-artifact-lifecycle-slice`. |
 | 2026-07-03 | Added D-049 (capability specs backfilled for model-gateway, audit-artifact-store, and shell-containment; future security-load-bearing subsystems must gain their spec in the implementing change), discovered while implementing `backfill-implemented-capability-specs`. |
+| 2026-07-03 | Added D-050 (`max_model_calls` enforced with an atomic upsert instead of a count-then-compare, closing a concurrent-request TOCTOU gap; `count_conversation_turns` removed as dead code), found in an independent post-merge review of `harden-approval-and-budgets` and `implement-artifact-lifecycle-slice`. |
