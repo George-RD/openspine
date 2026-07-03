@@ -151,11 +151,25 @@ Known actions and their `result` shape when allowed (Step 4/5 scope):
   `email_reply_drafter` is denied), so an agent that may only preview can
   never be confused with one that may reply freely. Long bodies are
   truncated to fit Telegram's message-length limit rather than failing.
-- `workflow.invoke:approved`, `artifact.propose`, `setup.workflow.start` →
-  each is a stub per `tasks.md`; result is
-  `{"stub": true, "note": "<short guidance text>"}`. No real behavior is
-  implemented for these three — a stub response is the specified
-  deliverable for Step 4.
+- `workflow.invoke:approved`, `setup.workflow.start` → each is a stub per
+  `tasks.md`; result is `{"stub": true, "note": "<short guidance text>"}`.
+  No real behavior is implemented for these two — a stub response is the
+  specified deliverable for Step 4.
+- `artifact.propose` (`implement-artifact-lifecycle-slice`) → payload MUST
+  be exactly `{"kind": "route|agent|workflow|pack|policy", "yaml": "<artifact YAML>"}`.
+  `400` if `kind` is outside that set (prompt templates are never
+  proposable — D-048), the YAML fails to parse against its kind's schema,
+  the YAML's `lifecycle_state` is not `proposed` (the proposer cannot
+  pre-activate), the `(kind, artifact_id, version)` already exists in the
+  live registry or among pending proposals, or the artifact budget
+  (`GrantLimits.max_artifacts`) is exhausted. On success, result is
+  `{"proposed": true, "action_request_id": "<ulid>"}` and the kernel sends
+  the owner a Telegram approval button digest-bound to the exact YAML
+  bytes and to `{kind, artifact_id, version}`; nothing activates until the
+  owner approves that exact button (D-048, reusing D-011/D-039-D-044's
+  approval machinery). An approved proposal is written into the
+  `data/artifacts.d` overlay and inserted into the live registry
+  immediately — no kernel restart required.
 - Any other allowed action (e.g. a capability pack candidate action no
   kernel-side subsystem yet exists for, such as
   `memory.read:owner_preferences_limited`) gets the same honest stub shape

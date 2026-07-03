@@ -104,6 +104,8 @@ pub enum StoreError {
     Serde(#[from] serde_json::Error),
     #[error("stored digest {0} failed to parse")]
     BadDigest(String),
+    #[error("proposed artifact lifecycle error: {0}")]
+    ProposedArtifactLifecycle(String),
 }
 
 impl Store {
@@ -145,14 +147,17 @@ impl Store {
             "ALTER TABLE action_requests ADD COLUMN used INTEGER NOT NULL DEFAULT 0",
             [],
         ) {
-            Ok(_) => Ok(()),
+            Ok(_) => {}
             Err(rusqlite::Error::SqliteFailure(_, Some(msg)))
                 if msg.contains("duplicate column name") =>
             {
-                Ok(())
+                // already migrated
             }
-            Err(err) => Err(err.into()),
+            Err(err) => return Err(err.into()),
         }
+        // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
+        proposed_artifacts::ensure_schema(conn)?;
+        Ok(())
     }
 
     // ---- task grants ----------------------------------------------------
@@ -490,5 +495,6 @@ impl Store {
 
 mod budget_support;
 mod gate_support;
+pub(crate) mod proposed_artifacts;
 #[cfg(test)]
 mod tests;

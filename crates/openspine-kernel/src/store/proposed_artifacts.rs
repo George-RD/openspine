@@ -1,0 +1,230 @@
+//! Storage for the `proposed_artifacts` table (5b): one row per
+//! `artifact.propose` dispatch, tracking the proposal through the PRD §13.1
+//! lifecycle (`proposed → validated → review_required → approved → active`)
+//! until a digest-bound `artifact.activate` approval activates it. Split out
+//! of `store/mod.rs` to keep that file under the 500-line gate, mirroring
+//! `budget_support`/`gate_support`; the table's own `CREATE TABLE` lives
+//! here too (rather than in mod.rs's `SCHEMA_SQL`) for the same reason.
+//!
+//! The `yaml_digest` column is the content-addressed ref into the encrypted
+//! artifact store (`ArtifactRef.digest`) holding the raw YAML the owner
+//! reviewed — the approval binds exactly those bytes (D-011), never a value
+//! re-supplied by the shell at activation time.
+
+use jiff::Timestamp;
+use openspine_schemas::artifact::{can_transition, Lifecycle};
+use rusqlite::{params, OptionalExtension};
+use ulid::Ulid;
+
+use super::{Store, StoreError};
+
+/// One proposed-artifact row. `state` mirrors the artifact lifecycle
+/// (`proposed`/`validated`/`review_required`/`approved`/`active`); only the
+/// `review_required` and `approved` states are observable between dispatch
+/// and activation in the normal flow.
+#[derive(Debug, Clone)]
+pub struct ProposedArtifact {
+    pub id: Ulid,
+    pub kind: String,
+    pub artifact_id: String,
+    pub version: u32,
+    pub state: Lifecycle,
+    /// `sha256:<hex>` — the artifact-store ref to the reviewed raw YAML.
+    pub yaml_digest: String,
+    pub task_grant_id: Ulid,
+    /// `None` until the approval `ActionRequest` is persisted; the approval
+    /// handler joins back through this column.
+    pub action_request_id: Option<Ulid>,
+    pub proposed_at: Timestamp,
+}
+
+/// Raw column tuple for one `proposed_artifacts` row, in `SELECT` order:
+/// `(id, kind, artifact_id, version, state, yaml_digest, task_grant_id,
+/// action_request_id, proposed_at)`.
+type ProposedRow = (
+    String,
+    String,
+    String,
+    i64,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+);
+
+/// Serialise a lifecycle state to its on-disk column form (the serde
+/// `snake_case` rename), reusing the schema's own naming rather than a
+/// second mapping that could drift.
+fn lifecycle_name(state: Lifecycle) -> String {
+    serde_json::to_value(state)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn parse_lifecycle(s: &str) -> Result<Lifecycle, StoreError> {
+    serde_json::from_value::<Lifecycle>(serde_json::Value::String(s.to_string()))
+        .map_err(|_| StoreError::ProposedArtifactLifecycle(format!("unparseable state {s}")))
+}
+
+/// Create the table if absent. Idempotent — safe against both a fresh file
+/// and an existing `data/kernel.db` predating this slice.
+pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS proposed_artifacts (\n\
+         \x20   id TEXT PRIMARY KEY,\n\
+         \x20   kind TEXT NOT NULL,\n\
+         \x20   artifact_id TEXT NOT NULL,\n\
+         \x20   version INTEGER NOT NULL,\n\
+         \x20   state TEXT NOT NULL,\n\
+         \x20   yaml_digest TEXT NOT NULL,\n\
+         \x20   task_grant_id TEXT NOT NULL,\n\
+         \x20   action_request_id TEXT,\n\
+         \x20   proposed_at TEXT NOT NULL,\n\
+         \x20   UNIQUE(kind, artifact_id, version)\n\
+         );",
+    )?;
+    Ok(())
+}
+
+impl Store {
+    /// Persist a fresh proposed-artifact row. The `UNIQUE(kind, artifact_id,
+    /// version)` constraint is the last-line duplicate guard; the dispatcher
+    /// checks for duplicates explicitly first so a hit here surfaces as a
+    /// store error rather than a clean `400`.
+    pub fn insert_proposed_artifact(&self, row: &ProposedArtifact) -> Result<(), StoreError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO proposed_artifacts \
+             (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, action_request_id, proposed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                row.id.to_string(),
+                row.kind,
+                row.artifact_id,
+                row.version as i64,
+                lifecycle_name(row.state),
+                row.yaml_digest,
+                row.task_grant_id.to_string(),
+                row.action_request_id.map(|u| u.to_string()),
+                row.proposed_at.to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Whether `(kind, artifact_id, version)` already has a pending row.
+    /// Backs the dispatcher's duplicate check alongside the live registry.
+    pub fn proposed_artifact_exists(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+    ) -> Result<bool, StoreError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM proposed_artifacts \
+             WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+            params![kind, artifact_id, version as i64],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    /// Load the proposed row an approval `ActionRequest` was minted against
+    /// (5d joins through the `action_request_id` column).
+    pub fn find_proposed_artifact_by_action_request(
+        &self,
+        action_request_id: Ulid,
+    ) -> Result<Option<ProposedArtifact>, StoreError> {
+        let conn = self.conn.lock();
+        let row: Option<ProposedRow> = conn
+            .query_row(
+                "SELECT id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
+                 action_request_id, proposed_at \
+                 FROM proposed_artifacts WHERE action_request_id = ?1",
+                params![action_request_id.to_string()],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                        row.get(8)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((
+            id,
+            kind,
+            artifact_id,
+            version,
+            state,
+            yaml_digest,
+            task_grant_id,
+            action_request_id,
+            proposed_at,
+        )) = row
+        else {
+            return Ok(None);
+        };
+        Ok(Some(ProposedArtifact {
+            id: Ulid::from_string(&id)
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.id".into()))?,
+            kind,
+            artifact_id,
+            version: version as u32,
+            state: parse_lifecycle(&state)?,
+            yaml_digest,
+            task_grant_id: Ulid::from_string(&task_grant_id)
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.task_grant_id".into()))?,
+            action_request_id: action_request_id
+                .as_deref()
+                .map(Ulid::from_string)
+                .transpose()
+                .map_err(|_| {
+                    StoreError::BadDigest("proposed_artifacts.action_request_id".into())
+                })?,
+            proposed_at: proposed_at
+                .parse()
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.proposed_at".into()))?,
+        }))
+    }
+
+    /// Advance a proposal's state one legal step. `can_transition` is
+    /// enforced *before* the UPDATE (PRD §13.2 — the proposer can never
+    /// skip a stage), and the UPDATE's own `WHERE state = <from>` clause is
+    /// a second guard against a concurrent modification racing the check.
+    pub fn set_proposed_artifact_state(
+        &self,
+        id: Ulid,
+        from: Lifecycle,
+        to: Lifecycle,
+    ) -> Result<(), StoreError> {
+        if !can_transition(from, to) {
+            return Err(StoreError::ProposedArtifactLifecycle(format!(
+                "illegal transition {} -> {}",
+                lifecycle_name(from),
+                lifecycle_name(to)
+            )));
+        }
+        let conn = self.conn.lock();
+        let rows = conn.execute(
+            "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
+            params![lifecycle_name(to), id.to_string(), lifecycle_name(from)],
+        )?;
+        if rows == 0 {
+            return Err(StoreError::ProposedArtifactLifecycle(format!(
+                "proposed artifact {id} was not in the expected {from_state} state",
+                from_state = lifecycle_name(from)
+            )));
+        }
+        Ok(())
+    }
+}

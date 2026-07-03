@@ -7,7 +7,7 @@
 //! Command dispatch (exact-prefix match, evaluated in order):
 //!   `/status`      → action `openspine.status.read`
 //!   `/setup`       → action `setup.workflow.start`  (stub)
-//!   `/propose …`   → action `artifact.propose`       (stub)
+//!   `/propose <kind>\n<yaml>` → action `artifact.propose` (implemented)
 //!   (anything else)→ `POST /v1/model/generate`, then reply with model text
 
 use crate::client::{KernelClient, ModelOutcome};
@@ -112,8 +112,23 @@ async fn cmd_setup(client: &KernelClient) -> Result<()> {
     }
 }
 
+/// `/propose <kind>` on the first line, YAML as the remainder (5f). No
+/// client-side kind validation beyond non-empty — the kernel owns it
+/// (`artifact.propose`'s payload contract). A missing kind or empty body
+/// never reaches the kernel at all.
 async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
-    let payload = json!({ "proposal": proposal_text });
+    let (kind, yaml) = match proposal_text.split_once('\n') {
+        Some((kind, yaml)) => (kind.trim(), yaml),
+        None => (proposal_text.trim(), ""),
+    };
+    if kind.is_empty() || yaml.trim().is_empty() {
+        return send_reply(
+            client,
+            "Usage: /propose <route|agent|workflow|pack|policy>\n<yaml>",
+        )
+        .await;
+    }
+    let payload = json!({ "kind": kind, "yaml": yaml });
     let outcome = client
         .submit_action("artifact.propose", Some(payload), None)
         .await?;
@@ -324,7 +339,8 @@ mod tests {
             .expect("approval_required must not cause Err");
     }
 
-    /// `/propose <text>` posts `artifact.propose` with `{"proposal": text}`.
+    /// `/propose <kind>\n<yaml>` posts `artifact.propose` with
+    /// `{"kind": kind, "yaml": yaml}`.
     #[tokio::test]
     async fn propose_command_sends_correct_payload() {
         let server = MockServer::start().await;
@@ -333,12 +349,12 @@ mod tests {
             .and(path("/v1/actions"))
             .and(body_json(serde_json::json!({
                 "action": "artifact.propose",
-                "payload": {"proposal": "add dark mode"},
+                "payload": {"kind": "route", "yaml": "id: dark_mode_route\nversion: 1"},
                 "target": null
             })))
             .respond_with(allow_result(serde_json::json!({
-                "stub": true,
-                "note": "Proposal submitted for review."
+                "proposed": true,
+                "action_request_id": "01JZZZZZZZZZZZZZZZZZZZZZZZ"
             })))
             .expect(1)
             .mount(&server)
@@ -352,9 +368,48 @@ mod tests {
             .await;
 
         let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "/propose add dark mode")
+        run(&client, "/propose route\nid: dark_mode_route\nversion: 1")
             .await
             .expect("propose should succeed");
+    }
+
+    /// A missing kind, or a body that is empty (or all whitespace) after
+    /// the kind line, never reaches the kernel — only the usage-text reply
+    /// is sent. Exercises both halves of `cmd_propose`'s
+    /// `kind.is_empty() || yaml.trim().is_empty()` guard independently, so
+    /// a regression that dropped either half would still redden this test.
+    #[tokio::test]
+    async fn propose_without_body_replies_usage_and_calls_nothing() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1/actions"))
+            .and(body_json(serde_json::json!({
+                "action": "telegram.reply:owner_channel",
+                "payload": {"text": "Usage: /propose <route|agent|workflow|pack|policy>\n<yaml>"},
+                "target": null
+            })))
+            .respond_with(allow_reply())
+            .expect(2)
+            .mount(&server)
+            .await;
+
+        let client = KernelClient::new(server.uri(), TOKEN.to_string());
+        // Kind present ("route") but no YAML body on a second line —
+        // exercises `yaml.trim().is_empty()`.
+        run(&client, "/propose route")
+            .await
+            .expect("missing body must not cause Err");
+        // An empty first line (no kind) with a non-empty body on the
+        // second — exercises `kind.is_empty()` in isolation, proving the
+        // guard does not rely solely on the body being empty too.
+        run(&client, "/propose \nid: x\nversion: 1")
+            .await
+            .expect("missing kind must not cause Err");
+        // wiremock's `.expect(2)` on the exact reply body above is verified
+        // on drop — an `artifact.propose` call would 500 (unmocked) and
+        // fail this test outright, and a differently-shaped reply would
+        // fail the exact `body_json` match.
     }
 
     /// A `deny` on the MODEL generate call also exits `Ok(())`.

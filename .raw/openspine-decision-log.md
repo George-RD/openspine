@@ -60,6 +60,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-045 | WYSIWYS: a truncated preview refuses an approval button rather than splitting the message | Accepted |
 | D-046 | Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts | Accepted |
 | D-047 | Task tokens are hashed at rest; expired grants are swept | Accepted |
+| D-048 | `artifact.activate` is the single canonical activation action id; all runtime proposals require uniform owner approval; prompt templates are not proposable | Accepted |
 | D-049 | Capability specs are backfilled for subsystems implemented inside earlier slices | Accepted |
 
 ---
@@ -1271,6 +1272,28 @@ A leaked or exfiltrated `data/kernel.db` file previously handed out live bearer 
 A future feature needs to recover the plaintext token from a persisted grant (e.g. a token-rotation UI) — that would need a separate, explicitly-scoped secret store, not a weakening of this hash.
 ---
 
+# D-048 — `artifact.activate` is the single canonical activation action id; every runtime proposal requires uniform owner approval; prompt templates are excluded from proposable kinds
+
+## Decision
+
+`implement-artifact-lifecycle-slice` gives the runtime one activation action id, `artifact.activate`, mirroring D-034's precedent for `email.create_draft`: no per-kind qualified variant (`route.activate`, `workflow.activate`, `capability_pack.change`, `policy.change_proposal`, etc.) is wired to anything, even though the PRD names them — they remain candidate, unwired ids so a future change can split activation semantics per kind without a naming collision. Every proposable kind (`route | agent | workflow | pack | policy`) requires the same uniform, explicit owner approval before activation — there is no widening-detection heuristic that lets a "safe-looking" proposal skip the approval button. Prompt templates are excluded from the proposable kinds entirely: they are fixture-only until a dedicated change.
+
+## Rationale
+
+D-033/D-034 already established that action ids are exact-match strings with no wildcard semantics, and that a qualified spelling left unwired but referenced by a fixture risks the exact approval-bypass D-034 caught (a plain-allow entry with no corresponding `approval_required` row). Reusing that precedent for activation avoids re-litigating it. Uniform approval (no heuristic widening detection) is a deliberate, conservative PRD-posture deviation: a heuristic that decides some proposals are "safe enough" to auto-activate is itself an authority decision, and this slice's job is to prove the propose → approve → activate mechanism works end to end, not to also design a risk-scoring model in the same change. Templates are excluded because a template governs the model's *instruction* surface — unlike a route, workflow, pack, or policy, which shape *authority*, a proposed template would let chat-originated content change what future model calls are told to do, which is a strictly different (and larger) injection-escalation surface than this slice is scoped to close.
+
+## Consequences
+
+- `openspine-schemas::artifact`'s `Lifecycle`/`can_transition` machinery gains its first real runtime caller (`proposed → validated → review_required → approved → active`); quarantine/retire transitions remain schema-only, no runtime path yet.
+- A future change wiring a per-kind activation id (e.g. `route.activate` with its own, narrower approval policy) is additive, not a breaking rename, because the per-kind ids were never removed from the PRD-conformant candidate set — only left unwired.
+- Proposing a prompt template is a `BadRequest` (`artifact.propose kind must be one of route|agent|workflow|pack|policy`), not a silently-ignored no-op — the boundary is visible to whoever tries it.
+
+## Would change if
+
+A future change deliberately splits activation into per-kind approval policies (e.g. a route needs owner approval but a lower-stakes artifact kind does not) — that would be its own decision, replacing this one's uniformity, not a quiet per-request exception. Similarly, a dedicated prompt-template-authoring change would need its own decision revisiting the injection-escalation tradeoff here, not a silent addition to `PROPOSABLE_KINDS`.
+
+---
+
 # D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices
 
 ## Decision
@@ -1335,4 +1358,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-02 | Added D-036 (Phase-2 thread selection via a kernel-recognized `/draft <thread_id>` command) and D-037 (Gmail OAuth token exchange via a plain refresh-token POST, `base64` promoted to a direct dependency, no `oauth2` crate), discovered while implementing Step 5 (`implement-selected-thread-email-preview-slice`). |
 | 2026-07-02 | Added D-038 (retroactively documenting `resolve_owner_identity`'s already-implemented caller-supplied `channel_trust`, cited by code comments but never recorded) and D-039–D-044 (Telegram inline-button approval channel, pending-`ActionRequest` persistence, `email.create_draft` digest composition, kernel-derived reply recipient, `lyra.ui.preview` extended to propose+persist+button, kernel-side approved-draft dispatch), discovered while implementing Step 6 (`implement-digest-bound-draft-approval`). |
 | 2026-07-03 | Added D-045 (WYSIWYS: truncated previews refuse approval buttons), D-046 (grant budgets enforced kernel-dispatch-side; artifact budget counts shell-initiated puts only), and D-047 (task tokens hashed at rest, redacted from persisted grant JSON, 24h expired-grant sweep), discovered while implementing `harden-approval-and-budgets`. |
+| 2026-07-03 | Added D-048 (`artifact.activate` is the single canonical activation action id, mirroring D-034's precedent; uniform owner approval for every proposable kind; prompt templates excluded from proposable kinds), discovered while implementing `implement-artifact-lifecycle-slice`. |
 | 2026-07-03 | Added D-049 (capability specs backfilled for model-gateway, audit-artifact-store, and shell-containment; future security-load-bearing subsystems must gain their spec in the implementing change), discovered while implementing `backfill-implemented-capability-specs`. |
