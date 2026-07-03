@@ -24,6 +24,18 @@ token, or any provider API key — it only ever holds `KERNEL_ENDPOINT` and
 encrypts anything itself; it sends raw JSON payloads and the kernel builds
 `ArtifactRef`s server-side.
 
+### Transport trust assumption
+
+The kernel↔shell connection is plain HTTP (no TLS) over the
+Docker-Compose-internal `openspine-internal` network (see `compose.yaml`),
+which has no route to the public internet. This is a deliberate,
+documented trust boundary, not an oversight: the bearer token and every
+request/response body cross this link in the clear, and anything able to
+observe traffic on that internal network can read them. TLS termination
+for this link is out of scope for phases 1–3 (D-032); a future change
+would need to add it (e.g. a sidecar or mutual-TLS) if the internal
+network's isolation is ever not trusted on its own.
+
 ## `GET /v1/task`
 
 Returns a redacted view of the calling task grant. **Never** includes the

@@ -60,6 +60,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-045 | WYSIWYS: a truncated preview refuses an approval button rather than splitting the message | Accepted |
 | D-046 | Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts | Accepted |
 | D-047 | Task tokens are hashed at rest; expired grants are swept | Accepted |
+| D-049 | Capability specs are backfilled for subsystems implemented inside earlier slices | Accepted |
 
 ---
 
@@ -1268,6 +1269,26 @@ A leaked or exfiltrated `data/kernel.db` file previously handed out live bearer 
 ## Would change if
 
 A future feature needs to recover the plaintext token from a persisted grant (e.g. a token-rotation UI) — that would need a separate, explicitly-scoped secret store, not a weakening of this hash.
+---
+
+# D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices
+
+## Decision
+
+`model-gateway`, `audit-artifact-store`, and `shell-containment` were each implemented as part of earlier build-plan slices (Step 4c/4a) but never got a standalone OpenSpec capability spec. `backfill-implemented-capability-specs` adds one for each, derived from the code and decision log as already shipped, plus restores two dev-process requirements (the `tasks.md`-grants-no-runtime-access scenario, and the archive-must-preserve-rationale bullet list) that were silently dropped when `openspine-development-process`'s canonical spec was condensed from its original delta. Going forward, a change implementing a security-load-bearing subsystem MUST add that subsystem's capability spec in the same change — this is now an ADDED requirement on `openspine-development-process`.
+
+## Rationale
+
+A capability without a spec is unreviewable: there is no single place stating what a subsystem is supposed to guarantee, so a future change can silently regress it without any spec-validation catching the drift. Backfilling now, before the artifact-lifecycle slice adds a fourth authority-sensitive subsystem, closes the gap while the shipped behaviour is still fresh and directly inspectable in the code.
+
+## Consequences
+
+- `openspec validate --all --strict` now covers 10 capabilities instead of 7.
+- Every requirement in the three new specs cites the enforcing test where one exists, so the specs cannot silently drift from what `cargo test` actually proves.
+
+## Would change if
+
+A subsystem's behaviour changes enough that its backfilled spec no longer matches reality — at that point the spec must be updated in the same change that changes the behaviour, per the new development-process requirement this decision adds.
 
 ---
 
@@ -1314,3 +1335,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-02 | Added D-036 (Phase-2 thread selection via a kernel-recognized `/draft <thread_id>` command) and D-037 (Gmail OAuth token exchange via a plain refresh-token POST, `base64` promoted to a direct dependency, no `oauth2` crate), discovered while implementing Step 5 (`implement-selected-thread-email-preview-slice`). |
 | 2026-07-02 | Added D-038 (retroactively documenting `resolve_owner_identity`'s already-implemented caller-supplied `channel_trust`, cited by code comments but never recorded) and D-039–D-044 (Telegram inline-button approval channel, pending-`ActionRequest` persistence, `email.create_draft` digest composition, kernel-derived reply recipient, `lyra.ui.preview` extended to propose+persist+button, kernel-side approved-draft dispatch), discovered while implementing Step 6 (`implement-digest-bound-draft-approval`). |
 | 2026-07-03 | Added D-045 (WYSIWYS: truncated previews refuse approval buttons), D-046 (grant budgets enforced kernel-dispatch-side; artifact budget counts shell-initiated puts only), and D-047 (task tokens hashed at rest, redacted from persisted grant JSON, 24h expired-grant sweep), discovered while implementing `harden-approval-and-budgets`. |
+| 2026-07-03 | Added D-049 (capability specs backfilled for model-gateway, audit-artifact-store, and shell-containment; future security-load-bearing subsystems must gain their spec in the implementing change), discovered while implementing `backfill-implemented-capability-specs`. |

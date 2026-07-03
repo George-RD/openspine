@@ -6,6 +6,16 @@ This sequence decomposes the PRD into reviewable OpenSpec changes.
 
 - `define-openspine-development-process`
 
+### Backfilled (implemented inside slices; specs added retroactively)
+
+These subsystems were implemented as part of earlier slices above but had
+no standalone capability spec until `backfill-implemented-capability-specs`
+added one for each, matching the code as shipped:
+
+- `implement-model-gateway`
+- `implement-audit-artifact-store`
+- `implement-shell-containment`
+
 ## Next changes
 
 ### 1. define-core-runtime-schemas
@@ -34,9 +44,6 @@ Allow Gmail draft creation only after exact digest-bound owner approval.
 
 ## Later changes not included in this bundle
 
-- implement-model-gateway
-- implement-audit-artifact-store
-- implement-shell-containment
 - implement-secret-intake
 - implement-route-artifact-lifecycle
 - implement-agent-manifest-registry
