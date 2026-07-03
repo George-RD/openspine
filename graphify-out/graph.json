@@ -20614,8 +20614,8 @@
       "source_file": "crates/openspine-kernel/src/store/budget_support_tests.rs",
       "source_location": "L41",
       "weight": 1.0,
-      "_src": "store_budget_support_tests_try_count_model_call_allows_exactly_one_concurrent_winner_at_max_one",
-      "_tgt": "store_mod_store_open_in_memory",
+      "_src": "store_mod_store_open_in_memory",
+      "_tgt": "store_budget_support_tests_try_count_model_call_allows_exactly_one_concurrent_winner_at_max_one",
       "source": "store_mod_store_open_in_memory",
       "target": "store_budget_support_tests_try_count_model_call_allows_exactly_one_concurrent_winner_at_max_one"
     },
