@@ -34,7 +34,10 @@ async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat(
         .find_task_grant_by_token(&grant.task_token)
         .unwrap()
         .expect("grant must be persisted");
-    assert_eq!(stored_grant, grant);
+    // D-047: the persisted grant's task_token is redacted, never round-tripped.
+    let mut expected = grant.clone();
+    expected.task_token = String::new();
+    assert_eq!(stored_grant, expected);
     assert_eq!(bound_chat_id, 555);
     assert_eq!(state.artifacts.get(&pending_ref).unwrap(), b"hello lyra");
     assert!(state.store.verify_audit_chain().unwrap());

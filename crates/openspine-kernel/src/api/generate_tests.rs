@@ -121,6 +121,13 @@ fn unknown_agent_grant(task_token: &str) -> TaskGrant {
     grant
 }
 
+fn grant_with_limits(task_token: &str, max_model_calls: u32, max_artifacts: u32) -> TaskGrant {
+    let mut grant = email_reply_drafter_grant(task_token);
+    grant.limits.max_model_calls = max_model_calls;
+    grant.limits.max_artifacts = max_artifacts;
+    grant
+}
+
 #[tokio::test]
 async fn email_reply_drafter_template_wraps_untrusted_context_on_the_wire() {
     let server = MockServer::start().await;
@@ -222,6 +229,92 @@ async fn unknown_agent_id_returns_internal_error() {
 
     let body: Value = resp.json().await.unwrap();
     assert_eq!(body["error"], "internal_error");
+
+    handle.abort();
+}
+
+#[tokio::test]
+async fn max_model_calls_of_one_denies_the_second_call_with_a_single_provider_hit() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "content": [{"type": "text", "text": "Draft reply body"}]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let state = state_with_mock_provider(&server.uri());
+    let task_token = "limit-model-calls-token-64-bytes-long-0000000000000000000000000";
+    let grant = grant_with_limits(task_token, 1, 20);
+    let pending_ref = state.artifacts.put(b"select thread 3").unwrap();
+    state
+        .store
+        .insert_task_grant(&grant, &pending_ref, 555)
+        .unwrap();
+
+    let (addr, handle) = start_server(state).await;
+
+    let first =
+        post_model_generate(addr, task_token, "draft_reply", "first message", None, 256).await;
+    assert_eq!(first.status(), 200);
+    let first_body: Value = first.json().await.unwrap();
+    assert_eq!(first_body["decision"]["outcome"], "allow");
+
+    let second =
+        post_model_generate(addr, task_token, "draft_reply", "second message", None, 256).await;
+    assert_eq!(second.status(), 200);
+    let second_body: Value = second.json().await.unwrap();
+    assert_eq!(second_body["decision"]["outcome"], "deny");
+    assert_eq!(second_body["decision"]["reason"], "limit_exceeded");
+    assert!(second_body["text"].is_null());
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+
+    handle.abort();
+}
+
+#[tokio::test]
+async fn max_artifacts_of_one_denies_the_second_call_with_a_single_provider_hit() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "content": [{"type": "text", "text": "Draft reply body"}]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let state = state_with_mock_provider(&server.uri());
+    let task_token = "limit-artifacts-token-64-bytes-long-00000000000000000000000000";
+    let grant = grant_with_limits(task_token, 20, 1);
+    let pending_ref = state.artifacts.put(b"select thread 3").unwrap();
+    state
+        .store
+        .insert_task_grant(&grant, &pending_ref, 555)
+        .unwrap();
+
+    let (addr, handle) = start_server(state).await;
+
+    let first =
+        post_model_generate(addr, task_token, "draft_reply", "first message", None, 256).await;
+    assert_eq!(first.status(), 200);
+    let first_body: Value = first.json().await.unwrap();
+    assert_eq!(first_body["decision"]["outcome"], "allow");
+
+    let second =
+        post_model_generate(addr, task_token, "draft_reply", "second message", None, 256).await;
+    assert_eq!(second.status(), 200);
+    let second_body: Value = second.json().await.unwrap();
+    assert_eq!(second_body["decision"]["outcome"], "deny");
+    assert_eq!(second_body["decision"]["reason"], "limit_exceeded");
+    assert!(second_body["text"].is_null());
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
 
     handle.abort();
 }

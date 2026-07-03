@@ -17,6 +17,7 @@
 mod actions;
 mod generate;
 mod task;
+mod telegram_truncate;
 
 #[cfg(test)]
 mod tests;
@@ -26,6 +27,9 @@ mod dispatch_tests;
 
 #[cfg(test)]
 mod generate_tests;
+
+#[cfg(test)]
+mod preview_tests;
 
 use std::sync::Arc;
 

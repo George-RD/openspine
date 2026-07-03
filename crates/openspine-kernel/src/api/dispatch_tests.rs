@@ -1,8 +1,10 @@
-//! End-to-end tests for Phase-2 action dispatch: `email.read_thread:selected_no_attachments`
-//! and `lyra.ui.preview`. These exercises go through the real axum router and the real
-//! SQLite store to prove the single-use selection token, grant binding, expiry, and payload
-//! validation all surface as HTTP-level 400s, and that `lyra.ui.preview` truncates to
-//! Telegram's UTF-16 limit before sending.
+//! End-to-end tests for `email.read_thread:selected_no_attachments`
+//! (build plan Step 5). These exercises go through the real axum router and
+//! the real SQLite store to prove the single-use selection token, grant
+//! binding, expiry, and payload validation all surface as HTTP-level 400s.
+//! `lyra.ui.preview`'s tests live in the sibling `preview_tests` module —
+//! split out purely to keep both files under the 500-line gate — and reuse
+//! [`mint_grant_with_selection_token`] and [`OWNER_CHAT_ID`] from here.
 
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
@@ -19,10 +21,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::tests::{post_action, start_server};
 use crate::gmail::GmailConnector;
-use crate::telegram::TelegramConnector;
-use crate::test_support::fixtures::{test_state_with_gmail, test_state_with_telegram};
+use crate::test_support::fixtures::test_state_with_gmail;
 
-const OWNER_CHAT_ID: i64 = 555;
+pub(super) const OWNER_CHAT_ID: i64 = 555;
 
 fn sample_gmail_thread_json() -> Value {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -80,7 +81,7 @@ fn gmail_connector(token_server: &MockServer, api_server: &MockServer) -> GmailC
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri())
 }
 
-fn mint_grant_with_selection_token(
+pub(super) fn mint_grant_with_selection_token(
     state: &crate::pipeline::AppState,
     allowed_actions: &[&str],
     token_expires_at: Timestamp,
@@ -362,133 +363,6 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
         body["error"],
         "email.read_thread:selected_no_attachments payload must be exactly {\"selection_token_id\": string}"
     );
-
-    handle.abort();
-}
-
-#[tokio::test]
-async fn lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat() {
-    let server = MockServer::start().await;
-    let token = "test-token";
-    Mock::given(method("POST"))
-        .and(path(format!("/bot{}/SendMessage", token)))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "ok": true,
-            "result": {
-                "message_id": 7,
-                "date": 0,
-                "chat": {"id": OWNER_CHAT_ID, "type": "private"},
-                "text": "sent",
-            }
-        })))
-        .expect(1)
-        .mount(&server)
-        .await;
-
-    let connector =
-        TelegramConnector::with_api_url(token.to_string(), server.uri().parse().unwrap());
-    let state = test_state_with_telegram(connector);
-    let (grant, _token) = mint_grant_with_selection_token(
-        &state,
-        &["lyra.ui.preview"],
-        Timestamp::now() + std::time::Duration::from_secs(120),
-    );
-
-    let (addr, handle) = start_server(state).await;
-
-    let resp = post_action(
-        addr,
-        &grant.task_token,
-        "lyra.ui.preview",
-        Some(json!({
-            "subject": "Re: invoice",
-            "body": "Here's a draft reply.",
-        })),
-    )
-    .await;
-    assert_eq!(resp.status(), 200);
-
-    let body: Value = resp.json().await.unwrap();
-    assert_eq!(body["decision"]["outcome"], "allow");
-    assert_eq!(body["result"]["sent"], true);
-
-    let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 1);
-    let request_body: Value = requests[0].body_json().unwrap();
-    assert_eq!(request_body["chat_id"], OWNER_CHAT_ID);
-    let text = request_body["text"].as_str().unwrap();
-    assert!(text.contains("Draft preview"));
-    assert!(text.contains("Subject: Re: invoice"));
-    assert!(text.contains("Here's a draft reply."));
-
-    handle.abort();
-}
-
-#[tokio::test]
-async fn lyra_ui_preview_truncates_long_body_to_utf16_limit() {
-    let server = MockServer::start().await;
-    let token = "test-token";
-    Mock::given(method("POST"))
-        .and(path(format!("/bot{}/SendMessage", token)))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "ok": true,
-            "result": {
-                "message_id": 8,
-                "date": 0,
-                "chat": {"id": OWNER_CHAT_ID, "type": "private"},
-                "text": "sent",
-            }
-        })))
-        .expect(1)
-        .mount(&server)
-        .await;
-
-    let connector =
-        TelegramConnector::with_api_url(token.to_string(), server.uri().parse().unwrap());
-    let state = test_state_with_telegram(connector);
-    let (grant, _token) = mint_grant_with_selection_token(
-        &state,
-        &["lyra.ui.preview"],
-        Timestamp::now() + std::time::Duration::from_secs(120),
-    );
-
-    let long_body = "🚀".repeat(3000);
-    assert!(
-        long_body.encode_utf16().count() > 4000,
-        "test body must exceed 4000 UTF-16 units"
-    );
-
-    let (addr, handle) = start_server(state).await;
-
-    let resp = post_action(
-        addr,
-        &grant.task_token,
-        "lyra.ui.preview",
-        Some(json!({
-            "subject": "Re: long thread",
-            "body": long_body,
-        })),
-    )
-    .await;
-    assert_eq!(resp.status(), 200);
-
-    let body: Value = resp.json().await.unwrap();
-    assert_eq!(body["decision"]["outcome"], "allow");
-    assert_eq!(body["result"]["sent"], true);
-
-    let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 1);
-    let request_body: Value = requests[0].body_json().unwrap();
-    let text = request_body["text"].as_str().unwrap();
-    assert!(text.ends_with("… [truncated]"));
-
-    let prefix = text.strip_suffix("… [truncated]").unwrap();
-    assert_eq!(
-        prefix.encode_utf16().count(),
-        4000,
-        "truncation must keep exactly 4000 UTF-16 units before the marker"
-    );
-    assert!(text.encode_utf16().count() < long_body.encode_utf16().count());
 
     handle.abort();
 }

@@ -149,4 +149,15 @@ impl Store {
         )?;
         Ok(rows > 0)
     }
+
+    /// Total row count across every grant's pending/decided
+    /// [`ActionRequest`]s — used by `harden-approval-and-budgets`'s WYSIWYS
+    /// test to prove a truncated preview never persisted one at all.
+    #[cfg(test)]
+    pub fn count_action_requests(&self) -> Result<usize, StoreError> {
+        let conn = self.conn.lock();
+        let count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM action_requests", [], |row| row.get(0))?;
+        Ok(count as usize)
+    }
 }

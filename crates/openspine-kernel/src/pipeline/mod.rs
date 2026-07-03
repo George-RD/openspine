@@ -122,7 +122,20 @@ fn resolve_owner_identity(
 /// audited authority decision itself. Shared by [`selection`] and
 /// [`approval`] — both are "tell the owner why their tap/command didn't
 /// work" call sites, not just the selection flow.
+///
+/// D-046 (`gate-action-api`'s "kernel-originated owner notifications are a
+/// trusted, audited path"): this send stays ungated — gating the trusted
+/// kernel against itself adds ceremony, not security — but every send is
+/// audited as `owner.notified` so the trusted-path carve-out remains
+/// traceable. The audit append is itself best-effort: a failure here must
+/// never suppress the owner-facing reply it is only recording.
 async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
+    if let Err(err) = state
+        .store
+        .append_audit("owner.notified", None, None, None, None, &[], &[])
+    {
+        tracing::warn!(error = %err, "failed to audit a best-effort owner notification");
+    }
     if let Err(err) = state.telegram.send_reply(chat_id, text).await {
         tracing::warn!(error = %err, "failed to notify owner of a pipeline failure");
     }

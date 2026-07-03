@@ -72,4 +72,7 @@ for the rest of the configuration surface.
   secret-intake flow is a future change.
 - The shell process is contained (`SandboxDriver`: `ProcessDriver` is
   dev-only and unsafe for real private data; `DockerDriver` is the first
-  driver that provides real network isolation) — see D-005, D-026.
+  driver that provides real network isolation) — see D-005, D-026. The
+  kernel itself needs the Docker socket to spawn shell containers; `compose.yaml`
+  includes a commented-out `docker-socket-proxy` option that narrows the
+  kernel's Docker API access to only container create/start/stop/remove.
