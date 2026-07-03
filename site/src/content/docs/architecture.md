@@ -3,6 +3,8 @@ title: Architecture
 description: The event-to-audit pipeline, the crate map, and the kernel/shell trust boundary.
 ---
 
+This page explains how OpenSpine is built and how data flows through it.
+
 ## The pipeline
 
 Every inbound event runs through the same fixed sequence before an agent

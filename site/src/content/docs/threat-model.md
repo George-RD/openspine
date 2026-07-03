@@ -3,6 +3,8 @@ title: Threat model
 description: What OpenSpine claims to defend against, what it doesn't, and the tests that prove each claim.
 ---
 
+This page lists the security promises OpenSpine makes and shows how we test them.
+
 ## Claims vs exclusions, honestly
 
 A security claim nobody can falsify is marketing, not engineering. Every
