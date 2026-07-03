@@ -1,0 +1,7 @@
+# graphify-out/ contains machine-generated graph data and visualization
+# artifacts (graph.json, graph.html, cache/ast/*.json) rebuilt on every
+# commit by the `graphify update .` pre-commit hook. Excluded from
+# GitHub's linguist language stats and diff views so the repo's language
+# breakdown (and PR diffs) reflect the actual Rust/TS source, not
+# generated output. See: https://github.com/github-linguist/linguist/blob/main/docs/overrides.md
+graphify-out/** linguist-generated=true
