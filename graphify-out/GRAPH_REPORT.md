@@ -1,7 +1,7 @@
 # Graph Report - openspine  (2026-07-03)
 
 ## Corpus Check
-- 59 files · ~62,785 words
+- 59 files · ~63,378 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
