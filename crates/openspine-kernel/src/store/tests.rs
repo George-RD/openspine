@@ -8,7 +8,7 @@ use openspine_schemas::selection::{
     SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod,
 };
 
-fn sample_grant(task_token: &str) -> TaskGrant {
+pub(super) fn sample_grant(task_token: &str) -> TaskGrant {
     let issued_at = Timestamp::now();
     TaskGrant {
         id: Ulid::new(),

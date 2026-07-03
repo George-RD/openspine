@@ -102,12 +102,18 @@ pub(super) async fn post_model_generate(
     // placement precedent as selection-token single-use, see
     // `openspine_gate::gate`'s `GateContext` doc comment) — checked before
     // any payload is put or the new user turn is appended, so a limit of
-    // `N` allows exactly `N` calls.
-    let prior_calls = state
+    // `N` allows exactly `N` calls. Atomic upsert (not count-then-compare):
+    // a plain `SELECT COUNT` read followed by a separate append left a
+    // TOCTOU gap under concurrent requests on the same grant (found in
+    // review) — two callers could both observe room under the limit before
+    // either recorded a call. `try_count_model_call`'s `WHERE` clause makes
+    // the check-and-increment one atomic statement, same as
+    // `try_count_artifact_put` just below.
+    if !state
         .store
-        .count_conversation_turns(grant.id, "user")
-        .map_err(internal_error)?;
-    if prior_calls >= grant.limits.max_model_calls {
+        .try_count_model_call(grant.id, grant.limits.max_model_calls)
+        .map_err(internal_error)?
+    {
         return deny_limit_exceeded(&state, &action, grant.id);
     }
     if !state

@@ -27,19 +27,33 @@ pub(super) fn hash_task_token(token: &str) -> String {
 impl Store {
     // ---- model-call budget (D-046) ---------------------------------------
 
-    /// How many `role` turns exist for `grant_id` so far. `post_model_generate`
-    /// calls this with `"user"` *before* appending the new turn, so a
-    /// `max_model_calls` of `N` allows exactly `N` calls — the Nth call still
-    /// sees `N - 1` prior turns and is allowed; the `N + 1`th sees `N` and is
-    /// denied.
-    pub fn count_conversation_turns(&self, grant_id: Ulid, role: &str) -> Result<u32, StoreError> {
+    /// Atomically consume one unit of `grant_id`'s model-call budget.
+    /// `post_model_generate` calls this once per request — a `max` of `N`
+    /// allows exactly `N` calls: the Nth call finds `model_calls == N - 1`,
+    /// increments and allows; the `N + 1`th finds `model_calls == N` and is
+    /// denied without incrementing further.
+    ///
+    /// One SQL statement, same TOCTOU-avoidance rationale as
+    /// `try_count_artifact_put` below: the `ON CONFLICT` branch's own
+    /// `WHERE` clause is the single point of decision, so two concurrent
+    /// requests racing for the same last call can never both pass. The
+    /// prior implementation counted `conversation_state` rows for role
+    /// `"user"` with a plain `SELECT COUNT` compared in application code —
+    /// correct sequentially, but two concurrent requests could both read
+    /// the same pre-increment count and both be allowed, exceeding the
+    /// budget. Found in review; no test previously exercised concurrency.
+    pub fn try_count_model_call(&self, grant_id: Ulid, max: u32) -> Result<bool, StoreError> {
+        if max == 0 {
+            return Ok(false);
+        }
         let conn = self.conn.lock();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM conversation_state WHERE task_grant_id = ?1 AND role = ?2",
-            params![grant_id.to_string(), role],
-            |row| row.get(0),
+        conn.execute(
+            "INSERT INTO grant_counters (grant_id, model_calls) VALUES (?1, 1)
+             ON CONFLICT(grant_id) DO UPDATE SET model_calls = model_calls + 1
+             WHERE model_calls < ?2",
+            params![grant_id.to_string(), max],
         )?;
-        Ok(count as u32)
+        Ok(conn.changes() == 1)
     }
 
     // ---- artifact-put budget (D-046) --------------------------------------
