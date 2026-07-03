@@ -303,7 +303,11 @@ pub fn owner_control_basic_pack() -> CapabilityPack {
             ActionId::new("model.generate:approved_provider"),
             ActionId::new("telegram.reply:owner_channel"),
         ],
+        // D-048: `artifact.activate` is the single canonical activation
+        // action id (D-034 precedent) — mirrors
+        // `artifacts/lyra/packs/owner_control_basic_pack.yaml`.
         approval_required: vec![
+            ActionId::new("artifact.activate"),
             ActionId::new("connector.enable"),
             ActionId::new("route.activate"),
             ActionId::new("capability_pack.change"),

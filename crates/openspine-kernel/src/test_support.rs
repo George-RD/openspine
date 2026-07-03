@@ -27,10 +27,13 @@ pub(crate) mod fixtures {
         let registry = crate::artifact_loader::load_registry(&repo_lyra_dir()).unwrap();
         let key = [7u8; 32];
         let artifacts_dir = tempfile::tempdir().unwrap().keep();
+        // 5a/5d: a per-test overlay dir so activation tests can assert the
+        // on-disk overlay file without touching the real fixture tree.
+        let overlay_dir = tempfile::tempdir().unwrap().keep();
         AppState {
             store: Store::open_in_memory().unwrap(),
             artifacts: ArtifactStore::open(artifacts_dir, key).unwrap(),
-            registry,
+            registry: parking_lot::RwLock::new(registry),
             sandbox: Sandbox::Process(ProcessDriver::default()),
             telegram: TelegramConnector::new("test-token".to_string()),
             owner_user_id: 42,
@@ -50,6 +53,7 @@ pub(crate) mod fixtures {
                 "unused-test-key".to_string(),
             ),
             started_at: std::time::Instant::now(),
+            overlay_dir,
         }
     }
 

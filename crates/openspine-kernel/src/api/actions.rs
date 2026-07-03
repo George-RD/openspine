@@ -169,7 +169,8 @@ pub(super) async fn post_actions(
 /// Both are audited via `action.dispatch_failed` either way (see
 /// [`post_actions`]) so "why didn't Lyra reply" stays answerable from
 /// `audit_log` alone even when the dispatch itself failed.
-enum DispatchError {
+#[derive(Debug)]
+pub(super) enum DispatchError {
     BadRequest(String),
     Internal(anyhow::Error),
 }
@@ -178,11 +179,12 @@ enum DispatchError {
 /// `Allow` — a deny/approval-required decision never calls this.
 ///
 /// `openspine.status.read`, `telegram.reply:owner_channel`,
-/// `email.read_thread:selected_no_attachments`, and `lyra.ui.preview` are
-/// real; `workflow.invoke:approved`, `artifact.propose`, and
-/// `setup.workflow.start` are specified stubs (`tasks.md`: "Do not
-/// implement real behavior for these three — a stub response is the
-/// specified deliverable"). Any other allowed action (e.g.
+/// `email.read_thread:selected_no_attachments`, `lyra.ui.preview`, and
+/// `artifact.propose` (5c: validate, persist, and ask the owner to
+/// approve activation) are real; `workflow.invoke:approved` and
+/// `setup.workflow.start` remain specified stubs (`tasks.md`: "Do not
+/// implement real behavior for these — a stub response is the specified
+/// deliverable"). Any other allowed action (e.g.
 /// `memory.read:owner_preferences_limited`, which a capability pack can
 /// grant but no kernel-side subsystem yet exists for) falls through to the
 /// same honest stub shape rather than a 500 — an *authorized* action must
@@ -236,10 +238,10 @@ async fn dispatch_allowed_action(
             "stub": true,
             "note": "workflow invocation is a Step 4 stub; no workflow execution engine exists yet",
         })),
-        "artifact.propose" => Ok(json!({
-            "stub": true,
-            "note": "artifact proposal is a Step 4 stub; proposed artifacts are not yet persisted or reviewed",
-        })),
+        "artifact.propose" => {
+            super::artifact_propose::dispatch_artifact_propose(state, grant, bound_chat_id, payload)
+                .await
+        }
         "setup.workflow.start" => Ok(json!({
             "stub": true,
             "note": "the setup workflow is a Step 4 stub; no setup wizard exists yet",

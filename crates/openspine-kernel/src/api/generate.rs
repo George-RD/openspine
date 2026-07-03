@@ -164,10 +164,14 @@ pub(super) async fn post_model_generate(
     let template_id = template_id_for_agent(&grant.agent_id)
         .ok_or_else(|| anyhow::anyhow!("agent {} has no known prompt template", grant.agent_id))
         .map_err(internal_error)?;
+    // 5a: clone the template out of the shared-mutable registry under a
+    // brief read guard; the subsequent provider call is `.await`.
     let template = state
         .registry
+        .read()
         .templates
         .get(template_id)
+        .cloned()
         .ok_or_else(|| anyhow::anyhow!("{template_id} not in registry"))
         .map_err(internal_error)?;
 
@@ -212,9 +216,9 @@ pub(super) async fn post_model_generate(
 
     let prompt = match &body.untrusted_context {
         Some(untrusted) => {
-            build_prompt_with_untrusted_context(template, untrusted, conversation, body.max_tokens)
+            build_prompt_with_untrusted_context(&template, untrusted, conversation, body.max_tokens)
         }
-        None => build_prompt(template, conversation, body.max_tokens),
+        None => build_prompt(&template, conversation, body.max_tokens),
     };
     let text = state
         .provider

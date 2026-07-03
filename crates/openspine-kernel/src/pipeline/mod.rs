@@ -38,6 +38,7 @@ use crate::artifact_store::ArtifactStore;
 use crate::sandbox::{self, Sandbox};
 use crate::store::Store;
 use crate::telegram::{self, TelegramConnector, VerifiedUpdate};
+use std::path::PathBuf;
 
 use approval::handle_draft_approval_callback;
 use selection::handle_thread_selection;
@@ -49,7 +50,7 @@ use selection::handle_thread_selection;
 pub struct AppState {
     pub store: Store,
     pub artifacts: ArtifactStore,
-    pub registry: ArtifactRegistry,
+    pub registry: parking_lot::RwLock<ArtifactRegistry>,
     pub sandbox: Sandbox,
     pub telegram: TelegramConnector,
     pub owner_user_id: i64,
@@ -66,6 +67,11 @@ pub struct AppState {
     pub provider: crate::model_gateway::ProviderClient,
     /// Backs `GET /v1/status`'s `uptime_seconds`.
     pub started_at: std::time::Instant,
+    /// `data/artifacts.d` overlay dir (5a/5d): approved `artifact.propose`
+    /// activations are written here as `<kind-plural>/<id>-v<version>.yaml`
+    /// so they survive restart, and the startup loader re-merges them into
+    /// the live registry alongside the fixtures.
+    pub overlay_dir: PathBuf,
 }
 
 /// Phase 1 has no persisted per-user/session policy system yet (D-013's
@@ -271,12 +277,12 @@ pub async fn handle_owner_update(
     )?;
 
     let identity = resolve_owner_identity(&envelope, ChannelTrust::VerifiedOwnerChannel);
-    let route_resolution = resolve_route(
-        &envelope,
-        &identity,
-        Some(RelationshipKind::Owner),
-        &state.registry.routes,
-    );
+    // 5a: the registry is shared-mutable (approved proposals activate into
+    // it); take a read guard only long enough to clone the route table out,
+    // never held across the `.await` shell spawn below.
+    let routes = state.registry.read().routes.clone();
+    let route_resolution =
+        resolve_route(&envelope, &identity, Some(RelationshipKind::Owner), &routes);
 
     let route_id = match route_resolution {
         RouteResolution::Success { route_id } => route_id,
@@ -302,11 +308,10 @@ pub async fn handle_owner_update(
         }
     };
 
-    let route = state
-        .registry
-        .routes
+    let route = routes
         .iter()
         .find(|r| r.id == route_id)
+        .cloned()
         .ok_or_else(|| anyhow::anyhow!("resolved route {route_id} not found in registry"))?;
 
     // D-025 / O-003 / PRD §16: refuse before ever composing authority.
@@ -340,37 +345,41 @@ pub async fn handle_owner_update(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
 
-    let agent = state
-        .registry
-        .agents
-        .get(agent_id)
-        .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
-    let workflow = state
-        .registry
-        .workflows
-        .get(workflow_id)
-        .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
-    let pack = state
-        .registry
-        .packs
-        .get(pack_id)
-        .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
-    let global_policy = state
-        .registry
-        .policies
-        .get("global")
-        .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
+    let (agent, workflow, pack, global_policy) = {
+        let registry = state.registry.read();
+        let agent = registry
+            .agents
+            .get(agent_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
+        let workflow = registry
+            .workflows
+            .get(workflow_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
+        let pack = registry
+            .packs
+            .get(pack_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
+        let global_policy = registry
+            .policies
+            .get("global")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
+        (agent, workflow, pack, global_policy)
+    };
     let session = empty_session_policy();
     let user = state.owner_user_id.to_string();
 
     let input = AuthorityInput {
         event: &envelope,
         identity: &identity,
-        route,
-        global_policy,
-        agent,
-        workflow,
-        pack,
+        route: &route,
+        global_policy: &global_policy,
+        agent: &agent,
+        workflow: &workflow,
+        pack: &pack,
         session: &session,
         user: &user,
         purpose: "owner_control_conversation",

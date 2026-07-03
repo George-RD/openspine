@@ -15,6 +15,7 @@
 //! uses; [`task`], [`actions`], and [`generate`] hold one endpoint each.
 
 mod actions;
+mod artifact_propose;
 mod generate;
 mod task;
 mod telegram_truncate;
@@ -30,6 +31,12 @@ mod generate_tests;
 
 #[cfg(test)]
 mod preview_tests;
+
+#[cfg(test)]
+mod artifact_propose_tests;
+
+#[cfg(test)]
+mod artifact_activation_tests;
 
 use std::sync::Arc;
 

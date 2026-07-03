@@ -199,12 +199,11 @@ pub(super) async fn handle_thread_selection(
     )?;
 
     let identity = resolve_owner_identity(&envelope, ChannelTrust::OwnerDevice);
-    let route_resolution = resolve_route(
-        &envelope,
-        &identity,
-        Some(RelationshipKind::Owner),
-        &state.registry.routes,
-    );
+    // 5a: clone the route table out of the shared-mutable registry under a
+    // brief read guard; never held across the `.await` calls below.
+    let routes = state.registry.read().routes.clone();
+    let route_resolution =
+        resolve_route(&envelope, &identity, Some(RelationshipKind::Owner), &routes);
     let route_id = match route_resolution {
         RouteResolution::Success { route_id } => route_id,
         RouteResolution::Denied { reason } => {
@@ -227,11 +226,10 @@ pub(super) async fn handle_thread_selection(
         }
     };
 
-    let route = state
-        .registry
-        .routes
+    let route = routes
         .iter()
         .find(|r| r.id == route_id)
+        .cloned()
         .ok_or_else(|| anyhow::anyhow!("resolved route {route_id} not found in registry"))?;
 
     let agent_id = route
@@ -247,36 +245,40 @@ pub(super) async fn handle_thread_selection(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
 
-    let agent = state
-        .registry
-        .agents
-        .get(agent_id)
-        .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
-    let workflow = state
-        .registry
-        .workflows
-        .get(workflow_id)
-        .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
-    let pack = state
-        .registry
-        .packs
-        .get(pack_id)
-        .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
-    let global_policy = state
-        .registry
-        .policies
-        .get("global")
-        .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
+    let (agent, workflow, pack, global_policy) = {
+        let registry = state.registry.read();
+        let agent = registry
+            .agents
+            .get(agent_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
+        let workflow = registry
+            .workflows
+            .get(workflow_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
+        let pack = registry
+            .packs
+            .get(pack_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
+        let global_policy = registry
+            .policies
+            .get("global")
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
+        (agent, workflow, pack, global_policy)
+    };
     let session = empty_session_policy();
 
     let input = AuthorityInput {
         event: &envelope,
         identity: &identity,
-        route,
-        global_policy,
-        agent,
-        workflow,
-        pack,
+        route: &route,
+        global_policy: &global_policy,
+        agent: &agent,
+        workflow: &workflow,
+        pack: &pack,
         session: &session,
         user: &user,
         purpose: "selected_thread_email_reply_draft",

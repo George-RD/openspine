@@ -16,7 +16,10 @@ candidate_allowed_actions:
   - "memory.read:owner_preferences_limited"
   - "model.generate:approved_provider"
   - "telegram.reply:owner_channel"
+# D-048: `artifact.activate` is the single canonical activation action id
+# (D-034 precedent); the PRD's per-kind ids below stay verbatim/unwired.
 approval_required:
+  - artifact.activate
   - connector.enable
   - route.activate
   - capability_pack.change

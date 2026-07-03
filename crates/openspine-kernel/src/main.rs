@@ -72,8 +72,16 @@ async fn main() -> anyhow::Result<()> {
             cfg.data_dir.join("kernel.db").display()
         );
     }
-    let registry = artifact_loader::load_registry(&cfg.lyra_dir)
+    let mut registry = artifact_loader::load_registry(&cfg.lyra_dir)
         .with_context(|| format!("loading artifact registry from {}", cfg.lyra_dir.display()))?;
+    // 5a: the `data/artifacts.d` overlay holds artifacts activated via
+    // `artifact.propose` approvals, so they survive restart. Same per-kind
+    // subdir layout as the fixtures; a missing dir is an empty overlay. A
+    // `(kind, id, version)` already in the fixtures fails startup rather
+    // than silently shadowing it.
+    let overlay_dir = cfg.data_dir.join("artifacts.d");
+    artifact_loader::load_registry_into(&mut registry, &overlay_dir)
+        .with_context(|| format!("loading artifact overlay from {}", overlay_dir.display()))?;
 
     let sandbox = match cfg.sandbox.driver {
         config::SandboxDriverKind::Process => {
@@ -120,7 +128,7 @@ async fn main() -> anyhow::Result<()> {
     let state = Arc::new(pipeline::AppState {
         store,
         artifacts,
-        registry,
+        registry: parking_lot::RwLock::new(registry),
         sandbox,
         telegram,
         owner_user_id: cfg.owner.telegram_user_id,
@@ -133,6 +141,7 @@ async fn main() -> anyhow::Result<()> {
         gmail,
         provider,
         started_at: Instant::now(),
+        overlay_dir,
     });
 
     let listener = tokio::net::TcpListener::bind(&cfg.kernel.bind_addr)

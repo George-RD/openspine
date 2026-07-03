@@ -42,6 +42,12 @@ fn owner_control_grant_matches_prd_12_1() {
     assert!(grant
         .approval_required_actions
         .contains(&ActionId::new("connector.enable")));
+    // D-048: `artifact.activate` is the single canonical activation action
+    // id (D-034 precedent) — added to `owner_control_basic_pack`'s
+    // `approval_required` by `implement-artifact-lifecycle-slice`.
+    assert!(grant
+        .approval_required_actions
+        .contains(&ActionId::new("artifact.activate")));
     assert!(grant
         .denied_actions
         .contains(&ActionId::new("email.read_inbox")));
