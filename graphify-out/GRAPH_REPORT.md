@@ -1,12 +1,12 @@
-# Graph Report - openspine  (2026-07-03)
+# Graph Report - openspine  (2026-07-05)
 
 ## Corpus Check
-- 67 files · ~80,553 words
+- 68 files · ~80,822 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 861 nodes · 2064 edges · 33 communities detected
-- Extraction: 74% EXTRACTED · 26% INFERRED · 0% AMBIGUOUS · INFERRED: 545 edges (avg confidence: 0.8)
+- 863 nodes · 2070 edges · 32 communities detected
+- Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 550 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -42,7 +42,6 @@
 - [[_COMMUNITY_Community 29|Community 29]]
 - [[_COMMUNITY_Community 30|Community 30]]
 - [[_COMMUNITY_Community 31|Community 31]]
-- [[_COMMUNITY_Community 32|Community 32]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `gate() — Action Mediation Function` - 48 edges
@@ -51,8 +50,8 @@
 4. `owner_update()` - 24 edges
 5. `owner_route()` - 24 edges
 6. `owner_event()` - 23 edges
-7. `test_state()` - 21 edges
-8. `main()` - 20 edges
+7. `main()` - 21 edges
+8. `test_state()` - 21 edges
 9. `gate()` - 19 edges
 10. `Audit Event` - 19 edges
 
@@ -86,27 +85,27 @@
 
 ### Community 0 - "Community 0"
 Cohesion: 0.05
-Nodes (136): Action Request Type, Agent Manifest Schema, Approval Record Schema, Approval-Required Overrides Plain Allow, Artifact Ref (protected reference for private payloads), Audit Event, Gate Audit Metadata, Authority Composer (produces task grants from intersected sources) (+128 more)
+Nodes (143): Action Request Type, Agent Manifest Schema, Approval Record Schema, Approval-Required Overrides Plain Allow, Artifact Ref (protected reference for private payloads), Audit Event, Gate Audit Metadata, Authority Composer (produces task grants from intersected sources) (+135 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.05
-Nodes (62): allow_reply(), allow_result(), approval_required_on_primary_action_exits_ok_no_reply(), cmd_freeform(), cmd_propose(), cmd_setup(), cmd_status(), deny_on_model_generate_exits_ok() (+54 more)
+Cohesion: 0.04
+Nodes (71): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+63 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.07
-Nodes (76): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), empty_session_policy(), global_policy(), main_assistant_agent(), owner_control_basic_pack() (+68 more)
-
-### Community 3 - "Community 3"
 Cohesion: 0.09
 Nodes (60): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), mount_send_message_ok(), telegram_stub(), ArtifactProposePayload, dispatch_artifact_propose(), artifact_propose_persists_and_sends_approval_button() (+52 more)
 
+### Community 3 - "Community 3"
+Cohesion: 0.09
+Nodes (61): empty_session_policy(), global_policy(), owner_control_conversation_workflow(), owner_control_input(), owner_identity(), handle_thread_selection(), AgentLimits, AgentManifest (+53 more)
+
 ### Community 4 - "Community 4"
-Cohesion: 0.05
-Nodes (39): ArtifactLoadError, ArtifactRegistry, collide_keyed(), collide_route(), load_registry(), load_registry_into(), load_yaml_dir(), loads_every_real_fixture_without_error() (+31 more)
+Cohesion: 0.08
+Nodes (48): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), main_assistant_agent(), owner_control_basic_pack(), owner_event(), owner_route() (+40 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.07
-Nodes (31): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+23 more)
+Cohesion: 0.05
+Nodes (40): ArtifactLoadError, ArtifactRegistry, collide_keyed(), collide_route(), load_registry(), load_registry_into(), load_yaml_dir(), loads_every_real_fixture_without_error() (+32 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.1
@@ -117,48 +116,48 @@ Cohesion: 0.1
 Nodes (21): activate_approved_artifact(), create_approved_draft(), handle_draft_approval_callback(), notify_owner_best_effort(), parse_proposal(), Policy, build_raw_reply_message(), CachedToken (+13 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.19
-Nodes (26): default_lyra_dir(), allowed_action_returns_allow(), allowed_plus_approval_required_returns_approval_required(), allowed_plus_denied_returns_deny(), approval_for(), approval_required_action_does_not_execute(), approval_required_action_returns_approval_required(), approved_but_payload_changed_since_is_denied_not_reasked() (+18 more)
-
-### Community 9 - "Community 9"
 Cohesion: 0.1
 Nodes (15): build_owner_envelope(), CallbackQueryUpdate, configured_owner_text_message_is_verified(), missing_sender_is_ignored(), non_text_update_from_owner_is_ignored(), owner_envelope_is_verified_with_owner_id_match_method(), owner_message_in_a_group_chat_is_ignored_not_routed(), parse_approve_callback() (+7 more)
 
-### Community 10 - "Community 10"
+### Community 9 - "Community 9"
 Cohesion: 0.17
 Nodes (19): ArtifactStore, ArtifactStoreError, different_content_is_different_ref(), get_is_idempotent(), key(), round_trips_plaintext(), same_content_is_content_addressed(), stored_blob_never_contains_the_plaintext_substring() (+11 more)
 
-### Community 11 - "Community 11"
+### Community 10 - "Community 10"
 Cohesion: 0.1
 Nodes (9): ArtifactRef, can_transition(), Lifecycle, add_column_if_missing(), apply_ad_hoc_migrations(), ensure_schema(), parse_lifecycle(), ProposedArtifact (+1 more)
 
-### Community 12 - "Community 12"
+### Community 11 - "Community 11"
 Cohesion: 0.18
 Nodes (16): ActionBody, ActionOutcome, approval_required_is_ok_not_err(), deny_decision_is_ok_not_err(), generate_sends_bearer_auth(), generate_sends_untrusted_context_in_body(), GenerateBody, get_task_deserializes_selection_tokens() (+8 more)
 
-### Community 13 - "Community 13"
+### Community 12 - "Community 12"
 Cohesion: 0.11
 Nodes (19): AccountRole, actor_hint_defaults_to_all_none(), ActorHint, ChannelTrust, Connector, DataClassification, EventEnvelope, EventType (+11 more)
+
+### Community 13 - "Community 13"
+Cohesion: 0.27
+Nodes (17): allow_reply(), allow_result(), approval_required_on_primary_action_exits_ok_no_reply(), cmd_freeform(), cmd_propose(), cmd_setup(), cmd_status(), deny_on_model_generate_exits_ok() (+9 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.24
 Nodes (15): denied_read_thread_stops_without_drafting(), Draft, draft_reply(), empty_draft_skips_preview_without_error(), format_thread_for_model(), format_thread_for_model_includes_all_fields(), full_flow_reads_drafts_and_previews(), no_selection_tokens_is_an_error() (+7 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.17
-Nodes (8): docker_driver_args_are_correct_and_secret_free(), DockerDriver, process_driver_allows_external_communication_with_explicit_opt_in(), process_driver_clears_env_and_sets_only_two_vars(), process_driver_never_refuses_owner_control_lane(), process_driver_refuses_external_communication_without_opt_in(), ProcessDriver, Sandbox
-
-### Community 16 - "Community 16"
 Cohesion: 0.32
 Nodes (11): anthropic_client_parses_the_reply_text(), GatewayError, generate_anthropic(), generate_openai_compat(), http_client(), malformed_response_is_missing_content_not_a_panic(), messages_json(), openai_compat_client_parses_the_reply_text() (+3 more)
 
-### Community 17 - "Community 17"
+### Community 16 - "Community 16"
 Cohesion: 0.18
 Nodes (13): deny_unknown_fields_rejects_capability_pack_id(), EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity, identity_json_has_no_authority_field(), IdentityResolution (+5 more)
 
-### Community 18 - "Community 18"
+### Community 17 - "Community 17"
 Cohesion: 0.35
 Nodes (12): AGENTS.md — Agent Instructions, CLAUDE.md — Claude Instructions, Graphify Knowledge Graph Tool, OpenSpine Review Bundle, Repo Index (Markdown), Repo Index (Plain Text), Skill: openspec-apply-change, Skill: openspec-archive-change (+4 more)
+
+### Community 18 - "Community 18"
+Cohesion: 0.18
+Nodes (6): action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionId, ActionRequest, DenialReason, GateDecision
 
 ### Community 19 - "Community 19"
 Cohesion: 0.2
@@ -181,38 +180,34 @@ Cohesion: 0.36
 Nodes (6): authority_sources_use_kind_id_version_format(), GrantLimits, is_expired_uses_expires_at(), owner_control_grant(), round_trips_through_serde(), TaskGrant
 
 ### Community 24 - "Community 24"
-Cohesion: 0.38
-Nodes (7): Change Layer Classification (Core / Product / Both / Tooling), OpenSpec/OpenSpine Development Boundary, OpenSpine Development Lifecycle (explore→propose→spec→apply→archive), Design: OpenSpine Development Process, Proposal: Define OpenSpine Development Process, Spec: OpenSpine Development Process, Rationale: OpenSpec Artifacts Must Not Grant Runtime Authority
-
-### Community 25 - "Community 25"
 Cohesion: 0.4
 Nodes (5): Rationale: OpenSpec Artifacts Must Not Activate Runtime Authority, Requirement: Authority-Sensitive Changes Must Be Explicitly Marked, Requirement: Every Change Must Classify Its Affected Layer, Requirement: OpenSpec Must Remain Separate from Runtime Authority, Spec: OpenSpine Development Process
 
-### Community 26 - "Community 26"
+### Community 25 - "Community 25"
 Cohesion: 0.5
 Nodes (1): Store
 
-### Community 27 - "Community 27"
+### Community 26 - "Community 26"
 Cohesion: 0.5
 Nodes (1): WorkflowManifest
 
-### Community 28 - "Community 28"
+### Community 27 - "Community 27"
 Cohesion: 0.67
 Nodes (1): Store
 
-### Community 29 - "Community 29"
+### Community 28 - "Community 28"
 Cohesion: 1.0
 Nodes (1): AgentManifest
 
-### Community 30 - "Community 30"
+### Community 29 - "Community 29"
 Cohesion: 1.0
 Nodes (1): WorkflowManifest
 
-### Community 31 - "Community 31"
+### Community 30 - "Community 30"
 Cohesion: 1.0
 Nodes (1): CapabilityPack
 
-### Community 32 - "Community 32"
+### Community 31 - "Community 31"
 Cohesion: 1.0
 Nodes (1): PromptTemplate
 
@@ -221,25 +216,25 @@ Nodes (1): PromptTemplate
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 19`** (10 nodes): `Store`, `.count_action_requests()`, `.find_action_request()`, `.find_approval_for_request()`, `.find_selection_token()`, `.insert_action_request()`, `.insert_approval()`, `.insert_selection_token()`, `.try_consume_action_request()`, `.try_consume_selection_token()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 26`** (4 nodes): `Store`, `.sweep_expired_grants()`, `.try_count_artifact_put()`, `.try_count_model_call()`
+- **Thin community `Community 25`** (4 nodes): `Store`, `.sweep_expired_grants()`, `.try_count_artifact_put()`, `.try_count_model_call()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 27`** (4 nodes): `workflow.rs`, `action_lists_default_to_empty_when_omitted()`, `round_trips_through_serde()`, `WorkflowManifest`
+- **Thin community `Community 26`** (4 nodes): `workflow.rs`, `action_lists_default_to_empty_when_omitted()`, `round_trips_through_serde()`, `WorkflowManifest`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (3 nodes): `Store`, `.approval_for_request()`, `.find_selection_token()`
+- **Thin community `Community 27`** (3 nodes): `Store`, `.approval_for_request()`, `.find_selection_token()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (2 nodes): `AgentManifest`, `.version()`
+- **Thin community `Community 28`** (2 nodes): `AgentManifest`, `.version()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 30`** (2 nodes): `WorkflowManifest`, `.version()`
+- **Thin community `Community 29`** (2 nodes): `WorkflowManifest`, `.version()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 31`** (2 nodes): `CapabilityPack`, `.version()`
+- **Thin community `Community 30`** (2 nodes): `CapabilityPack`, `.version()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 32`** (2 nodes): `PromptTemplate`, `.version()`
+- **Thin community `Community 31`** (2 nodes): `PromptTemplate`, `.version()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `post_model_generate()` connect `Community 6` to `Community 8`, `Community 1`, `Community 5`?**
+- **Why does `post_model_generate()` connect `Community 6` to `Community 1`, `Community 4`?**
   _High betweenness centrality (0.305) - this node is a cross-community bridge._
 - **Why does `Model Gateway` connect `Community 0` to `Community 6`?**
   _High betweenness centrality (0.286) - this node is a cross-community bridge._

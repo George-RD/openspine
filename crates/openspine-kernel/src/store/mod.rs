@@ -122,7 +122,6 @@ impl Store {
         })
     }
 
-    #[cfg(test)]
     pub fn open_in_memory() -> Result<Self, StoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA_SQL)?;
