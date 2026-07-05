@@ -156,14 +156,29 @@ pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
     Digest(s)
 }
 
-/// Digest any serializable value over its canonical-JSON pre-image.
-pub fn digest_of(v: &Value) -> Digest {
-    let canonical = canonical_json(v);
-    let mut hasher = Sha256::new();
-    hasher.update(canonical.as_bytes());
-    digest_from_hash(hasher.finalize().into())
+struct HasherWriter<'a>(&'a mut Sha256);
+
+impl<'a> std::io::Write for HasherWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.update(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
+/// Digest any serializable value over its canonical-JSON pre-image.
+pub fn digest_of(v: &Value) -> Digest {
+    let mut hasher = Sha256::new();
+    {
+        let mut writer = HasherWriter(&mut hasher);
+        serde_json::to_writer(&mut writer, &CanonicalValue(v))
+            .expect("canonical JSON serialization to hasher never fails");
+    }
+    digest_from_hash(hasher.finalize().into())
+}
 /// Digest raw bytes directly (no canonical-JSON step). Used by the
 /// artifact store (Step 4) to content-address encrypted blob plaintext
 /// before encryption — the digest must be over the *plaintext* content, not
