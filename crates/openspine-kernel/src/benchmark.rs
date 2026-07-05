@@ -89,8 +89,8 @@ pub fn run_benchmarks() -> anyhow::Result<()> {
             }),
             Some("not_granted"),
             None,
-            &[target_ref.clone()],
-            &[payload_ref.clone()],
+            std::slice::from_ref(&target_ref),
+            std::slice::from_ref(&payload_ref),
         )?;
     }
     let duration_insert = start_insert.elapsed();
