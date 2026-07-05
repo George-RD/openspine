@@ -1,12 +1,12 @@
 # Graph Report - openspine  (2026-07-05)
 
 ## Corpus Check
-- 68 files · ~80,975 words
+- 68 files · ~80,945 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 865 nodes · 2071 edges · 32 communities detected
-- Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 550 edges (avg confidence: 0.8)
+- 865 nodes · 2073 edges · 32 communities detected
+- Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 551 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -89,7 +89,7 @@ Nodes (143): Action Request Type, Agent Manifest Schema, Approval Record Schema,
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
-Nodes (72): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+64 more)
+Nodes (73): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+65 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.07

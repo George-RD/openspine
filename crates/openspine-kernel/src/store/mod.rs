@@ -315,18 +315,7 @@ impl Store {
         let mut hasher = Sha256::new();
         hasher.update(prev_hash.as_str().as_bytes());
         hasher.update(canonical.as_bytes());
-        let result = hasher.finalize();
-        let mut hash_buf = vec![0u8; 71];
-        hash_buf[0..7].copy_from_slice(b"sha256:");
-        const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
-        let mut idx = 7;
-        for &b in result.iter() {
-            hash_buf[idx] = HEX_CHARS[(b >> 4) as usize];
-            hash_buf[idx + 1] = HEX_CHARS[(b & 0xf) as usize];
-            idx += 2;
-        }
-        let hash_str = unsafe { String::from_utf8_unchecked(hash_buf) };
-        let hash = Digest::parse(hash_str).expect("sha256 hex digest is always well-formed");
+        let hash = openspine_schemas::digest::digest_from_hash(hasher.finalize().into());
 
         let event = AuditEvent {
             id,

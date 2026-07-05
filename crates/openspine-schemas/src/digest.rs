@@ -118,6 +118,21 @@ pub fn canonical_json(v: &Value) -> String {
         .expect("canonical JSON of a Value never fails to serialize")
 }
 
+/// Convert a 32-byte SHA-256 hash output directly into a [`Digest`].
+pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
+    let mut buf = vec![0u8; 71];
+    buf[0..7].copy_from_slice(b"sha256:");
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    let mut idx = 7;
+    for &b in hash.iter() {
+        buf[idx] = HEX_CHARS[(b >> 4) as usize];
+        buf[idx + 1] = HEX_CHARS[(b & 0xf) as usize];
+        idx += 2;
+    }
+    let s = unsafe { String::from_utf8_unchecked(buf) };
+    Digest(s)
+}
+
 /// Digest any serializable value over its canonical-JSON pre-image.
 pub fn digest_of<T: Serialize>(v: &T) -> Digest {
     let value = serde_json::to_value(v)
@@ -125,7 +140,7 @@ pub fn digest_of<T: Serialize>(v: &T) -> Digest {
     let canonical = canonical_json(&value);
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
-    Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
+    digest_from_hash(hasher.finalize().into())
 }
 
 /// Digest raw bytes directly (no canonical-JSON step). Used by the
@@ -136,17 +151,7 @@ pub fn digest_of<T: Serialize>(v: &T) -> Digest {
 pub fn digest_of_bytes(bytes: &[u8]) -> Digest {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
-}
-
-fn to_hex(bytes: &[u8]) -> String {
-    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
-    let mut out = Vec::with_capacity(bytes.len() * 2);
-    for &b in bytes {
-        out.push(HEX_CHARS[(b >> 4) as usize]);
-        out.push(HEX_CHARS[(b & 0xf) as usize]);
-    }
-    unsafe { String::from_utf8_unchecked(out) }
+    digest_from_hash(hasher.finalize().into())
 }
 
 #[cfg(test)]
