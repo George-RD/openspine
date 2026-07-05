@@ -364,16 +364,15 @@ impl Store {
         })?;
 
         let mut expected_prev = genesis_digest().as_str().to_string();
+        let mut hasher = Sha256::new();
         for row in rows {
             let (prev_hash, hash, meta_json) = row?;
             if prev_hash != expected_prev {
                 return Ok(false);
             }
-            let mut hasher = Sha256::new();
             hasher.update(prev_hash.as_bytes());
             hasher.update(meta_json.as_bytes());
-            let result = hasher.finalize();
-
+            let result = hasher.finalize_reset();
             if !hash.starts_with("sha256:") || hash.len() != 71 {
                 return Ok(false);
             }
