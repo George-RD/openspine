@@ -356,32 +356,16 @@ impl Store {
         let conn = self.conn.lock();
         let mut stmt =
             conn.prepare("SELECT prev_hash, hash, meta_json FROM audit_log ORDER BY seq ASC")?;
-        let mut rows = stmt.query([])?;
+        let rows = stmt.query_map([], |row| {
+            let prev_hash: String = row.get(0)?;
+            let hash: String = row.get(1)?;
+            let meta_json: String = row.get(2)?;
+            Ok((prev_hash, hash, meta_json))
+        })?;
 
         let mut expected_prev = genesis_digest().as_str().to_string();
-        while let Some(row) = rows.next()? {
-            let prev_hash = row.get_ref(0)?.as_str().map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    0,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            let hash = row.get_ref(1)?.as_str().map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    1,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-            let meta_json = row.get_ref(2)?.as_str().map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    2,
-                    rusqlite::types::Type::Text,
-                    Box::new(e),
-                )
-            })?;
-
+        for row in rows {
+            let (prev_hash, hash, meta_json) = row?;
             if prev_hash != expected_prev {
                 return Ok(false);
             }
@@ -408,8 +392,7 @@ impl Store {
             if !matches {
                 return Ok(false);
             }
-            expected_prev.clear();
-            expected_prev.push_str(hash);
+            expected_prev = hash;
         }
         Ok(true)
     }
