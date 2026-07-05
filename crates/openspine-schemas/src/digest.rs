@@ -96,13 +96,38 @@ impl<'a> Serialize for CanonicalValue<'a> {
                 seq.end()
             }
             Value::Object(map) => {
-                let mut sorted: Vec<(&String, &Value)> = map.iter().collect();
-                sorted.sort_unstable_by_key(|&(k, _)| k);
-                let mut map_serializer = serializer.serialize_map(Some(sorted.len()))?;
-                for (k, v) in sorted {
+                let len = map.len();
+                if len == 0 {
+                    let map_serializer = serializer.serialize_map(Some(0))?;
+                    map_serializer.end()
+                } else if len == 1 {
+                    let mut map_serializer = serializer.serialize_map(Some(1))?;
+                    let (k, v) = map.iter().next().unwrap();
                     map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    map_serializer.end()
+                } else if len <= 16 {
+                    let mut sorted = [None; 16];
+                    for (i, entry) in map.iter().enumerate() {
+                        sorted[i] = Some(entry);
+                    }
+                    let slice = &mut sorted[0..len];
+                    slice.sort_unstable_by_key(|opt| opt.unwrap().0);
+
+                    let mut map_serializer = serializer.serialize_map(Some(len))?;
+                    for entry in slice {
+                        let (k, v) = entry.unwrap();
+                        map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    }
+                    map_serializer.end()
+                } else {
+                    let mut sorted: Vec<(&String, &Value)> = map.iter().collect();
+                    sorted.sort_unstable_by_key(|&(k, _)| k);
+                    let mut map_serializer = serializer.serialize_map(Some(sorted.len()))?;
+                    for (k, v) in sorted {
+                        map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    }
+                    map_serializer.end()
                 }
-                map_serializer.end()
             }
         }
     }
