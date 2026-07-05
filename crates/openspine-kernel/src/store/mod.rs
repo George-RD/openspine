@@ -369,25 +369,36 @@ impl Store {
             Ok((prev_hash, hash, meta_json))
         })?;
 
-        let mut expected_prev = genesis_digest();
+        let mut expected_prev = genesis_digest().as_str().to_string();
         for row in rows {
             let (prev_hash, hash, meta_json) = row?;
-            if prev_hash != expected_prev.as_str() {
+            if prev_hash != expected_prev {
                 return Ok(false);
             }
             let mut hasher = Sha256::new();
             hasher.update(prev_hash.as_bytes());
             hasher.update(meta_json.as_bytes());
-            let recomputed: String = hasher
-                .finalize()
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect();
-            if format!("sha256:{recomputed}") != hash {
+            let result = hasher.finalize();
+
+            if !hash.starts_with("sha256:") || hash.len() != 71 {
                 return Ok(false);
             }
-            expected_prev =
-                Digest::parse(hash).map_err(|_| StoreError::BadDigest("hash".into()))?;
+            let hash_bytes = &hash.as_bytes()[7..];
+
+            let mut matches = true;
+            const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+            for (i, &b) in result.iter().enumerate() {
+                let h1 = HEX_CHARS[(b >> 4) as usize];
+                let h2 = HEX_CHARS[(b & 0xf) as usize];
+                if hash_bytes[i * 2] != h1 || hash_bytes[i * 2 + 1] != h2 {
+                    matches = false;
+                    break;
+                }
+            }
+            if !matches {
+                return Ok(false);
+            }
+            expected_prev = hash;
         }
         Ok(true)
     }

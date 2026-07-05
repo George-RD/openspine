@@ -1,11 +1,11 @@
 # Graph Report - openspine  (2026-07-05)
 
 ## Corpus Check
-- 68 files · ~80,822 words
+- 68 files · ~80,932 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 863 nodes · 2070 edges · 32 communities detected
+- 865 nodes · 2071 edges · 32 communities detected
 - Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 550 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -89,23 +89,23 @@ Nodes (143): Action Request Type, Agent Manifest Schema, Approval Record Schema,
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
-Nodes (71): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+63 more)
+Nodes (72): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+64 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.09
-Nodes (60): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), mount_send_message_ok(), telegram_stub(), ArtifactProposePayload, dispatch_artifact_propose(), artifact_propose_persists_and_sends_approval_button() (+52 more)
+Cohesion: 0.07
+Nodes (71): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), empty_session_policy(), global_policy(), main_assistant_agent(), owner_control_basic_pack() (+63 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.09
-Nodes (61): empty_session_policy(), global_policy(), owner_control_conversation_workflow(), owner_control_input(), owner_identity(), handle_thread_selection(), AgentLimits, AgentManifest (+53 more)
+Nodes (60): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), mount_send_message_ok(), telegram_stub(), ArtifactProposePayload, dispatch_artifact_propose(), artifact_propose_persists_and_sends_approval_button() (+52 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.08
-Nodes (48): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), main_assistant_agent(), owner_control_basic_pack(), owner_event(), owner_route() (+40 more)
-
-### Community 5 - "Community 5"
 Cohesion: 0.05
 Nodes (40): ArtifactLoadError, ArtifactRegistry, collide_keyed(), collide_route(), load_registry(), load_registry_into(), load_yaml_dir(), loads_every_real_fixture_without_error() (+32 more)
+
+### Community 5 - "Community 5"
+Cohesion: 0.1
+Nodes (38): allowed_action_returns_allow(), allowed_plus_approval_required_returns_approval_required(), allowed_plus_denied_returns_deny(), approval_for(), approval_required_action_does_not_execute(), approval_required_action_returns_approval_required(), approved_but_payload_changed_since_is_denied_not_reasked(), audit_metadata_records_action_grant_and_refs_not_plaintext() (+30 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.1
@@ -212,7 +212,7 @@ Cohesion: 1.0
 Nodes (1): PromptTemplate
 
 ## Knowledge Gaps
-- **133 isolated node(s):** `TaskLimits`, `TaskView`, `ActionOutcome`, `ModelOutcome`, `ActionBody` (+128 more)
+- **134 isolated node(s):** `TaskLimits`, `TaskView`, `ActionOutcome`, `ModelOutcome`, `ActionBody` (+129 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 19`** (10 nodes): `Store`, `.count_action_requests()`, `.find_action_request()`, `.find_approval_for_request()`, `.find_selection_token()`, `.insert_action_request()`, `.insert_approval()`, `.insert_selection_token()`, `.try_consume_action_request()`, `.try_consume_selection_token()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -234,10 +234,10 @@ Nodes (1): PromptTemplate
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `post_model_generate()` connect `Community 6` to `Community 1`, `Community 4`?**
+- **Why does `post_model_generate()` connect `Community 6` to `Community 1`, `Community 5`?**
   _High betweenness centrality (0.305) - this node is a cross-community bridge._
 - **Why does `Model Gateway` connect `Community 0` to `Community 6`?**
-  _High betweenness centrality (0.286) - this node is a cross-community bridge._
+  _High betweenness centrality (0.285) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `gate() — Action Mediation Function` (e.g. with `Action Request Type` and `Gate Decision Type`) actually correct?**
   _`gate() — Action Mediation Function` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `Task Grant (Live Authority Object)` (e.g. with `Owner-Control Task Grant` and `Authority Composition`) actually correct?**

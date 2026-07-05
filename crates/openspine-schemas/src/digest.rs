@@ -5,10 +5,13 @@
 //! (recursive key-sort, no insignificant whitespace, UTF-8) is that
 //! pre-image; it is used nowhere else. `Digest` is always `sha256:<64 lowercase hex>`.
 
-use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::Error as _,
+    ser::{SerializeMap, SerializeSeq},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 
@@ -73,33 +76,46 @@ impl<'de> Deserialize<'de> for Digest {
     }
 }
 
+struct CanonicalValue<'a>(&'a Value);
+
+impl<'a> Serialize for CanonicalValue<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0 {
+            Value::Null => serializer.serialize_unit(),
+            Value::Bool(b) => serializer.serialize_bool(*b),
+            Value::Number(n) => n.serialize(serializer),
+            Value::String(s) => serializer.serialize_str(s),
+            Value::Array(arr) => {
+                let mut seq = serializer.serialize_seq(Some(arr.len()))?;
+                for item in arr {
+                    seq.serialize_element(&CanonicalValue(item))?;
+                }
+                seq.end()
+            }
+            Value::Object(map) => {
+                let mut sorted: Vec<(&String, &Value)> = map.iter().collect();
+                sorted.sort_unstable_by_key(|&(k, _)| k);
+                let mut map_serializer = serializer.serialize_map(Some(sorted.len()))?;
+                for (k, v) in sorted {
+                    map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                }
+                map_serializer.end()
+            }
+        }
+    }
+}
+
 /// Recursively sort object keys and drop insignificant whitespace.
 ///
 /// This is the canonical-JSON pre-image function: deterministic key order,
 /// deterministic nesting, no whitespace. It is a pure transform of an
 /// already-parsed [`Value`] — it never re-parses or reformats numbers.
 pub fn canonical_json(v: &Value) -> String {
-    serde_json::to_string(&sort_value(v))
+    serde_json::to_string(&CanonicalValue(v))
         .expect("canonical JSON of a Value never fails to serialize")
-}
-
-fn sort_value(v: &Value) -> Value {
-    match v {
-        Value::Object(map) => {
-            let sorted: BTreeMap<&str, Value> = map
-                .iter()
-                .map(|(k, v)| (k.as_str(), sort_value(v)))
-                .collect();
-            Value::Object(
-                sorted
-                    .into_iter()
-                    .map(|(k, v)| (k.to_string(), v))
-                    .collect(),
-            )
-        }
-        Value::Array(items) => Value::Array(items.iter().map(sort_value).collect()),
-        scalar => scalar.clone(),
-    }
 }
 
 /// Digest any serializable value over its canonical-JSON pre-image.
@@ -124,12 +140,13 @@ pub fn digest_of_bytes(bytes: &[u8]) -> Digest {
 }
 
 fn to_hex(bytes: &[u8]) -> String {
-    use fmt::Write as _;
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        write!(out, "{b:02x}").expect("writing to a String never fails");
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    let mut out = Vec::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        out.push(HEX_CHARS[(b >> 4) as usize]);
+        out.push(HEX_CHARS[(b & 0xf) as usize]);
     }
-    out
+    unsafe { String::from_utf8_unchecked(out) }
 }
 
 #[cfg(test)]
