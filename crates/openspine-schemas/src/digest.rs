@@ -134,10 +134,8 @@ pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
 }
 
 /// Digest any serializable value over its canonical-JSON pre-image.
-pub fn digest_of<T: Serialize>(v: &T) -> Digest {
-    let value = serde_json::to_value(v)
-        .expect("digested types are always representable as serde_json::Value");
-    let canonical = canonical_json(&value);
+pub fn digest_of(v: &Value) -> Digest {
+    let canonical = canonical_json(v);
     let mut hasher = Sha256::new();
     hasher.update(canonical.as_bytes());
     digest_from_hash(hasher.finalize().into())
@@ -219,6 +217,6 @@ mod tests {
         // Different from digesting the same bytes as a JSON string (which
         // canonical-JSON-quotes them first) — these are deliberately
         // different pre-images.
-        assert_ne!(d, digest_of(&"hello world"));
+        assert_ne!(d, digest_of(&json!("hello world")));
     }
 }
