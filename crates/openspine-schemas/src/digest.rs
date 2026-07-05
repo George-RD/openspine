@@ -145,14 +145,12 @@ pub fn canonical_json(v: &Value) -> String {
 
 /// Convert a 32-byte SHA-256 hash output directly into a [`Digest`].
 pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
-    let mut buf = vec![0u8; 71];
-    buf[0..7].copy_from_slice(b"sha256:");
+    let mut buf = Vec::with_capacity(71);
+    buf.extend_from_slice(b"sha256:");
     const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
-    let mut idx = 7;
     for &b in hash.iter() {
-        buf[idx] = HEX_CHARS[(b >> 4) as usize];
-        buf[idx + 1] = HEX_CHARS[(b & 0xf) as usize];
-        idx += 2;
+        buf.push(HEX_CHARS[(b >> 4) as usize]);
+        buf.push(HEX_CHARS[(b & 0xf) as usize]);
     }
     let s = unsafe { String::from_utf8_unchecked(buf) };
     Digest(s)
