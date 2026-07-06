@@ -5,10 +5,13 @@
 //! (recursive key-sort, no insignificant whitespace, UTF-8) is that
 //! pre-image; it is used nowhere else. `Digest` is always `sha256:<64 lowercase hex>`.
 
-use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::Error as _,
+    ser::{SerializeMap, SerializeSeq},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 
@@ -73,45 +76,130 @@ impl<'de> Deserialize<'de> for Digest {
     }
 }
 
+struct CanonicalValue<'a>(&'a Value);
+
+impl<'a> Serialize for CanonicalValue<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self.0 {
+            Value::Null => serializer.serialize_unit(),
+            Value::Bool(b) => serializer.serialize_bool(*b),
+            Value::Number(n) => n.serialize(serializer),
+            Value::String(s) => serializer.serialize_str(s),
+            Value::Array(arr) => {
+                let mut seq = serializer.serialize_seq(Some(arr.len()))?;
+                for item in arr {
+                    seq.serialize_element(&CanonicalValue(item))?;
+                }
+                seq.end()
+            }
+            Value::Object(map) => {
+                let len = map.len();
+                if len == 0 {
+                    let map_serializer = serializer.serialize_map(Some(0))?;
+                    map_serializer.end()
+                } else if len == 1 {
+                    let mut map_serializer = serializer.serialize_map(Some(1))?;
+                    let (k, v) = map.iter().next().expect("map has exactly 1 element");
+                    map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    map_serializer.end()
+                } else if len <= 16 {
+                    let mut sorted = [None; 16];
+                    for (i, entry) in map.iter().enumerate() {
+                        sorted[i] = Some(entry);
+                    }
+                    let slice = &mut sorted[0..len];
+                    slice.sort_unstable_by_key(|opt| opt.expect("slice element populated").0);
+
+                    let mut map_serializer = serializer.serialize_map(Some(len))?;
+                    for entry in slice {
+                        let (k, v) = entry.expect("slice element populated");
+                        map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    }
+                    map_serializer.end()
+                } else {
+                    let mut sorted: Vec<(&String, &Value)> = map.iter().collect();
+                    sorted.sort_unstable_by_key(|&(k, _)| k);
+                    let mut map_serializer = serializer.serialize_map(Some(sorted.len()))?;
+                    for (k, v) in sorted {
+                        map_serializer.serialize_entry(k, &CanonicalValue(v))?;
+                    }
+                    map_serializer.end()
+                }
+            }
+        }
+    }
+}
+
 /// Recursively sort object keys and drop insignificant whitespace.
 ///
 /// This is the canonical-JSON pre-image function: deterministic key order,
 /// deterministic nesting, no whitespace. It is a pure transform of an
 /// already-parsed [`Value`] — it never re-parses or reformats numbers.
 pub fn canonical_json(v: &Value) -> String {
-    serde_json::to_string(&sort_value(v))
+    serde_json::to_string(&CanonicalValue(v))
         .expect("canonical JSON of a Value never fails to serialize")
 }
 
-fn sort_value(v: &Value) -> Value {
-    match v {
-        Value::Object(map) => {
-            let sorted: BTreeMap<&str, Value> = map
-                .iter()
-                .map(|(k, v)| (k.as_str(), sort_value(v)))
-                .collect();
-            Value::Object(
-                sorted
-                    .into_iter()
-                    .map(|(k, v)| (k.to_string(), v))
-                    .collect(),
-            )
+/// Convert a 32-byte SHA-256 hash output directly into a [`Digest`].
+pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
+    let mut buf = Vec::with_capacity(71);
+    buf.extend_from_slice(b"sha256:");
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    for &b in hash.iter() {
+        buf.push(HEX_CHARS[(b >> 4) as usize]);
+        buf.push(HEX_CHARS[(b & 0xf) as usize]);
+    }
+    let s = String::from_utf8(buf).expect("sha256 hex output is always ASCII");
+    Digest(s)
+}
+
+/// Returns true if the given digest string corresponds to the given 32-byte SHA-256 hash.
+///
+/// This does not allocate memory and verifies the digest scheme matches the expected format.
+pub fn digest_matches_hash(digest_str: &str, hash: &[u8; 32]) -> bool {
+    if !digest_str.starts_with("sha256:") || digest_str.len() != 71 {
+        return false;
+    }
+    let hash_bytes = &digest_str.as_bytes()[7..];
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    for (i, &b) in hash.iter().enumerate() {
+        let h1 = HEX_CHARS[(b >> 4) as usize];
+        let h2 = HEX_CHARS[(b & 0xf) as usize];
+        if hash_bytes[i * 2] != h1 || hash_bytes[i * 2 + 1] != h2 {
+            return false;
         }
-        Value::Array(items) => Value::Array(items.iter().map(sort_value).collect()),
-        scalar => scalar.clone(),
+    }
+    true
+}
+
+struct HasherWriter<'a>(&'a mut Sha256);
+
+impl<'a> std::io::Write for HasherWriter<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.update(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
     }
 }
 
-/// Digest any serializable value over its canonical-JSON pre-image.
-pub fn digest_of<T: Serialize>(v: &T) -> Digest {
-    let value = serde_json::to_value(v)
-        .expect("digested types are always representable as serde_json::Value");
-    let canonical = canonical_json(&value);
+/// Digest a `serde_json::Value` over its canonical-JSON pre-image.
+///
+/// Callers with typed structs must convert them via `serde_json::to_value` first.
+pub fn digest_of(v: &Value) -> Digest {
     let mut hasher = Sha256::new();
-    hasher.update(canonical.as_bytes());
-    Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
+    {
+        let mut writer = HasherWriter(&mut hasher);
+        serde_json::to_writer(&mut writer, &CanonicalValue(v))
+            .expect("canonical JSON serialization to hasher never fails");
+    }
+    digest_from_hash(hasher.finalize().into())
 }
-
 /// Digest raw bytes directly (no canonical-JSON step). Used by the
 /// artifact store (Step 4) to content-address encrypted blob plaintext
 /// before encryption — the digest must be over the *plaintext* content, not
@@ -120,16 +208,7 @@ pub fn digest_of<T: Serialize>(v: &T) -> Digest {
 pub fn digest_of_bytes(bytes: &[u8]) -> Digest {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    Digest(format!("{PREFIX}{}", to_hex(&hasher.finalize())))
-}
-
-fn to_hex(bytes: &[u8]) -> String {
-    use fmt::Write as _;
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        write!(out, "{b:02x}").expect("writing to a String never fails");
-    }
-    out
+    digest_from_hash(hasher.finalize().into())
 }
 
 #[cfg(test)]
@@ -197,6 +276,21 @@ mod tests {
         // Different from digesting the same bytes as a JSON string (which
         // canonical-JSON-quotes them first) — these are deliberately
         // different pre-images.
-        assert_ne!(d, digest_of(&"hello world"));
+        assert_ne!(d, digest_of(&json!("hello world")));
+    }
+
+    #[test]
+    fn test_digest_matches_hash() {
+        let raw = b"hello world";
+        let digest = digest_of_bytes(raw);
+        let mut hasher = Sha256::new();
+        hasher.update(raw);
+        let hash: [u8; 32] = hasher.finalize().into();
+        assert!(digest_matches_hash(digest.as_str(), &hash));
+
+        let mut bad_hash = hash;
+        bad_hash[0] ^= 1;
+        assert!(!digest_matches_hash(digest.as_str(), &bad_hash));
+        assert!(!digest_matches_hash("sha256:invalid", &hash));
     }
 }

@@ -24,7 +24,7 @@ use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::AuditEvent;
-use openspine_schemas::digest::{canonical_json, Digest};
+use openspine_schemas::digest::{canonical_json, digest_matches_hash, Digest};
 use openspine_schemas::grant::TaskGrant;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -122,7 +122,6 @@ impl Store {
         })
     }
 
-    #[cfg(test)]
     pub fn open_in_memory() -> Result<Self, StoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA_SQL)?;
@@ -316,13 +315,7 @@ impl Store {
         let mut hasher = Sha256::new();
         hasher.update(prev_hash.as_str().as_bytes());
         hasher.update(canonical.as_bytes());
-        let hash_hex: String = hasher
-            .finalize()
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
-        let hash = Digest::parse(format!("sha256:{hash_hex}"))
-            .expect("sha256 hex digest is always well-formed");
+        let hash = openspine_schemas::digest::digest_from_hash(hasher.finalize().into());
 
         let event = AuditEvent {
             id,
@@ -370,25 +363,20 @@ impl Store {
             Ok((prev_hash, hash, meta_json))
         })?;
 
-        let mut expected_prev = genesis_digest();
+        let mut expected_prev = genesis_digest().as_str().to_string();
+        let mut hasher = Sha256::new();
         for row in rows {
             let (prev_hash, hash, meta_json) = row?;
-            if prev_hash != expected_prev.as_str() {
+            if prev_hash != expected_prev {
                 return Ok(false);
             }
-            let mut hasher = Sha256::new();
             hasher.update(prev_hash.as_bytes());
             hasher.update(meta_json.as_bytes());
-            let recomputed: String = hasher
-                .finalize()
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect();
-            if format!("sha256:{recomputed}") != hash {
+            let result = hasher.finalize_reset();
+            if !digest_matches_hash(&hash, &result.into()) {
                 return Ok(false);
             }
-            expected_prev =
-                Digest::parse(hash).map_err(|_| StoreError::BadDigest("hash".into()))?;
+            expected_prev = hash;
         }
         Ok(true)
     }

@@ -9,6 +9,7 @@
 mod api;
 mod artifact_loader;
 mod artifact_store;
+mod benchmark;
 mod config;
 mod gmail;
 mod model_gateway;
@@ -37,6 +38,10 @@ struct Cli {
     /// Path to `openspine.yaml`.
     #[arg(long, default_value = "openspine.yaml")]
     config: PathBuf,
+
+    /// Run benchmarks instead of starting the daemon.
+    #[arg(long)]
+    benchmark: bool,
 }
 
 #[tokio::main]
@@ -46,6 +51,10 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
+    if cli.benchmark {
+        benchmark::run_benchmarks()?;
+        return Ok(());
+    }
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
 

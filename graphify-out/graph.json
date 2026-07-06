@@ -375,25 +375,25 @@
       "source_file": "crates/openspine-shell/src/main.rs",
       "source_location": "L1",
       "id": "crates_openspine_shell_src_main_rs",
-      "community": 4,
+      "community": 7,
       "norm_label": "main.rs"
     },
     {
       "label": "Cli",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L36",
+      "source_location": "L37",
       "id": "src_main_cli",
-      "community": 4,
+      "community": 7,
       "norm_label": "cli"
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L43",
+      "source_location": "L48",
       "id": "src_main_main",
-      "community": 4,
+      "community": 7,
       "norm_label": "main()"
     },
     {
@@ -402,7 +402,7 @@
       "source_file": "crates/openspine-shell/src/main.rs",
       "source_location": "L62",
       "id": "src_main_run",
-      "community": 4,
+      "community": 7,
       "norm_label": "run()"
     },
     {
@@ -411,7 +411,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L1",
       "id": "crates_openspine_shell_src_agents_main_assistant_rs",
-      "community": 1,
+      "community": 14,
       "norm_label": "main_assistant.rs"
     },
     {
@@ -420,7 +420,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L29",
       "id": "agents_main_assistant_run",
-      "community": 1,
+      "community": 14,
       "norm_label": "run()"
     },
     {
@@ -429,7 +429,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L48",
       "id": "agents_main_assistant_send_reply",
-      "community": 1,
+      "community": 14,
       "norm_label": "send_reply()"
     },
     {
@@ -438,7 +438,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L69",
       "id": "agents_main_assistant_cmd_status",
-      "community": 1,
+      "community": 14,
       "norm_label": "cmd_status()"
     },
     {
@@ -447,7 +447,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L93",
       "id": "agents_main_assistant_cmd_setup",
-      "community": 1,
+      "community": 14,
       "norm_label": "cmd_setup()"
     },
     {
@@ -456,7 +456,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L119",
       "id": "agents_main_assistant_cmd_propose",
-      "community": 1,
+      "community": 14,
       "norm_label": "cmd_propose()"
     },
     {
@@ -465,7 +465,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L153",
       "id": "agents_main_assistant_cmd_freeform",
-      "community": 1,
+      "community": 14,
       "norm_label": "cmd_freeform()"
     },
     {
@@ -474,7 +474,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L178",
       "id": "agents_main_assistant_stub_note",
-      "community": 1,
+      "community": 14,
       "norm_label": "stub_note()"
     },
     {
@@ -483,7 +483,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L201",
       "id": "agents_main_assistant_allow_result",
-      "community": 1,
+      "community": 14,
       "norm_label": "allow_result()"
     },
     {
@@ -492,7 +492,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L208",
       "id": "agents_main_assistant_allow_reply",
-      "community": 1,
+      "community": 14,
       "norm_label": "allow_reply()"
     },
     {
@@ -501,7 +501,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L215",
       "id": "agents_main_assistant_deny_response",
-      "community": 1,
+      "community": 14,
       "norm_label": "deny_response()"
     },
     {
@@ -510,7 +510,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L224",
       "id": "agents_main_assistant_status_command_submits_correct_action_then_replies",
-      "community": 1,
+      "community": 14,
       "norm_label": "status_command_submits_correct_action_then_replies()"
     },
     {
@@ -519,7 +519,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L262",
       "id": "agents_main_assistant_freeform_calls_generate_then_replies_with_model_text",
-      "community": 1,
+      "community": 14,
       "norm_label": "freeform_calls_generate_then_replies_with_model_text()"
     },
     {
@@ -528,7 +528,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L301",
       "id": "agents_main_assistant_deny_on_primary_action_exits_ok_no_reply_attempt",
-      "community": 1,
+      "community": 14,
       "norm_label": "deny_on_primary_action_exits_ok_no_reply_attempt()"
     },
     {
@@ -537,7 +537,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L321",
       "id": "agents_main_assistant_approval_required_on_primary_action_exits_ok_no_reply",
-      "community": 1,
+      "community": 14,
       "norm_label": "approval_required_on_primary_action_exits_ok_no_reply()"
     },
     {
@@ -546,7 +546,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L345",
       "id": "agents_main_assistant_propose_command_sends_correct_payload",
-      "community": 1,
+      "community": 14,
       "norm_label": "propose_command_sends_correct_payload()"
     },
     {
@@ -555,7 +555,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L382",
       "id": "agents_main_assistant_propose_without_body_replies_usage_and_calls_nothing",
-      "community": 1,
+      "community": 14,
       "norm_label": "propose_without_body_replies_usage_and_calls_nothing()"
     },
     {
@@ -564,7 +564,7 @@
       "source_file": "crates/openspine-shell/src/agents/main_assistant.rs",
       "source_location": "L417",
       "id": "agents_main_assistant_deny_on_model_generate_exits_ok",
-      "community": 1,
+      "community": 14,
       "norm_label": "deny_on_model_generate_exits_ok()"
     },
     {
@@ -582,7 +582,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L1",
       "id": "crates_openspine_shell_src_agents_email_reply_drafter_rs",
-      "community": 14,
+      "community": 15,
       "norm_label": "email_reply_drafter.rs"
     },
     {
@@ -591,7 +591,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L26",
       "id": "agents_email_reply_drafter_threadmessage",
-      "community": 14,
+      "community": 15,
       "norm_label": "threadmessage"
     },
     {
@@ -600,7 +600,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L40",
       "id": "agents_email_reply_drafter_run",
-      "community": 14,
+      "community": 15,
       "norm_label": "run()"
     },
     {
@@ -609,7 +609,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L60",
       "id": "agents_email_reply_drafter_read_selected_thread",
-      "community": 14,
+      "community": 15,
       "norm_label": "read_selected_thread()"
     },
     {
@@ -618,7 +618,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L88",
       "id": "agents_email_reply_drafter_parse_thread_messages",
-      "community": 14,
+      "community": 15,
       "norm_label": "parse_thread_messages()"
     },
     {
@@ -627,7 +627,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L108",
       "id": "agents_email_reply_drafter_format_thread_for_model",
-      "community": 14,
+      "community": 15,
       "norm_label": "format_thread_for_model()"
     },
     {
@@ -636,7 +636,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L122",
       "id": "agents_email_reply_drafter_draft",
-      "community": 14,
+      "community": 15,
       "norm_label": "draft"
     },
     {
@@ -645,7 +645,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L127",
       "id": "agents_email_reply_drafter_draft_reply",
-      "community": 14,
+      "community": 15,
       "norm_label": "draft_reply()"
     },
     {
@@ -654,7 +654,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L163",
       "id": "agents_email_reply_drafter_preview_draft",
-      "community": 14,
+      "community": 15,
       "norm_label": "preview_draft()"
     },
     {
@@ -663,7 +663,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L197",
       "id": "agents_email_reply_drafter_thread_result",
-      "community": 14,
+      "community": 15,
       "norm_label": "thread_result()"
     },
     {
@@ -672,7 +672,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L209",
       "id": "agents_email_reply_drafter_full_flow_reads_drafts_and_previews",
-      "community": 14,
+      "community": 15,
       "norm_label": "full_flow_reads_drafts_and_previews()"
     },
     {
@@ -681,7 +681,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L244",
       "id": "agents_email_reply_drafter_no_selection_tokens_is_an_error",
-      "community": 14,
+      "community": 15,
       "norm_label": "no_selection_tokens_is_an_error()"
     },
     {
@@ -690,7 +690,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L251",
       "id": "agents_email_reply_drafter_denied_read_thread_stops_without_drafting",
-      "community": 14,
+      "community": 15,
       "norm_label": "denied_read_thread_stops_without_drafting()"
     },
     {
@@ -699,7 +699,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L269",
       "id": "agents_email_reply_drafter_parse_thread_messages_extracts_fields",
-      "community": 14,
+      "community": 15,
       "norm_label": "parse_thread_messages_extracts_fields()"
     },
     {
@@ -708,7 +708,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L281",
       "id": "agents_email_reply_drafter_format_thread_for_model_includes_all_fields",
-      "community": 14,
+      "community": 15,
       "norm_label": "format_thread_for_model_includes_all_fields()"
     },
     {
@@ -717,7 +717,7 @@
       "source_file": "crates/openspine-shell/src/agents/email_reply_drafter.rs",
       "source_location": "L290",
       "id": "agents_email_reply_drafter_empty_draft_skips_preview_without_error",
-      "community": 14,
+      "community": 15,
       "norm_label": "empty_draft_skips_preview_without_error()"
     },
     {
@@ -735,7 +735,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L1",
       "id": "crates_openspine_gate_src_gate_rs",
-      "community": 8,
+      "community": 4,
       "norm_label": "gate.rs"
     },
     {
@@ -744,7 +744,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L21",
       "id": "src_gate_gatecontext",
-      "community": 8,
+      "community": 4,
       "norm_label": "gatecontext"
     },
     {
@@ -753,7 +753,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L43",
       "id": "src_gate_auditmeta",
-      "community": 8,
+      "community": 4,
       "norm_label": "auditmeta"
     },
     {
@@ -762,7 +762,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L55",
       "id": "src_gate_gateoutcome",
-      "community": 8,
+      "community": 4,
       "norm_label": "gateoutcome"
     },
     {
@@ -771,7 +771,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L65",
       "id": "src_gate_gate",
-      "community": 8,
+      "community": 4,
       "norm_label": "gate()"
     },
     {
@@ -780,7 +780,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L84",
       "id": "src_gate_resolve",
-      "community": 8,
+      "community": 4,
       "norm_label": "resolve()"
     },
     {
@@ -789,7 +789,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L115",
       "id": "src_gate_resolve_approval_required",
-      "community": 8,
+      "community": 4,
       "norm_label": "resolve_approval_required()"
     },
     {
@@ -798,7 +798,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L165",
       "id": "src_gate_digest",
-      "community": 8,
+      "community": 4,
       "norm_label": "digest()"
     },
     {
@@ -807,7 +807,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L169",
       "id": "src_gate_grant_with",
-      "community": 8,
+      "community": 4,
       "norm_label": "grant_with()"
     },
     {
@@ -816,7 +816,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L203",
       "id": "src_gate_request_for",
-      "community": 8,
+      "community": 4,
       "norm_label": "request_for()"
     },
     {
@@ -825,7 +825,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L225",
       "id": "src_gate_mockcontext",
-      "community": 8,
+      "community": 4,
       "norm_label": "mockcontext"
     },
     {
@@ -834,7 +834,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L230",
       "id": "src_gate_mockcontext_approval_for_request",
-      "community": 8,
+      "community": 4,
       "norm_label": ".approval_for_request()"
     },
     {
@@ -843,7 +843,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L234",
       "id": "src_gate_mockcontext_find_selection_token",
-      "community": 8,
+      "community": 4,
       "norm_label": ".find_selection_token()"
     },
     {
@@ -852,7 +852,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L239",
       "id": "src_gate_approval_for",
-      "community": 8,
+      "community": 4,
       "norm_label": "approval_for()"
     },
     {
@@ -861,7 +861,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L261",
       "id": "src_gate_allowed_action_returns_allow",
-      "community": 8,
+      "community": 4,
       "norm_label": "allowed_action_returns_allow()"
     },
     {
@@ -870,7 +870,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L270",
       "id": "src_gate_denied_action_returns_deny",
-      "community": 8,
+      "community": 4,
       "norm_label": "denied_action_returns_deny()"
     },
     {
@@ -879,7 +879,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L284",
       "id": "src_gate_approval_required_action_returns_approval_required",
-      "community": 8,
+      "community": 4,
       "norm_label": "approval_required_action_returns_approval_required()"
     },
     {
@@ -888,7 +888,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L298",
       "id": "src_gate_approval_required_action_does_not_execute",
-      "community": 8,
+      "community": 4,
       "norm_label": "approval_required_action_does_not_execute()"
     },
     {
@@ -897,7 +897,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L309",
       "id": "src_gate_allowed_plus_denied_returns_deny",
-      "community": 8,
+      "community": 4,
       "norm_label": "allowed_plus_denied_returns_deny()"
     },
     {
@@ -906,7 +906,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L323",
       "id": "src_gate_allowed_plus_approval_required_returns_approval_required",
-      "community": 8,
+      "community": 4,
       "norm_label": "allowed_plus_approval_required_returns_approval_required()"
     },
     {
@@ -915,7 +915,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L335",
       "id": "src_gate_unspecified_action_returns_deny",
-      "community": 8,
+      "community": 4,
       "norm_label": "unspecified_action_returns_deny()"
     },
     {
@@ -924,7 +924,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L349",
       "id": "src_gate_expired_grant_denies_even_an_allowed_action",
-      "community": 8,
+      "community": 4,
       "norm_label": "expired_grant_denies_even_an_allowed_action()"
     },
     {
@@ -933,7 +933,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L363",
       "id": "src_gate_matching_approval_allows_the_exact_request",
-      "community": 8,
+      "community": 4,
       "norm_label": "matching_approval_allows_the_exact_request()"
     },
     {
@@ -942,7 +942,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L375",
       "id": "src_gate_approved_but_payload_changed_since_is_denied_not_reasked",
-      "community": 8,
+      "community": 4,
       "norm_label": "approved_but_payload_changed_since_is_denied_not_reasked()"
     },
     {
@@ -951,7 +951,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L397",
       "id": "src_gate_expired_approval_is_denied_not_reasked",
-      "community": 8,
+      "community": 4,
       "norm_label": "expired_approval_is_denied_not_reasked()"
     },
     {
@@ -960,7 +960,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L415",
       "id": "src_gate_rejected_approval_is_denied_not_reasked",
-      "community": 8,
+      "community": 4,
       "norm_label": "rejected_approval_is_denied_not_reasked()"
     },
     {
@@ -969,7 +969,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L432",
       "id": "src_gate_audit_metadata_records_action_grant_and_refs_not_plaintext",
-      "community": 8,
+      "community": 4,
       "norm_label": "audit_metadata_records_action_grant_and_refs_not_plaintext()"
     },
     {
@@ -978,7 +978,7 @@
       "source_file": "crates/openspine-gate/src/gate.rs",
       "source_location": "L448",
       "id": "src_gate_denial_audit_metadata_still_carries_refs",
-      "community": 8,
+      "community": 4,
       "norm_label": "denial_audit_metadata_still_carries_refs()"
     },
     {
@@ -1252,12 +1252,30 @@
       "norm_label": "an_overly_long_thread_id_is_rejected()"
     },
     {
+      "label": "benchmark.rs",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L1",
+      "id": "crates_openspine_kernel_src_benchmark_rs",
+      "community": 1,
+      "norm_label": "benchmark.rs"
+    },
+    {
+      "label": "run_benchmarks()",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L7",
+      "id": "src_benchmark_run_benchmarks",
+      "community": 1,
+      "norm_label": "run_benchmarks()"
+    },
+    {
       "label": "config.rs",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_config_rs",
-      "community": 4,
+      "community": 7,
       "norm_label": "config.rs"
     },
     {
@@ -1266,7 +1284,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L16",
       "id": "src_config_sandboxdriverkind",
-      "community": 4,
+      "community": 7,
       "norm_label": "sandboxdriverkind"
     },
     {
@@ -1275,7 +1293,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L23",
       "id": "src_config_sandboxconfig",
-      "community": 4,
+      "community": 7,
       "norm_label": "sandboxconfig"
     },
     {
@@ -1284,7 +1302,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L34",
       "id": "src_config_ownerconfig",
-      "community": 4,
+      "community": 7,
       "norm_label": "ownerconfig"
     },
     {
@@ -1293,7 +1311,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L45",
       "id": "src_config_gmailconfig",
-      "community": 4,
+      "community": 7,
       "norm_label": "gmailconfig"
     },
     {
@@ -1302,7 +1320,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L66",
       "id": "src_config_providerauth",
-      "community": 4,
+      "community": 7,
       "norm_label": "providerauth"
     },
     {
@@ -1311,7 +1329,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L73",
       "id": "src_config_providerkind",
-      "community": 4,
+      "community": 7,
       "norm_label": "providerkind"
     },
     {
@@ -1320,7 +1338,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L80",
       "id": "src_config_providerconfig",
-      "community": 4,
+      "community": 7,
       "norm_label": "providerconfig"
     },
     {
@@ -1329,7 +1347,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L95",
       "id": "src_config_kernelbindconfig",
-      "community": 4,
+      "community": 7,
       "norm_label": "kernelbindconfig"
     },
     {
@@ -1338,7 +1356,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L110",
       "id": "src_config_default_kernel_bind",
-      "community": 4,
+      "community": 7,
       "norm_label": "default_kernel_bind()"
     },
     {
@@ -1347,7 +1365,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L117",
       "id": "src_config_default_lyra_dir",
-      "community": 8,
+      "community": 7,
       "norm_label": "default_lyra_dir()"
     },
     {
@@ -1356,7 +1374,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L124",
       "id": "src_config_config",
-      "community": 4,
+      "community": 7,
       "norm_label": "config"
     },
     {
@@ -1365,7 +1383,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L151",
       "id": "src_config_configerror",
-      "community": 4,
+      "community": 7,
       "norm_label": "configerror"
     },
     {
@@ -1374,7 +1392,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L173",
       "id": "src_config_config_load",
-      "community": 4,
+      "community": 7,
       "norm_label": ".load()"
     },
     {
@@ -1383,7 +1401,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L186",
       "id": "src_config_telegram_bot_token",
-      "community": 4,
+      "community": 7,
       "norm_label": "telegram_bot_token()"
     },
     {
@@ -1392,7 +1410,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L193",
       "id": "src_config_artifact_key_bytes",
-      "community": 4,
+      "community": 7,
       "norm_label": "artifact_key_bytes()"
     },
     {
@@ -1401,7 +1419,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L200",
       "id": "src_config_gmail_client_secret",
-      "community": 4,
+      "community": 7,
       "norm_label": "gmail_client_secret()"
     },
     {
@@ -1410,7 +1428,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L206",
       "id": "src_config_gmail_refresh_token",
-      "community": 4,
+      "community": 7,
       "norm_label": "gmail_refresh_token()"
     },
     {
@@ -1419,7 +1437,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L211",
       "id": "src_config_parse_hex_key",
-      "community": 4,
+      "community": 7,
       "norm_label": "parse_hex_key()"
     },
     {
@@ -1428,7 +1446,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L227",
       "id": "src_config_provider_api_key",
-      "community": 4,
+      "community": 7,
       "norm_label": "provider_api_key()"
     },
     {
@@ -1437,7 +1455,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L243",
       "id": "src_config_sample_yaml",
-      "community": 4,
+      "community": 7,
       "norm_label": "sample_yaml()"
     },
     {
@@ -1446,7 +1464,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L263",
       "id": "src_config_parses_minimal_config",
-      "community": 4,
+      "community": 7,
       "norm_label": "parses_minimal_config()"
     },
     {
@@ -1455,7 +1473,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L273",
       "id": "src_config_rejects_unknown_top_level_fields",
-      "community": 4,
+      "community": 7,
       "norm_label": "rejects_unknown_top_level_fields()"
     },
     {
@@ -1464,7 +1482,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L284",
       "id": "src_config_artifact_key_requires_exactly_64_hex_chars",
-      "community": 4,
+      "community": 7,
       "norm_label": "artifact_key_requires_exactly_64_hex_chars()"
     },
     {
@@ -1473,7 +1491,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L291",
       "id": "src_config_artifact_key_round_trips_bytes",
-      "community": 4,
+      "community": 7,
       "norm_label": "artifact_key_round_trips_bytes()"
     },
     {
@@ -1482,7 +1500,7 @@
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L304",
       "id": "src_config_example_configs_parse_against_the_real_schema",
-      "community": 4,
+      "community": 7,
       "norm_label": "example_configs_parse_against_the_real_schema()"
     },
     {
@@ -1689,16 +1707,16 @@
       "source_file": "crates/openspine-kernel/src/main.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_main_rs",
-      "community": 4,
+      "community": 7,
       "norm_label": "main.rs"
     },
     {
       "label": "shutdown_signal()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L164",
+      "source_location": "L173",
       "id": "src_main_shutdown_signal",
-      "community": 4,
+      "community": 7,
       "norm_label": "shutdown_signal()"
     },
     {
@@ -1707,7 +1725,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_artifact_loader_rs",
-      "community": 4,
+      "community": 6,
       "norm_label": "artifact_loader.rs"
     },
     {
@@ -1716,7 +1734,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L21",
       "id": "src_artifact_loader_artifactloaderror",
-      "community": 4,
+      "community": 6,
       "norm_label": "artifactloaderror"
     },
     {
@@ -1725,7 +1743,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L47",
       "id": "src_artifact_loader_artifactregistry",
-      "community": 4,
+      "community": 6,
       "norm_label": "artifactregistry"
     },
     {
@@ -1734,7 +1752,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L56",
       "id": "src_artifact_loader_load_yaml_dir",
-      "community": 4,
+      "community": 6,
       "norm_label": "load_yaml_dir()"
     },
     {
@@ -1743,7 +1761,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L96",
       "id": "src_artifact_loader_load_registry",
-      "community": 4,
+      "community": 6,
       "norm_label": "load_registry()"
     },
     {
@@ -1752,7 +1770,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L109",
       "id": "src_artifact_loader_load_registry_into",
-      "community": 4,
+      "community": 6,
       "norm_label": "load_registry_into()"
     },
     {
@@ -1761,7 +1779,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L146",
       "id": "src_artifact_loader_collide_route",
-      "community": 4,
+      "community": 6,
       "norm_label": "collide_route()"
     },
     {
@@ -1770,7 +1788,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L160",
       "id": "src_artifact_loader_collide_keyed",
-      "community": 4,
+      "community": 6,
       "norm_label": "collide_keyed()"
     },
     {
@@ -1779,7 +1797,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L178",
       "id": "src_artifact_loader_versioned",
-      "community": 4,
+      "community": 6,
       "norm_label": "versioned"
     },
     {
@@ -1842,7 +1860,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L200",
       "id": "src_artifact_loader_policy",
-      "community": 7,
+      "community": 6,
       "norm_label": "policy"
     },
     {
@@ -1851,7 +1869,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L201",
       "id": "src_artifact_loader_policy_version",
-      "community": 7,
+      "community": 6,
       "norm_label": ".version()"
     },
     {
@@ -1878,7 +1896,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L218",
       "id": "src_artifact_loader_parsedproposal",
-      "community": 4,
+      "community": 6,
       "norm_label": "parsedproposal"
     },
     {
@@ -1887,7 +1905,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L227",
       "id": "src_artifact_loader_parsedproposal_kind",
-      "community": 4,
+      "community": 6,
       "norm_label": ".kind()"
     },
     {
@@ -1896,7 +1914,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L237",
       "id": "src_artifact_loader_parsedproposal_artifact_id",
-      "community": 4,
+      "community": 6,
       "norm_label": ".artifact_id()"
     },
     {
@@ -1905,7 +1923,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L247",
       "id": "src_artifact_loader_parsedproposal_version",
-      "community": 4,
+      "community": 6,
       "norm_label": ".version()"
     },
     {
@@ -1914,7 +1932,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L257",
       "id": "src_artifact_loader_parsedproposal_lifecycle_state",
-      "community": 4,
+      "community": 6,
       "norm_label": ".lifecycle_state()"
     },
     {
@@ -1923,7 +1941,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L269",
       "id": "src_artifact_loader_parsedproposal_overlay_subdir",
-      "community": 4,
+      "community": 6,
       "norm_label": ".overlay_subdir()"
     },
     {
@@ -1932,7 +1950,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L280",
       "id": "src_artifact_loader_parsedproposal_activate",
-      "community": 4,
+      "community": 6,
       "norm_label": ".activate()"
     },
     {
@@ -1941,7 +1959,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L292",
       "id": "src_artifact_loader_parsedproposal_to_yaml",
-      "community": 4,
+      "community": 6,
       "norm_label": ".to_yaml()"
     },
     {
@@ -1950,7 +1968,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L304",
       "id": "src_artifact_loader_parsedproposal_insert_into",
-      "community": 4,
+      "community": 6,
       "norm_label": ".insert_into()"
     },
     {
@@ -1959,7 +1977,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L326",
       "id": "src_artifact_loader_parse_proposal",
-      "community": 7,
+      "community": 6,
       "norm_label": "parse_proposal()"
     },
     {
@@ -1968,7 +1986,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L346",
       "id": "src_artifact_loader_repo_lyra_dir",
-      "community": 4,
+      "community": 6,
       "norm_label": "repo_lyra_dir()"
     },
     {
@@ -1977,7 +1995,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L352",
       "id": "src_artifact_loader_loads_every_real_fixture_without_error",
-      "community": 4,
+      "community": 6,
       "norm_label": "loads_every_real_fixture_without_error()"
     },
     {
@@ -1986,7 +2004,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L381",
       "id": "src_artifact_loader_missing_directory_is_not_an_error",
-      "community": 4,
+      "community": 6,
       "norm_label": "missing_directory_is_not_an_error()"
     },
     {
@@ -1995,7 +2013,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L389",
       "id": "src_artifact_loader_malformed_fixture_fails_to_load",
-      "community": 4,
+      "community": 6,
       "norm_label": "malformed_fixture_fails_to_load()"
     },
     {
@@ -2004,7 +2022,7 @@
       "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
       "source_location": "L399",
       "id": "src_artifact_loader_non_yaml_files_are_ignored",
-      "community": 4,
+      "community": 6,
       "norm_label": "non_yaml_files_are_ignored()"
     },
     {
@@ -2013,7 +2031,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_sandbox_rs",
-      "community": 15,
+      "community": 4,
       "norm_label": "sandbox.rs"
     },
     {
@@ -2022,7 +2040,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L31",
       "id": "src_sandbox_processdriver",
-      "community": 15,
+      "community": 4,
       "norm_label": "processdriver"
     },
     {
@@ -2031,7 +2049,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L41",
       "id": "src_sandbox_processdriver_default",
-      "community": 2,
+      "community": 4,
       "norm_label": ".default()"
     },
     {
@@ -2040,7 +2058,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L56",
       "id": "src_sandbox_processdriver_build_command",
-      "community": 15,
+      "community": 4,
       "norm_label": ".build_command()"
     },
     {
@@ -2049,7 +2067,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L80",
       "id": "src_sandbox_processdriver_run_task",
-      "community": 15,
+      "community": 4,
       "norm_label": ".run_task()"
     },
     {
@@ -2058,7 +2076,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L125",
       "id": "src_sandbox_dockerdriver",
-      "community": 15,
+      "community": 4,
       "norm_label": "dockerdriver"
     },
     {
@@ -2067,7 +2085,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L141",
       "id": "src_sandbox_dockerdriver_docker_run_args",
-      "community": 15,
+      "community": 4,
       "norm_label": ".docker_run_args()"
     },
     {
@@ -2076,7 +2094,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L173",
       "id": "src_sandbox_dockerdriver_run_task",
-      "community": 15,
+      "community": 4,
       "norm_label": ".run_task()"
     },
     {
@@ -2085,7 +2103,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L198",
       "id": "src_sandbox_sandbox",
-      "community": 15,
+      "community": 4,
       "norm_label": "sandbox"
     },
     {
@@ -2094,7 +2112,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L213",
       "id": "src_sandbox_sandbox_run_task",
-      "community": 15,
+      "community": 4,
       "norm_label": ".run_task()"
     },
     {
@@ -2112,7 +2130,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L252",
       "id": "src_sandbox_process_driver_refuses_external_communication_without_opt_in",
-      "community": 15,
+      "community": 4,
       "norm_label": "process_driver_refuses_external_communication_without_opt_in()"
     },
     {
@@ -2121,7 +2139,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L262",
       "id": "src_sandbox_process_driver_allows_external_communication_with_explicit_opt_in",
-      "community": 15,
+      "community": 4,
       "norm_label": "process_driver_allows_external_communication_with_explicit_opt_in()"
     },
     {
@@ -2130,7 +2148,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L272",
       "id": "src_sandbox_docker_driver_never_refuses_external_communication",
-      "community": 15,
+      "community": 4,
       "norm_label": "docker_driver_never_refuses_external_communication()"
     },
     {
@@ -2139,7 +2157,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L286",
       "id": "src_sandbox_process_driver_never_refuses_owner_control_lane",
-      "community": 15,
+      "community": 4,
       "norm_label": "process_driver_never_refuses_owner_control_lane()"
     },
     {
@@ -2148,7 +2166,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L308",
       "id": "src_sandbox_process_driver_clears_env_and_sets_only_two_vars",
-      "community": 15,
+      "community": 4,
       "norm_label": "process_driver_clears_env_and_sets_only_two_vars()"
     },
     {
@@ -2157,7 +2175,7 @@
       "source_file": "crates/openspine-kernel/src/sandbox.rs",
       "source_location": "L388",
       "id": "src_sandbox_docker_driver_args_are_correct_and_secret_free",
-      "community": 15,
+      "community": 4,
       "norm_label": "docker_driver_args_are_correct_and_secret_free()"
     },
     {
@@ -2166,7 +2184,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_gmail_rs",
-      "community": 7,
+      "community": 5,
       "norm_label": "gmail.rs"
     },
     {
@@ -2175,7 +2193,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L38",
       "id": "src_gmail_gmailerror",
-      "community": 7,
+      "community": 5,
       "norm_label": "gmailerror"
     },
     {
@@ -2184,7 +2202,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L50",
       "id": "src_gmail_tokenresponse",
-      "community": 7,
+      "community": 5,
       "norm_label": "tokenresponse"
     },
     {
@@ -2193,7 +2211,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L60",
       "id": "src_gmail_gmailmessage",
-      "community": 7,
+      "community": 5,
       "norm_label": "gmailmessage"
     },
     {
@@ -2202,7 +2220,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L73",
       "id": "src_gmail_gmailthread",
-      "community": 7,
+      "community": 5,
       "norm_label": "gmailthread"
     },
     {
@@ -2211,7 +2229,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L78",
       "id": "src_gmail_cachedtoken",
-      "community": 7,
+      "community": 5,
       "norm_label": "cachedtoken"
     },
     {
@@ -2220,7 +2238,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L83",
       "id": "src_gmail_http_client",
-      "community": 7,
+      "community": 5,
       "norm_label": "http_client()"
     },
     {
@@ -2229,7 +2247,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L94",
       "id": "src_gmail_gmailconnector",
-      "community": 7,
+      "community": 5,
       "norm_label": "gmailconnector"
     },
     {
@@ -2238,7 +2256,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L107",
       "id": "src_gmail_gmailconnector_new",
-      "community": 7,
+      "community": 5,
       "norm_label": ".new()"
     },
     {
@@ -2247,7 +2265,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L126",
       "id": "src_gmail_gmailconnector_mailbox_address",
-      "community": 7,
+      "community": 5,
       "norm_label": ".mailbox_address()"
     },
     {
@@ -2256,7 +2274,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L131",
       "id": "src_gmail_gmailconnector_with_urls",
-      "community": 7,
+      "community": 5,
       "norm_label": ".with_urls()"
     },
     {
@@ -2265,7 +2283,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L137",
       "id": "src_gmail_gmailconnector_access_token",
-      "community": 7,
+      "community": 5,
       "norm_label": ".access_token()"
     },
     {
@@ -2274,7 +2292,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L178",
       "id": "src_gmail_gmailconnector_fetch_thread",
-      "community": 7,
+      "community": 5,
       "norm_label": ".fetch_thread()"
     },
     {
@@ -2283,7 +2301,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L208",
       "id": "src_gmail_gmailconnector_thread_exists",
-      "community": 7,
+      "community": 5,
       "norm_label": ".thread_exists()"
     },
     {
@@ -2292,7 +2310,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L234",
       "id": "src_gmail_gmailconnector_create_draft",
-      "community": 7,
+      "community": 5,
       "norm_label": ".create_draft()"
     },
     {
@@ -2301,7 +2319,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L281",
       "id": "src_gmail_replytarget",
-      "community": 7,
+      "community": 5,
       "norm_label": "replytarget"
     },
     {
@@ -2310,7 +2328,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L291",
       "id": "src_gmail_newest_non_owner_recipient",
-      "community": 7,
+      "community": 5,
       "norm_label": "newest_non_owner_recipient()"
     },
     {
@@ -2319,7 +2337,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L308",
       "id": "src_gmail_extract_email_address",
-      "community": 7,
+      "community": 5,
       "norm_label": "extract_email_address()"
     },
     {
@@ -2328,7 +2346,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L336",
       "id": "src_gmail_build_raw_reply_message",
-      "community": 7,
+      "community": 5,
       "norm_label": "build_raw_reply_message()"
     },
     {
@@ -2337,7 +2355,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L350",
       "id": "src_gmail_header_value",
-      "community": 7,
+      "community": 5,
       "norm_label": "header_value()"
     },
     {
@@ -2346,7 +2364,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L367",
       "id": "src_gmail_extract_body_text",
-      "community": 7,
+      "community": 5,
       "norm_label": "extract_body_text()"
     },
     {
@@ -2355,7 +2373,7 @@
       "source_file": "crates/openspine-kernel/src/gmail.rs",
       "source_location": "L391",
       "id": "src_gmail_parse_thread",
-      "community": 7,
+      "community": 5,
       "norm_label": "parse_thread()"
     },
     {
@@ -2400,7 +2418,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
       "source_location": "L138",
       "id": "pipeline_mod_notify_owner_best_effort",
-      "community": 7,
+      "community": 6,
       "norm_label": "notify_owner_best_effort()"
     },
     {
@@ -2445,7 +2463,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/approval.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_pipeline_approval_rs",
-      "community": 7,
+      "community": 6,
       "norm_label": "approval.rs"
     },
     {
@@ -2454,7 +2472,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/approval.rs",
       "source_location": "L36",
       "id": "pipeline_approval_handle_draft_approval_callback",
-      "community": 7,
+      "community": 6,
       "norm_label": "handle_draft_approval_callback()"
     },
     {
@@ -2463,7 +2481,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/approval.rs",
       "source_location": "L210",
       "id": "pipeline_approval_create_approved_draft",
-      "community": 7,
+      "community": 6,
       "norm_label": "create_approved_draft()"
     },
     {
@@ -2472,7 +2490,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/approval.rs",
       "source_location": "L371",
       "id": "pipeline_approval_activate_approved_artifact",
-      "community": 7,
+      "community": 6,
       "norm_label": "activate_approved_artifact()"
     },
     {
@@ -2544,7 +2562,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_pipeline_tests_approval_rs",
-      "community": 5,
+      "community": 1,
       "norm_label": "approval.rs"
     },
     {
@@ -2553,7 +2571,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L25",
       "id": "tests_approval_approval_fixture_grant",
-      "community": 5,
+      "community": 1,
       "norm_label": "approval_fixture_grant()"
     },
     {
@@ -2562,7 +2580,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L59",
       "id": "tests_approval_approval_fixture_request",
-      "community": 5,
+      "community": 1,
       "norm_label": "approval_fixture_request()"
     },
     {
@@ -2571,7 +2589,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L96",
       "id": "tests_approval_approve_callback_update",
-      "community": 5,
+      "community": 1,
       "norm_label": "approve_callback_update()"
     },
     {
@@ -2580,7 +2598,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L109",
       "id": "tests_approval_gmail_with_token_mock",
-      "community": 5,
+      "community": 1,
       "norm_label": "gmail_with_token_mock()"
     },
     {
@@ -2589,7 +2607,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L130",
       "id": "tests_approval_thread_with_sender",
-      "community": 5,
+      "community": 1,
       "norm_label": "thread_with_sender()"
     },
     {
@@ -2598,7 +2616,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L143",
       "id": "tests_approval_a_double_tap_on_approve_creates_only_one_gmail_draft",
-      "community": 5,
+      "community": 1,
       "norm_label": "a_double_tap_on_approve_creates_only_one_gmail_draft()"
     },
     {
@@ -2607,7 +2625,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L233",
       "id": "tests_approval_recipient_mutation_since_approval_is_denied_and_creates_no_draft",
-      "community": 5,
+      "community": 1,
       "norm_label": "recipient_mutation_since_approval_is_denied_and_creates_no_draft()"
     },
     {
@@ -2616,7 +2634,7 @@
       "source_file": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
       "source_location": "L307",
       "id": "tests_approval_approval_audit_never_contains_the_plaintext_draft_body",
-      "community": 5,
+      "community": 1,
       "norm_label": "approval_audit_never_contains_the_plaintext_draft_body()"
     },
     {
@@ -2625,7 +2643,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_model_gateway_mod_rs",
-      "community": 6,
+      "community": 8,
       "norm_label": "mod.rs"
     },
     {
@@ -2634,7 +2652,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L23",
       "id": "model_gateway_mod_prompttemplate",
-      "community": 6,
+      "community": 8,
       "norm_label": "prompttemplate"
     },
     {
@@ -2643,7 +2661,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L37",
       "id": "model_gateway_mod_promptrole",
-      "community": 6,
+      "community": 8,
       "norm_label": "promptrole"
     },
     {
@@ -2652,7 +2670,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L43",
       "id": "model_gateway_mod_promptmessage",
-      "community": 6,
+      "community": 8,
       "norm_label": "promptmessage"
     },
     {
@@ -2661,7 +2679,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L52",
       "id": "model_gateway_mod_resolvedprompt",
-      "community": 6,
+      "community": 8,
       "norm_label": "resolvedprompt"
     },
     {
@@ -2670,7 +2688,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L61",
       "id": "model_gateway_mod_build_prompt",
-      "community": 6,
+      "community": 8,
       "norm_label": "build_prompt()"
     },
     {
@@ -2679,7 +2697,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L86",
       "id": "model_gateway_mod_build_prompt_with_untrusted_context",
-      "community": 6,
+      "community": 8,
       "norm_label": "build_prompt_with_untrusted_context()"
     },
     {
@@ -2688,7 +2706,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L122",
       "id": "model_gateway_mod_template",
-      "community": 6,
+      "community": 8,
       "norm_label": "template()"
     },
     {
@@ -2697,7 +2715,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L133",
       "id": "model_gateway_mod_untrusted_template",
-      "community": 6,
+      "community": 8,
       "norm_label": "untrusted_template()"
     },
     {
@@ -2706,7 +2724,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L142",
       "id": "model_gateway_mod_build_prompt_carries_system_preamble_and_conversation_through",
-      "community": 6,
+      "community": 8,
       "norm_label": "build_prompt_carries_system_preamble_and_conversation_through()"
     },
     {
@@ -2715,7 +2733,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L154",
       "id": "model_gateway_mod_template_round_trips_through_yaml",
-      "community": 6,
+      "community": 8,
       "norm_label": "template_round_trips_through_yaml()"
     },
     {
@@ -2724,7 +2742,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L161",
       "id": "model_gateway_mod_untrusted_context_is_wrapped_ahead_of_the_conversation",
-      "community": 6,
+      "community": 8,
       "norm_label": "untrusted_context_is_wrapped_ahead_of_the_conversation()"
     },
     {
@@ -2733,7 +2751,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L185",
       "id": "model_gateway_mod_untrusted_context_falls_back_to_a_default_preamble",
-      "community": 6,
+      "community": 8,
       "norm_label": "untrusted_context_falls_back_to_a_default_preamble()"
     },
     {
@@ -2742,7 +2760,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L193",
       "id": "model_gateway_mod_a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary",
-      "community": 6,
+      "community": 8,
       "norm_label": "a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary()"
     },
     {
@@ -2751,7 +2769,7 @@
       "source_file": "crates/openspine-kernel/src/model_gateway/mod.rs",
       "source_location": "L217",
       "id": "model_gateway_mod_the_boundary_token_is_different_on_every_call",
-      "community": 6,
+      "community": 8,
       "norm_label": "the_boundary_token_is_different_on_every_call()"
     },
     {
@@ -3066,7 +3084,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_api_generate_rs",
-      "community": 6,
+      "community": 8,
       "norm_label": "generate.rs"
     },
     {
@@ -3075,7 +3093,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L28",
       "id": "api_generate_generaterequestbody",
-      "community": 6,
+      "community": 8,
       "norm_label": "generaterequestbody"
     },
     {
@@ -3084,7 +3102,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L48",
       "id": "api_generate_template_id_for_agent",
-      "community": 6,
+      "community": 8,
       "norm_label": "template_id_for_agent()"
     },
     {
@@ -3093,7 +3111,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L57",
       "id": "api_generate_generateresponsebody",
-      "community": 6,
+      "community": 8,
       "norm_label": "generateresponsebody"
     },
     {
@@ -3102,7 +3120,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L66",
       "id": "api_generate_deny_limit_exceeded",
-      "community": 6,
+      "community": 8,
       "norm_label": "deny_limit_exceeded()"
     },
     {
@@ -3111,7 +3129,7 @@
       "source_file": "crates/openspine-kernel/src/api/generate.rs",
       "source_location": "L92",
       "id": "api_generate_post_model_generate",
-      "community": 6,
+      "community": 8,
       "norm_label": "post_model_generate()"
     },
     {
@@ -3237,7 +3255,7 @@
       "source_file": "crates/openspine-kernel/src/api/task.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_api_task_rs",
-      "community": 6,
+      "community": 8,
       "norm_label": "task.rs"
     },
     {
@@ -3246,7 +3264,7 @@
       "source_file": "crates/openspine-kernel/src/api/task.rs",
       "source_location": "L16",
       "id": "api_task_tasklimitsbody",
-      "community": 6,
+      "community": 8,
       "norm_label": "tasklimitsbody"
     },
     {
@@ -3255,7 +3273,7 @@
       "source_file": "crates/openspine-kernel/src/api/task.rs",
       "source_location": "L23",
       "id": "api_task_taskviewbody",
-      "community": 6,
+      "community": 8,
       "norm_label": "taskviewbody"
     },
     {
@@ -3264,7 +3282,7 @@
       "source_file": "crates/openspine-kernel/src/api/task.rs",
       "source_location": "L42",
       "id": "api_task_get_task",
-      "community": 6,
+      "community": 8,
       "norm_label": "get_task()"
     },
     {
@@ -3273,7 +3291,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_api_mod_rs",
-      "community": 6,
+      "community": 8,
       "norm_label": "mod.rs"
     },
     {
@@ -3309,7 +3327,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L86",
       "id": "api_mod_router",
-      "community": 6,
+      "community": 8,
       "norm_label": "router()"
     },
     {
@@ -3318,7 +3336,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L95",
       "id": "api_mod_unauthorized",
-      "community": 6,
+      "community": 8,
       "norm_label": "unauthorized()"
     },
     {
@@ -3327,7 +3345,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L102",
       "id": "api_mod_internal_error",
-      "community": 6,
+      "community": 8,
       "norm_label": "internal_error()"
     },
     {
@@ -3336,7 +3354,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L110",
       "id": "api_mod_bearer_token",
-      "community": 6,
+      "community": 8,
       "norm_label": "bearer_token()"
     },
     {
@@ -3345,7 +3363,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L121",
       "id": "api_mod_authenticate",
-      "community": 6,
+      "community": 8,
       "norm_label": "authenticate()"
     },
     {
@@ -3354,7 +3372,7 @@
       "source_file": "crates/openspine-kernel/src/api/mod.rs",
       "source_location": "L173",
       "id": "api_mod_get_status",
-      "community": 6,
+      "community": 8,
       "norm_label": "get_status()"
     },
     {
@@ -3759,7 +3777,7 @@
       "source_file": "crates/openspine-kernel/src/store/budget_support.rs",
       "source_location": "L1",
       "id": "crates_openspine_kernel_src_store_budget_support_rs",
-      "community": 5,
+      "community": 1,
       "norm_label": "budget_support.rs"
     },
     {
@@ -3768,7 +3786,7 @@
       "source_file": "crates/openspine-kernel/src/store/budget_support.rs",
       "source_location": "L23",
       "id": "store_budget_support_hash_task_token",
-      "community": 5,
+      "community": 1,
       "norm_label": "hash_task_token()"
     },
     {
@@ -3849,14 +3867,14 @@
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
       "source_location": "L113",
       "id": "store_mod_store_open",
-      "community": 1,
+      "community": 3,
       "norm_label": ".open()"
     },
     {
       "label": ".open_in_memory()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L126",
+      "source_location": "L125",
       "id": "store_mod_store_open_in_memory",
       "community": 1,
       "norm_label": ".open_in_memory()"
@@ -3865,7 +3883,7 @@
       "label": ".insert_task_grant()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L149",
+      "source_location": "L148",
       "id": "store_mod_store_insert_task_grant",
       "community": 1,
       "norm_label": ".insert_task_grant()"
@@ -3874,7 +3892,7 @@
       "label": ".find_task_grant_by_token()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L179",
+      "source_location": "L178",
       "id": "store_mod_store_find_task_grant_by_token",
       "community": 1,
       "norm_label": ".find_task_grant_by_token()"
@@ -3883,7 +3901,7 @@
       "label": ".find_task_grant_by_id()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L211",
+      "source_location": "L210",
       "id": "store_mod_store_find_task_grant_by_id",
       "community": 1,
       "norm_label": ".find_task_grant_by_id()"
@@ -3892,7 +3910,7 @@
       "label": ".count_task_grants()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L240",
+      "source_location": "L239",
       "id": "store_mod_store_count_task_grants",
       "community": 1,
       "norm_label": ".count_task_grants()"
@@ -3901,7 +3919,7 @@
       "label": ".count_audit_events_of_kind()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L248",
+      "source_location": "L247",
       "id": "store_mod_store_count_audit_events_of_kind",
       "community": 1,
       "norm_label": ".count_audit_events_of_kind()"
@@ -3910,7 +3928,7 @@
       "label": ".all_audit_event_jsons()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L259",
+      "source_location": "L258",
       "id": "store_mod_store_all_audit_event_jsons",
       "community": 1,
       "norm_label": ".all_audit_event_jsons()"
@@ -3919,7 +3937,7 @@
       "label": ".last_hash()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L268",
+      "source_location": "L267",
       "id": "store_mod_store_last_hash",
       "community": 1,
       "norm_label": ".last_hash()"
@@ -3928,7 +3946,7 @@
       "label": ".append_audit()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L288",
+      "source_location": "L287",
       "id": "store_mod_store_append_audit",
       "community": 1,
       "norm_label": ".append_audit()"
@@ -3937,7 +3955,7 @@
       "label": ".verify_audit_chain()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L362",
+      "source_location": "L355",
       "id": "store_mod_store_verify_audit_chain",
       "community": 1,
       "norm_label": ".verify_audit_chain()"
@@ -3946,7 +3964,7 @@
       "label": ".append_conversation_message()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L398",
+      "source_location": "L386",
       "id": "store_mod_store_append_conversation_message",
       "community": 1,
       "norm_label": ".append_conversation_message()"
@@ -3955,7 +3973,7 @@
       "label": ".recent_conversation()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L418",
+      "source_location": "L406",
       "id": "store_mod_store_recent_conversation",
       "community": 1,
       "norm_label": ".recent_conversation()"
@@ -3964,7 +3982,7 @@
       "label": ".get_kv()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L446",
+      "source_location": "L434",
       "id": "store_mod_store_get_kv",
       "community": 1,
       "norm_label": ".get_kv()"
@@ -3973,7 +3991,7 @@
       "label": ".set_kv()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L457",
+      "source_location": "L445",
       "id": "store_mod_store_set_kv",
       "community": 1,
       "norm_label": ".set_kv()"
@@ -4236,7 +4254,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L16",
       "id": "store_gate_support_store",
-      "community": 19,
+      "community": 20,
       "norm_label": "store"
     },
     {
@@ -4245,7 +4263,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L23",
       "id": "store_gate_support_store_insert_approval",
-      "community": 19,
+      "community": 20,
       "norm_label": ".insert_approval()"
     },
     {
@@ -4254,7 +4272,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L38",
       "id": "store_gate_support_store_find_approval_for_request",
-      "community": 19,
+      "community": 20,
       "norm_label": ".find_approval_for_request()"
     },
     {
@@ -4263,7 +4281,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L57",
       "id": "store_gate_support_store_insert_selection_token",
-      "community": 19,
+      "community": 20,
       "norm_label": ".insert_selection_token()"
     },
     {
@@ -4272,7 +4290,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L67",
       "id": "store_gate_support_store_find_selection_token",
-      "community": 19,
+      "community": 20,
       "norm_label": ".find_selection_token()"
     },
     {
@@ -4281,7 +4299,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L91",
       "id": "store_gate_support_store_try_consume_selection_token",
-      "community": 19,
+      "community": 20,
       "norm_label": ".try_consume_selection_token()"
     },
     {
@@ -4290,7 +4308,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L109",
       "id": "store_gate_support_store_insert_action_request",
-      "community": 19,
+      "community": 20,
       "norm_label": ".insert_action_request()"
     },
     {
@@ -4299,7 +4317,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L120",
       "id": "store_gate_support_store_find_action_request",
-      "community": 19,
+      "community": 20,
       "norm_label": ".find_action_request()"
     },
     {
@@ -4308,7 +4326,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L144",
       "id": "store_gate_support_store_try_consume_action_request",
-      "community": 19,
+      "community": 20,
       "norm_label": ".try_consume_action_request()"
     },
     {
@@ -4317,7 +4335,7 @@
       "source_file": "crates/openspine-kernel/src/store/gate_support.rs",
       "source_location": "L157",
       "id": "store_gate_support_store_count_action_requests",
-      "community": 19,
+      "community": 20,
       "norm_label": ".count_action_requests()"
     },
     {
@@ -5019,7 +5037,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_policy_rs",
-      "community": 2,
+      "community": 4,
       "norm_label": "policy.rs"
     },
     {
@@ -5028,7 +5046,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L21",
       "id": "src_policy_constraints",
-      "community": 2,
+      "community": 4,
       "norm_label": "constraints"
     },
     {
@@ -5037,7 +5055,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L34",
       "id": "src_policy_policy",
-      "community": 2,
+      "community": 4,
       "norm_label": "policy"
     },
     {
@@ -5046,7 +5064,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L55",
       "id": "src_policy_sessionpolicy",
-      "community": 2,
+      "community": 4,
       "norm_label": "sessionpolicy"
     },
     {
@@ -5055,7 +5073,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L72",
       "id": "src_policy_policy_round_trips_through_serde",
-      "community": 2,
+      "community": 4,
       "norm_label": "policy_round_trips_through_serde()"
     },
     {
@@ -5064,7 +5082,7 @@
       "source_file": "crates/openspine-schemas/src/policy.rs",
       "source_location": "L92",
       "id": "src_policy_constraints_default_to_all_unset",
-      "community": 2,
+      "community": 4,
       "norm_label": "constraints_default_to_all_unset()"
     },
     {
@@ -5073,7 +5091,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_action_rs",
-      "community": 1,
+      "community": 19,
       "norm_label": "action.rs"
     },
     {
@@ -5082,7 +5100,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L21",
       "id": "src_action_actionid",
-      "community": 1,
+      "community": 19,
       "norm_label": "actionid"
     },
     {
@@ -5100,7 +5118,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L28",
       "id": "src_action_actionid_as_str",
-      "community": 1,
+      "community": 19,
       "norm_label": ".as_str()"
     },
     {
@@ -5109,7 +5127,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L34",
       "id": "src_action_actionid_fmt",
-      "community": 1,
+      "community": 19,
       "norm_label": ".fmt()"
     },
     {
@@ -5118,7 +5136,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L40",
       "id": "src_action_actionid_from",
-      "community": 8,
+      "community": 4,
       "norm_label": ".from()"
     },
     {
@@ -5127,7 +5145,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L48",
       "id": "src_action_denialreason",
-      "community": 1,
+      "community": 19,
       "norm_label": "denialreason"
     },
     {
@@ -5136,7 +5154,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L65",
       "id": "src_action_gatedecision",
-      "community": 1,
+      "community": 19,
       "norm_label": "gatedecision"
     },
     {
@@ -5145,7 +5163,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L83",
       "id": "src_action_actionrequest",
-      "community": 1,
+      "community": 19,
       "norm_label": "actionrequest"
     },
     {
@@ -5154,7 +5172,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L99",
       "id": "src_action_action_id_qualifier_is_part_of_identity",
-      "community": 1,
+      "community": 19,
       "norm_label": "action_id_qualifier_is_part_of_identity()"
     },
     {
@@ -5163,7 +5181,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L106",
       "id": "src_action_action_id_serializes_as_bare_string",
-      "community": 1,
+      "community": 19,
       "norm_label": "action_id_serializes_as_bare_string()"
     },
     {
@@ -5172,7 +5190,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L115",
       "id": "src_action_gate_decision_round_trips_with_tag",
-      "community": 1,
+      "community": 19,
       "norm_label": "gate_decision_round_trips_with_tag()"
     },
     {
@@ -5181,7 +5199,7 @@
       "source_file": "crates/openspine-schemas/src/action.rs",
       "source_location": "L127",
       "id": "src_action_approval_required_never_serializes_as_allow",
-      "community": 1,
+      "community": 19,
       "norm_label": "approval_required_never_serializes_as_allow()"
     },
     {
@@ -5235,7 +5253,7 @@
       "source_file": "crates/openspine-schemas/src/route.rs",
       "source_location": "L91",
       "id": "src_route_route",
-      "community": 7,
+      "community": 6,
       "norm_label": "route"
     },
     {
@@ -5442,41 +5460,41 @@
       "source_file": "crates/openspine-schemas/src/digest.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_digest_rs",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest.rs"
     },
     {
       "label": "Digest",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L23",
+      "source_location": "L26",
       "id": "src_digest_digest",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest"
     },
     {
       "label": ".as_str()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L26",
+      "source_location": "L29",
       "id": "src_digest_digest_as_str",
-      "community": 5,
+      "community": 1,
       "norm_label": ".as_str()"
     },
     {
       "label": ".is_valid()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L30",
+      "source_location": "L33",
       "id": "src_digest_digest_is_valid",
-      "community": 5,
+      "community": 1,
       "norm_label": ".is_valid()"
     },
     {
       "label": ".parse()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L43",
+      "source_location": "L46",
       "id": "src_digest_digest_parse",
       "community": 1,
       "norm_label": ".parse()"
@@ -5485,145 +5503,217 @@
       "label": "InvalidDigest",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L55",
+      "source_location": "L58",
       "id": "src_digest_invaliddigest",
-      "community": 5,
+      "community": 1,
       "norm_label": "invaliddigest"
     },
     {
       "label": ".fmt()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L58",
+      "source_location": "L61",
       "id": "src_digest_digest_fmt",
-      "community": 5,
+      "community": 1,
       "norm_label": ".fmt()"
     },
     {
       "label": ".serialize()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L64",
+      "source_location": "L67",
       "id": "src_digest_digest_serialize",
-      "community": 5,
+      "community": 1,
       "norm_label": ".serialize()"
     },
     {
       "label": ".deserialize()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L70",
+      "source_location": "L73",
       "id": "src_digest_digest_deserialize",
-      "community": 5,
+      "community": 1,
       "norm_label": ".deserialize()"
+    },
+    {
+      "label": "CanonicalValue",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L79",
+      "id": "src_digest_canonicalvalue",
+      "community": 1,
+      "norm_label": "canonicalvalue"
+    },
+    {
+      "label": "CanonicalValue<'a>",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L81",
+      "id": "src_digest_canonicalvalue_a",
+      "community": 1,
+      "norm_label": "canonicalvalue<'a>"
+    },
+    {
+      "label": ".serialize()",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L82",
+      "id": "src_digest_canonicalvalue_a_serialize",
+      "community": 1,
+      "norm_label": ".serialize()"
     },
     {
       "label": "canonical_json()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L81",
+      "source_location": "L141",
       "id": "src_digest_canonical_json",
       "community": 5,
       "norm_label": "canonical_json()"
     },
     {
-      "label": "sort_value()",
+      "label": "digest_from_hash()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L86",
-      "id": "src_digest_sort_value",
-      "community": 5,
-      "norm_label": "sort_value()"
+      "source_location": "L147",
+      "id": "src_digest_digest_from_hash",
+      "community": 1,
+      "norm_label": "digest_from_hash()"
+    },
+    {
+      "label": "digest_matches_hash()",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L162",
+      "id": "src_digest_digest_matches_hash",
+      "community": 1,
+      "norm_label": "digest_matches_hash()"
+    },
+    {
+      "label": "HasherWriter",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L178",
+      "id": "src_digest_hasherwriter",
+      "community": 1,
+      "norm_label": "hasherwriter"
+    },
+    {
+      "label": "HasherWriter<'a>",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L180",
+      "id": "src_digest_hasherwriter_a",
+      "community": 6,
+      "norm_label": "hasherwriter<'a>"
+    },
+    {
+      "label": ".write()",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L181",
+      "id": "src_digest_hasherwriter_a_write",
+      "community": 6,
+      "norm_label": ".write()"
+    },
+    {
+      "label": ".flush()",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L186",
+      "id": "src_digest_hasherwriter_a_flush",
+      "community": 6,
+      "norm_label": ".flush()"
     },
     {
       "label": "digest_of()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L106",
+      "source_location": "L194",
       "id": "src_digest_digest_of",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_of()"
     },
     {
       "label": "digest_of_bytes()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L120",
+      "source_location": "L208",
       "id": "src_digest_digest_of_bytes",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_of_bytes()"
-    },
-    {
-      "label": "to_hex()",
-      "file_type": "code",
-      "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L126",
-      "id": "src_digest_to_hex",
-      "community": 5,
-      "norm_label": "to_hex()"
     },
     {
       "label": "canonical_json_sorts_keys_at_every_depth()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L141",
+      "source_location": "L220",
       "id": "src_digest_canonical_json_sorts_keys_at_every_depth",
-      "community": 5,
+      "community": 1,
       "norm_label": "canonical_json_sorts_keys_at_every_depth()"
     },
     {
       "label": "canonical_json_sorts_within_arrays_of_objects()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L149",
+      "source_location": "L228",
       "id": "src_digest_canonical_json_sorts_within_arrays_of_objects",
-      "community": 5,
+      "community": 1,
       "norm_label": "canonical_json_sorts_within_arrays_of_objects()"
     },
     {
       "label": "digest_of_is_a_pinned_golden_value()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L155",
+      "source_location": "L234",
       "id": "src_digest_digest_of_is_a_pinned_golden_value",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_of_is_a_pinned_golden_value()"
     },
     {
       "label": "digest_of_is_order_independent()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L166",
+      "source_location": "L245",
       "id": "src_digest_digest_of_is_order_independent",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_of_is_order_independent()"
     },
     {
       "label": "digest_parse_rejects_wrong_shapes()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L174",
+      "source_location": "L253",
       "id": "src_digest_digest_parse_rejects_wrong_shapes",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_parse_rejects_wrong_shapes()"
     },
     {
       "label": "digest_round_trips_through_serde()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L182",
+      "source_location": "L261",
       "id": "src_digest_digest_round_trips_through_serde",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_round_trips_through_serde()"
     },
     {
       "label": "digest_of_bytes_hashes_raw_content_directly()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L190",
+      "source_location": "L269",
       "id": "src_digest_digest_of_bytes_hashes_raw_content_directly",
-      "community": 5,
+      "community": 1,
       "norm_label": "digest_of_bytes_hashes_raw_content_directly()"
+    },
+    {
+      "label": "test_digest_matches_hash()",
+      "file_type": "code",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L283",
+      "id": "src_digest_test_digest_matches_hash",
+      "community": 1,
+      "norm_label": "test_digest_matches_hash()"
     },
     {
       "label": "pack.rs",
@@ -6045,7 +6135,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_selection_rs",
-      "community": 20,
+      "community": 21,
       "norm_label": "selection.rs"
     },
     {
@@ -6054,7 +6144,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L13",
       "id": "src_selection_selectiontokentype",
-      "community": 20,
+      "community": 21,
       "norm_label": "selectiontokentype"
     },
     {
@@ -6063,7 +6153,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L20",
       "id": "src_selection_selectionverificationmethod",
-      "community": 20,
+      "community": 21,
       "norm_label": "selectionverificationmethod"
     },
     {
@@ -6072,7 +6162,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L28",
       "id": "src_selection_selectionscope",
-      "community": 20,
+      "community": 21,
       "norm_label": "selectionscope"
     },
     {
@@ -6081,7 +6171,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L37",
       "id": "src_selection_default_true",
-      "community": 20,
+      "community": 21,
       "norm_label": "default_true()"
     },
     {
@@ -6090,7 +6180,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L50",
       "id": "src_selection_selectiontoken",
-      "community": 20,
+      "community": 21,
       "norm_label": "selectiontoken"
     },
     {
@@ -6099,7 +6189,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L75",
       "id": "src_selection_sample_token",
-      "community": 20,
+      "community": 21,
       "norm_label": "sample_token()"
     },
     {
@@ -6108,7 +6198,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L104",
       "id": "src_selection_round_trips_through_serde",
-      "community": 20,
+      "community": 21,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -6117,7 +6207,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L112",
       "id": "src_selection_single_use_defaults_to_true_when_omitted",
-      "community": 20,
+      "community": 21,
       "norm_label": "single_use_defaults_to_true_when_omitted()"
     },
     {
@@ -6126,7 +6216,7 @@
       "source_file": "crates/openspine-schemas/src/selection.rs",
       "source_location": "L120",
       "id": "src_selection_attachments_are_never_allowed_in_the_email_scope",
-      "community": 20,
+      "community": 21,
       "norm_label": "attachments_are_never_allowed_in_the_email_scope()"
     },
     {
@@ -6225,7 +6315,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_approval_rs",
-      "community": 21,
+      "community": 22,
       "norm_label": "approval.rs"
     },
     {
@@ -6234,7 +6324,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L16",
       "id": "src_approval_approvaldecision",
-      "community": 21,
+      "community": 22,
       "norm_label": "approvaldecision"
     },
     {
@@ -6243,7 +6333,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L25",
       "id": "src_approval_timeoutbehavior",
-      "community": 21,
+      "community": 22,
       "norm_label": "timeoutbehavior"
     },
     {
@@ -6252,7 +6342,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L36",
       "id": "src_approval_approvalrecord",
-      "community": 21,
+      "community": 22,
       "norm_label": "approvalrecord"
     },
     {
@@ -6261,7 +6351,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L52",
       "id": "src_approval_approvalrecord_matches",
-      "community": 21,
+      "community": 22,
       "norm_label": ".matches()"
     },
     {
@@ -6270,7 +6360,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L70",
       "id": "src_approval_sample_approval",
-      "community": 21,
+      "community": 22,
       "norm_label": "sample_approval()"
     },
     {
@@ -6279,7 +6369,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L88",
       "id": "src_approval_round_trips_through_serde",
-      "community": 21,
+      "community": 22,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -6288,7 +6378,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L96",
       "id": "src_approval_matches_requires_both_digests_and_approved_decision",
-      "community": 21,
+      "community": 22,
       "norm_label": "matches_requires_both_digests_and_approved_decision()"
     },
     {
@@ -6297,7 +6387,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L111",
       "id": "src_approval_matches_rejects_expired_approval",
-      "community": 21,
+      "community": 22,
       "norm_label": "matches_rejects_expired_approval()"
     },
     {
@@ -6306,7 +6396,7 @@
       "source_file": "crates/openspine-schemas/src/approval.rs",
       "source_location": "L121",
       "id": "src_approval_matches_rejects_non_approved_decisions",
-      "community": 21,
+      "community": 22,
       "norm_label": "matches_rejects_non_approved_decisions()"
     },
     {
@@ -6315,7 +6405,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_grant_rs",
-      "community": 23,
+      "community": 24,
       "norm_label": "grant.rs"
     },
     {
@@ -6324,7 +6414,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L14",
       "id": "src_grant_grantlimits",
-      "community": 23,
+      "community": 24,
       "norm_label": "grantlimits"
     },
     {
@@ -6333,7 +6423,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L34",
       "id": "src_grant_taskgrant",
-      "community": 23,
+      "community": 24,
       "norm_label": "taskgrant"
     },
     {
@@ -6342,7 +6432,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L67",
       "id": "src_grant_taskgrant_is_expired",
-      "community": 23,
+      "community": 24,
       "norm_label": ".is_expired()"
     },
     {
@@ -6351,7 +6441,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L77",
       "id": "src_grant_owner_control_grant",
-      "community": 23,
+      "community": 24,
       "norm_label": "owner_control_grant()"
     },
     {
@@ -6360,7 +6450,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L115",
       "id": "src_grant_round_trips_through_serde",
-      "community": 23,
+      "community": 24,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -6369,7 +6459,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L123",
       "id": "src_grant_is_expired_uses_expires_at",
-      "community": 23,
+      "community": 24,
       "norm_label": "is_expired_uses_expires_at()"
     },
     {
@@ -6378,7 +6468,7 @@
       "source_file": "crates/openspine-schemas/src/grant.rs",
       "source_location": "L131",
       "id": "src_grant_authority_sources_use_kind_id_version_format",
-      "community": 23,
+      "community": 24,
       "norm_label": "authority_sources_use_kind_id_version_format()"
     },
     {
@@ -6387,7 +6477,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L1",
       "id": "crates_openspine_schemas_src_model_rs",
-      "community": 22,
+      "community": 23,
       "norm_label": "model.rs"
     },
     {
@@ -6396,7 +6486,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L16",
       "id": "src_model_provider",
-      "community": 22,
+      "community": 23,
       "norm_label": "provider"
     },
     {
@@ -6405,7 +6495,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L25",
       "id": "src_model_redactionrequirement",
-      "community": 22,
+      "community": 23,
       "norm_label": "redactionrequirement"
     },
     {
@@ -6414,7 +6504,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L32",
       "id": "src_model_retentionmode",
-      "community": 22,
+      "community": 23,
       "norm_label": "retentionmode"
     },
     {
@@ -6423,7 +6513,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L39",
       "id": "src_model_storeoutputpolicy",
-      "community": 22,
+      "community": 23,
       "norm_label": "storeoutputpolicy"
     },
     {
@@ -6432,7 +6522,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L48",
       "id": "src_model_instructionsources",
-      "community": 22,
+      "community": 23,
       "norm_label": "instructionsources"
     },
     {
@@ -6441,7 +6531,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L56",
       "id": "src_model_outputpolicy",
-      "community": 22,
+      "community": 23,
       "norm_label": "outputpolicy"
     },
     {
@@ -6450,7 +6540,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L67",
       "id": "src_model_modelrequest",
-      "community": 22,
+      "community": 23,
       "norm_label": "modelrequest"
     },
     {
@@ -6459,7 +6549,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L92",
       "id": "src_model_round_trips_through_serde",
-      "community": 22,
+      "community": 23,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -6468,7 +6558,7 @@
       "source_file": "crates/openspine-schemas/src/model.rs",
       "source_location": "L123",
       "id": "src_model_untrusted_data_never_collapses_into_trusted",
-      "community": 22,
+      "community": 23,
       "norm_label": "untrusted_data_never_collapses_into_trusted()"
     },
     {
@@ -8201,7 +8291,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "design: openspine development process",
       "id": "openspine_dev_process_design"
     },
@@ -8214,7 +8304,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "proposal: define openspine development process",
       "id": "openspine_dev_process_proposal"
     },
@@ -8227,7 +8317,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "spec: openspine development process",
       "id": "openspine_dev_process_spec"
     },
@@ -8422,7 +8512,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "openspec/openspine development boundary",
       "id": "openspec_openspine_boundary"
     },
@@ -8435,7 +8525,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "change layer classification (core / product / both / tooling)",
       "id": "layer_classification"
     },
@@ -8461,7 +8551,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "openspine development lifecycle (explore\u2192propose\u2192spec\u2192apply\u2192archive)",
       "id": "openspine_dev_lifecycle"
     },
@@ -8526,7 +8616,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 24,
+      "community": 0,
       "norm_label": "rationale: openspec artifacts must not grant runtime authority",
       "id": "rationale_openspec_not_runtime_authority"
     },
@@ -9079,7 +9169,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L36",
+      "source_location": "L37",
       "weight": 1.0,
       "_src": "crates_openspine_kernel_src_main_rs",
       "_tgt": "src_main_cli",
@@ -9103,7 +9193,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L43",
+      "source_location": "L48",
       "weight": 1.0,
       "_src": "crates_openspine_kernel_src_main_rs",
       "_tgt": "src_main_main",
@@ -9115,7 +9205,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L153",
+      "source_location": "L162",
       "weight": 1.0,
       "_src": "src_main_main",
       "_tgt": "src_main_shutdown_signal",
@@ -9146,6 +9236,18 @@
       "_tgt": "src_digest_digest_fmt",
       "source": "src_main_main",
       "target": "src_digest_digest_fmt"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/main.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "_src": "src_main_main",
+      "_tgt": "src_benchmark_run_benchmarks",
+      "source": "src_main_main",
+      "target": "src_benchmark_run_benchmarks"
     },
     {
       "relation": "calls",
@@ -12282,6 +12384,66 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_src": "crates_openspine_kernel_src_benchmark_rs",
+      "_tgt": "src_benchmark_run_benchmarks",
+      "source": "crates_openspine_kernel_src_benchmark_rs",
+      "target": "src_benchmark_run_benchmarks",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_src": "src_benchmark_run_benchmarks",
+      "_tgt": "src_digest_digest_of",
+      "source": "src_benchmark_run_benchmarks",
+      "target": "src_digest_digest_of"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_src": "src_benchmark_run_benchmarks",
+      "_tgt": "store_mod_store_open_in_memory",
+      "source": "src_benchmark_run_benchmarks",
+      "target": "store_mod_store_open_in_memory"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L66",
+      "weight": 1.0,
+      "_src": "src_benchmark_run_benchmarks",
+      "_tgt": "src_digest_digest_parse",
+      "source": "src_benchmark_run_benchmarks",
+      "target": "src_digest_digest_parse"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/benchmark.rs",
+      "source_location": "L86",
+      "weight": 1.0,
+      "_src": "src_benchmark_run_benchmarks",
+      "_tgt": "src_action_actionid_new",
+      "source": "src_benchmark_run_benchmarks",
+      "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/config.rs",
       "source_location": "L16",
       "weight": 1.0,
@@ -13889,6 +14051,18 @@
     },
     {
       "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/artifact_store.rs",
+      "source_location": "L96",
+      "weight": 1.0,
+      "_src": "src_artifact_store_artifactstore_put",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "src_artifact_store_artifactstore_put",
+      "target": "src_digest_hasherwriter_a_write"
+    },
+    {
+      "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/artifact_store.rs",
       "source_location": "L154",
@@ -14023,7 +14197,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/main.rs",
-      "source_location": "L164",
+      "source_location": "L173",
       "weight": 1.0,
       "_src": "crates_openspine_kernel_src_main_rs",
       "_tgt": "src_main_shutdown_signal",
@@ -14558,6 +14732,30 @@
       "_tgt": "src_action_actionid_new",
       "source": "src_artifact_loader_repo_lyra_dir",
       "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
+      "source_location": "L393",
+      "weight": 1.0,
+      "_src": "src_artifact_loader_malformed_fixture_fails_to_load",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "src_artifact_loader_malformed_fixture_fails_to_load",
+      "target": "src_digest_hasherwriter_a_write"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/artifact_loader.rs",
+      "source_location": "L403",
+      "weight": 1.0,
+      "_src": "src_artifact_loader_non_yaml_files_are_ignored",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "src_artifact_loader_non_yaml_files_are_ignored",
+      "target": "src_digest_hasherwriter_a_write"
     },
     {
       "relation": "contains",
@@ -15110,6 +15308,18 @@
       "_tgt": "pipeline_selection_handle_thread_selection",
       "source": "src_sandbox_refuses_external_communication_without_containment",
       "target": "pipeline_selection_handle_thread_selection"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/sandbox.rs",
+      "source_location": "L315",
+      "weight": 1.0,
+      "_src": "src_sandbox_process_driver_clears_env_and_sets_only_two_vars",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "src_sandbox_process_driver_clears_env_and_sets_only_two_vars",
+      "target": "src_digest_hasherwriter_a_write"
     },
     {
       "relation": "contains",
@@ -16130,6 +16340,18 @@
       "_tgt": "src_digest_digest_of",
       "source": "pipeline_approval_create_approved_draft",
       "target": "src_digest_digest_of"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/pipeline/approval.rs",
+      "source_location": "L451",
+      "weight": 1.0,
+      "_src": "pipeline_approval_activate_approved_artifact",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "pipeline_approval_activate_approved_artifact",
+      "target": "src_digest_hasherwriter_a_write"
     },
     {
       "relation": "contains",
@@ -20335,7 +20557,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L278",
+      "source_location": "L277",
       "weight": 1.0,
       "_src": "store_mod_store_last_hash",
       "_tgt": "store_mod_genesis_digest",
@@ -20347,7 +20569,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L373",
+      "source_location": "L366",
       "weight": 1.0,
       "_src": "store_mod_store_verify_audit_chain",
       "_tgt": "store_mod_genesis_digest",
@@ -20383,7 +20605,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L126",
+      "source_location": "L125",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_open_in_memory",
@@ -20395,7 +20617,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L149",
+      "source_location": "L148",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_insert_task_grant",
@@ -20407,7 +20629,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L179",
+      "source_location": "L178",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_find_task_grant_by_token",
@@ -20419,7 +20641,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L211",
+      "source_location": "L210",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_find_task_grant_by_id",
@@ -20431,7 +20653,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L240",
+      "source_location": "L239",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_count_task_grants",
@@ -20443,7 +20665,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L248",
+      "source_location": "L247",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_count_audit_events_of_kind",
@@ -20455,7 +20677,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L259",
+      "source_location": "L258",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_all_audit_event_jsons",
@@ -20467,7 +20689,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L268",
+      "source_location": "L267",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_last_hash",
@@ -20479,7 +20701,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L288",
+      "source_location": "L287",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_append_audit",
@@ -20491,7 +20713,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L362",
+      "source_location": "L355",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_verify_audit_chain",
@@ -20503,7 +20725,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L398",
+      "source_location": "L386",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_append_conversation_message",
@@ -20515,7 +20737,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L418",
+      "source_location": "L406",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_recent_conversation",
@@ -20527,7 +20749,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L446",
+      "source_location": "L434",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_get_kv",
@@ -20539,7 +20761,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L457",
+      "source_location": "L445",
       "weight": 1.0,
       "_src": "store_mod_store",
       "_tgt": "store_mod_store_set_kv",
@@ -20875,7 +21097,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/store/mod.rs",
-      "source_location": "L299",
+      "source_location": "L298",
       "weight": 1.0,
       "_src": "store_mod_store_append_audit",
       "_tgt": "store_mod_store_last_hash",
@@ -20923,6 +21145,18 @@
       "relation": "calls",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/store/mod.rs",
+      "source_location": "L318",
+      "weight": 1.0,
+      "_src": "store_mod_store_append_audit",
+      "_tgt": "src_digest_digest_from_hash",
+      "source": "store_mod_store_append_audit",
+      "target": "src_digest_digest_from_hash"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
       "source_file": "openspine-kernel/src/store/mod.rs",
       "source_location": "L251",
       "weight": 1.0,
@@ -20942,6 +21176,18 @@
       "_tgt": "src_action_actionid_new",
       "source": "store_mod_store_verify_audit_chain",
       "target": "src_action_actionid_new"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "crates/openspine-kernel/src/store/mod.rs",
+      "source_location": "L376",
+      "weight": 1.0,
+      "_src": "store_mod_store_verify_audit_chain",
+      "_tgt": "src_digest_digest_matches_hash",
+      "source": "store_mod_store_verify_audit_chain",
+      "target": "src_digest_digest_matches_hash"
     },
     {
       "relation": "calls",
@@ -24991,6 +25237,18 @@
       "relation": "calls",
       "confidence": "INFERRED",
       "confidence_score": 0.8,
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L286",
+      "weight": 1.0,
+      "_src": "src_action_actionid_new",
+      "_tgt": "src_digest_test_digest_matches_hash",
+      "source": "src_action_actionid_new",
+      "target": "src_digest_test_digest_matches_hash"
+    },
+    {
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
       "source_file": "openspine-schemas/src/event.rs",
       "source_location": "L202",
       "weight": 1.0,
@@ -25387,7 +25645,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L23",
+      "source_location": "L26",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest",
@@ -25399,7 +25657,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L55",
+      "source_location": "L58",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_invaliddigest",
@@ -25411,7 +25669,19 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L81",
+      "source_location": "L79",
+      "weight": 1.0,
+      "_src": "crates_openspine_schemas_src_digest_rs",
+      "_tgt": "src_digest_canonicalvalue",
+      "source": "crates_openspine_schemas_src_digest_rs",
+      "target": "src_digest_canonicalvalue",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L141",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_canonical_json",
@@ -25423,19 +25693,43 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L86",
+      "source_location": "L147",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
-      "_tgt": "src_digest_sort_value",
+      "_tgt": "src_digest_digest_from_hash",
       "source": "crates_openspine_schemas_src_digest_rs",
-      "target": "src_digest_sort_value",
+      "target": "src_digest_digest_from_hash",
       "confidence_score": 1.0
     },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L106",
+      "source_location": "L162",
+      "weight": 1.0,
+      "_src": "crates_openspine_schemas_src_digest_rs",
+      "_tgt": "src_digest_digest_matches_hash",
+      "source": "crates_openspine_schemas_src_digest_rs",
+      "target": "src_digest_digest_matches_hash",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L178",
+      "weight": 1.0,
+      "_src": "crates_openspine_schemas_src_digest_rs",
+      "_tgt": "src_digest_hasherwriter",
+      "source": "crates_openspine_schemas_src_digest_rs",
+      "target": "src_digest_hasherwriter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L194",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_of",
@@ -25447,7 +25741,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L120",
+      "source_location": "L208",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_of_bytes",
@@ -25459,19 +25753,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L126",
-      "weight": 1.0,
-      "_src": "crates_openspine_schemas_src_digest_rs",
-      "_tgt": "src_digest_to_hex",
-      "source": "crates_openspine_schemas_src_digest_rs",
-      "target": "src_digest_to_hex",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L141",
+      "source_location": "L220",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_canonical_json_sorts_keys_at_every_depth",
@@ -25483,7 +25765,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L149",
+      "source_location": "L228",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_canonical_json_sorts_within_arrays_of_objects",
@@ -25495,7 +25777,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L155",
+      "source_location": "L234",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_of_is_a_pinned_golden_value",
@@ -25507,7 +25789,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L166",
+      "source_location": "L245",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_of_is_order_independent",
@@ -25519,7 +25801,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L174",
+      "source_location": "L253",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_parse_rejects_wrong_shapes",
@@ -25531,7 +25813,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L182",
+      "source_location": "L261",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_round_trips_through_serde",
@@ -25543,7 +25825,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L190",
+      "source_location": "L269",
       "weight": 1.0,
       "_src": "crates_openspine_schemas_src_digest_rs",
       "_tgt": "src_digest_digest_of_bytes_hashes_raw_content_directly",
@@ -25552,10 +25834,22 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L283",
+      "weight": 1.0,
+      "_src": "crates_openspine_schemas_src_digest_rs",
+      "_tgt": "src_digest_test_digest_matches_hash",
+      "source": "crates_openspine_schemas_src_digest_rs",
+      "target": "src_digest_test_digest_matches_hash",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L26",
+      "source_location": "L29",
       "weight": 1.0,
       "_src": "src_digest_digest",
       "_tgt": "src_digest_digest_as_str",
@@ -25567,7 +25861,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L30",
+      "source_location": "L33",
       "weight": 1.0,
       "_src": "src_digest_digest",
       "_tgt": "src_digest_digest_is_valid",
@@ -25579,7 +25873,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L46",
+      "source_location": "L49",
       "weight": 1.0,
       "_src": "src_digest_digest_parse",
       "_tgt": "src_digest_digest",
@@ -25591,7 +25885,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L58",
+      "source_location": "L61",
       "weight": 1.0,
       "_src": "src_digest_digest",
       "_tgt": "src_digest_digest_fmt",
@@ -25603,7 +25897,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L64",
+      "source_location": "L67",
       "weight": 1.0,
       "_src": "src_digest_digest",
       "_tgt": "src_digest_digest_serialize",
@@ -25615,7 +25909,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L70",
+      "source_location": "L73",
       "weight": 1.0,
       "_src": "src_digest_digest",
       "_tgt": "src_digest_digest_deserialize",
@@ -25627,43 +25921,19 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L112",
+      "source_location": "L156",
       "weight": 1.0,
-      "_src": "src_digest_digest_of",
+      "_src": "src_digest_digest_from_hash",
       "_tgt": "src_digest_digest",
       "source": "src_digest_digest",
-      "target": "src_digest_digest_of",
+      "target": "src_digest_digest_from_hash",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L123",
-      "weight": 1.0,
-      "_src": "src_digest_digest_of_bytes",
-      "_tgt": "src_digest_digest",
-      "source": "src_digest_digest",
-      "target": "src_digest_digest_of_bytes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L91",
-      "weight": 1.0,
-      "_src": "src_digest_sort_value",
-      "_tgt": "src_digest_digest_as_str",
-      "source": "src_digest_digest_as_str",
-      "target": "src_digest_sort_value",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L45",
+      "source_location": "L48",
       "weight": 1.0,
       "_src": "src_digest_digest_parse",
       "_tgt": "src_digest_digest_is_valid",
@@ -25675,7 +25945,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L48",
+      "source_location": "L51",
       "weight": 1.0,
       "_src": "src_digest_digest_parse",
       "_tgt": "src_digest_invaliddigest",
@@ -25687,7 +25957,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L72",
+      "source_location": "L75",
       "weight": 1.0,
       "_src": "src_digest_digest_deserialize",
       "_tgt": "src_digest_digest_parse",
@@ -25699,7 +25969,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L183",
+      "source_location": "L262",
       "weight": 1.0,
       "_src": "src_digest_digest_round_trips_through_serde",
       "_tgt": "src_digest_digest_parse",
@@ -25747,23 +26017,59 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L82",
+      "source_location": "L94",
       "weight": 1.0,
-      "_src": "src_digest_canonical_json",
-      "_tgt": "src_digest_sort_value",
-      "source": "src_digest_canonical_json",
-      "target": "src_digest_sort_value",
+      "_src": "src_digest_canonicalvalue_a_serialize",
+      "_tgt": "src_digest_canonicalvalue",
+      "source": "src_digest_canonicalvalue",
+      "target": "src_digest_canonicalvalue_a_serialize",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L109",
+      "source_location": "L142",
+      "weight": 1.0,
+      "_src": "src_digest_canonical_json",
+      "_tgt": "src_digest_canonicalvalue",
+      "source": "src_digest_canonicalvalue",
+      "target": "src_digest_canonical_json",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L198",
       "weight": 1.0,
       "_src": "src_digest_digest_of",
-      "_tgt": "src_digest_canonical_json",
-      "source": "src_digest_canonical_json",
+      "_tgt": "src_digest_canonicalvalue",
+      "source": "src_digest_canonicalvalue",
+      "target": "src_digest_digest_of",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "_src": "src_digest_canonicalvalue_a",
+      "_tgt": "src_digest_canonicalvalue_a_serialize",
+      "source": "src_digest_canonicalvalue_a",
+      "target": "src_digest_canonicalvalue_a_serialize",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L201",
+      "weight": 1.0,
+      "_src": "src_digest_digest_of",
+      "_tgt": "src_digest_digest_from_hash",
+      "source": "src_digest_digest_from_hash",
       "target": "src_digest_digest_of",
       "confidence_score": 1.0
     },
@@ -25771,7 +26077,55 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L158",
+      "source_location": "L211",
+      "weight": 1.0,
+      "_src": "src_digest_digest_of_bytes",
+      "_tgt": "src_digest_digest_from_hash",
+      "source": "src_digest_digest_from_hash",
+      "target": "src_digest_digest_of_bytes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L197",
+      "weight": 1.0,
+      "_src": "src_digest_digest_of",
+      "_tgt": "src_digest_hasherwriter",
+      "source": "src_digest_hasherwriter",
+      "target": "src_digest_digest_of",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L181",
+      "weight": 1.0,
+      "_src": "src_digest_hasherwriter_a",
+      "_tgt": "src_digest_hasherwriter_a_write",
+      "source": "src_digest_hasherwriter_a",
+      "target": "src_digest_hasherwriter_a_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "_src": "src_digest_hasherwriter_a",
+      "_tgt": "src_digest_hasherwriter_a_flush",
+      "source": "src_digest_hasherwriter_a",
+      "target": "src_digest_hasherwriter_a_flush",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L237",
       "weight": 1.0,
       "_src": "src_digest_digest_of_is_a_pinned_golden_value",
       "_tgt": "src_digest_digest_of",
@@ -25783,12 +26137,24 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/digest.rs",
-      "source_location": "L191",
+      "source_location": "L270",
       "weight": 1.0,
       "_src": "src_digest_digest_of_bytes_hashes_raw_content_directly",
       "_tgt": "src_digest_digest_of_bytes",
       "source": "src_digest_digest_of_bytes",
       "target": "src_digest_digest_of_bytes_hashes_raw_content_directly",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-schemas/src/digest.rs",
+      "source_location": "L285",
+      "weight": 1.0,
+      "_src": "src_digest_test_digest_matches_hash",
+      "_tgt": "src_digest_digest_of_bytes",
+      "source": "src_digest_digest_of_bytes",
+      "target": "src_digest_test_digest_matches_hash",
       "confidence_score": 1.0
     },
     {
