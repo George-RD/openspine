@@ -102,7 +102,7 @@ impl<'a> Serialize for CanonicalValue<'a> {
                     map_serializer.end()
                 } else if len == 1 {
                     let mut map_serializer = serializer.serialize_map(Some(1))?;
-                    let (k, v) = map.iter().next().unwrap();
+                    let (k, v) = map.iter().next().expect("map has exactly 1 element");
                     map_serializer.serialize_entry(k, &CanonicalValue(v))?;
                     map_serializer.end()
                 } else if len <= 16 {
@@ -111,11 +111,11 @@ impl<'a> Serialize for CanonicalValue<'a> {
                         sorted[i] = Some(entry);
                     }
                     let slice = &mut sorted[0..len];
-                    slice.sort_unstable_by_key(|opt| opt.unwrap().0);
+                    slice.sort_unstable_by_key(|opt| opt.expect("slice element populated").0);
 
                     let mut map_serializer = serializer.serialize_map(Some(len))?;
                     for entry in slice {
-                        let (k, v) = entry.unwrap();
+                        let (k, v) = entry.expect("slice element populated");
                         map_serializer.serialize_entry(k, &CanonicalValue(v))?;
                     }
                     map_serializer.end()
@@ -152,8 +152,27 @@ pub fn digest_from_hash(hash: [u8; 32]) -> Digest {
         buf.push(HEX_CHARS[(b >> 4) as usize]);
         buf.push(HEX_CHARS[(b & 0xf) as usize]);
     }
-    let s = unsafe { String::from_utf8_unchecked(buf) };
+    let s = String::from_utf8(buf).expect("sha256 hex output is always ASCII");
     Digest(s)
+}
+
+/// Returns true if the given digest string corresponds to the given 32-byte SHA-256 hash.
+///
+/// This does not allocate memory and verifies the digest scheme matches the expected format.
+pub fn digest_matches_hash(digest_str: &str, hash: &[u8; 32]) -> bool {
+    if !digest_str.starts_with("sha256:") || digest_str.len() != 71 {
+        return false;
+    }
+    let hash_bytes = &digest_str.as_bytes()[7..];
+    const HEX_CHARS: &[u8; 16] = b"0123456789abcdef";
+    for (i, &b) in hash.iter().enumerate() {
+        let h1 = HEX_CHARS[(b >> 4) as usize];
+        let h2 = HEX_CHARS[(b & 0xf) as usize];
+        if hash_bytes[i * 2] != h1 || hash_bytes[i * 2 + 1] != h2 {
+            return false;
+        }
+    }
+    true
 }
 
 struct HasherWriter<'a>(&'a mut Sha256);
@@ -169,7 +188,9 @@ impl<'a> std::io::Write for HasherWriter<'a> {
     }
 }
 
-/// Digest any serializable value over its canonical-JSON pre-image.
+/// Digest a `serde_json::Value` over its canonical-JSON pre-image.
+///
+/// Callers with typed structs must convert them via `serde_json::to_value` first.
 pub fn digest_of(v: &Value) -> Digest {
     let mut hasher = Sha256::new();
     {
@@ -256,5 +277,20 @@ mod tests {
         // canonical-JSON-quotes them first) — these are deliberately
         // different pre-images.
         assert_ne!(d, digest_of(&json!("hello world")));
+    }
+
+    #[test]
+    fn test_digest_matches_hash() {
+        let raw = b"hello world";
+        let digest = digest_of_bytes(raw);
+        let mut hasher = Sha256::new();
+        hasher.update(raw);
+        let hash: [u8; 32] = hasher.finalize().into();
+        assert!(digest_matches_hash(digest.as_str(), &hash));
+
+        let mut bad_hash = hash;
+        bad_hash[0] ^= 1;
+        assert!(!digest_matches_hash(digest.as_str(), &bad_hash));
+        assert!(!digest_matches_hash("sha256:invalid", &hash));
     }
 }

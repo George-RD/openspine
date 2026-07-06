@@ -1,12 +1,12 @@
-# Graph Report - openspine  (2026-07-05)
+# Graph Report - openspine  (2026-07-06)
 
 ## Corpus Check
-- 68 files · ~81,047 words
+- 68 files · ~81,146 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 869 nodes · 2082 edges · 33 communities detected
-- Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 556 edges (avg confidence: 0.8)
+- 871 nodes · 2087 edges · 33 communities detected
+- Extraction: 73% EXTRACTED · 27% INFERRED · 0% AMBIGUOUS · INFERRED: 558 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -89,44 +89,44 @@ Cohesion: 0.05
 Nodes (143): Action Request Type, Agent Manifest Schema, Approval Record Schema, Approval-Required Overrides Plain Allow, Artifact Ref (protected reference for private payloads), Audit Event, Gate Audit Metadata, Authority Composer (produces task grants from intersected sources) (+135 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.05
-Nodes (54): a_failed_token_refresh_surfaces_as_an_error(), a_non_404_api_error_is_not_treated_as_missing(), connector(), fetch_thread_extracts_text_and_skips_attachments(), mount_token_endpoint(), sample_thread_json(), the_access_token_is_cached_across_calls(), thread_exists_is_false_for_a_missing_thread() (+46 more)
+Cohesion: 0.04
+Nodes (62): a_failed_token_refresh_surfaces_as_an_error(), a_non_404_api_error_is_not_treated_as_missing(), connector(), fetch_thread_extracts_text_and_skips_attachments(), mount_token_endpoint(), sample_thread_json(), the_access_token_is_cached_across_calls(), thread_exists_is_false_for_a_missing_thread() (+54 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.08
-Nodes (63): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), mount_send_message_ok(), telegram_stub(), ArtifactProposePayload, dispatch_artifact_propose(), artifact_propose_persists_and_sends_approval_button() (+55 more)
+Cohesion: 0.07
+Nodes (71): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), empty_session_policy(), global_policy(), main_assistant_agent(), owner_control_basic_pack() (+63 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.09
-Nodes (61): empty_session_policy(), global_policy(), owner_control_conversation_workflow(), owner_control_input(), owner_identity(), handle_thread_selection(), AgentLimits, AgentManifest (+53 more)
+Nodes (60): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), mount_send_message_ok(), telegram_stub(), ArtifactProposePayload, dispatch_artifact_propose(), artifact_propose_persists_and_sends_approval_button() (+52 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.08
-Nodes (48): artifact_ref(), email_event(), email_reply_drafter_agent(), email_route(), main_assistant_agent(), owner_control_basic_pack(), owner_event(), owner_route() (+40 more)
+Cohesion: 0.1
+Nodes (38): allowed_action_returns_allow(), allowed_plus_approval_required_returns_approval_required(), allowed_plus_denied_returns_deny(), approval_for(), approval_required_action_does_not_execute(), approval_required_action_returns_approval_required(), approved_but_payload_changed_since_is_denied_not_reasked(), audit_metadata_records_action_grant_and_refs_not_plaintext() (+30 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.06
-Nodes (32): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+24 more)
+Cohesion: 0.08
+Nodes (28): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_lyra_preview(), dispatch_read_selected_thread(), DispatchError, post_actions(), PreviewPayload (+20 more)
 
 ### Community 6 - "Community 6"
+Cohesion: 0.08
+Nodes (22): activate_approved_artifact(), create_approved_draft(), handle_draft_approval_callback(), notify_owner_best_effort(), ArtifactLoadError, ArtifactRegistry, collide_keyed(), collide_route() (+14 more)
+
+### Community 7 - "Community 7"
 Cohesion: 0.09
 Nodes (26): artifact_key_bytes(), artifact_key_round_trips_bytes(), Config, ConfigError, default_lyra_dir(), example_configs_parse_against_the_real_schema(), gmail_client_secret(), gmail_refresh_token() (+18 more)
 
-### Community 7 - "Community 7"
+### Community 8 - "Community 8"
 Cohesion: 0.1
 Nodes (27): deny_limit_exceeded(), GenerateRequestBody, GenerateResponseBody, post_model_generate(), template_id_for_agent(), authenticate(), bearer_token(), internal_error() (+19 more)
 
-### Community 8 - "Community 8"
+### Community 9 - "Community 9"
 Cohesion: 0.1
 Nodes (15): build_owner_envelope(), CallbackQueryUpdate, configured_owner_text_message_is_verified(), missing_sender_is_ignored(), non_text_update_from_owner_is_ignored(), owner_envelope_is_verified_with_owner_id_match_method(), owner_message_in_a_group_chat_is_ignored_not_routed(), parse_approve_callback() (+7 more)
 
-### Community 9 - "Community 9"
+### Community 10 - "Community 10"
 Cohesion: 0.17
 Nodes (19): ArtifactStore, ArtifactStoreError, different_content_is_different_ref(), get_is_idempotent(), key(), round_trips_plaintext(), same_content_is_content_addressed(), stored_blob_never_contains_the_plaintext_substring() (+11 more)
-
-### Community 10 - "Community 10"
-Cohesion: 0.11
-Nodes (15): ArtifactLoadError, ArtifactRegistry, collide_keyed(), collide_route(), load_registry(), load_registry_into(), load_yaml_dir(), loads_every_real_fixture_without_error() (+7 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.1
@@ -141,28 +141,28 @@ Cohesion: 0.11
 Nodes (19): AccountRole, actor_hint_defaults_to_all_none(), ActorHint, ChannelTrust, Connector, DataClassification, EventEnvelope, EventType (+11 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.15
-Nodes (12): build_raw_reply_message(), CachedToken, extract_body_text(), GmailConnector, GmailError, GmailMessage, GmailThread, header_value() (+4 more)
-
-### Community 15 - "Community 15"
 Cohesion: 0.27
 Nodes (17): allow_reply(), allow_result(), approval_required_on_primary_action_exits_ok_no_reply(), cmd_freeform(), cmd_propose(), cmd_setup(), cmd_status(), deny_on_model_generate_exits_ok() (+9 more)
 
-### Community 16 - "Community 16"
+### Community 15 - "Community 15"
 Cohesion: 0.24
 Nodes (15): denied_read_thread_stops_without_drafting(), Draft, draft_reply(), empty_draft_skips_preview_without_error(), format_thread_for_model(), format_thread_for_model_includes_all_fields(), full_flow_reads_drafts_and_previews(), no_selection_tokens_is_an_error() (+7 more)
 
-### Community 17 - "Community 17"
+### Community 16 - "Community 16"
 Cohesion: 0.32
 Nodes (11): anthropic_client_parses_the_reply_text(), GatewayError, generate_anthropic(), generate_openai_compat(), http_client(), malformed_response_is_missing_content_not_a_panic(), messages_json(), openai_compat_client_parses_the_reply_text() (+3 more)
 
-### Community 18 - "Community 18"
+### Community 17 - "Community 17"
 Cohesion: 0.18
 Nodes (13): deny_unknown_fields_rejects_capability_pack_id(), EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity, identity_json_has_no_authority_field(), IdentityResolution (+5 more)
 
-### Community 19 - "Community 19"
+### Community 18 - "Community 18"
 Cohesion: 0.35
 Nodes (12): AGENTS.md — Agent Instructions, CLAUDE.md — Claude Instructions, Graphify Knowledge Graph Tool, OpenSpine Review Bundle, Repo Index (Markdown), Repo Index (Plain Text), Skill: openspec-apply-change, Skill: openspec-archive-change (+4 more)
+
+### Community 19 - "Community 19"
+Cohesion: 0.18
+Nodes (6): action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionId, ActionRequest, DenialReason, GateDecision
 
 ### Community 20 - "Community 20"
 Cohesion: 0.2
@@ -239,9 +239,9 @@ Nodes (1): PromptTemplate
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `post_model_generate()` connect `Community 7` to `Community 1`, `Community 4`, `Community 5`?**
+- **Why does `post_model_generate()` connect `Community 8` to `Community 1`, `Community 4`, `Community 5`?**
   _High betweenness centrality (0.303) - this node is a cross-community bridge._
-- **Why does `Model Gateway` connect `Community 0` to `Community 7`?**
+- **Why does `Model Gateway` connect `Community 0` to `Community 8`?**
   _High betweenness centrality (0.284) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `gate() — Action Mediation Function` (e.g. with `Action Request Type` and `Gate Decision Type`) actually correct?**
   _`gate() — Action Mediation Function` has 4 INFERRED edges - model-reasoned connections that need verification._
