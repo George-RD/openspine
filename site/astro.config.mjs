@@ -12,7 +12,7 @@ export default defineConfig({
 			tagline: 'The backbone for governed agents.',
 			head: [
 				{ tag: 'script', attrs: { src: 'https://storage.ko-fi.com/cdn/scripts/overlay-widget.js' } },
-				{ tag: 'script', content: "kofiWidgetOverlay.draw('george_builds', { 'type': 'floating-chat', 'floating-chat.donateButton.text': 'Buy me a coffee ☕', 'floating-chat.donateButton.background-color': '#80CBC4', 'floating-chat.donateButton.text-color': '#000' });" },
+				{ tag: 'script', content: "document.addEventListener('astro:page-load', function () { kofiWidgetOverlay.draw('george_builds', { 'type': 'floating-chat', 'floating-chat.donateButton.text': 'Buy me a coffee ☕', 'floating-chat.donateButton.background-color': '#80CBC4', 'floating-chat.donateButton.text-color': '#000' }); });" },
 			],
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/George-RD/openspine' },
