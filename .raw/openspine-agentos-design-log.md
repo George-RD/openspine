@@ -433,6 +433,27 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   any agent code runs. Schema support already exists (RouteWhen matches
   source/connector/account_role/actor.relationship). (settled)
 
+## Observability & failure-surfacing (2026-07-07 blindspot round)
+
+- **AD-137 Observability ground truth (code-audited 2026-07-07).** What exists: the
+  hash-chained audit log IS well-instrumented on decision paths — denials, dispatch
+  failures, and mutation detections all write events (`action.dispatch_failed`,
+  `draft.proposal_failed`, `auth.rejected`, `draft.target_mutated_since_approval`);
+  tracing goes to stdout via fmt+EnvFilter; there are ZERO metrics counters. Confirmed
+  invisible-failure holes: (1) the API layer drops audit-append failures
+  (`let _ = append_audit` — actions.rs:153/285/311, api/mod.rs:126/143/156) while
+  most pipeline decision paths propagate with `?` (the notification path is
+  intentionally best-effort — hole 2) — inconsistent, and under SQLite failure (disk full)
+  a FAILED action leaves no durable trace at all; (2) the `owner.notified` audit row is
+  written BEFORE the Telegram send and a send failure is only warn-logged
+  (pipeline/mod.rs:138-146) — the chain can claim the owner was notified when they never
+  were; (3) default log config is ERROR-only (`EnvFilter::from_default_env`,
+  main.rs:49-51), so every `warn!` on a failure path is invisible unless RUST_LOG is
+  set; (4) no failure-rate counters, so a connector failing 30% of the time has no
+  signal short of reading raw audit rows; (5) no dead-letter/escalation when the
+  notification channel itself fails. (settled — these are facts; the fix contract is
+  OQ-14)
+
 ## Open questions
 
 - **OQ-1 Forcing use case / slice order.** People-first (identity store + outbound +
@@ -452,9 +473,15 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
 - **OQ-6 Overlay backup/portability.** The learned overlay IS the relationship; losing it =
   losing the assistant. Export/restore/migrate semantics.
 - **OQ-7 Retention & deletion.** Counterparty data rights (customer asks to be forgotten);
-  what the audit chain's immutability means for erasure obligations.
+  what the audit chain's immutability means for erasure obligations. Blindspot-round
+  option on the table: crypto-erase — per-counterparty payload keys, delete the key to
+  erase content while the chain keeps its tamper evidence; derived overlay artifacts
+  (learned rules mined from erased conversations) must be invalidated too. Needs
+  specifying before first production deployment, not as a compliance patch.
 - **OQ-8 Latency budget.** Packing + gate + wrapping must not make the assistant feel slow;
-  what's the ms budget per stage?
+  what's the ms budget per stage? Cost twin (blindspot round): a global per-day spend
+  cap / kill-switch beyond per-task budgets (AD-106, AD-122), so a runaway loop or
+  popular skill can't empty the owner's wallet.
 - **OQ-9 Gate-block UX.** When the gate blocks mid-conversation with a counterparty, what
   does the worker say — without leaking policy detail ("I'm not allowed to discuss X" is
   itself a disclosure)?
@@ -476,6 +503,35 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   learnable/divergent from day one. Likely answer is the same pattern — a small seed set
   (owner-control conversation, draft-with-approval, research-and-brief) as overlay
   artifacts, not kernel fixtures — but undecided and unscoped.
+- **OQ-14 Failure-surfacing contract.** The product thesis makes silent competence the
+  default (AD-134 headless lanes) — which makes silent failure the top operational risk.
+  Candidate invariant: NO failed effect without (a) a durable record and (b) an
+  owner-visible surface. Open: the failure taxonomy (authority vs connector vs resource
+  exhaustion), which classes notify immediately vs digest-only (AD-082), what happens
+  when the audit append or the notify channel ITSELF fails (dead-letter + retry vs fail
+  the action), and the minimal metrics surface (per-connector failure counters feed
+  AD-103's circuit breaker anyway). AD-137 holds the code evidence.
+- **OQ-15 Day-2 operations contract.** Upgrade/rollback (versioned migrations + a
+  documented downgrade path — the ad-hoc idempotent ALTER lane exists in
+  store/migrations.rs but there's no `PRAGMA user_version`), backup/restore scope
+  (SQLite + artifact blobs + keys as ONE consistent set), disk-full behavior, and
+  clock-skew tolerance (token expiry, breaker timeouts, and audit timestamps trust
+  the wall clock; chain ordering itself is append-order). Not covered anywhere; AD-070
+  covers only overlay compat.
+- **OQ-16 Connector API realities.** Per-connector rate-limit buckets, token refresh
+  before expiry (Gmail OAuth), and — for AD-134 hooks — webhook signature verification,
+  idempotency keys, and replay windows: a spoofed or replayed webhook is a direct
+  attack path. AD-103 covers circuit breaking only.
+- **OQ-17 Overlay eval strategy.** Continuous evaluation of learned rules/preferences
+  BEFORE activation: offline replay of past owner conversations vs a holdout set;
+  whether every standing-rule proposal gets an adversarial risk-judge pass
+  (AD-110/111). Miner outputs already flow as proposable artifacts; the test gate for
+  them is unspecced.
+- **OQ-18 First-run & multi-device.** The onboarding sequence (env-var bootstrap D-025,
+  Telegram-first D-030: bot token → owner verification → Gmail OAuth) with its failure
+  messages, and whether two simultaneous owner sessions (phone + desktop Telegram) race
+  on briefcase/counter updates or are serialized by AD-102's one-message-per-
+  conversation rule.
 
 ## Session provenance
 
@@ -487,3 +543,8 @@ research (AssistantArchetypeResearch); archetype sentiment cross-check
 pre-commit review (LogReviewer, findings applied 2026-07-07). Original vision lineage:
 PRD v3 research (germline/somatic, three-lane evaluator, autophagy) — conversation
 artifacts, first captured in-repo here.
+Blindspot round 2026-07-07: kernel observability audit (ObservabilityAudit) and spec
+blindspot pass (BlindspotPass) — the latter run via the finding-unknowns skill pack
+(Thariq Shihipar's unknowns framing, distilled by Neeeophytee/finding-unknowns-skills),
+vendored repo-scoped at `.omp/skills/` in this round; AD-137, OQ-14..18, and the OQ-7/
+OQ-8 amendments captured from it.
