@@ -2,6 +2,8 @@
 
 OpenSpine is a safety layer for AI agents. It decides what your agent is **allowed** to do, and proves it.
 
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/george_builds)
+
 ## What is this?
 
 AI agents today can do too much. They often access files or run commands without permission. OpenSpine sits under the agent to check every action. Everything is off until you turn it on (deny-by-default). Every decision is written to a tamper-evident log (hash-chain audited). Lyra is the first app built on OpenSpine. It is a Telegram assistant that drafts Gmail replies but can never send them.
