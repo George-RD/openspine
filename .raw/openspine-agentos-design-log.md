@@ -516,24 +516,128 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   Richer onboarding UX deferred until a second deployment exists to learn from.
   (settled)
 
+## Interview resolutions (2026-07-07, owner-ratified; adversarially debated per rule)
+
+Decisions taken in an interview-me round (one question per turn, blast-radius order),
+then stress-tested by a reformer-vs-conservative subagent debate (DecisionReformer,
+DecisionConservative) before landing. The debate corrected one decision's scoping
+(AD-148) and converted assumptions into explicit prerequisites throughout.
+
+- **AD-145 Spec everything; order is the loop's concern (resolves OQ-1).** The
+  deliverable is the complete agent-OS spec corpus; implementation order is delegated
+  to the dev loop as a scheduling annotation, never an architectural argument.
+  Guard (from debate): entries whose feasibility rests on unbuilt substrate carry
+  explicit prerequisites; the loop MUST NOT promote design prose to a requirement
+  past an unmet prerequisite, and every slice proposal is checked against the kernel
+  invariants (deny-by-default D-004, identity-is-not-authority D-006, grant-is-only-
+  live-authority D-007, digest-bound approval D-011, kernel/shell split D-005/D-010,
+  deterministic routing D-008). (settled)
+- **AD-146 Principal-shaped schema, single-owner v1 (resolves OQ-4; OQ-3 at bootstrap
+  depth).** `Principal` becomes a first-class record; v1 enforces exactly one
+  (`is_owner`); the owner stops being a config string (today the pipeline wires
+  `state.owner_user_id` straight into composition — pipeline/mod.rs:373); identity
+  resolution returns a `principal_id`. `Identity` keeps ZERO authority fields (D-006).
+  Relationship-scoped disclosure: a `DisclosurePolicy` artifact keyed
+  (relationship × disclosure-class), acquired lazily — a counterparty hits a
+  deterministic block, the owner answers one honest question (AD-133), the answer
+  becomes a standing rule with carve-outs. Identity bootstrap is owner assertion
+  ("my wife's number is this") as an owner-approved, AUDITED action — never
+  agent-triggered, or the agent could mint relationships and thus authority.
+  Unknown claims never auto-bind (RelationshipKind::Unknown, confidence 0).
+  A counterparty with rich standing rules is still not a principal; the principal
+  seam means promotion later is additive, not a rewrite. (settled)
+- **AD-147 Matcher confined to authority-equivalence classes (resolves OQ-2).** The
+  kernel — never the shell — computes equivalence classes deterministically from
+  artifacts' DECLARED action lists: two candidates are in one class iff their composed
+  (allowed_actions, approval_required_actions, denied_actions, output_channels,
+  limits) are identical (shapes verified comparable: grant.rs:54-61). The semantic
+  matcher picks freely WITHIN one class (taste, not authority) and never across;
+  cross-class ambiguity resolves by deterministic rule or escalation. This REFINES
+  D-008, not repeals it: the LLM still never resolves route conflicts or constructs
+  grants; within-class members are authority-identical by construction, so the pick
+  cannot widen anything. Classes are auditable and testable, never LLM-derived.
+  Prerequisites: validated ActionId registry (kernel-readiness refactor 1 — ActionId
+  is an unvalidated string today). Matcher model swaps pass the AD-142 replay gate;
+  v1 uses off-the-shelf LLMs; the authority-free slot is the first candidate for a
+  small OSS model later. (settled)
+- **AD-148 Thread↔grant binding — channel-agnostic, dormant in v1 (resolves OQ-12;
+  corrected by debate).** `EventEnvelope` and `TaskGrant` gain optional `thread_id`;
+  binding is KERNEL-owned: a reply in thread T resolves to the grant bound to T —
+  deterministic, the same move as digest-bound approval applied to conversation; no
+  binding → master thread; a worker replies only in its bound thread and escalates
+  only to the master thread (AD-133); the shell never creates or switches threads.
+  Debate correction: Telegram topics are a GROUP-only feature and owner control is
+  deliberately private-chat-only (telegram.rs verify_update requires is_private_chat),
+  so the binding lies dormant until a thread-capable channel (e.g. Discord) ships;
+  putting owner control in a Telegram group would require re-threat-modeling
+  group-visible authority and is out of scope. (settled)
+- **AD-149 Miner is a worker role — layered (resolves OQ-5).** v1 reflection runs
+  under an ORDINARY task grant: scoped audit-trail-slice briefcase, explicit grant
+  fields (classification ceiling, empty output_channels, model-call/artifact limits),
+  model calls through the gateway and gate like everyone else; outputs are proposable
+  artifacts through the normal lifecycle, never direct mutation of kernel state or
+  standing rules; NEVER a privileged background daemon — that would be a covert
+  channel around gate/budget. Generalization to N narrow nerves (typed event-bus
+  subscribers, AD-130; one smart miner vs many narrow ones over the same stream)
+  has PREREQUISITES, not co-requisites: the AD-060 connector registry and the AD-105
+  event bus must exist first. More miners ≠ more authority: N miners only generate more
+  proposals for the same one-tap approval; AD-132 speak-thresholds gate the noise.
+  (settled)
+- **AD-150 Overlay export/restore — first-class, key-model gated (resolves OQ-6).**
+  The learned overlay IS the relationship; export/restore are owner-only gated
+  actions. Bundle = SQLite DB + artifact blobs + key material as ONE atomic snapshot
+  (AD-139 scope) with a documented restore drill; base-version migration runs the
+  AD-070/071 compat pass. HARD PREREQUISITE (from debate): the artifact store must
+  migrate from its single global AES key (artifact_store.rs) to per-counterparty
+  payload-key derivation (AD-140) BEFORE any export/restore is claimed — otherwise
+  the single-key design gets baked into the export format and crypto-erase becomes a
+  re-encrypt-everything migration. (settled)
+- **AD-151 Refusals never leak policy (resolves OQ-9).** Gate denials stay enum
+  reason codes (action.rs enum, used in gate.rs); workers receive outcomes, not
+  policy text.
+  The spec ships ONE canonical policy-free refusal ("I need to check on that — I'll
+  get back to you") plus deterministic escalation to the owner (AD-133). Phrasing is
+  learnable presentation; the no-leak invariant is kernel. "I'm not allowed to
+  discuss X" is itself a disclosure. (settled)
+- **AD-152 Model swap is a ceremony (resolves OQ-10).** Personality seed and overlay
+  are artifacts, not weights — so a base-model swap is a PROPOSAL carrying golden-set
+  replay evidence through the AD-142 gate (replay + adversarial risk judge),
+  digest-approved by the owner; no silent swaps. The spec defines the golden-set
+  format and pass/fail criteria. Applies equally to matcher (AD-147) and miner
+  (AD-149) models. (settled)
+- **AD-153 Seed workflows: minimal, overlay-shipped (resolves OQ-13).** Seed set is
+  only what current slices imply — owner-control conversation, selected-thread email
+  draft with approval, research-and-brief — plus the customer-service intake template
+  as the stress test; shipped as overlay artifacts, never kernel fixtures (AD-071,
+  AD-080 precedent). Everything else arrives via miner proposals. (settled)
+
 ## Open questions
 
 - **OQ-1 Forcing use case / slice order.** People-first (identity store + outbound +
   standing rules) vs evolution-first (eval harness + lineage). Session lean: people-first —
-  the customer-service scenario justifies per-identity scoping early. Undecided.
+  the customer-service scenario justifies per-identity scoping early.
+  RESOLVED by AD-145 (2026-07-07): spec everything; order delegated to the dev loop.
 - **OQ-2 Skill/workflow matching authority.** How much routing may the semantic matcher do
   before it needs the same determinism discipline as route resolution (PRD forbids LLM
   route-conflict resolution)? Where's the line between "inject a skill" (harmless) and
   "choose a workflow" (approval semantics ride on it)?
+  RESOLVED by AD-147 (2026-07-07): kernel-computed authority-equivalence classes.
 - **OQ-3 Counterparty verification.** How does the system establish "this number IS my
   dentist" initially? Identity bootstrapping trust, spoofing resistance.
+  RESOLVED by AD-146 (2026-07-07) at bootstrap depth: owner assertion (audited,
+  owner-approved); unknown claims never auto-bind; verification beyond assertion
+  deferred.
 - **OQ-4 Multi-principal households.** Spouse/family as principals (not just counterparties):
   whose overlay, whose authority, whose data when both talk to "the" agent?
+  RESOLVED by AD-146 (2026-07-07): principal-shaped schema, single-owner v1.
 - **OQ-5 Miner privilege & locality.** The reflection miner reads everything — most
   privileged component in the system. Which model runs it, does its context ever leave the
   box, how is IT contained?
+  RESOLVED by AD-149 (2026-07-07): miner is a worker under grant/gate/ceilings.
 - **OQ-6 Overlay backup/portability.** The learned overlay IS the relationship; losing it =
   losing the assistant. Export/restore/migrate semantics.
+  RESOLVED by AD-150 (2026-07-07): atomic bundle, gated by the AD-140 key-model
+  migration.
 - **OQ-7 Retention & deletion.** Counterparty data rights (customer asks to be forgotten);
   what the audit chain's immutability means for erasure obligations. Blindspot-round
   option on the table: crypto-erase — per-counterparty payload keys, delete the key to
@@ -549,8 +653,10 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
 - **OQ-9 Gate-block UX.** When the gate blocks mid-conversation with a counterparty, what
   does the worker say — without leaking policy detail ("I'm not allowed to discuss X" is
   itself a disclosure)?
+  RESOLVED by AD-151 (2026-07-07): neutral deferral, no-leak invariant, escalation.
 - **OQ-10 Model-swap consistency.** Seed personality and learned style must survive changing
   the underlying model; what's tested at swap time?
+  RESOLVED by AD-152 (2026-07-07): swap = proposal + golden-set replay evidence.
 - **OQ-11 One persona or an office?** RESOLVED by AD-133 (2026-07-07): dissolved into
   deterministic escalation surfaces + learnable presentation. Neither pole chosen at
   design time; office-vs-persona was the wrong axis.
@@ -559,6 +665,8 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   outbound scoped to its own thread (parameter binding applied to channels). Open: which
   tasks qualify (workflow declares interaction mode?); what surfaces in the main thread
   vs the task thread.
+  RESOLVED by AD-148 (2026-07-07): kernel-owned thread↔grant binding,
+  channel-agnostic and dormant until a thread-capable channel exists.
 - **OQ-13 Seed workflows.** Which workflows, if any, ship as seeds vs. being mined
   per-user? (Dropped brain-dump thread, recovered.) Tension: the anti-pre-baking
   principle (mechanisms flow up, rules stay home, AD-071) vs. the fact that the existing
@@ -567,6 +675,7 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   learnable/divergent from day one. Likely answer is the same pattern — a small seed set
   (owner-control conversation, draft-with-approval, research-and-brief) as overlay
   artifacts, not kernel fixtures — but undecided and unscoped.
+  RESOLVED by AD-153 (2026-07-07): minimal seed set as overlay artifacts.
 - **OQ-14 Failure-surfacing contract.** The product thesis makes silent competence the
   default (AD-134 headless lanes) — which makes silent failure the top operational risk.
   Candidate invariant: NO failed effect without (a) a durable record and (b) an
@@ -620,3 +729,8 @@ vendored repo-scoped at `.omp/skills/` in this round; AD-137, OQ-14..18, and the
 OQ-8 amendments captured from it.
 Resolutions AD-138..144 owner-approved 2026-07-07 (blindspot recommendations Q1-Q7
 adopted as given).
+Interview round 2026-07-07: five architecture-changers + four tail defaults settled
+one question per turn (interview-me skill); AD-145..153. Pre-canon adversarial debate
+(DecisionReformer vs DecisionConservative, per decision-fork rule) corrected AD-148's
+channel scoping and surfaced the AD-150 key-model prerequisite; grant-shape
+comparability for AD-147 verified against grant.rs directly.
