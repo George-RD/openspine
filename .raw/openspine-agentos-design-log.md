@@ -454,6 +454,68 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   notification channel itself fails. (settled — these are facts; the fix contract is
   OQ-14)
 
+## Blindspot resolutions (2026-07-07, owner-approved: recommendations Q1-Q7 adopted)
+
+- **AD-138 Failure-surfacing contract (resolves OQ-14).** Invariant: NO failed effect
+  without (a) a durable record and (b) an owner-visible surface. Taxonomy + routing:
+  authority/escalation-class failures notify the owner immediately (they are AD-133's
+  surface); connector/resource-class failures batch into the AD-082 digest; a failed
+  audit append FAILS the action — an effect that cannot be recorded does not happen
+  (extends the D-011/WYSIWYS spirit to recording; kills the `let _ = append_audit`
+  pattern, AD-137 hole 1). That fail-the-action rule governs the effect's OWN audit
+  append; the owner-notification path is instead governed by the next rule: a failed
+  owner notification goes to a dead-letter queue with
+  retry and writes a truthful `owner.notify_failed` event — record the attempt, then
+  the outcome, never "notified" before the send (AD-137 hole 2). Minimal metrics
+  surface: per-connector success/failure counters as kernel tables (no external metrics
+  stack at n=1, consistent with AD-103's pays-off-at-n=1 filter) — the same counters
+  AD-103's breaker and AD-013's calibration signal need. Failure-path events live in
+  the audit store, not stdout warns; the default log filter (AD-137 hole 3) stops
+  being load-bearing. (settled)
+- **AD-139 Day-2 operations contract (resolves OQ-15).** Versioned schema migrations
+  (`PRAGMA user_version`) with a documented downgrade path, upgrading the ad-hoc
+  idempotent ALTER lane the moment a destructive migration is first needed;
+  backup/restore treats SQLite DB + artifact blobs + keys (including AD-140's
+  per-counterparty payload keys) as ONE consistent snapshot
+  set with a documented restore drill; disk-full degrades loudly — actions fail per
+  AD-138 rather than running unrecorded; timestamps and timeout logic trust the wall
+  clock (NTP assumed; chain ordering is append-order), with clock-regression detection
+  at boot. Runtime blue/green kernel trial stays deferred (kernel-readiness note,
+  AD-070 discipline). (settled)
+- **AD-140 Crypto-erase for counterparty deletion (resolves OQ-7).** Private payloads
+  encrypted under per-counterparty keys; erasure = key deletion — plaintext becomes
+  unrecoverable while the hash chain keeps its tamper evidence intact. Derived overlay
+  artifacts (rules/preferences mined from erased conversations) are invalidated via
+  their provenance links — provenance discipline (AD-023, AD-002) is what makes erasure
+  propagation computable. Specified before first production deployment, not patched in
+  later. (settled)
+- **AD-141 Connector reality contract (resolves OQ-16).** The kernel owns per-connector
+  rate-limit buckets with backoff and refresh-before-expiry token handling (never let a
+  Gmail token lapse mid-task); AD-134 hook lanes require webhook signature
+  verification, idempotency keys, and bounded replay windows — a spoofed or replayed
+  webhook is an attack path, handled structurally, not heuristically. Complements
+  AD-103: breakers are health; this is admission control + authenticity. (settled)
+- **AD-142 Overlay eval gate (resolves OQ-17).** Every authority-bearing proposal
+  (standing rules foremost) passes offline replay against captured owner history plus
+  an adversarial risk-judge pass (AD-110/111) BEFORE reaching the owner's approval tap;
+  results attach to the proposal as evidence, so the one-loop confirmation (AD-011) is
+  informed, not decorative. Quiet-activating preference suggestions keep the lighter
+  bar (AD-001's effect-axis split). (settled)
+- **AD-143 Global spend kill-switch (resolves OQ-8's cost half).** A global per-day
+  spend cap across all model calls and connector usage sits above per-task grant
+  budgets (AD-106, AD-122); breach pauses proactive and headless lanes and notifies
+  the owner immediately — wallet-draining is urgent by definition, so it rides the
+  immediate lane of AD-138's taxonomy, not the digest. Latency half of OQ-8 (per-stage
+  ms budgets) remains open. (settled)
+- **AD-144 First-run & multi-device posture (resolves OQ-18 at current depth).** The
+  bootstrap sequence is documented as-is: env-var config (D-014), Telegram-first owner
+  control (D-030) — bot token → owner verification → Gmail OAuth — including its
+  failure messages. Two simultaneous owner devices are ONE identity; races on the SAME
+  conversation are serialized by AD-102's one-message-per-conversation rule, while
+  cross-conversation device consistency stays subject to OQ-12/AD-102 follow-up.
+  Richer onboarding UX deferred until a second deployment exists to learn from.
+  (settled)
+
 ## Open questions
 
 - **OQ-1 Forcing use case / slice order.** People-first (identity store + outbound +
@@ -478,10 +540,12 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   erase content while the chain keeps its tamper evidence; derived overlay artifacts
   (learned rules mined from erased conversations) must be invalidated too. Needs
   specifying before first production deployment, not as a compliance patch.
+  RESOLVED by AD-140 (2026-07-07): crypto-erase adopted.
 - **OQ-8 Latency budget.** Packing + gate + wrapping must not make the assistant feel slow;
   what's the ms budget per stage? Cost twin (blindspot round): a global per-day spend
   cap / kill-switch beyond per-task budgets (AD-106, AD-122), so a runaway loop or
   popular skill can't empty the owner's wallet.
+  Cost half RESOLVED by AD-143 (2026-07-07); latency ms budgets still open.
 - **OQ-9 Gate-block UX.** When the gate blocks mid-conversation with a counterparty, what
   does the worker say — without leaking policy detail ("I'm not allowed to discuss X" is
   itself a disclosure)?
@@ -511,6 +575,7 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   when the audit append or the notify channel ITSELF fails (dead-letter + retry vs fail
   the action), and the minimal metrics surface (per-connector failure counters feed
   AD-103's circuit breaker anyway). AD-137 holds the code evidence.
+  RESOLVED by AD-138 (2026-07-07): taxonomy + fail-the-action + dead-letter + counters.
 - **OQ-15 Day-2 operations contract.** Upgrade/rollback (versioned migrations + a
   documented downgrade path — the ad-hoc idempotent ALTER lane exists in
   store/migrations.rs but there's no `PRAGMA user_version`), backup/restore scope
@@ -518,20 +583,25 @@ requires retypes/backfills. Standing-rule gate-time consultation is new kernel w
   clock-skew tolerance (token expiry, breaker timeouts, and audit timestamps trust
   the wall clock; chain ordering itself is append-order). Not covered anywhere; AD-070
   covers only overlay compat.
+  RESOLVED by AD-139 (2026-07-07).
 - **OQ-16 Connector API realities.** Per-connector rate-limit buckets, token refresh
   before expiry (Gmail OAuth), and — for AD-134 hooks — webhook signature verification,
   idempotency keys, and replay windows: a spoofed or replayed webhook is a direct
   attack path. AD-103 covers circuit breaking only.
+  RESOLVED by AD-141 (2026-07-07).
 - **OQ-17 Overlay eval strategy.** Continuous evaluation of learned rules/preferences
   BEFORE activation: offline replay of past owner conversations vs a holdout set;
   whether every standing-rule proposal gets an adversarial risk-judge pass
   (AD-110/111). Miner outputs already flow as proposable artifacts; the test gate for
   them is unspecced.
-- **OQ-18 First-run & multi-device.** The onboarding sequence (env-var bootstrap D-025,
+  RESOLVED by AD-142 (2026-07-07): replay + risk-judge before the tap.
+- **OQ-18 First-run & multi-device.** The onboarding sequence (env-var bootstrap D-014,
   Telegram-first D-030: bot token → owner verification → Gmail OAuth) with its failure
   messages, and whether two simultaneous owner sessions (phone + desktop Telegram) race
   on briefcase/counter updates or are serialized by AD-102's one-message-per-
   conversation rule.
+  RESOLVED by AD-144 (2026-07-07) at current depth: bootstrap documented, AD-102
+  serializes same-conversation races; richer onboarding deferred.
 
 ## Session provenance
 
@@ -548,3 +618,5 @@ blindspot pass (BlindspotPass) — the latter run via the finding-unknowns skill
 (Thariq Shihipar's unknowns framing, distilled by Neeeophytee/finding-unknowns-skills),
 vendored repo-scoped at `.omp/skills/` in this round; AD-137, OQ-14..18, and the OQ-7/
 OQ-8 amendments captured from it.
+Resolutions AD-138..144 owner-approved 2026-07-07 (blindspot recommendations Q1-Q7
+adopted as given).
