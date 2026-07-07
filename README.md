@@ -1,6 +1,6 @@
 # OpenSpine
 
-OpenSpine is a safety layer for AI agents. It decides what your agent is **allowed** to do — and proves it.
+OpenSpine is a safety layer for AI agents. It decides what your agent is **allowed** to do, and proves it.
 
 ## What is this?
 
@@ -41,13 +41,13 @@ We do not just say OpenSpine is safe. Each row below links to a test you can run
 | Claim | Proof |
 | --- | --- |
 | Telegram owner messages are verified against the configured owner ID | `configured_owner_text_message_is_verified` |
-| Identity is not authority — a spoofed owner ID without a verified source is denied | `spoofed_owner_id_without_verified_source_is_denied` |
+| Identity is not authority: a spoofed owner ID without a verified source is denied | `spoofed_owner_id_without_verified_source_is_denied` |
 | Connector authentication and account role grant no trust by themselves | `gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route` |
 | External content is data, never instruction | `email_reply_drafter_template_wraps_untrusted_context_on_the_wire` |
 | The shell receives no raw connector credentials | `process_driver_clears_env_and_sets_only_two_vars` |
 | Private-context model calls are mediated by the model gateway, untrusted context always wrapped | `generate_sends_untrusted_context_in_body` |
 | User-selected targets are proven with selection tokens, single-use | `email_read_selected_thread_rejects_foreign_grant`, `email_read_selected_thread_rejects_second_use` |
-| Authority composes by deterministic intersection — no candidate allow means no grant | `no_candidate_allow_means_action_is_not_granted` |
+| Authority composes by deterministic intersection: no candidate allow means no grant | `no_candidate_allow_means_action_is_not_granted` |
 | Explicit deny wins over any allow; approval-required overrides a plain allow | `explicit_deny_overrides_allow`, `approval_required_overrides_plain_allow` |
 | Every effectful action is mediated by `gate()` before dispatch | `approval_required_action_stops_before_dispatch` |
 | Audit records reference encrypted artifacts, never plaintext | `audit_metadata_records_action_grant_and_refs_not_plaintext` |
