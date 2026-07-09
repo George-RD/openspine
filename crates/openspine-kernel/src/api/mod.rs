@@ -17,6 +17,7 @@
 mod actions;
 mod artifact_propose;
 mod generate;
+pub(crate) mod handler_registry;
 mod task;
 mod telegram_truncate;
 

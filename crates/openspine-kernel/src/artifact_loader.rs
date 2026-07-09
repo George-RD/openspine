@@ -215,6 +215,7 @@ impl Versioned for PromptTemplate {
 /// surface; letting chat propose one is an injection-escalation channel).
 /// Shared by `artifact.propose` (validate + extract id/version) and
 /// `artifact.activate` (re-parse, flip to active, persist).
+#[derive(Debug)]
 pub enum ParsedProposal {
     Route(Route),
     Agent(AgentManifest),
@@ -265,15 +266,12 @@ impl ParsedProposal {
     }
 
     /// Overlay subdirectory name matching the loader's per-kind layout
-    /// (5d writes `<overlay>/<subdir>/<id>-v<version>.yaml`).
+    /// (5d writes `<overlay>/<subdir>/<id>-v<version>.yaml`). Derived from
+    /// the kind table — the single source of truth for per-kind layout.
     pub fn overlay_subdir(&self) -> &'static str {
-        match self {
-            ParsedProposal::Route(_) => "routes",
-            ParsedProposal::Agent(_) => "agents",
-            ParsedProposal::Workflow(_) => "workflows",
-            ParsedProposal::Pack(_) => "packs",
-            ParsedProposal::Policy(_) => "policies",
-        }
+        find_kind_spec(self.kind())
+            .expect("every ParsedProposal variant has a kind-table entry")
+            .overlay_subdir
     }
 
     /// Flip the artifact's `lifecycle_state` to `active` (5d activation).
@@ -320,88 +318,98 @@ impl ParsedProposal {
     }
 }
 
+/// Single source of truth for the five proposable artifact kinds (PRD §13/5c,
+/// D-048). Each entry pairs a kind's name and overlay subdirectory with the
+/// behavior that previously lived in three parallel match-arms (`PROPOSABLE_KINDS`,
+/// `parse_proposal`'s match, and the propose dup-check): parsing from proposal
+/// YAML and checking for an existing `(id, version)` in the live registry.
+/// Prompt templates are deliberately absent — a chat may never propose one.
+pub struct ArtifactKindSpec {
+    pub name: &'static str,
+    pub overlay_subdir: &'static str,
+    pub parse: fn(&str) -> Result<ParsedProposal, serde_yaml::Error>,
+    pub duplicate_exists: fn(&ArtifactRegistry, &str, u32) -> bool,
+}
+
+/// The five proposable kinds, in a fixed order. This table is the only
+/// declaration of what `artifact.propose` accepts; the kind guard, the parser,
+/// and the duplicate-check all derive from it.
+pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 5] = &[
+    ArtifactKindSpec {
+        name: "route",
+        overlay_subdir: "routes",
+        parse: |yaml| Ok(ParsedProposal::Route(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .routes
+                .iter()
+                .any(|r| r.id == id && r.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "agent",
+        overlay_subdir: "agents",
+        parse: |yaml| Ok(ParsedProposal::Agent(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .agents
+                .get(id)
+                .is_some_and(|a| a.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "workflow",
+        overlay_subdir: "workflows",
+        parse: |yaml| Ok(ParsedProposal::Workflow(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .workflows
+                .get(id)
+                .is_some_and(|w| w.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "pack",
+        overlay_subdir: "packs",
+        parse: |yaml| Ok(ParsedProposal::Pack(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry.packs.get(id).is_some_and(|p| p.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "policy",
+        overlay_subdir: "policies",
+        parse: |yaml| Ok(ParsedProposal::Policy(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .policies
+                .get(id)
+                .is_some_and(|p| p.version == version)
+        },
+    },
+];
+
+/// Look up a kind spec by name in the single source of truth.
+pub fn find_kind_spec(name: &str) -> Option<&'static ArtifactKindSpec> {
+    ARTIFACT_KIND_SPECS.iter().find(|spec| spec.name == name)
+}
+
+/// Whether `kind` is one of the five proposable kinds (templates excluded).
+pub fn is_proposable_kind(kind: &str) -> bool {
+    find_kind_spec(kind).is_some()
+}
 /// Parse proposal YAML for `kind` into a [`ParsedProposal`]. `kind` must
 /// already be one of the five proposable kinds; an unknown kind yields a
 /// serde error rather than a silent accept.
 pub fn parse_proposal(kind: &str, yaml: &str) -> Result<ParsedProposal, serde_yaml::Error> {
     use serde::de::Error as _;
-    Ok(match kind {
-        "route" => ParsedProposal::Route(serde_yaml::from_str(yaml)?),
-        "agent" => ParsedProposal::Agent(serde_yaml::from_str(yaml)?),
-        "workflow" => ParsedProposal::Workflow(serde_yaml::from_str(yaml)?),
-        "pack" => ParsedProposal::Pack(serde_yaml::from_str(yaml)?),
-        "policy" => ParsedProposal::Policy(serde_yaml::from_str(yaml)?),
-        other => {
-            return Err(serde_yaml::Error::custom(format!(
-                "unknown artifact kind {other}"
-            )));
-        }
-    })
+    match find_kind_spec(kind) {
+        Some(spec) => (spec.parse)(yaml),
+        None => Err(serde_yaml::Error::custom(format!(
+            "unknown artifact kind {kind}"
+        ))),
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn repo_lyra_dir() -> std::path::PathBuf {
-        // crates/openspine-kernel -> repo root -> artifacts/lyra
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
-    }
-
-    #[test]
-    fn loads_every_real_fixture_without_error() {
-        let registry = load_registry(&repo_lyra_dir()).expect("real fixtures must all parse");
-        assert!(!registry.routes.is_empty());
-        assert!(registry.agents.contains_key("main_assistant_agent"));
-        assert!(registry
-            .workflows
-            .contains_key("owner_control_conversation"));
-        assert!(registry.packs.contains_key("owner_control_basic_pack"));
-        assert!(registry.policies.contains_key("global"));
-        assert!(registry.templates.contains_key("owner_control_template"));
-
-        // Step 5 (implement-selected-thread-email-preview-slice) fixtures.
-        assert!(registry.agents.contains_key("email_reply_drafter"));
-        assert!(registry
-            .workflows
-            .contains_key("selected_thread_email_reply_draft"));
-        assert!(registry
-            .packs
-            .contains_key("selected_thread_email_draft_pack"));
-        assert!(registry
-            .routes
-            .iter()
-            .any(|r| r.id == "owner_email_selected_thread"));
-        assert!(registry
-            .templates
-            .contains_key("email_reply_draft_template"));
-    }
-
-    #[test]
-    fn missing_directory_is_not_an_error() {
-        let dir = tempfile::tempdir().unwrap();
-        let registry = load_registry(dir.path()).expect("no subdirectories at all is fine");
-        assert!(registry.routes.is_empty());
-        assert!(registry.agents.is_empty());
-    }
-
-    #[test]
-    fn malformed_fixture_fails_to_load() {
-        let dir = tempfile::tempdir().unwrap();
-        let agents_dir = dir.path().join("agents");
-        std::fs::create_dir_all(&agents_dir).unwrap();
-        std::fs::write(agents_dir.join("bad.yaml"), "id: x\nunknown_field: true\n").unwrap();
-        let err = load_registry(dir.path()).unwrap_err();
-        assert!(matches!(err, ArtifactLoadError::Parse { .. }));
-    }
-
-    #[test]
-    fn non_yaml_files_are_ignored() {
-        let dir = tempfile::tempdir().unwrap();
-        let routes_dir = dir.path().join("routes");
-        std::fs::create_dir_all(&routes_dir).unwrap();
-        std::fs::write(routes_dir.join("README.md"), "not yaml").unwrap();
-        let registry = load_registry(dir.path()).expect("non-yaml files must be skipped");
-        assert!(registry.routes.is_empty());
-    }
-}
+mod tests;

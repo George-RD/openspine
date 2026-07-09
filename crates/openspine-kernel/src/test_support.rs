@@ -10,8 +10,10 @@
 pub(crate) mod fixtures {
     use std::path::Path;
 
+    use crate::api::handler_registry::ActionHandlerRegistry;
     use crate::artifact_store::ArtifactStore;
     use crate::config::{ProviderAuth, ProviderConfig, ProviderKind};
+    use crate::connectors::ConnectorRegistry;
     use crate::gmail::GmailConnector;
     use crate::model_gateway::ProviderClient;
     use crate::pipeline::AppState;
@@ -22,8 +24,7 @@ pub(crate) mod fixtures {
     pub(crate) fn repo_lyra_dir() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
     }
-
-    pub(crate) fn test_state() -> AppState {
+    fn build_state(telegram: TelegramConnector, gmail: Option<GmailConnector>) -> AppState {
         let registry = crate::artifact_loader::load_registry(&repo_lyra_dir()).unwrap();
         let key = [7u8; 32];
         let artifacts_dir = tempfile::tempdir().unwrap().keep();
@@ -34,12 +35,13 @@ pub(crate) mod fixtures {
             store: Store::open_in_memory().unwrap(),
             artifacts: ArtifactStore::open(artifacts_dir, key).unwrap(),
             registry: parking_lot::RwLock::new(registry),
+            action_catalog: crate::action_catalog::canonical_catalog(),
             sandbox: Sandbox::Process(ProcessDriver::default()),
-            telegram: TelegramConnector::new("test-token".to_string()),
+            connectors: ConnectorRegistry::new(telegram, gmail),
+            action_handlers: ActionHandlerRegistry::default_registrations(),
             owner_user_id: 42,
             kernel_endpoint: "http://127.0.0.1:0".to_string(),
             unsafe_allow_uncontained_private_data: false,
-            gmail: None,
             provider: ProviderClient::from_config(
                 &ProviderConfig {
                     id: "test-provider".to_string(),
@@ -57,16 +59,19 @@ pub(crate) mod fixtures {
         }
     }
 
+    pub(crate) fn test_state() -> AppState {
+        build_state(TelegramConnector::new("test-token".to_string()), None)
+    }
+
     pub(crate) fn test_state_with_telegram(telegram: TelegramConnector) -> AppState {
-        let mut state = test_state();
-        state.telegram = telegram;
-        state
+        build_state(telegram, None)
     }
 
     pub(crate) fn test_state_with_gmail(gmail: GmailConnector) -> AppState {
-        let mut state = test_state();
-        state.gmail = Some(gmail);
-        state
+        build_state(
+            TelegramConnector::new("test-token".to_string()),
+            Some(gmail),
+        )
     }
 
     pub(crate) fn owner_update(text: &str) -> TelegramUpdate {

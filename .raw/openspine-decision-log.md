@@ -64,6 +64,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-049 | Capability specs are backfilled for subsystems implemented inside earlier slices | Accepted |
 | D-050 | `max_model_calls` is enforced with an atomic upsert, not a count-then-compare | Accepted |
 | D-051 | The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed | Accepted |
+| D-053 | Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids a hard composition error and a structured `UnknownAction` gate denial distinct from `NotGranted` | Accepted |
 
 ---
 
@@ -1382,6 +1383,29 @@ Upstream openspec grows a first-class non-interactive archive mode (no confirmat
 
 ---
 
+# D-053 — Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids fail fast at composition and gate
+
+## Decision
+
+The four kernel extension points become registries (`refactor-kernel-registries`, kernel-readiness item 1): a `ConnectorRegistry` (typed slots, Gmail's absence observable), an `ActionHandlerRegistry` for allowed-action dispatch (lookup miss ⇒ the honest stub, never a 500; `email.create_draft`/`artifact.activate` deliberately unregistered), a post-approval resolution table (`artifact.activate` the one non-default entry; the documented default routes to draft creation), and an artifact-kind table as the single source of truth for the five proposable kinds. A canonical `ActionCatalog` of known action ids is a curated const in the kernel (`action_catalog.rs`), NOT derived from fixtures: `compose_authority` returns a structured `UnknownActionId { id, source }` outcome (no grant minted, audited as `authority.unknown_action_id`) for any candidate id outside it, and `gate()` denies a catalog-unknown request with `DenialReason::UnknownAction`, distinct from `NotGranted`.
+
+## Rationale
+
+Match-arms scattered across the kernel made every extension a multi-file edit and let fixture typos ride silently into grants (an unknown id in a pack was indistinguishable from a deliberate grant entry until it was dispatched as a stub). Deriving the catalog from fixtures would make a typo self-legitimizing — the curated const is the review surface. At gate, "outside the action universe" and "known but not granted" are different diagnoses: conflating them under `NotGranted` hides configuration defects from the audit trail.
+
+## Consequences
+
+- Adding a connector/action/artifact kind is a registration at one declared point; a fixture referencing a new action id fails `canonical_catalog_covers_all_fixture_action_ids` until the catalog is deliberately extended.
+- Known-but-unimplemented ids (`route.activate`, `workflow.invoke:approved`, `memory.read:owner_preferences_limited`, ...) remain composable and stub-dispatched — the catalog gates existence, not implementation.
+- The `Connector` trait's `name()`/`iter()` enumeration seam is the registration surface AD-060/AD-103 will build on.
+
+## Would change if
+
+Runtime-registered actions/connectors ever become a requirement (they are deliberately compile-time today; runtime growth stays behind the artifact-lifecycle approval path), or the catalog moves into a signed artifact so deployments can extend the action universe without a rebuild — then the curated-const stance is revisited under the same fail-fast semantics.
+
+---
+
+
 
 ---
 
@@ -1433,3 +1457,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-03 | Added D-050 (`max_model_calls` enforced with an atomic upsert instead of a count-then-compare, closing a concurrent-request TOCTOU gap; `count_conversation_turns` removed as dead code), found in an independent post-merge review of `harden-approval-and-budgets` and `implement-artifact-lifecycle-slice`. |
 | 2026-07-07 | Added D-051 (agent-OS canon AD-001..153 decomposed into the dependency-edged change sequence in `openspec/openspine-change-sequence.md` per AD-145; stale later-changes placeholders superseded/subsumed with explicit mappings; `implement-secret-intake` carried forward), the spec-round decomposition artifact for the unattended dev loop. |
 | 2026-07-09 | Added D-052 (archive ceremony: `openspec archive --yes` applies deltas mechanically, pre-seeded requirements carried as MODIFIED, `--skip-specs` hand-apply retired, `--yes` permitted only on non-interactive archive; guarded by `scripts/check-omp-ceremony.sh`), settled after empirical archive probes of openspec 1.5.0 / 1.6.0-beta.1 on PR #37. |
+| 2026-07-10 | Added D-053 (kernel extension points become compiled-in registries — connector, action-handler, post-approval, artifact-kind; curated canonical `ActionCatalog` makes unknown action ids a hard `UnknownActionId` composition error and a structured `UnknownAction` gate denial distinct from `NotGranted`), settled while implementing `refactor-kernel-registries`. |

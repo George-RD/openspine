@@ -146,7 +146,7 @@ pub(super) async fn post_model_generate(
         schema_version: 1,
     };
 
-    let outcome = gate(&grant, &request, &state.store, now);
+    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
     state
         .store
         .append_audit(

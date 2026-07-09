@@ -21,23 +21,27 @@
 //! `empty_session_policy` helpers.
 
 mod approval;
+mod post_approval;
 mod selection;
 #[cfg(test)]
 mod tests;
 
 use jiff::Timestamp;
 use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
+use openspine_schemas::action::ActionCatalog;
 use openspine_schemas::event::{ChannelTrust, EventEnvelope};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType, RelationshipKind};
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use openspine_schemas::route::RouteResolution;
 
+use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::artifact_loader::ArtifactRegistry;
 use crate::artifact_store::ArtifactStore;
+use crate::connectors::ConnectorRegistry;
 use crate::sandbox::{self, Sandbox};
 use crate::store::Store;
-use crate::telegram::{self, TelegramConnector, VerifiedUpdate};
+use crate::telegram::{self, VerifiedUpdate};
 use std::path::PathBuf;
 
 use approval::handle_draft_approval_callback;
@@ -51,16 +55,15 @@ pub struct AppState {
     pub store: Store,
     pub artifacts: ArtifactStore,
     pub registry: parking_lot::RwLock<ArtifactRegistry>,
+    pub action_catalog: ActionCatalog,
     pub sandbox: Sandbox,
-    pub telegram: TelegramConnector,
+    pub action_handlers: ActionHandlerRegistry,
+    pub connectors: ConnectorRegistry,
     pub owner_user_id: i64,
     /// e.g. `http://127.0.0.1:7777` — passed to the shell as `KERNEL_ENDPOINT`.
     pub kernel_endpoint: String,
     /// D-025 / PRD §16 escape hatch. See [`sandbox::refuses_external_communication_without_containment`].
     pub unsafe_allow_uncontained_private_data: bool,
-    /// `None` disables the `/draft <thread_id>` selection command entirely
-    /// (build plan Step 5 / D-036, D-037) — no Gmail connector configured.
-    pub gmail: Option<crate::gmail::GmailConnector>,
     /// The single configured model provider (build plan 4c: "one provider
     /// call", not real multi-provider routing — that is
     /// `implement-model-gateway`'s deferred scope).
@@ -142,7 +145,7 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
     {
         tracing::warn!(error = %err, "failed to audit a best-effort owner notification");
     }
-    if let Err(err) = state.telegram.send_reply(chat_id, text).await {
+    if let Err(err) = state.connectors.telegram().send_reply(chat_id, text).await {
         tracing::warn!(error = %err, "failed to notify owner of a pipeline failure");
     }
 }
@@ -164,7 +167,7 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
             .get_kv("last_telegram_update_id")?
             .and_then(|s| s.parse().ok());
 
-        let updates = match state.telegram.poll_once(last_update_id).await {
+        let updates = match state.connectors.telegram().poll_once(last_update_id).await {
             Ok(updates) => updates,
             Err(err) => {
                 tracing::warn!(error = %err, "telegram poll_once failed, backing off");
@@ -226,7 +229,8 @@ pub async fn handle_owner_update(
                 .await?;
             } else {
                 state
-                    .telegram
+                    .connectors
+                    .telegram()
                     .answer_callback_query(&callback_query_id)
                     .await;
                 state.store.append_audit(
@@ -385,7 +389,7 @@ pub async fn handle_owner_update(
         purpose: "owner_control_conversation",
     };
 
-    let grant = match compose_authority(&input, now) {
+    let grant = match compose_authority(&input, &state.action_catalog, now) {
         AuthorityOutcome::Granted(grant) => *grant,
         AuthorityOutcome::Denied { reason } => {
             state.store.append_audit(
@@ -393,6 +397,20 @@ pub async fn handle_owner_update(
                 None,
                 None,
                 Some(&reason),
+                None,
+                &[],
+                &[],
+            )?;
+            return Ok(None);
+        }
+        // D-053: an unknown action id in a fixture is a configuration
+        // defect — audited, no grant minted.
+        AuthorityOutcome::UnknownActionId { id, source } => {
+            state.store.append_audit(
+                "authority.unknown_action_id",
+                None,
+                None,
+                Some(&format!("unknown action id {id} in {source}")),
                 None,
                 &[],
                 &[],
