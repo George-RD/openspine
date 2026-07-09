@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1783623273.0290236,
-    "ast_hash": "b35865b6661aaca6569242080a3514f5",
+    "mtime": 1783627012.651659,
+    "ast_hash": "5eadedbf4b6f8fdbf69e775ade8af79b",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -400,7 +400,7 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783624080.7857404,
+    "mtime": 1783625976.9633212,
     "ast_hash": "9ef98b7e463081ad07380485aa299e8d",
     "semantic_hash": ""
   },
@@ -415,8 +415,8 @@
     "semantic_hash": ""
   },
   "scripts/check.sh": {
-    "mtime": 1783054084.580989,
-    "ast_hash": "46ae93d6e237eb8d3fbd68d52d27b5c0",
+    "mtime": 1783626612.0792456,
+    "ast_hash": "ef7616048464f4fa248cfc5bd3991a7c",
     "semantic_hash": ""
   },
   "site/.astro/collections/docs.schema.json": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1783623272.9746468,
-    "ast_hash": "75766bfb6be984beeb4d03c506b6bb27",
+    "mtime": 1783626997.4653037,
+    "ast_hash": "6f885c2e5e3bcd087a5d70966a9fe421",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1060,43 +1060,48 @@
     "semantic_hash": ""
   },
   ".omp/commands/opsx-apply.md": {
-    "mtime": 1783625603.6822648,
+    "mtime": 1783625976.9393692,
     "ast_hash": "93b0397f40f050413f64101a895d4ed2",
     "semantic_hash": ""
   },
   ".omp/commands/opsx-archive.md": {
-    "mtime": 1783625651.5819561,
-    "ast_hash": "d2f13bac352ecf47f30d71a727c0c6a9",
+    "mtime": 1783626670.5827026,
+    "ast_hash": "d19cef51c00c7a2f6cc0d1c49e6dc16c",
     "semantic_hash": ""
   },
   ".omp/commands/opsx-explore.md": {
-    "mtime": 1783624138.3521862,
+    "mtime": 1783625976.940114,
     "ast_hash": "26f7b34ea80bd55114b7e77ef5d89ac8",
     "semantic_hash": ""
   },
   ".omp/commands/opsx-propose.md": {
-    "mtime": 1783624138.3526676,
+    "mtime": 1783625976.9403963,
     "ast_hash": "a5a20b5d76b914b0096721ad30f9d04d",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-apply-change/SKILL.md": {
-    "mtime": 1783625594.8969588,
+    "mtime": 1783625976.9407732,
     "ast_hash": "9de0b66471db6b7736eee0dedd6485d2",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-archive-change/SKILL.md": {
-    "mtime": 1783625651.582124,
-    "ast_hash": "f4e6c0550b3a097cf514b619d7d6fe84",
+    "mtime": 1783626661.164457,
+    "ast_hash": "be0ad01d0769f3dc67b417f76aaebebf",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-explore/SKILL.md": {
-    "mtime": 1783624138.350681,
+    "mtime": 1783625976.9416451,
     "ast_hash": "8aff6713f6d1822f2c90f8e7f0168bf8",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-propose/SKILL.md": {
-    "mtime": 1783624138.3516948,
+    "mtime": 1783625976.9419546,
     "ast_hash": "f521382a7af27955d7621d9e60640493",
+    "semantic_hash": ""
+  },
+  "scripts/check-omp-ceremony.sh": {
+    "mtime": 1783626604.392092,
+    "ast_hash": "8b7aac7075e992c54abc5dfeada35feb",
     "semantic_hash": ""
   }
 }

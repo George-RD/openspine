@@ -1360,6 +1360,31 @@ The design log gains new settled entries that don't map onto an existing brief (
 
 ---
 
+# D-052 — Archive applies deltas mechanically via `openspec archive --yes`; pre-seeded requirements are carried as MODIFIED; the `--skip-specs` hand-apply ceremony is retired
+
+## Decision
+
+The per-change archive ceremony becomes `openspec archive <id> --yes` followed by `openspec validate --all --strict`. Delta requirements that already exist in a pre-seeded `openspec/specs/<capability>/spec.md` MUST be authored as `## MODIFIED Requirements`, never re-`ADDED`. `--yes` is permitted ONLY on `openspec archive` in non-interactive runs; it remains forbidden on every other openspec command. `--skip-specs` is reserved for changes with genuinely no spec impact (tooling/docs); the previous pre-seeded-conflict workaround — `--skip-specs` plus copying deltas into `openspec/specs/` by hand — is retired. This narrows the blanket "`-y` forbidden" convention.
+
+## Rationale
+
+Empirical probes against openspec 1.5.0 and 1.6.0-beta.1 (PR #37) showed there is no flag-free unattended archive path: plain `openspec archive` presents an interactive `Proceed with spec updates? (Y/n)` prompt that dies (exit 1) in a non-TTY with closed stdin and hangs otherwise — in BOTH versions, so waiting for a stable release cannot fix it. `ADDED` deltas against pre-seeded specs hard-fail ("already exists"), while `MODIFIED` deltas strict-validate and are applied mechanically by `archive --yes` with a green post-apply corpus. Hand-copying deltas into the spec corpus was the single most error-prone step an unattended loop performed on canon; mechanical apply plus strict validation replaces it. The archive confirmation prompt is confirmation theater without a human at the TTY — the real human gate is PR review, which is unchanged.
+
+## Consequences
+
+- `openspec/openspine-change-sequence.md` ceremony bullet rewritten accordingly; the loop inherits the rule from there.
+- The generated OMP files (`.omp/skills/openspec-archive-change/SKILL.md`, `.omp/commands/opsx-archive.md`) carry the same ceremony; `scripts/check-omp-ceremony.sh` (wired into `scripts/check.sh`, hence CI) fails the gate if regeneration by `openspec init/update --tools oh-my-pi` silently reverts them or reintroduces dangling skill references.
+- A change whose archive fails "ADDED failed... already exists" is mis-authored: the fix is correcting the delta header to MODIFIED, not a `--skip-specs` bypass.
+
+## Would change if
+
+Upstream openspec grows a first-class non-interactive archive mode (no confirmation prompt without `--yes`, or a config knob), or drops the pre-seeded `ADDED` conflict — then the `--yes` carve-out narrows or disappears. If a future change legitimately needs to re-seed an entire capability spec, that is a REMOVED+ADDED (or RENAMED) delta question, decided then, not a return to hand-applied deltas.
+
+---
+
+
+---
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -1407,3 +1432,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-03 | Added D-049 (capability specs backfilled for model-gateway, audit-artifact-store, and shell-containment; future security-load-bearing subsystems must gain their spec in the implementing change), discovered while implementing `backfill-implemented-capability-specs`. |
 | 2026-07-03 | Added D-050 (`max_model_calls` enforced with an atomic upsert instead of a count-then-compare, closing a concurrent-request TOCTOU gap; `count_conversation_turns` removed as dead code), found in an independent post-merge review of `harden-approval-and-budgets` and `implement-artifact-lifecycle-slice`. |
 | 2026-07-07 | Added D-051 (agent-OS canon AD-001..153 decomposed into the dependency-edged change sequence in `openspec/openspine-change-sequence.md` per AD-145; stale later-changes placeholders superseded/subsumed with explicit mappings; `implement-secret-intake` carried forward), the spec-round decomposition artifact for the unattended dev loop. |
+| 2026-07-09 | Added D-052 (archive ceremony: `openspec archive --yes` applies deltas mechanically, pre-seeded requirements carried as MODIFIED, `--skip-specs` hand-apply retired, `--yes` permitted only on non-interactive archive; guarded by `scripts/check-omp-ceremony.sh`), settled after empirical archive probes of openspec 1.5.0 / 1.6.0-beta.1 on PR #37. |

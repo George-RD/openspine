@@ -23,6 +23,9 @@ scripts/check-file-sizes.sh
 echo "== scripts/check-claims.sh =="
 scripts/check-claims.sh
 
+echo "== scripts/check-omp-ceremony.sh =="
+scripts/check-omp-ceremony.sh
+
 if [ "$#" -ge 1 ]; then
   change_id="$1"
   echo "== openspec validate ${change_id} --strict =="
