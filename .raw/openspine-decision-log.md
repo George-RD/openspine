@@ -63,6 +63,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-048 | `artifact.activate` is the single canonical activation action id; all runtime proposals require uniform owner approval; prompt templates are not proposable | Accepted |
 | D-049 | Capability specs are backfilled for subsystems implemented inside earlier slices | Accepted |
 | D-050 | `max_model_calls` is enforced with an atomic upsert, not a count-then-compare | Accepted |
+| D-051 | The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed | Accepted |
 
 ---
 
@@ -1338,6 +1339,27 @@ A future budget-style check is added against a plain `SELECT COUNT` (or any othe
 
 ---
 
+# D-051 — The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed
+
+## Decision
+
+The settled agent-OS design canon (`.raw/openspine-agentos-design-log.md`, AD-001..153) is decomposed into loop-executable change briefs in `openspec/openspine-change-sequence.md`, under AD-145's contract: the per-brief `Requires:` lines are the only authoritative ordering statement (dependency edges, no total order); implementation order is delegated to the dev loop; edges marked HARD block a change until the prerequisite is archived. Requirement content stays in the design log — the sequence file holds only decomposition, edges, scope boundaries, and completion criteria, so the two cannot drift into competing sources of truth. The previous "later changes" placeholders are retired: `implement-secret-intake` is carried forward as a brief; the rest are superseded or subsumed per the sequence file's "Reconciliation of the previous later-changes list" section, which is the authoritative disposition mapping. The stale `openspec/openspine-change-backlog.md` (whose "near-term sequence" was fully archived) is deleted for the same reason.
+
+## Rationale
+
+AD-145 made "spec everything; order is the loop's concern" canon, which requires a decomposition artifact a fresh-context loop can execute standalone: eligibility must be computable (all `Requires:` archived), prerequisites must be explicit rather than remembered, and design prose must not be promotable past an unmet prerequisite. The old placeholder list predated the agent-OS round and no longer described real work: keeping stale change names alongside the new sequence would hand the loop two conflicting to-do surfaces. Every disposition is a mapping, not a drop — each placeholder's intent is either already archived or named in a specific successor brief, so no requirement is silently narrowed (D-049 spec-debt precedent).
+
+## Consequences
+
+- `openspec/openspine-change-sequence.md` becomes the loop's single entry point: canon-source precedence, the kernel-invariant checklist, the cross-cutting axioms, the per-change ceremony, the leaning/open policy, and the amendment rule are each stated once there, never restated here.
+- `implement-skill-artifact-class` carries a REQUIRED first task: a formal D-0XX revisit of D-048 grounded in the gate-containment guarantee before any runtime skill machinery ships.
+
+## Would change if
+
+The design log gains new settled entries that don't map onto an existing brief (extend the sequence, don't widen briefs), or the loop discovers an edge the decomposition missed — in either case the fix is a new D-0XX plus a sequence amendment, never an in-flight scope stretch of a running change.
+
+---
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -1384,3 +1406,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-03 | Added D-048 (`artifact.activate` is the single canonical activation action id, mirroring D-034's precedent; uniform owner approval for every proposable kind; prompt templates excluded from proposable kinds), discovered while implementing `implement-artifact-lifecycle-slice`. |
 | 2026-07-03 | Added D-049 (capability specs backfilled for model-gateway, audit-artifact-store, and shell-containment; future security-load-bearing subsystems must gain their spec in the implementing change), discovered while implementing `backfill-implemented-capability-specs`. |
 | 2026-07-03 | Added D-050 (`max_model_calls` enforced with an atomic upsert instead of a count-then-compare, closing a concurrent-request TOCTOU gap; `count_conversation_turns` removed as dead code), found in an independent post-merge review of `harden-approval-and-budgets` and `implement-artifact-lifecycle-slice`. |
+| 2026-07-07 | Added D-051 (agent-OS canon AD-001..153 decomposed into the dependency-edged change sequence in `openspec/openspine-change-sequence.md` per AD-145; stale later-changes placeholders superseded/subsumed with explicit mappings; `implement-secret-intake` carried forward), the spec-round decomposition artifact for the unattended dev loop. |
