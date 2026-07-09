@@ -3,7 +3,7 @@
 //! 500-line-per-file gate — these are plain data builders, not tests.
 
 use openspine_authority::AuthorityInput;
-use openspine_schemas::action::ActionId;
+use openspine_schemas::action::{ActionCatalog, ActionId};
 use openspine_schemas::agent::{
     AgentLimits, AgentManifest, ModelPolicy, OutputChannels, Persistence,
 };
@@ -429,4 +429,49 @@ pub fn owner_control_input<'a>(
         user: "owner",
         purpose: "owner_control_conversation",
     }
+}
+
+/// The catalog the authority tests consult (D-053): every action id any
+/// fixture builder references, so known ids compose and only a genuinely
+/// unknown id trips `UnknownActionId`. Derived from the builders so it
+/// can't drift from what the tests actually feed `compose_authority`.
+pub fn test_catalog() -> ActionCatalog {
+    let mut ids: Vec<ActionId> = Vec::new();
+
+    let agent = main_assistant_agent();
+    ids.extend(agent.designed_tools.iter().cloned());
+    ids.extend(agent.approval_required_tools.iter().cloned());
+    ids.extend(agent.denied_tools.iter().cloned());
+
+    let drafter = email_reply_drafter_agent();
+    ids.extend(drafter.designed_tools.iter().cloned());
+    ids.extend(drafter.approval_required_tools.iter().cloned());
+    ids.extend(drafter.denied_tools.iter().cloned());
+
+    let wf = owner_control_conversation_workflow();
+    ids.extend(wf.candidate_allowed_actions.iter().cloned());
+    ids.extend(wf.approval_required.iter().cloned());
+    ids.extend(wf.denied_actions.iter().cloned());
+
+    let wf2 = selected_thread_email_reply_draft_workflow();
+    ids.extend(wf2.candidate_allowed_actions.iter().cloned());
+    ids.extend(wf2.approval_required.iter().cloned());
+    ids.extend(wf2.denied_actions.iter().cloned());
+
+    let pack = owner_control_basic_pack();
+    ids.extend(pack.candidate_allowed_actions.iter().cloned());
+    ids.extend(pack.approval_required.iter().cloned());
+    ids.extend(pack.denied_actions.iter().cloned());
+
+    let pack2 = selected_thread_email_draft_pack();
+    ids.extend(pack2.candidate_allowed_actions.iter().cloned());
+    ids.extend(pack2.approval_required.iter().cloned());
+    ids.extend(pack2.denied_actions.iter().cloned());
+
+    let policy = global_policy();
+    ids.extend(policy.candidate_allowed_actions.iter().cloned());
+    ids.extend(policy.approval_required.iter().cloned());
+    ids.extend(policy.denied_actions.iter().cloned());
+
+    ActionCatalog::new(ids)
 }

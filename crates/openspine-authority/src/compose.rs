@@ -22,7 +22,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use openspine_schemas::action::ActionId;
+use openspine_schemas::action::{ActionCatalog, ActionId};
 use openspine_schemas::agent::AgentManifest;
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::event::{DataClassification, EventEnvelope};
@@ -66,6 +66,16 @@ pub enum AuthorityOutcome {
     Denied {
         reason: String,
     },
+    /// Composition failed because a candidate action id is not in the
+    /// canonical [`ActionCatalog`] (D-053): the id is outside the action
+    /// universe, so no grant is minted. Carries the offending id and the
+    /// source artifact / list that named it (agent `designed_tools` /
+    /// `approval_required_tools` / `denied_tools`, workflow / pack / policy
+    /// allow / approval / deny lists).
+    UnknownActionId {
+        id: ActionId,
+        source: String,
+    },
     /// Reserved for API symmetry with [`openspine_schemas::route::RouteResolution`].
     /// `compose_authority` receives an already-resolved single route, so it
     /// has no natural trigger for this today — ambiguity is resolved
@@ -103,13 +113,80 @@ fn mint_task_token() -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Validate that every candidate action id in the composition sources
+/// belongs to `catalog` (D-053). Returns the first unknown id and the
+/// source list that named it, so composition fails fast with a structured
+/// error instead of minting a grant that smuggles an unrecognized id into
+/// the authority universe.
+fn unknown_candidate<'a>(
+    input: &'a AuthorityInput<'a>,
+    catalog: &ActionCatalog,
+) -> Option<(ActionId, String)> {
+    let sources: &[(&[ActionId], &str)] = &[
+        (&input.agent.designed_tools, "agent.designed_tools"),
+        (
+            &input.agent.approval_required_tools,
+            "agent.approval_required_tools",
+        ),
+        (&input.agent.denied_tools, "agent.denied_tools"),
+        (
+            &input.workflow.candidate_allowed_actions,
+            "workflow.candidate_allowed_actions",
+        ),
+        (
+            &input.workflow.approval_required,
+            "workflow.approval_required",
+        ),
+        (&input.workflow.denied_actions, "workflow.denied_actions"),
+        (
+            &input.pack.candidate_allowed_actions,
+            "pack.candidate_allowed_actions",
+        ),
+        (&input.pack.approval_required, "pack.approval_required"),
+        (&input.pack.denied_actions, "pack.denied_actions"),
+        (
+            &input.global_policy.candidate_allowed_actions,
+            "global_policy.candidate_allowed_actions",
+        ),
+        (
+            &input.global_policy.approval_required,
+            "global_policy.approval_required",
+        ),
+        (
+            &input.global_policy.denied_actions,
+            "global_policy.denied_actions",
+        ),
+        (
+            &input.session.candidate_allowed_actions,
+            "session.candidate_allowed_actions",
+        ),
+        (
+            &input.session.approval_required,
+            "session.approval_required",
+        ),
+        (&input.session.denied_actions, "session.denied_actions"),
+    ];
+    for (ids, label) in sources {
+        for cand in *ids {
+            if !catalog.contains(cand) {
+                return Some((cand.clone(), (*label).to_string()));
+            }
+        }
+    }
+    None
+}
+
 /// Compose final task authority from every input source (PRD §8.2, design.md).
 ///
 /// Precedence: explicit deny > approval-required > allow > unspecified
 /// deny-by-default (PRD §8.3). An action absent from every source's
 /// candidate-allow list is simply never granted — deny-by-default needs no
 /// explicit entry.
-pub fn compose_authority(input: &AuthorityInput, now: jiff::Timestamp) -> AuthorityOutcome {
+pub fn compose_authority(
+    input: &AuthorityInput,
+    catalog: &ActionCatalog,
+    now: jiff::Timestamp,
+) -> AuthorityOutcome {
     // Quarantined/non-active artifacts cannot participate in task grants
     // (PRD §13.2) — this is also how "authority widening requires approval"
     // (PRD §8.4) is enforced: a proposed/review-required artifact simply
@@ -146,6 +223,14 @@ pub fn compose_authority(input: &AuthorityInput, now: jiff::Timestamp) -> Author
         };
     }
 
+    // D-053: fail-fast on any candidate id outside the canonical catalog —
+    // no grant may be minted for an action the kernel does not recognize.
+    if let Some((unknown_id, source)) = unknown_candidate(input, catalog) {
+        return AuthorityOutcome::UnknownActionId {
+            id: unknown_id,
+            source,
+        };
+    }
     // Steps 1-2: deny-by-default, then gather candidate allows.
     let mut allow: HashSet<ActionId> = HashSet::new();
     allow.extend(input.agent.designed_tools.iter().cloned());

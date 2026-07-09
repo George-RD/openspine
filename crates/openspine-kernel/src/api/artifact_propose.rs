@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use ulid::Ulid;
 
 use super::actions::DispatchError;
-use crate::artifact_loader::parse_proposal;
+use crate::artifact_loader::{find_kind_spec, is_proposable_kind, parse_proposal};
 use crate::pipeline::AppState;
 use crate::store::proposed_artifacts::ProposedArtifact;
 
@@ -33,11 +33,6 @@ struct ArtifactProposePayload {
     kind: String,
     yaml: String,
 }
-
-/// The five kinds a chat may propose at runtime. Prompt templates are
-/// deliberately absent (D-048): a template changes the model's instruction
-/// surface, so letting chat propose one is an injection-escalation channel.
-const PROPOSABLE_KINDS: &[&str] = &["route", "agent", "workflow", "pack", "policy"];
 
 pub(super) async fn dispatch_artifact_propose(
     state: &AppState,
@@ -55,7 +50,7 @@ pub(super) async fn dispatch_artifact_propose(
                 .to_string(),
         )
     })?;
-    if !PROPOSABLE_KINDS.contains(&req.kind.as_str()) {
+    if !is_proposable_kind(&req.kind) {
         return Err(DispatchError::BadRequest(
             "artifact.propose kind must be one of route|agent|workflow|pack|policy".to_string(),
         ));
@@ -91,30 +86,8 @@ pub(super) async fn dispatch_artifact_propose(
     //    (D-028 monotonic versions). Read guard held only for the scan.
     let exists_in_registry = {
         let registry = state.registry.read();
-        match kind.as_str() {
-            "route" => registry
-                .routes
-                .iter()
-                .any(|r| r.id == artifact_id && r.version == version),
-            "agent" => registry
-                .agents
-                .get(&artifact_id)
-                .is_some_and(|a| a.version == version),
-            "workflow" => registry
-                .workflows
-                .get(&artifact_id)
-                .is_some_and(|w| w.version == version),
-            "pack" => registry
-                .packs
-                .get(&artifact_id)
-                .is_some_and(|p| p.version == version),
-            "policy" => registry
-                .policies
-                .get(&artifact_id)
-                .is_some_and(|p| p.version == version),
-            // Unreachable: kind validated against PROPOSABLE_KINDS above.
-            _ => false,
-        }
+        let spec = find_kind_spec(&kind).expect("kind already validated against the table above");
+        (spec.duplicate_exists)(&registry, &artifact_id, version)
     };
     let exists_in_proposals = state
         .store
@@ -199,7 +172,8 @@ pub(super) async fn dispatch_artifact_propose(
         digest = yaml_ref.digest
     );
     state
-        .telegram
+        .connectors
+        .telegram()
         .send_reply_with_approval_button(bound_chat_id, &summary, action_request_id)
         .await
         .map_err(DispatchError::Internal)?;

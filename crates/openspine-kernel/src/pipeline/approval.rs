@@ -18,6 +18,7 @@ use openspine_schemas::grant::TaskGrant;
 use serde_json::json;
 use ulid::Ulid;
 
+use super::post_approval::resolve_post_approval_handler;
 use super::{notify_owner_best_effort, AppState};
 
 /// How long a freshly minted approval remains valid (PRD §15-style
@@ -40,7 +41,8 @@ pub(super) async fn handle_draft_approval_callback(
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
     state
-        .telegram
+        .connectors
+        .telegram()
         .answer_callback_query(callback_query_id)
         .await;
 
@@ -162,18 +164,12 @@ pub(super) async fn handle_draft_approval_callback(
         &[],
     )?;
 
-    let outcome = gate(&grant, &request, &state.store, now);
+    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
     match outcome.decision {
-        GateDecision::Allow => match request.action.as_str() {
-            "artifact.activate" => {
-                activate_approved_artifact(state, &grant, &request, chat_id).await
-            }
-            // "email.create_draft" and any other approved action id fall
-            // through to the original draft-creation path — this handler
-            // predates 5d and every approval request minted before this
-            // change is (and will only ever be) a draft proposal.
-            _ => create_approved_draft(state, &grant, &request, chat_id).await,
-        },
+        GateDecision::Allow => {
+            let handler = resolve_post_approval_handler(&request.action);
+            handler(state, &grant, &request, chat_id).await
+        }
         other => {
             state.store.append_audit(
                 "draft.approval_gate_denied",
@@ -207,7 +203,7 @@ pub(super) async fn handle_draft_approval_callback(
 /// a "approved draft A, but thread now points at draft B" mismatch could
 /// slip through undetected without an explicit re-check (spec.md's
 /// "Recipient changes after approval" scenario).
-async fn create_approved_draft(
+pub(super) async fn create_approved_draft(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
@@ -227,7 +223,7 @@ async fn create_approved_draft(
         .and_then(|t| t.id.clone())
         .unwrap_or_default();
 
-    let Some(gmail) = &state.gmail else {
+    let Some(gmail) = state.connectors.gmail() else {
         state.store.append_audit(
             "draft.creation_failed",
             Some(&request.action),
@@ -368,7 +364,7 @@ async fn create_approved_draft(
 /// its `lifecycle_state` to `active`, persist it into the `data/artifacts.d`
 /// overlay so it survives a restart, and insert it into the live registry
 /// so it participates in routing/composition immediately.
-async fn activate_approved_artifact(
+pub(super) async fn activate_approved_artifact(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,

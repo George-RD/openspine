@@ -29,7 +29,7 @@ fn owner_control_grant_matches_prd_12_1() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let outcome = compose_authority(&input, jiff::Timestamp::now());
+    let outcome = compose_authority(&input, &test_catalog(), jiff::Timestamp::now());
     let AuthorityOutcome::Granted(grant) = outcome else {
         panic!("expected a grant")
     };
@@ -70,7 +70,9 @@ fn no_candidate_allow_means_action_is_not_granted() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
     // email.read_inbox is not a candidate allow anywhere in this scenario.
@@ -98,7 +100,9 @@ fn explicit_deny_overrides_allow() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
     assert!(!grant.allowed_actions.contains(&ActionId::new("email.send")));
@@ -125,7 +129,9 @@ fn approval_required_overrides_plain_allow() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
     assert!(grant
@@ -152,7 +158,7 @@ fn spoofed_owner_id_without_verified_source_is_denied() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let outcome = compose_authority(&input, jiff::Timestamp::now());
+    let outcome = compose_authority(&input, &test_catalog(), jiff::Timestamp::now());
     assert!(
         matches!(outcome, AuthorityOutcome::Denied { .. }),
         "unverified source must never yield owner authority, got {outcome:?}"
@@ -174,7 +180,9 @@ fn main_assistant_grant_never_inherits_email_drafter_authority() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
     for email_only_action in [
@@ -216,7 +224,9 @@ fn email_grant_excludes_inbox_wide_read_matching_prd_12_2() {
         user: "owner",
         purpose: "draft_reply_for_selected_email_thread",
     };
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
 
@@ -272,7 +282,7 @@ fn widening_via_a_proposed_pack_requires_approval_first() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let outcome = compose_authority(&input, jiff::Timestamp::now());
+    let outcome = compose_authority(&input, &test_catalog(), jiff::Timestamp::now());
     assert!(
         matches!(outcome, AuthorityOutcome::Denied { .. }),
         "a proposed (not-yet-approved) pack must never be composed into a grant, got {outcome:?}"
@@ -296,7 +306,7 @@ fn quarantined_artifact_cannot_participate_in_a_grant() {
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
     assert!(matches!(
-        compose_authority(&input, jiff::Timestamp::now()),
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now()),
         AuthorityOutcome::Denied { .. }
     ));
 }
@@ -318,7 +328,7 @@ fn a_deny_route_is_never_composed() {
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
     assert!(matches!(
-        compose_authority(&input, jiff::Timestamp::now()),
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now()),
         AuthorityOutcome::Denied { .. }
     ));
 }
@@ -338,18 +348,76 @@ fn task_token_is_thirty_two_random_bytes_of_hex() {
     let input = owner_control_input(
         &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
     );
-    let AuthorityOutcome::Granted(grant) = compose_authority(&input, jiff::Timestamp::now()) else {
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
         panic!("expected a grant")
     };
     assert_eq!(grant.task_token.len(), 64);
     assert!(grant.task_token.bytes().all(|b| b.is_ascii_hexdigit()));
 
-    let AuthorityOutcome::Granted(grant2) = compose_authority(&input, jiff::Timestamp::now())
+    let AuthorityOutcome::Granted(grant2) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
     else {
         panic!("expected a grant")
     };
     assert_ne!(
         grant.task_token, grant2.task_token,
         "each grant must mint its own random token"
+    );
+}
+
+/// D-053: a candidate action id outside the canonical catalog fails fast
+/// with a structured `UnknownActionId` — no grant is minted for an action
+/// the kernel does not recognize. Carries the offending id and the source
+/// list that named it.
+#[test]
+fn compose_rejects_unknown_action_id_with_structured_error() {
+    let event = owner_event();
+    let identity = owner_identity();
+    let route = owner_route();
+    let workflow = owner_control_conversation_workflow();
+    let pack = owner_control_basic_pack();
+    let policy = global_policy();
+    let session = empty_session_policy();
+    let mut agent = main_assistant_agent();
+    agent
+        .designed_tools
+        .push(ActionId::new("totally.unknown.action"));
+    let input = owner_control_input(
+        &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
+    );
+    let outcome = compose_authority(&input, &test_catalog(), jiff::Timestamp::now());
+    match outcome {
+        AuthorityOutcome::UnknownActionId { id, source } => {
+            assert_eq!(id, ActionId::new("totally.unknown.action"));
+            assert_eq!(source, "agent.designed_tools");
+        }
+        other => panic!("expected UnknownActionId, got {other:?}"),
+    }
+}
+
+/// D-053: `route.activate` is in the canonical catalog but has no dispatch
+/// wiring yet (PRD §12). Composition must still accept it as a *known* id —
+/// it is not an `UnknownActionId` failure. (Dispatch wiring is a separate
+/// concern from existence.)
+#[test]
+fn compose_accepts_unwired_known_id() {
+    let mut agent = main_assistant_agent();
+    agent.designed_tools.push(ActionId::new("route.activate"));
+    let event = owner_event();
+    let identity = owner_identity();
+    let route = owner_route();
+    let workflow = owner_control_conversation_workflow();
+    let pack = owner_control_basic_pack();
+    let policy = global_policy();
+    let session = empty_session_policy();
+    let input = owner_control_input(
+        &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
+    );
+    let outcome = compose_authority(&input, &test_catalog(), jiff::Timestamp::now());
+    assert!(
+        matches!(outcome, AuthorityOutcome::Granted(_)),
+        "expected route.activate to compose as a known id, got {outcome:?}"
     );
 }

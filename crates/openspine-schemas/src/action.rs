@@ -7,6 +7,7 @@
 //! one vocabulary instead of two parallel enums.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use ulid::Ulid;
 
 use crate::artifact::ArtifactRef;
@@ -42,6 +43,28 @@ impl From<&str> for ActionId {
     }
 }
 
+/// The canonical, immutable set of action ids the kernel recognizes
+/// (D-053). An id absent from the catalog is outside the product's
+/// action universe: authority composition rejects it and `gate()` denies it.
+/// Known but unimplemented ids (e.g. `route.activate`) are still members —
+/// the catalog governs *existence*, not *dispatching*.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ActionCatalog {
+    ids: HashSet<ActionId>,
+}
+
+impl ActionCatalog {
+    pub fn new(ids: impl IntoIterator<Item = ActionId>) -> Self {
+        ActionCatalog {
+            ids: ids.into_iter().collect(),
+        }
+    }
+
+    pub fn contains(&self, id: &ActionId) -> bool {
+        self.ids.contains(id)
+    }
+}
+
 /// Why `gate()` denied an action (Step 3 of the build plan; exhaustive).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -55,6 +78,7 @@ pub enum DenialReason {
     SelectionTokenInvalid,
     ChannelBindingViolation,
     LimitExceeded,
+    UnknownAction,
 }
 
 /// The typed outcome of mediating one action request (design.md's

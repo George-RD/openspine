@@ -6,11 +6,13 @@
 //! long-running tasks — the HTTP API the shell talks to, and the Telegram
 //! long-poll loop that turns owner messages into task grants.
 
+mod action_catalog;
 mod api;
 mod artifact_loader;
 mod artifact_store;
 mod benchmark;
 mod config;
+mod connectors;
 mod gmail;
 mod model_gateway;
 mod pipeline;
@@ -21,10 +23,15 @@ mod telegram;
 #[cfg(test)]
 mod test_support;
 
+#[cfg(test)]
+mod kernel_tests;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::api::handler_registry::ActionHandlerRegistry;
+use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
 use clap::Parser;
 
@@ -138,8 +145,9 @@ async fn main() -> anyhow::Result<()> {
         store,
         artifacts,
         registry: parking_lot::RwLock::new(registry),
+        action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox,
-        telegram,
+        connectors: ConnectorRegistry::new(telegram, gmail),
         owner_user_id: cfg.owner.telegram_user_id,
         kernel_endpoint: cfg
             .kernel
@@ -147,7 +155,7 @@ async fn main() -> anyhow::Result<()> {
             .clone()
             .unwrap_or_else(|| format!("http://{}", cfg.kernel.bind_addr)),
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
-        gmail,
+        action_handlers: ActionHandlerRegistry::default_registrations(),
         provider,
         started_at: Instant::now(),
         overlay_dir,

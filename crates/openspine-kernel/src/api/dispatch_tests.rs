@@ -21,7 +21,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use super::tests::{post_action, start_server};
 use crate::gmail::GmailConnector;
-use crate::test_support::fixtures::test_state_with_gmail;
+use crate::test_support::fixtures::{test_state, test_state_with_gmail};
 
 pub(super) const OWNER_CHAT_ID: i64 = 555;
 
@@ -362,6 +362,41 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
     assert_eq!(
         body["error"],
         "email.read_thread:selected_no_attachments payload must be exactly {\"selection_token_id\": string}"
+    );
+
+    handle.abort();
+}
+
+#[tokio::test]
+async fn unregistered_known_action_returns_stub_shape() {
+    // `memory.read:owner_preferences_limited` is a known catalog action (so a
+    // grant may authorize it and the gate allows it) but has no Step 4
+    // kernel-side handler registered. The dispatcher must return the honest
+    // stub shape rather than erroring.
+    let state = test_state();
+    let (grant, _token) = mint_grant_with_selection_token(
+        &state,
+        &["memory.read:owner_preferences_limited"],
+        Timestamp::now() + std::time::Duration::from_secs(120),
+    );
+
+    let (addr, handle) = start_server(state).await;
+
+    let resp = post_action(
+        addr,
+        &grant.task_token,
+        "memory.read:owner_preferences_limited",
+        None,
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["decision"]["outcome"], "allow");
+    assert!(body["result"]["stub"].as_bool().unwrap());
+    assert_eq!(
+        body["result"]["note"].as_str().unwrap(),
+        "memory.read:owner_preferences_limited has no Step 4 kernel-side implementation yet"
     );
 
     handle.abort();

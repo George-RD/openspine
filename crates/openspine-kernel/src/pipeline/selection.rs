@@ -44,7 +44,7 @@ pub(super) async fn handle_thread_selection(
     chat_id: i64,
     thread_id: &str,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let Some(gmail) = &state.gmail else {
+    let Some(gmail) = state.connectors.gmail() else {
         state.store.append_audit(
             "selection.gmail_not_configured",
             None,
@@ -284,7 +284,7 @@ pub(super) async fn handle_thread_selection(
         purpose: "selected_thread_email_reply_draft",
     };
 
-    let mut grant = match compose_authority(&input, now) {
+    let mut grant = match compose_authority(&input, &state.action_catalog, now) {
         AuthorityOutcome::Granted(grant) => *grant,
         AuthorityOutcome::Denied { reason } => {
             state.store.append_audit(
@@ -292,6 +292,20 @@ pub(super) async fn handle_thread_selection(
                 None,
                 None,
                 Some(&reason),
+                None,
+                &[],
+                &[],
+            )?;
+            return Ok(None);
+        }
+        // D-053: an unknown action id in a fixture is a configuration
+        // defect — audited, no grant minted.
+        AuthorityOutcome::UnknownActionId { id, source } => {
+            state.store.append_audit(
+                "authority.unknown_action_id",
+                None,
+                None,
+                Some(&format!("unknown action id {id} in {source}")),
                 None,
                 &[],
                 &[],

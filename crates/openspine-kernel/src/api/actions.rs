@@ -41,8 +41,8 @@ pub(super) struct ActionRequestBody {
 /// instead of the field being silently dropped by default serde behavior.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct TelegramReplyPayload {
-    text: String,
+pub(super) struct TelegramReplyPayload {
+    pub(super) text: String,
 }
 
 /// `email.read_thread:selected_no_attachments`'s payload (build plan Step
@@ -61,7 +61,7 @@ struct ReadThreadPayload {
 /// controls exactly what a preview dispatch does.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct PreviewPayload {
+pub(super) struct PreviewPayload {
     subject: String,
     body: String,
 }
@@ -105,7 +105,7 @@ pub(super) async fn post_actions(
         schema_version: 1,
     };
 
-    let outcome = gate(&grant, &request, &state.store, now);
+    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
     state
         .store
         .append_audit(
@@ -170,7 +170,7 @@ pub(super) async fn post_actions(
 /// [`post_actions`]) so "why didn't Lyra reply" stays answerable from
 /// `audit_log` alone even when the dispatch itself failed.
 #[derive(Debug)]
-pub(super) enum DispatchError {
+pub(crate) enum DispatchError {
     BadRequest(String),
     Internal(anyhow::Error),
 }
@@ -197,58 +197,12 @@ async fn dispatch_allowed_action(
     bound_chat_id: i64,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
-    match action.0.as_str() {
-        "openspine.status.read" => Ok(json!({"status": "ok"})),
-        "telegram.reply:owner_channel" => {
-            let payload = payload.ok_or_else(|| {
-                DispatchError::BadRequest(
-                    "telegram.reply:owner_channel requires a payload".to_string(),
-                )
-            })?;
-            let reply: TelegramReplyPayload =
-                serde_json::from_value(payload.clone()).map_err(|_| {
-                    DispatchError::BadRequest(
-                        "telegram.reply:owner_channel payload must be exactly {\"text\": string}"
-                            .to_string(),
-                    )
-                })?;
-            state
-                .telegram
-                .send_reply(bound_chat_id, &reply.text)
-                .await
-                .map_err(DispatchError::Internal)?;
-            Ok(json!({"sent": true}))
-        }
-        "email.read_thread:selected_no_attachments" => {
-            dispatch_read_selected_thread(state, grant, payload).await
-        }
-        "lyra.ui.preview" => {
-            let payload = payload.ok_or_else(|| {
-                DispatchError::BadRequest("lyra.ui.preview requires a payload".to_string())
-            })?;
-            let preview: PreviewPayload = serde_json::from_value(payload.clone()).map_err(|_| {
-                DispatchError::BadRequest(
-                    "lyra.ui.preview payload must be exactly {\"subject\": string, \"body\": string}"
-                        .to_string(),
-                )
-            })?;
-            dispatch_lyra_preview(state, grant, bound_chat_id, &preview).await
-        }
-        "workflow.invoke:approved" => Ok(json!({
+    let id = action.0.as_str();
+    match state.action_handlers.lookup(id) {
+        Some(handler) => handler(state, grant, bound_chat_id, payload).await,
+        None => Ok(json!({
             "stub": true,
-            "note": "workflow invocation is a Step 4 stub; no workflow execution engine exists yet",
-        })),
-        "artifact.propose" => {
-            super::artifact_propose::dispatch_artifact_propose(state, grant, bound_chat_id, payload)
-                .await
-        }
-        "setup.workflow.start" => Ok(json!({
-            "stub": true,
-            "note": "the setup workflow is a Step 4 stub; no setup wizard exists yet",
-        })),
-        other => Ok(json!({
-            "stub": true,
-            "note": format!("{other} has no Step 4 kernel-side implementation yet"),
+            "note": format!("{id} has no Step 4 kernel-side implementation yet"),
         })),
     }
 }
@@ -268,7 +222,7 @@ async fn dispatch_allowed_action(
 /// is still shown — the owner sees the draft but the message carries no
 /// approval button, an honest reflection of "propose failed" rather than a
 /// silently-broken button.
-async fn dispatch_lyra_preview(
+pub(super) async fn dispatch_lyra_preview(
     state: &AppState,
     grant: &TaskGrant,
     bound_chat_id: i64,
@@ -292,7 +246,8 @@ async fn dispatch_lyra_preview(
             &[],
         );
         state
-            .telegram
+            .connectors
+            .telegram()
             .send_reply(bound_chat_id, &truncate_with_notice(&full))
             .await
             .map_err(DispatchError::Internal)?;
@@ -302,7 +257,8 @@ async fn dispatch_lyra_preview(
     match propose_draft_creation(state, grant, preview).await {
         Ok(action_request_id) => {
             state
-                .telegram
+                .connectors
+                .telegram()
                 .send_reply_with_approval_button(bound_chat_id, &text, action_request_id)
                 .await
                 .map_err(DispatchError::Internal)?;
@@ -318,7 +274,8 @@ async fn dispatch_lyra_preview(
                 &[],
             );
             state
-                .telegram
+                .connectors
+                .telegram()
                 .send_reply(bound_chat_id, &text)
                 .await
                 .map_err(DispatchError::Internal)?;
@@ -336,7 +293,7 @@ async fn propose_draft_creation(
     grant: &TaskGrant,
     preview: &PreviewPayload,
 ) -> Result<Ulid, &'static str> {
-    let gmail = state.gmail.as_ref().ok_or("no_gmail_connector")?;
+    let gmail = state.connectors.gmail().ok_or("no_gmail_connector")?;
     let token_id = grant
         .selection_tokens
         .first()
@@ -407,7 +364,7 @@ async fn propose_draft_creation(
 /// failure here is the shell's own contract violation (a foreign, unknown,
 /// expired, wrong-type, or already-used token) — `400`, not `500`; only an
 /// actual Gmail-connector failure after a valid consume is `500`.
-async fn dispatch_read_selected_thread(
+pub(super) async fn dispatch_read_selected_thread(
     state: &AppState,
     grant: &TaskGrant,
     payload: Option<&Value>,
@@ -463,7 +420,7 @@ async fn dispatch_read_selected_thread(
         ));
     }
 
-    let gmail = state.gmail.as_ref().ok_or_else(|| {
+    let gmail = state.connectors.gmail().ok_or_else(|| {
         DispatchError::Internal(anyhow::anyhow!(
             "selection token exists but no gmail connector is configured"
         ))
