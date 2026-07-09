@@ -1060,13 +1060,13 @@
     "semantic_hash": ""
   },
   ".omp/commands/opsx-apply.md": {
-    "mtime": 1783624138.3523533,
-    "ast_hash": "4ebd8b875a171e8e2abf2de8a821c31b",
+    "mtime": 1783625603.6822648,
+    "ast_hash": "93b0397f40f050413f64101a895d4ed2",
     "semantic_hash": ""
   },
   ".omp/commands/opsx-archive.md": {
-    "mtime": 1783624656.8228707,
-    "ast_hash": "2095922056c22c1896fd955cd4f98159",
+    "mtime": 1783625651.5819561,
+    "ast_hash": "d2f13bac352ecf47f30d71a727c0c6a9",
     "semantic_hash": ""
   },
   ".omp/commands/opsx-explore.md": {
@@ -1080,13 +1080,13 @@
     "semantic_hash": ""
   },
   ".omp/skills/openspec-apply-change/SKILL.md": {
-    "mtime": 1783624138.3509662,
-    "ast_hash": "6f2947a6cb1cabdc0dcf330f45b6dddc",
+    "mtime": 1783625594.8969588,
+    "ast_hash": "9de0b66471db6b7736eee0dedd6485d2",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-archive-change/SKILL.md": {
-    "mtime": 1783624664.8073936,
-    "ast_hash": "b8cf255a64e1eb6f4813007cbd21409d",
+    "mtime": 1783625651.582124,
+    "ast_hash": "f4e6c0550b3a097cf514b619d7d6fe84",
     "semantic_hash": ""
   },
   ".omp/skills/openspec-explore/SKILL.md": {
