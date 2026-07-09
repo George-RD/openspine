@@ -128,7 +128,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_classification_rank",
-      "community": 65,
+      "community": 2,
       "norm_label": "classification_rank()"
     },
     {
@@ -188,7 +188,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_compose_authority",
-      "community": 65,
+      "community": 27,
       "norm_label": "compose_authority()"
     },
     {
@@ -198,7 +198,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_timestamp",
-      "community": 65,
+      "community": 27,
       "norm_label": "timestamp"
     },
     {
@@ -1158,7 +1158,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_action_catalog",
-      "community": 23,
+      "community": 4,
       "norm_label": "action_catalog.rs"
     },
     {
@@ -1168,7 +1168,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_action_catalog_id",
-      "community": 23,
+      "community": 4,
       "norm_label": "id()"
     },
     {
@@ -1178,7 +1178,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_action_catalog_canonical_catalog",
-      "community": 23,
+      "community": 4,
       "norm_label": "canonical_catalog()"
     },
     {
@@ -1508,7 +1508,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_artifact_propose",
-      "community": 291,
+      "community": 282,
       "norm_label": "artifact_propose.rs"
     },
     {
@@ -1518,7 +1518,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_artifact_propose_artifactproposepayload",
-      "community": 291,
+      "community": 282,
       "norm_label": "artifactproposepayload"
     },
     {
@@ -1528,7 +1528,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_artifact_propose_rs_string",
-      "community": 291,
+      "community": 282,
       "norm_label": "string"
     },
     {
@@ -2318,7 +2318,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_mod_store",
-      "community": 4,
+      "community": 21,
       "norm_label": "store"
     },
     {
@@ -2328,7 +2328,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_mod_store_approval_for_request",
-      "community": 4,
+      "community": 21,
       "norm_label": ".approval_for_request()"
     },
     {
@@ -2338,7 +2338,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_mod_rs_ulid",
-      "community": 4,
+      "community": 21,
       "norm_label": "ulid"
     },
     {
@@ -2348,7 +2348,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_mod_rs_option",
-      "community": 4,
+      "community": 21,
       "norm_label": "option"
     },
     {
@@ -2358,7 +2358,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_mod_store_find_selection_token",
-      "community": 4,
+      "community": 21,
       "norm_label": ".find_selection_token()"
     },
     {
@@ -2718,7 +2718,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests",
-      "community": 21,
+      "community": 3,
       "norm_label": "tests.rs"
     },
     {
@@ -2728,7 +2728,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_start_server",
-      "community": 21,
+      "community": 3,
       "norm_label": "start_server()"
     },
     {
@@ -2738,7 +2738,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_socketaddr",
-      "community": 21,
+      "community": 3,
       "norm_label": "socketaddr"
     },
     {
@@ -2748,7 +2748,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_joinhandle",
-      "community": 21,
+      "community": 3,
       "norm_label": "joinhandle"
     },
     {
@@ -2758,7 +2758,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_post_action",
-      "community": 21,
+      "community": 69,
       "norm_label": "post_action()"
     },
     {
@@ -2768,7 +2768,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_option",
-      "community": 21,
+      "community": 69,
       "norm_label": "option"
     },
     {
@@ -2778,7 +2778,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_value",
-      "community": 21,
+      "community": 69,
       "norm_label": "value"
     },
     {
@@ -2788,7 +2788,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_response",
-      "community": 21,
+      "community": 3,
       "norm_label": "response"
     },
     {
@@ -2798,7 +2798,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_email_read_inbox_is_denied_for_owner_control_grant",
-      "community": 21,
+      "community": 3,
       "norm_label": "email_read_inbox_is_denied_for_owner_control_grant()"
     },
     {
@@ -2808,7 +2808,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_network_raw_egress_is_denied_for_owner_control_grant",
-      "community": 21,
+      "community": 3,
       "norm_label": "network_raw_egress_is_denied_for_owner_control_grant()"
     },
     {
@@ -2818,7 +2818,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_host_filesystem_read_and_write_are_denied_for_owner_control_grant",
-      "community": 21,
+      "community": 3,
       "norm_label": "host_filesystem_read_and_write_are_denied_for_owner_control_grant()"
     },
     {
@@ -2828,7 +2828,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_telegram_reply_is_sent_to_grant_bound_chat",
-      "community": 21,
+      "community": 3,
       "norm_label": "telegram_reply_is_sent_to_grant_bound_chat()"
     },
     {
@@ -2838,7 +2838,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_telegram_reply_payload_rejects_chat_id_override",
-      "community": 21,
+      "community": 3,
       "norm_label": "telegram_reply_payload_rejects_chat_id_override()"
     },
     {
@@ -2848,7 +2848,7 @@
       "source_location": "L210",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_approval_required_action_stops_before_dispatch",
-      "community": 21,
+      "community": 3,
       "norm_label": "approval_required_action_stops_before_dispatch()"
     },
     {
@@ -5278,7 +5278,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
-      "community": 3,
+      "community": 25,
       "norm_label": "run_telegram_poll_loop()"
     },
     {
@@ -5288,7 +5288,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_rs_result",
-      "community": 3,
+      "community": 25,
       "norm_label": "result"
     },
     {
@@ -5378,7 +5378,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection",
-      "community": 57,
+      "community": 283,
       "norm_label": "selection.rs"
     },
     {
@@ -5988,7 +5988,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_gate_support",
-      "community": 4,
+      "community": 287,
       "norm_label": "gate_support.rs"
     },
     {
@@ -6258,7 +6258,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_store_open",
-      "community": 1,
+      "community": 30,
       "norm_label": ".open()"
     },
     {
@@ -6288,7 +6288,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_rs_self",
-      "community": 1,
+      "community": 30,
       "norm_label": "self"
     },
     {
@@ -7048,7 +7048,7 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_new",
-      "community": 9,
+      "community": 94,
       "norm_label": ".new()"
     },
     {
@@ -7058,7 +7058,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_self",
-      "community": 9,
+      "community": 94,
       "norm_label": "self"
     },
     {
@@ -7068,7 +7068,7 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_with_api_url",
-      "community": 9,
+      "community": 94,
       "norm_label": ".with_api_url()"
     },
     {
@@ -7078,7 +7078,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "url",
-      "community": 9,
+      "community": 94,
       "norm_label": "url"
     },
     {
@@ -7398,7 +7398,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action",
-      "community": 23,
+      "community": 4,
       "norm_label": "action.rs"
     },
     {
@@ -7408,7 +7408,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionid",
-      "community": 23,
+      "community": 4,
       "norm_label": "actionid"
     },
     {
@@ -7418,7 +7418,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_string",
-      "community": 23,
+      "community": 4,
       "norm_label": "string"
     },
     {
@@ -7448,7 +7448,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_self",
-      "community": 23,
+      "community": 4,
       "norm_label": "self"
     },
     {
@@ -7458,7 +7458,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionid_as_str",
-      "community": 23,
+      "community": 4,
       "norm_label": ".as_str()"
     },
     {
@@ -7468,7 +7468,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_display",
-      "community": 23,
+      "community": 4,
       "norm_label": "display"
     },
     {
@@ -7478,7 +7478,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionid_fmt",
-      "community": 23,
+      "community": 4,
       "norm_label": ".fmt()"
     },
     {
@@ -7488,7 +7488,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_formatter",
-      "community": 23,
+      "community": 4,
       "norm_label": "formatter"
     },
     {
@@ -7498,7 +7498,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_result",
-      "community": 23,
+      "community": 4,
       "norm_label": "result"
     },
     {
@@ -7508,7 +7508,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "from",
-      "community": 23,
+      "community": 4,
       "norm_label": "from"
     },
     {
@@ -7518,7 +7518,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionid_from",
-      "community": 23,
+      "community": 4,
       "norm_label": ".from()"
     },
     {
@@ -7528,7 +7528,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actioncatalog",
-      "community": 23,
+      "community": 4,
       "norm_label": "actioncatalog"
     },
     {
@@ -7538,7 +7538,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_hashset",
-      "community": 23,
+      "community": 4,
       "norm_label": "hashset"
     },
     {
@@ -7548,7 +7548,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actioncatalog_new",
-      "community": 23,
+      "community": 4,
       "norm_label": ".new()"
     },
     {
@@ -7558,7 +7558,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "intoiterator",
-      "community": 23,
+      "community": 4,
       "norm_label": "intoiterator"
     },
     {
@@ -7568,7 +7568,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_item",
-      "community": 23,
+      "community": 4,
       "norm_label": "item"
     },
     {
@@ -7578,7 +7578,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actioncatalog_contains",
-      "community": 23,
+      "community": 4,
       "norm_label": ".contains()"
     },
     {
@@ -7588,7 +7588,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_denialreason",
-      "community": 23,
+      "community": 4,
       "norm_label": "denialreason"
     },
     {
@@ -7648,7 +7648,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_action_id_qualifier_is_part_of_identity",
-      "community": 23,
+      "community": 4,
       "norm_label": "action_id_qualifier_is_part_of_identity()"
     },
     {
@@ -7658,7 +7658,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_action_id_serializes_as_bare_string",
-      "community": 23,
+      "community": 4,
       "norm_label": "action_id_serializes_as_bare_string()"
     },
     {
@@ -7668,7 +7668,7 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_gate_decision_round_trips_with_tag",
-      "community": 23,
+      "community": 4,
       "norm_label": "gate_decision_round_trips_with_tag()"
     },
     {
@@ -7678,7 +7678,7 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_approval_required_never_serializes_as_allow",
-      "community": 23,
+      "community": 4,
       "norm_label": "approval_required_never_serializes_as_allow()"
     },
     {
@@ -7818,7 +7818,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval",
-      "community": 4,
+      "community": 287,
       "norm_label": "approval.rs"
     },
     {
@@ -7828,7 +7828,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvaldecision",
-      "community": 4,
+      "community": 287,
       "norm_label": "approvaldecision"
     },
     {
@@ -7838,7 +7838,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_timeoutbehavior",
-      "community": 4,
+      "community": 287,
       "norm_label": "timeoutbehavior"
     },
     {
@@ -7848,7 +7848,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvalrecord",
-      "community": 4,
+      "community": 287,
       "norm_label": "approvalrecord"
     },
     {
@@ -7858,7 +7858,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_ulid",
-      "community": 4,
+      "community": 287,
       "norm_label": "ulid"
     },
     {
@@ -7868,7 +7868,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_string",
-      "community": 4,
+      "community": 287,
       "norm_label": "string"
     },
     {
@@ -7878,7 +7878,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_timestamp",
-      "community": 4,
+      "community": 287,
       "norm_label": "timestamp"
     },
     {
@@ -7888,7 +7888,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvalrecord_matches",
-      "community": 4,
+      "community": 287,
       "norm_label": ".matches()"
     },
     {
@@ -7898,7 +7898,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_sample_approval",
-      "community": 4,
+      "community": 287,
       "norm_label": "sample_approval()"
     },
     {
@@ -7908,7 +7908,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_round_trips_through_serde",
-      "community": 4,
+      "community": 287,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -7918,7 +7918,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_requires_both_digests_and_approved_decision",
-      "community": 4,
+      "community": 287,
       "norm_label": "matches_requires_both_digests_and_approved_decision()"
     },
     {
@@ -7928,7 +7928,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_rejects_expired_approval",
-      "community": 4,
+      "community": 287,
       "norm_label": "matches_rejects_expired_approval()"
     },
     {
@@ -7938,7 +7938,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_rejects_non_approved_decisions",
-      "community": 4,
+      "community": 287,
       "norm_label": "matches_rejects_non_approved_decisions()"
     },
     {
@@ -8038,7 +8038,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit",
-      "community": 99,
+      "community": 292,
       "norm_label": "audit.rs"
     },
     {
@@ -8048,7 +8048,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_auditevent",
-      "community": 99,
+      "community": 292,
       "norm_label": "auditevent"
     },
     {
@@ -8058,7 +8058,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rs_ulid",
-      "community": 99,
+      "community": 292,
       "norm_label": "ulid"
     },
     {
@@ -8068,7 +8068,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rs_timestamp",
-      "community": 99,
+      "community": 292,
       "norm_label": "timestamp"
     },
     {
@@ -8078,7 +8078,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rs_string",
-      "community": 99,
+      "community": 292,
       "norm_label": "string"
     },
     {
@@ -8088,7 +8088,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rs_option",
-      "community": 99,
+      "community": 292,
       "norm_label": "option"
     },
     {
@@ -8098,7 +8098,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rs_vec",
-      "community": 99,
+      "community": 292,
       "norm_label": "vec"
     },
     {
@@ -8128,7 +8128,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_target_and_payload_refs_default_to_empty_when_omitted",
-      "community": 99,
+      "community": 292,
       "norm_label": "target_and_payload_refs_default_to_empty_when_omitted()"
     },
     {
@@ -8138,7 +8138,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_rejects_unknown_fields",
-      "community": 99,
+      "community": 292,
       "norm_label": "rejects_unknown_fields()"
     },
     {
@@ -8218,7 +8218,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_result",
-      "community": 46,
+      "community": 99,
       "norm_label": "result"
     },
     {
@@ -8258,7 +8258,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_fmt",
-      "community": 46,
+      "community": 99,
       "norm_label": ".fmt()"
     },
     {
@@ -8268,7 +8268,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_formatter",
-      "community": 46,
+      "community": 99,
       "norm_label": "formatter"
     },
     {
@@ -8278,7 +8278,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "serialize",
-      "community": 46,
+      "community": 99,
       "norm_label": "serialize"
     },
     {
@@ -8288,7 +8288,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_serialize",
-      "community": 46,
+      "community": 99,
       "norm_label": ".serialize()"
     },
     {
@@ -8298,7 +8298,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "s",
-      "community": 46,
+      "community": 99,
       "norm_label": "s"
     },
     {
@@ -8308,7 +8308,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ok",
-      "community": 46,
+      "community": 99,
       "norm_label": "ok"
     },
     {
@@ -8318,7 +8318,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_error",
-      "community": 46,
+      "community": 99,
       "norm_label": "error"
     },
     {
@@ -8328,7 +8328,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "deserialize",
-      "community": 291,
+      "community": 282,
       "norm_label": "deserialize"
     },
     {
@@ -8378,7 +8378,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_canonicalvalue_a",
-      "community": 46,
+      "community": 99,
       "norm_label": "canonicalvalue<'a>"
     },
     {
@@ -8388,7 +8388,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_canonicalvalue_a_serialize",
-      "community": 46,
+      "community": 99,
       "norm_label": ".serialize()"
     },
     {
@@ -8448,7 +8448,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_hasherwriter_a",
-      "community": 46,
+      "community": 99,
       "norm_label": "hasherwriter<'a>"
     },
     {
@@ -8458,7 +8458,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "write",
-      "community": 46,
+      "community": 99,
       "norm_label": "write"
     },
     {
@@ -8468,7 +8468,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_hasherwriter_a_write",
-      "community": 46,
+      "community": 99,
       "norm_label": ".write()"
     },
     {
@@ -8478,7 +8478,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_hasherwriter_a_flush",
-      "community": 46,
+      "community": 99,
       "norm_label": ".flush()"
     },
     {
@@ -8648,7 +8648,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_dataclassification",
-      "community": 57,
+      "community": 2,
       "norm_label": "dataclassification"
     },
     {
@@ -8788,7 +8788,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_sample_ref",
-      "community": 2,
+      "community": 30,
       "norm_label": "sample_ref()"
     },
     {
@@ -9028,7 +9028,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_relationshipkind",
-      "community": 56,
+      "community": 67,
       "norm_label": "relationshipkind"
     },
     {
@@ -9528,7 +9528,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routeactorwhen",
-      "community": 283,
+      "community": 2,
       "norm_label": "routeactorwhen"
     },
     {
@@ -9538,7 +9538,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_rs_option",
-      "community": 283,
+      "community": 2,
       "norm_label": "option"
     },
     {
@@ -9588,7 +9588,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_route",
-      "community": 283,
+      "community": 56,
       "norm_label": "route"
     },
     {
@@ -9688,7 +9688,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection",
-      "community": 4,
+      "community": 21,
       "norm_label": "selection.rs"
     },
     {
@@ -9698,7 +9698,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_selectiontokentype",
-      "community": 4,
+      "community": 21,
       "norm_label": "selectiontokentype"
     },
     {
@@ -9708,7 +9708,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_selectionverificationmethod",
-      "community": 4,
+      "community": 21,
       "norm_label": "selectionverificationmethod"
     },
     {
@@ -9718,7 +9718,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_selectionscope",
-      "community": 4,
+      "community": 21,
       "norm_label": "selectionscope"
     },
     {
@@ -9728,7 +9728,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_default_true",
-      "community": 4,
+      "community": 21,
       "norm_label": "default_true()"
     },
     {
@@ -9738,7 +9738,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_selectiontoken",
-      "community": 4,
+      "community": 21,
       "norm_label": "selectiontoken"
     },
     {
@@ -9748,7 +9748,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_rs_ulid",
-      "community": 4,
+      "community": 21,
       "norm_label": "ulid"
     },
     {
@@ -9758,7 +9758,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_rs_string",
-      "community": 4,
+      "community": 21,
       "norm_label": "string"
     },
     {
@@ -9768,7 +9768,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_rs_timestamp",
-      "community": 4,
+      "community": 21,
       "norm_label": "timestamp"
     },
     {
@@ -9778,7 +9778,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_rs_option",
-      "community": 4,
+      "community": 21,
       "norm_label": "option"
     },
     {
@@ -9788,7 +9788,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_rs_connector",
-      "community": 4,
+      "community": 21,
       "norm_label": "connector"
     },
     {
@@ -9798,7 +9798,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_sample_token",
-      "community": 4,
+      "community": 21,
       "norm_label": "sample_token()"
     },
     {
@@ -9808,7 +9808,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_round_trips_through_serde",
-      "community": 4,
+      "community": 21,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -9818,7 +9818,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_single_use_defaults_to_true_when_omitted",
-      "community": 4,
+      "community": 21,
       "norm_label": "single_use_defaults_to_true_when_omitted()"
     },
     {
@@ -9828,7 +9828,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_selection_attachments_are_never_allowed_in_the_email_scope",
-      "community": 4,
+      "community": 21,
       "norm_label": "attachments_are_never_allowed_in_the_email_scope()"
     },
     {
@@ -9908,7 +9908,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures",
-      "community": 10,
+      "community": 288,
       "norm_label": "fixtures.rs"
     },
     {
@@ -9918,7 +9918,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_artifacts_dir",
-      "community": 10,
+      "community": 288,
       "norm_label": "artifacts_dir()"
     },
     {
@@ -9928,7 +9928,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_rs_pathbuf",
-      "community": 10,
+      "community": 288,
       "norm_label": "pathbuf"
     },
     {
@@ -9938,7 +9938,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_read",
-      "community": 10,
+      "community": 288,
       "norm_label": "read()"
     },
     {
@@ -9948,7 +9948,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_rs_string",
-      "community": 10,
+      "community": 288,
       "norm_label": "string"
     },
     {
@@ -9958,7 +9958,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_telegram_route_is_expressible_declaratively",
-      "community": 10,
+      "community": 288,
       "norm_label": "owner_telegram_route_is_expressible_declaratively()"
     },
     {
@@ -9968,7 +9968,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_email_selected_thread_route_is_expressible_declaratively",
-      "community": 10,
+      "community": 288,
       "norm_label": "owner_email_selected_thread_route_is_expressible_declaratively()"
     },
     {
@@ -9978,7 +9978,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_agent_manifests_round_trip",
-      "community": 10,
+      "community": 288,
       "norm_label": "agent_manifests_round_trip()"
     },
     {
@@ -9988,7 +9988,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_email_grant_pack_excludes_read_inbox_and_send",
-      "community": 10,
+      "community": 288,
       "norm_label": "email_grant_pack_excludes_read_inbox_and_send()"
     },
     {
@@ -9998,7 +9998,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_control_pack_round_trips",
-      "community": 10,
+      "community": 288,
       "norm_label": "owner_control_pack_round_trips()"
     },
     {
@@ -10008,7 +10008,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_workflow_manifests_round_trip",
-      "community": 10,
+      "community": 288,
       "norm_label": "workflow_manifests_round_trip()"
     },
     {
@@ -10018,7 +10018,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_global_policy_round_trips_and_denies_send",
-      "community": 10,
+      "community": 288,
       "norm_label": "global_policy_round_trips_and_denies_send()"
     },
     {
@@ -10028,7 +10028,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_every_fixture_file_is_covered_by_a_test",
-      "community": 10,
+      "community": 288,
       "norm_label": "every_fixture_file_is_covered_by_a_test()"
     },
     {
@@ -22662,6 +22662,446 @@
       "norm_label": "6. validation"
     },
     {
+      "label": "design.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design",
+      "community": 293,
+      "norm_label": "design.md"
+    },
+    {
+      "label": "Design: Refactor pipeline driver",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_design_refactor_pipeline_driver",
+      "community": 293,
+      "norm_label": "design: refactor pipeline driver"
+    },
+    {
+      "label": "Approach",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "community": 293,
+      "norm_label": "approach"
+    },
+    {
+      "label": "1. Typed stage sequence \u2014 consumed, not decorative",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_1_typed_stage_sequence_consumed_not_decorative",
+      "community": 293,
+      "norm_label": "1. typed stage sequence \u2014 consumed, not decorative"
+    },
+    {
+      "label": "2. Lanes as data \u2014 with a hard hook boundary",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L18",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_2_lanes_as_data_with_a_hard_hook_boundary",
+      "community": 293,
+      "norm_label": "2. lanes as data \u2014 with a hard hook boundary"
+    },
+    {
+      "label": "3. Cutover \u2014 code moves, it does not accrete",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_3_cutover_code_moves_it_does_not_accrete",
+      "community": 293,
+      "norm_label": "3. cutover \u2014 code moves, it does not accrete"
+    },
+    {
+      "label": "4. What does NOT move",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L37",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_4_what_does_not_move",
+      "community": 293,
+      "norm_label": "4. what does not move"
+    },
+    {
+      "label": "Key decisions (D-054)",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L44",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_key_decisions_d_054",
+      "community": 293,
+      "norm_label": "key decisions (d-054)"
+    },
+    {
+      "label": "Alternatives considered",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L51",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_design_alternatives_considered",
+      "community": 293,
+      "norm_label": "alternatives considered"
+    },
+    {
+      "label": "proposal.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal",
+      "community": 291,
+      "norm_label": "proposal.md"
+    },
+    {
+      "label": "Proposal: Refactor pipeline driver",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "community": 291,
+      "norm_label": "proposal: refactor pipeline driver"
+    },
+    {
+      "label": "Summary",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_summary",
+      "community": 291,
+      "norm_label": "summary"
+    },
+    {
+      "label": "What Changes",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_what_changes",
+      "community": 291,
+      "norm_label": "what changes"
+    },
+    {
+      "label": "Why",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_why",
+      "community": 291,
+      "norm_label": "why"
+    },
+    {
+      "label": "Affected layer",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L19",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_affected_layer",
+      "community": 291,
+      "norm_label": "affected layer"
+    },
+    {
+      "label": "Authority sensitivity",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_authority_sensitivity",
+      "community": 291,
+      "norm_label": "authority sensitivity"
+    },
+    {
+      "label": "Goals",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L27",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_goals",
+      "community": 291,
+      "norm_label": "goals"
+    },
+    {
+      "label": "Non-goals",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L34",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_non_goals",
+      "community": 291,
+      "norm_label": "non-goals"
+    },
+    {
+      "label": "Decision-log check",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L43",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_proposal_decision_log_check",
+      "community": 291,
+      "norm_label": "decision-log check"
+    },
+    {
+      "label": "spec.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec",
+      "community": 23,
+      "norm_label": "spec.md"
+    },
+    {
+      "label": "Spec: Pipeline driver",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_spec_pipeline_driver",
+      "community": 23,
+      "norm_label": "spec: pipeline driver"
+    },
+    {
+      "label": "Purpose",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_purpose",
+      "community": 23,
+      "norm_label": "purpose"
+    },
+    {
+      "label": "ADDED Requirements",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "community": 23,
+      "norm_label": "added requirements"
+    },
+    {
+      "label": "Requirement: The kernel pipeline MUST be a typed stage sequence the driver executes",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_kernel_pipeline_must_be_a_typed_stage_sequence_the_driver_executes",
+      "community": 23,
+      "norm_label": "requirement: the kernel pipeline must be a typed stage sequence the driver executes"
+    },
+    {
+      "label": "Scenario: The stage sequence is declared once and pinned",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_stage_sequence_is_declared_once_and_pinned",
+      "community": 23,
+      "norm_label": "scenario: the stage sequence is declared once and pinned"
+    },
+    {
+      "label": "Scenario: The driver's execution trace matches the declared prefix",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L20",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_driver_s_execution_trace_matches_the_declared_prefix",
+      "community": 23,
+      "norm_label": "scenario: the driver's execution trace matches the declared prefix"
+    },
+    {
+      "label": "Requirement: Per-flow variation MUST be lane data interpreted by one driver",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_per_flow_variation_must_be_lane_data_interpreted_by_one_driver",
+      "community": 23,
+      "norm_label": "requirement: per-flow variation must be lane data interpreted by one driver"
+    },
+    {
+      "label": "Scenario: The owner-control flow is a lane",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L30",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_owner_control_flow_is_a_lane",
+      "community": 23,
+      "norm_label": "scenario: the owner-control flow is a lane"
+    },
+    {
+      "label": "Scenario: The selected-thread email preview flow is a lane",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L36",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_selected_thread_email_preview_flow_is_a_lane",
+      "community": 23,
+      "norm_label": "scenario: the selected-thread email preview flow is a lane"
+    },
+    {
+      "label": "Scenario: A lane cannot skip a stage",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L42",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_a_lane_cannot_skip_a_stage",
+      "community": 23,
+      "norm_label": "scenario: a lane cannot skip a stage"
+    },
+    {
+      "label": "Requirement: The audited event envelope MUST be emitted only after verification succeeds",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L49",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_audited_event_envelope_must_be_emitted_only_after_verification_succeeds",
+      "community": 23,
+      "norm_label": "requirement: the audited event envelope must be emitted only after verification succeeds"
+    },
+    {
+      "label": "Scenario: A preflight failure emits no event envelope",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L53",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_a_preflight_failure_emits_no_event_envelope",
+      "community": 23,
+      "norm_label": "scenario: a preflight failure emits no event envelope"
+    },
+    {
+      "label": "Requirement: The driver MUST NOT invoke gate()",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L60",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_driver_must_not_invoke_gate",
+      "community": 23,
+      "norm_label": "requirement: the driver must not invoke gate()"
+    },
+    {
+      "label": "Scenario: Driver completes without gating",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L64",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_driver_completes_without_gating",
+      "community": 23,
+      "norm_label": "scenario: driver completes without gating"
+    },
+    {
+      "label": "Requirement: Lane specifications MUST be compiled-in kernel data",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L71",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_lane_specifications_must_be_compiled_in_kernel_data",
+      "community": 23,
+      "norm_label": "requirement: lane specifications must be compiled-in kernel data"
+    },
+    {
+      "label": "Scenario: Lanes have no runtime registration surface",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L75",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_lanes_have_no_runtime_registration_surface",
+      "community": 23,
+      "norm_label": "scenario: lanes have no runtime registration surface"
+    },
+    {
+      "label": "tasks.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks",
+      "community": 294,
+      "norm_label": "tasks.md"
+    },
+    {
+      "label": "Tasks: Refactor pipeline driver",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "community": 294,
+      "norm_label": "tasks: refactor pipeline driver"
+    },
+    {
+      "label": "1. Typed stage sequence",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_1_typed_stage_sequence",
+      "community": 294,
+      "norm_label": "1. typed stage sequence"
+    },
+    {
+      "label": "2. LaneSpec + lane constructors",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_2_lanespec_lane_constructors",
+      "community": 294,
+      "norm_label": "2. lanespec + lane constructors"
+    },
+    {
+      "label": "3. Driver + cutover",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_3_driver_cutover",
+      "community": 294,
+      "norm_label": "3. driver + cutover"
+    },
+    {
+      "label": "4. Tests",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L24",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_4_tests",
+      "community": 294,
+      "norm_label": "4. tests"
+    },
+    {
+      "label": "5. Decision log + docs",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L30",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_5_decision_log_docs",
+      "community": 294,
+      "norm_label": "5. decision log + docs"
+    },
+    {
+      "label": "6. Validation",
+      "file_type": "document",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "openspec_changes_refactor_pipeline_driver_tasks_6_validation",
+      "community": 294,
+      "norm_label": "6. validation"
+    },
+    {
       "label": "conventions.md",
       "file_type": "document",
       "source_file": "openspec/conventions.md",
@@ -22988,7 +23428,7 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_overlay_key_model",
-      "community": 292,
+      "community": 92,
       "norm_label": "overlay & key model"
     },
     {
@@ -22998,7 +23438,7 @@
       "source_location": "L285",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_overlay_model",
-      "community": 292,
+      "community": 92,
       "norm_label": "implement-overlay-model"
     },
     {
@@ -23008,7 +23448,7 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_counterparty_key_model",
-      "community": 292,
+      "community": 92,
       "norm_label": "implement-counterparty-key-model"
     },
     {
@@ -23018,7 +23458,7 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_overlay_export_restore",
-      "community": 292,
+      "community": 92,
       "norm_label": "implement-overlay-export-restore"
     },
     {
@@ -23098,7 +23538,7 @@
       "source_location": "L407",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_delegation_containment",
-      "community": 92,
+      "community": 295,
       "norm_label": "delegation & containment"
     },
     {
@@ -23108,7 +23548,7 @@
       "source_location": "L409",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_briefcase_packing",
-      "community": 92,
+      "community": 295,
       "norm_label": "implement-briefcase-packing"
     },
     {
@@ -23118,7 +23558,7 @@
       "source_location": "L424",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_worker_runtime",
-      "community": 92,
+      "community": 295,
       "norm_label": "implement-worker-runtime"
     },
     {
@@ -23128,7 +23568,7 @@
       "source_location": "L439",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_worker_supervision",
-      "community": 92,
+      "community": 295,
       "norm_label": "implement-worker-supervision"
     },
     {
@@ -23138,7 +23578,7 @@
       "source_location": "L452",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_escalation_and_refusal",
-      "community": 92,
+      "community": 295,
       "norm_label": "implement-escalation-and-refusal"
     },
     {
@@ -69719,6 +70159,406 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design",
+      "target": "openspec_changes_refactor_pipeline_driver_design_design_refactor_pipeline_driver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L51",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_design_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_design_alternatives_considered",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_design_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_design_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_design_key_decisions_d_054",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "target": "openspec_changes_refactor_pipeline_driver_design_1_typed_stage_sequence_consumed_not_decorative",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L18",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "target": "openspec_changes_refactor_pipeline_driver_design_2_lanes_as_data_with_a_hard_hook_boundary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "target": "openspec_changes_refactor_pipeline_driver_design_3_cutover_code_moves_it_does_not_accrete",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/design.md",
+      "source_location": "L37",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_design_approach",
+      "target": "openspec_changes_refactor_pipeline_driver_design_4_what_does_not_move",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_affected_layer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_authority_sensitivity",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_decision_log_check",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_goals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L34",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_non_goals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_summary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_what_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/proposal.md",
+      "source_location": "L15",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_proposal_proposal_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_proposal_why",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_spec_pipeline_driver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_spec_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_spec_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_purpose",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_lane_specifications_must_be_compiled_in_kernel_data",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_per_flow_variation_must_be_lane_data_interpreted_by_one_driver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L49",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_audited_event_envelope_must_be_emitted_only_after_verification_succeeds",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L60",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_driver_must_not_invoke_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_added_requirements",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_kernel_pipeline_must_be_a_typed_stage_sequence_the_driver_executes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L20",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_kernel_pipeline_must_be_a_typed_stage_sequence_the_driver_executes",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_driver_s_execution_trace_matches_the_declared_prefix",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_kernel_pipeline_must_be_a_typed_stage_sequence_the_driver_executes",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_stage_sequence_is_declared_once_and_pinned",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L42",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_per_flow_variation_must_be_lane_data_interpreted_by_one_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_a_lane_cannot_skip_a_stage",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_per_flow_variation_must_be_lane_data_interpreted_by_one_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_owner_control_flow_is_a_lane",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_per_flow_variation_must_be_lane_data_interpreted_by_one_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_the_selected_thread_email_preview_flow_is_a_lane",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_audited_event_envelope_must_be_emitted_only_after_verification_succeeds",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_a_preflight_failure_emits_no_event_envelope",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L64",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_the_driver_must_not_invoke_gate",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_driver_completes_without_gating",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md",
+      "source_location": "L75",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_requirement_lane_specifications_must_be_compiled_in_kernel_data",
+      "target": "openspec_changes_refactor_pipeline_driver_specs_pipeline_driver_spec_scenario_lanes_have_no_runtime_registration_surface",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_1_typed_stage_sequence",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_2_lanespec_lane_constructors",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L16",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_3_driver_cutover",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_4_tests",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_5_decision_log_docs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/refactor-pipeline-driver/tasks.md",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "openspec_changes_refactor_pipeline_driver_tasks_tasks_refactor_pipeline_driver",
+      "target": "openspec_changes_refactor_pipeline_driver_tasks_6_validation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "openspec/conventions.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -72708,5 +73548,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "f89eb2cfd46415c0c1b5ad966ec76a8f73a9c3ef"
+  "built_at_commit": "cd44c2b0bf3a1ca44eee63202a1730ddadf990ef"
 }
