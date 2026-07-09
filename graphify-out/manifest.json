@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/mod.rs": {
-    "mtime": 1783052696.8472981,
-    "ast_hash": "5937ab1eb01b043ac4b58a6152cd543e",
+    "mtime": 1783636000.269588,
+    "ast_hash": "b6c98fe0a647a44f51f834f7de673f61",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/sandbox.rs": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1783634249.3624096,
-    "ast_hash": "b773774caf8e2a57c3a21d1a69c01187",
+    "mtime": 1783635725.5121717,
+    "ast_hash": "450e4abce5a5cbf385666a87923d25ba",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {

@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1783634285.9633648,
+    "mtime": 1783634314.0472841,
     "ast_hash": "bfdddb0ed4a475c1e9af6202f24d01c6",
     "semantic_hash": ""
   },
@@ -1140,28 +1140,48 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-09-refactor-kernel-registries/design.md": {
-    "mtime": 1783634249.4296572,
+    "mtime": 1783634314.045817,
     "ast_hash": "cbe923c6e4b71a6458b7ec1a718da7ca",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-09-refactor-kernel-registries/proposal.md": {
-    "mtime": 1783634249.4311743,
+    "mtime": 1783634314.046022,
     "ast_hash": "0066c9c42d24e6d070adb533909954ae",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-09-refactor-kernel-registries/specs/kernel-registries/spec.md": {
-    "mtime": 1783634249.431653,
+    "mtime": 1783634314.046321,
     "ast_hash": "b6c71940478e11f7f68114267a01933a",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-09-refactor-kernel-registries/tasks.md": {
-    "mtime": 1783634249.431872,
+    "mtime": 1783634314.046486,
     "ast_hash": "8250287ca27d7fdc9c8949dc7bc89498",
     "semantic_hash": ""
   },
   "openspec/specs/kernel-registries/spec.md": {
-    "mtime": 1783634267.4537435,
+    "mtime": 1783634314.048687,
     "ast_hash": "abb286dd3766b51d98f87899b751cb91",
+    "semantic_hash": ""
+  },
+  "openspec/changes/refactor-pipeline-driver/design.md": {
+    "mtime": 1783635448.36184,
+    "ast_hash": "86308c7f0ccc7b69934c14487718890e",
+    "semantic_hash": ""
+  },
+  "openspec/changes/refactor-pipeline-driver/proposal.md": {
+    "mtime": 1783635493.954051,
+    "ast_hash": "09dffed44ec6a62afbf00945722f1ff0",
+    "semantic_hash": ""
+  },
+  "openspec/changes/refactor-pipeline-driver/specs/pipeline-driver/spec.md": {
+    "mtime": 1783635448.373409,
+    "ast_hash": "0a7381e8acf6e6ce0451068db684ddde",
+    "semantic_hash": ""
+  },
+  "openspec/changes/refactor-pipeline-driver/tasks.md": {
+    "mtime": 1783635471.7211215,
+    "ast_hash": "e549c2f5f7f3a2a588fbfdcf42ffba14",
     "semantic_hash": ""
   }
 }
