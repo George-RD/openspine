@@ -56,14 +56,23 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   master-context-is-for-the-relationship (AD-131), ship-defaults-learn-
   preferences (AD-135).
 - Ceremony per change: branch off fresh main → openspec proposal (delta
-  requirement headers MUST be `## ADDED/MODIFIED/REMOVED/RENAMED Requirements`)
-  → implement → `./scripts/check.sh` green → independent reviewer pass on the
-  diff BEFORE commit → PR → squash merge → archive with
-  `openspec archive <id>` (NEVER `-y`). If the capability spec is pre-seeded
-  and the plain archive refuses the deltas, use `--skip-specs`, apply the
-  change's deltas into `openspec/specs/` by hand, and re-run
-  `openspec validate --all --strict` — a delta must never be stranded outside
-  the spec corpus (D-049).
+  requirement headers MUST be `## ADDED/MODIFIED/REMOVED/RENAMED Requirements`;
+  when the target capability spec is pre-seeded, requirements that already
+  exist in `openspec/specs/<capability>/spec.md` MUST be carried as
+  `## MODIFIED Requirements`, never re-`ADDED` — `ADDED` is only for
+  requirements genuinely absent from the canonical spec) → implement →
+  `./scripts/check.sh` green → independent reviewer pass on the diff BEFORE
+  commit → PR → squash merge → archive with
+  `openspec archive <id> --yes` so deltas are applied into `openspec/specs/`
+  mechanically, then re-run `openspec validate --all --strict`. `--yes` is
+  permitted ONLY on `openspec archive` in non-interactive runs (the archive
+  confirmation prompt is meaningless without a human TTY; the human gate is
+  PR review) — it remains forbidden everywhere else. `--skip-specs` is
+  reserved for changes with genuinely no spec impact (tooling/docs); it is no
+  longer the pre-seeded-conflict workaround, and hand-applying deltas into
+  `openspec/specs/` is retired — a delta must never be stranded outside the
+  spec corpus (D-049), and mechanical apply plus strict validation is how
+  that is guaranteed (D-052).
 - Any requirement dropped or narrowed during conversion from canon gets a
   D-0XX decision-log entry (spec-debt rule; D-049 precedent).
 - A discovered decomposition gap (missing edge, unowned machinery) or a newly

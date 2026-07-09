@@ -64,32 +64,28 @@ Archive a completed change in the experimental workflow.
    - Show a combined summary before prompting
 
    **Prompt options:**
-   - If changes needed: "Sync now (recommended)", "Archive without syncing"
-   - If already synced: "Archive now", "Sync anyway", "Cancel"
+   - If changes needed: "Archive now (applies deltas mechanically)", "Cancel"
+   - If already synced: "Archive now", "Cancel"
 
-   If the user chooses "Cancel", stop — do not archive. If the user chooses sync, apply the delta specs into `openspec/specs/<capability>/spec.md` by hand (this repo has no sync skill), then run `npx --no-install openspec validate --all --strict`. Then proceed to archive.
+   If the user chooses "Cancel", stop — do not archive. Do not sync specs manually: `openspec archive --yes` in step 5 applies the deltas into `openspec/specs/` mechanically.
 
 5. **Perform the archive**
 
    **This repo mandates the `openspec archive` CLI ceremony — never move `changeRoot` by hand** (see `openspec/openspine-change-sequence.md`):
 
    ```bash
-   npx --no-install openspec archive "<name>"
+   npx --no-install openspec archive "<name>" --yes
    ```
 
-   **If ADDED deltas conflict with a pre-seeded capability spec** (error like "ADDED failed... already exists"), use the documented fallback:
+   `--yes` is permitted ONLY on `openspec archive` in non-interactive runs (the confirmation prompt is meaningless without a human TTY; the human gate is PR review). It remains forbidden on every other command.
 
-   ```bash
-   npx --no-install openspec archive "<name>" --skip-specs
-   ```
-
-   Then hand-apply the change's spec deltas into `openspec/specs/<capability>/spec.md` and verify:
+   Deltas are applied into `openspec/specs/` mechanically. Afterwards, verify:
 
    ```bash
    npx --no-install openspec validate --all --strict
    ```
 
-   The `-y` flag is forbidden.
+   **If archive fails with "ADDED failed... already exists"**, the change wrongly re-`ADDED` a requirement that already exists in the pre-seeded spec: fix the delta header to `## MODIFIED Requirements` and re-run the archive. Do NOT fall back to `--skip-specs` — it is reserved for changes with genuinely no spec impact (tooling/docs only); manual delta application is retired.
 
 6. **Display summary**
 
@@ -119,5 +115,5 @@ All artifacts complete. All tasks complete.
 - Don't block archive on warnings - just inform and confirm
 - Preserve .openspec.yaml when moving to archive (it moves with the directory)
 - Show clear summary of what happened
-- If sync is requested, hand-apply the delta specs into `openspec/specs/` and validate strictly (this repo has no sync skill)
+- Never copy delta specs into `openspec/specs/` manually; `openspec archive --yes` applies them mechanically, then validate strictly
 - If delta specs exist, always run the sync assessment and show the combined summary before prompting
