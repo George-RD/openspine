@@ -286,8 +286,6 @@
   "284": "Proposal: Refactor kernel registries",
   "285": "Approach",
   "286": "Tasks: Refactor kernel registries",
-  "287": "Store",
-  "288": "add_column_if_missing",
   "289": "D-052 — Archive applies deltas mechanically via `openspec archive --yes`; pre-seeded requirements are carried as MODIFIED; the `--skip-specs` hand-apply ceremony is retired",
   "290": "D-030 — Telegram carries the entire owner-control UX for phases 1–3",
   "291": "artifact_propose.rs",
