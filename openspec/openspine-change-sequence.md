@@ -30,6 +30,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   `implement-shell-containment`)
 - `harden-approval-and-budgets`
 - `implement-artifact-lifecycle-slice`
+- `refactor-kernel-registries` (D-053; first change of the AD sequence below —
+  its brief stays in place because later `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
