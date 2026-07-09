@@ -734,3 +734,7 @@ one question per turn (interview-me skill); AD-145..153. Pre-canon adversarial d
 (DecisionReformer vs DecisionConservative, per decision-fork rule) corrected AD-148's
 channel scoping and surfaced the AD-150 key-model prerequisite; grant-shape
 comparability for AD-147 verified against grant.rs directly.
+Spec round 2026-07-07: the settled canon above was decomposed into the loop-executable
+agent-OS change sequence (`openspec/openspine-change-sequence.md`, recorded as D-051) —
+entries here remain the requirement content; the sequence file carries only
+decomposition, dependency edges, and scope boundaries.

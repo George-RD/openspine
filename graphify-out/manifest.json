@@ -1,89 +1,1057 @@
 {
-  "skills-index.md": 1777205417.9333231,
-  "skills-index.txt": 1777205401.4808965,
-  "openspine-review-bundle.md": 1777205501.5889149,
-  "AGENTS.md": 1777204481.8186269,
-  "repo-index.txt": 1777205392.597136,
-  "repo-index.md": 1777205417.9331934,
-  "CLAUDE.md": 1777204517.9871414,
-  "openspine-full-openspec-conflux-bundle/README.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/conventions.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/authority-composition/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/openspine-development-process/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/core-runtime-schemas/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/gate-action-api/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/telegram-owner-control-slice/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/selected-thread-email-preview-slice/spec.md": 1777193884.0,
-  "openspine-full-openspec-conflux-bundle/openspec/specs/digest-bound-draft-approval/spec.md": 1777193884.0,
-  "define-openspine-development-process/README.md": 1777191556.0,
-  "define-openspine-development-process/decision-log-note-D-024.md": 1777191556.0,
-  "define-openspine-development-process/openspec/openspine-change-backlog.md": 1777191556.0,
-  "define-openspine-development-process/openspec/changes/define-openspine-development-process/tasks.md": 1777191556.0,
-  "define-openspine-development-process/openspec/changes/define-openspine-development-process/design.md": 1777191556.0,
-  "define-openspine-development-process/openspec/changes/define-openspine-development-process/proposal.md": 1777191556.0,
-  "define-openspine-development-process/openspec/changes/define-openspine-development-process/specs/openspine-development-process/spec.md": 1777191556.0,
-  "openspine-remaining-openspec-bundle/README.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/openspine-change-sequence.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-gate-action-api/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-gate-action-api/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-gate-action-api/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-gate-action-api/specs/gate-action-api/spec.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-telegram-owner-control-slice/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-telegram-owner-control-slice/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-telegram-owner-control-slice/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-telegram-owner-control-slice/specs/telegram-owner-control-slice/spec.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-authority-composition/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-authority-composition/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-authority-composition/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-authority-composition/specs/authority-composition/spec.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-selected-thread-email-preview-slice/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-selected-thread-email-preview-slice/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-selected-thread-email-preview-slice/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-selected-thread-email-preview-slice/specs/selected-thread-email-preview-slice/spec.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/define-core-runtime-schemas/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/define-core-runtime-schemas/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/define-core-runtime-schemas/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/define-core-runtime-schemas/specs/core-runtime-schemas/spec.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-digest-bound-draft-approval/tasks.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-digest-bound-draft-approval/design.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-digest-bound-draft-approval/proposal.md": 1777192732.0,
-  "openspine-remaining-openspec-bundle/openspec/changes/implement-digest-bound-draft-approval/specs/digest-bound-draft-approval/spec.md": 1777192732.0,
-  "openspec/openspine-change-backlog.md": 1777206479.0951989,
-  "openspec/conventions.md": 1777193884.0,
-  "openspec/openspine-change-sequence.md": 1777207570.6253922,
-  "openspec/specs/authority-composition/spec.md": 1777193884.0,
-  "openspec/specs/openspine-development-process/spec.md": 1777193884.0,
-  "openspec/specs/core-runtime-schemas/spec.md": 1777193884.0,
-  "openspec/specs/gate-action-api/spec.md": 1777193884.0,
-  "openspec/specs/telegram-owner-control-slice/spec.md": 1777193884.0,
-  "openspec/specs/selected-thread-email-preview-slice/spec.md": 1777193884.0,
-  "openspec/specs/digest-bound-draft-approval/spec.md": 1777193884.0,
-  "openspec/changes/implement-gate-action-api/tasks.md": 1777192732.0,
-  "openspec/changes/implement-gate-action-api/design.md": 1777192732.0,
-  "openspec/changes/implement-gate-action-api/proposal.md": 1777192732.0,
-  "openspec/changes/implement-gate-action-api/specs/gate-action-api/spec.md": 1777192732.0,
-  "openspec/changes/implement-telegram-owner-control-slice/tasks.md": 1777192732.0,
-  "openspec/changes/implement-telegram-owner-control-slice/design.md": 1777192732.0,
-  "openspec/changes/implement-telegram-owner-control-slice/proposal.md": 1777192732.0,
-  "openspec/changes/implement-telegram-owner-control-slice/specs/telegram-owner-control-slice/spec.md": 1777192732.0,
-  "openspec/changes/define-openspine-development-process/tasks.md": 1777206928.6805587,
-  "openspec/changes/define-openspine-development-process/design.md": 1777191556.0,
-  "openspec/changes/define-openspine-development-process/proposal.md": 1777206794.317673,
-  "openspec/changes/define-openspine-development-process/specs/openspine-development-process/spec.md": 1777206898.3173254,
-  "openspec/changes/implement-authority-composition/tasks.md": 1777192732.0,
-  "openspec/changes/implement-authority-composition/design.md": 1777192732.0,
-  "openspec/changes/implement-authority-composition/proposal.md": 1777192732.0,
-  "openspec/changes/implement-authority-composition/specs/authority-composition/spec.md": 1777192732.0,
-  "openspec/changes/implement-selected-thread-email-preview-slice/tasks.md": 1777192732.0,
-  "openspec/changes/implement-selected-thread-email-preview-slice/design.md": 1777192732.0,
-  "openspec/changes/implement-selected-thread-email-preview-slice/proposal.md": 1777192732.0,
-  "openspec/changes/implement-selected-thread-email-preview-slice/specs/selected-thread-email-preview-slice/spec.md": 1777192732.0,
-  "openspec/changes/define-core-runtime-schemas/tasks.md": 1777192732.0,
-  "openspec/changes/define-core-runtime-schemas/design.md": 1777192732.0,
-  "openspec/changes/define-core-runtime-schemas/proposal.md": 1777192732.0,
-  "openspec/changes/define-core-runtime-schemas/specs/core-runtime-schemas/spec.md": 1777192732.0,
-  "openspec/changes/implement-digest-bound-draft-approval/tasks.md": 1777192732.0,
-  "openspec/changes/implement-digest-bound-draft-approval/design.md": 1777192732.0,
-  "openspec/changes/implement-digest-bound-draft-approval/proposal.md": 1777192732.0,
-  "openspec/changes/implement-digest-bound-draft-approval/specs/digest-bound-draft-approval/spec.md": 1777192732.0
+  "AGENTS.md": {
+    "mtime": 1777204481.8186269,
+    "ast_hash": "f07b9404a71a45b783c9ebe550db4459",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1777204517.9871414,
+    "ast_hash": "f07b9404a71a45b783c9ebe550db4459",
+    "semantic_hash": ""
+  },
+  "openspec/conventions.md": {
+    "mtime": 1777193884.0,
+    "ast_hash": "9db0dcb576703aab872cf505b56254e5",
+    "semantic_hash": ""
+  },
+  "openspec/openspine-change-sequence.md": {
+    "mtime": 1783623112.493189,
+    "ast_hash": "b35865b6661aaca6569242080a3514f5",
+    "semantic_hash": ""
+  },
+  "openspec/specs/authority-composition/spec.md": {
+    "mtime": 1782987915.8278565,
+    "ast_hash": "6771925126be582c4128b2fe861c348c",
+    "semantic_hash": ""
+  },
+  "openspec/specs/openspine-development-process/spec.md": {
+    "mtime": 1783053767.5190082,
+    "ast_hash": "dc1393af0907bd7cc99ab0c56be1fc0b",
+    "semantic_hash": ""
+  },
+  "openspec/specs/core-runtime-schemas/spec.md": {
+    "mtime": 1782987947.665479,
+    "ast_hash": "e5fbef7363dcf0e92c28874b222e849a",
+    "semantic_hash": ""
+  },
+  "openspec/specs/gate-action-api/spec.md": {
+    "mtime": 1783052829.6331854,
+    "ast_hash": "75a6974f10cb09a7f7f95367d46df1b0",
+    "semantic_hash": ""
+  },
+  "openspec/specs/telegram-owner-control-slice/spec.md": {
+    "mtime": 1782987938.114787,
+    "ast_hash": "af535789859e1537e6da3f695fbc6254",
+    "semantic_hash": ""
+  },
+  "openspec/specs/selected-thread-email-preview-slice/spec.md": {
+    "mtime": 1783052829.6335433,
+    "ast_hash": "4d5bbe95333a21cfe5dfc8d306d976e4",
+    "semantic_hash": ""
+  },
+  "openspec/specs/digest-bound-draft-approval/spec.md": {
+    "mtime": 1783052829.6328728,
+    "ast_hash": "6e389e18cc83b5c065671f88519c09a0",
+    "semantic_hash": ""
+  },
+  ".claude/settings.json": {
+    "mtime": 1777204517.9874444,
+    "ast_hash": "5c511cbdc7fcda005c8112e781c563bd",
+    "semantic_hash": ""
+  },
+  ".codex/hooks.json": {
+    "mtime": 1777204481.818871,
+    "ast_hash": "b1643d69c38ea633ec815c49798d8da1",
+    "semantic_hash": ""
+  },
+  "autoresearch.sh": {
+    "mtime": 1783324076.122725,
+    "ast_hash": "ab81b05e87450f2f1d424aa225f4f21a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-authority/src/compose.rs": {
+    "mtime": 1782990521.750873,
+    "ast_hash": "563127c71289b2ba1e5ec916e30af888",
+    "semantic_hash": ""
+  },
+  "crates/openspine-authority/src/lib.rs": {
+    "mtime": 1782990521.7511482,
+    "ast_hash": "8506b5d96a35d743bcc7b98771f92647",
+    "semantic_hash": ""
+  },
+  "crates/openspine-authority/src/route.rs": {
+    "mtime": 1782990521.751473,
+    "ast_hash": "4e5321f988ca33c2e627c1bb871d40ed",
+    "semantic_hash": ""
+  },
+  "crates/openspine-authority/tests/common/mod.rs": {
+    "mtime": 1783068373.4357438,
+    "ast_hash": "c8bba64db092e1c1cb75f95c1507732a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-authority/tests/compose.rs": {
+    "mtime": 1783068373.4360669,
+    "ast_hash": "14158f6cc4d153881b71a001d2e9a8aa",
+    "semantic_hash": ""
+  },
+  "crates/openspine-gate/src/gate.rs": {
+    "mtime": 1782991166.9933453,
+    "ast_hash": "2a68629bdd6e2442d1380beb8acab21a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-gate/src/lib.rs": {
+    "mtime": 1782991166.993788,
+    "ast_hash": "4400b9e1598dad90eb515e2d953d6a3d",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/actions.rs": {
+    "mtime": 1783068373.4363456,
+    "ast_hash": "eb626a2d893b73e49a2762e07dfef49e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/artifact_activation_tests.rs": {
+    "mtime": 1783068373.436686,
+    "ast_hash": "0dcef792e031c38e56840dbacca9615f",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/artifact_propose.rs": {
+    "mtime": 1783068373.4369123,
+    "ast_hash": "50cbf2dcb4b5937295214c5fe1495b32",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/artifact_propose_tests.rs": {
+    "mtime": 1783068373.4370942,
+    "ast_hash": "f7554859a4c01b1ad8baefe8fd1763fb",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/dispatch_tests.rs": {
+    "mtime": 1783052696.843673,
+    "ast_hash": "c1a314e759c3e10a9b525b585604f136",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/generate.rs": {
+    "mtime": 1783073640.9768085,
+    "ast_hash": "3751d786ef4ba92ce7dc77f81de794d6",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/generate_tests.rs": {
+    "mtime": 1783052696.8446882,
+    "ast_hash": "7af71f490b7d2cd8efd758aefa3be40f",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/mod.rs": {
+    "mtime": 1783068373.4376209,
+    "ast_hash": "50b2688766f5272dee7a3d5496a0574b",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/preview_tests.rs": {
+    "mtime": 1783052696.8457193,
+    "ast_hash": "4a49c407f1e6c7b0aadbfc85dfa9d4c4",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/task.rs": {
+    "mtime": 1783006502.3886027,
+    "ast_hash": "0a2401d53cd1b89cf41e126c76ae74e6",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/telegram_truncate.rs": {
+    "mtime": 1783052696.846081,
+    "ast_hash": "0e4b78579722bc74aaf07655c4b265d0",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/api/tests.rs": {
+    "mtime": 1783006502.388915,
+    "ast_hash": "3933f2d5f189978672bba7a83cd0cf2b",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/artifact_loader.rs": {
+    "mtime": 1783068373.4379148,
+    "ast_hash": "b689e2c7b1f53c870b1ae41ff0d984fc",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/artifact_store.rs": {
+    "mtime": 1782997627.245319,
+    "ast_hash": "62cd0eb0efe25198964ebc56b711c9a6",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/benchmark.rs": {
+    "mtime": 1783324076.122912,
+    "ast_hash": "89fdde3e42e63edc165d095faec62438",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/config.rs": {
+    "mtime": 1783007842.3838382,
+    "ast_hash": "c55225fe8b8bcbafc0929b81fe85253e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/gmail.rs": {
+    "mtime": 1783007842.3844016,
+    "ast_hash": "e283437b89fe83c5eb2654d0942f287d",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/gmail/tests.rs": {
+    "mtime": 1783007842.3849163,
+    "ast_hash": "75ab0b1af51b2c25b77c7c067651296e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/main.rs": {
+    "mtime": 1783324076.1231484,
+    "ast_hash": "7274ce8722242a13c92efbdf607ba52a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/model_gateway/mod.rs": {
+    "mtime": 1783006502.3909361,
+    "ast_hash": "2170a5e49e9709ad53febabb55f81eb1",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/model_gateway/providers.rs": {
+    "mtime": 1782997627.2465339,
+    "ast_hash": "1ca6e22e15c88a5cf5283e5b44f3aa9c",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/pipeline/approval.rs": {
+    "mtime": 1783068373.4385476,
+    "ast_hash": "91f3eafc53c5c99591a648cdb2344d7e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/pipeline/mod.rs": {
+    "mtime": 1783068373.4388478,
+    "ast_hash": "6deceba0ff81b7863e337106f2171fad",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/pipeline/selection.rs": {
+    "mtime": 1783068373.4391558,
+    "ast_hash": "5bc59a88d9ac6d6a3015717715fae939",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/pipeline/tests/approval.rs": {
+    "mtime": 1783007842.3871284,
+    "ast_hash": "056fd7f15f3dcea0d5cd0165920e0296",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/pipeline/tests/mod.rs": {
+    "mtime": 1783052696.8472981,
+    "ast_hash": "5937ab1eb01b043ac4b58a6152cd543e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/sandbox.rs": {
+    "mtime": 1782997627.2469876,
+    "ast_hash": "8ccaee8074b11bd20ac53859e2c7fef4",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/budget_support.rs": {
+    "mtime": 1783073640.9773006,
+    "ast_hash": "b66ee8c79dab0c4549e27b45d31992e4",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/budget_support_tests.rs": {
+    "mtime": 1783073640.977709,
+    "ast_hash": "2518e06709e09f856d094f0c29db2398",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/gate_support.rs": {
+    "mtime": 1783052696.8489687,
+    "ast_hash": "57e9bece6123df832928ae7a001ad1d4",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/migrations.rs": {
+    "mtime": 1783073640.9780526,
+    "ast_hash": "6a671d3da4b64fc9d6abd54c20f4843a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/mod.rs": {
+    "mtime": 1783324076.12339,
+    "ast_hash": "2f041d937acd244a89a083f57e5acdf8",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/proposed_artifacts.rs": {
+    "mtime": 1783068373.4396496,
+    "ast_hash": "235dea096d3ee2227c046cd9a83306c9",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/store/tests.rs": {
+    "mtime": 1783073640.9791214,
+    "ast_hash": "005b68a8648d3563782de61b9b8f804b",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/telegram.rs": {
+    "mtime": 1783007842.3891494,
+    "ast_hash": "bcd3f3526b763b7a4a72fd7af144e9ff",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/test_support.rs": {
+    "mtime": 1783068373.4400666,
+    "ast_hash": "9cee8ef4d4a29874106223b00979bc8b",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/action.rs": {
+    "mtime": 1782991166.9941404,
+    "ast_hash": "4ea3fa345dd51b9761b2e3de85645778",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/agent.rs": {
+    "mtime": 1782990521.7529817,
+    "ast_hash": "a737be8a1d6d201a608197e54da3a8de",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/approval.rs": {
+    "mtime": 1782989138.6221502,
+    "ast_hash": "8160051e5bec23c4c72ffbf44dfc57db",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/artifact.rs": {
+    "mtime": 1782990521.7532623,
+    "ast_hash": "3a975223b736e3160312c5849c358e3c",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/audit.rs": {
+    "mtime": 1782989138.6225228,
+    "ast_hash": "889dedadbc673a8cc1c0463994ae00d7",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/digest.rs": {
+    "mtime": 1783324076.1236508,
+    "ast_hash": "e5cb51f6d34f047553bbe5d6eb42e340",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/event.rs": {
+    "mtime": 1782989138.6229088,
+    "ast_hash": "c701be5b69c9b1fa387f2e200b55be7a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/grant.rs": {
+    "mtime": 1782990521.753673,
+    "ast_hash": "7c4269ddfb92b7d5f3c4b8c16d743352",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/identity.rs": {
+    "mtime": 1782989138.6233063,
+    "ast_hash": "1c5d489b13d9e1f75496522e46168838",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/ids.rs": {
+    "mtime": 1782989138.6234646,
+    "ast_hash": "9ee872846847cd0fd57a33e6b94ad392",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/lib.rs": {
+    "mtime": 1782989138.623814,
+    "ast_hash": "6fd4793551598d18be03499c5b48e30d",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/model.rs": {
+    "mtime": 1782989138.6240191,
+    "ast_hash": "722bf3ef0ca154693ec90247786035bf",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/pack.rs": {
+    "mtime": 1782990521.7540016,
+    "ast_hash": "df9891586d04e2722a5e9184f35e4d29",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/policy.rs": {
+    "mtime": 1782990521.754326,
+    "ast_hash": "fe7ecdd7c57be9daee80b712435047c1",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/route.rs": {
+    "mtime": 1782990521.7546961,
+    "ast_hash": "a38225d8a1e256d69d233eeb19d3ba5f",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/selection.rs": {
+    "mtime": 1782989138.624906,
+    "ast_hash": "b38be4fa27369332a23baf0f36cea614",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/src/workflow.rs": {
+    "mtime": 1782990521.7550664,
+    "ast_hash": "2124beb053e7732cddb8a1d0fdf9a7c2",
+    "semantic_hash": ""
+  },
+  "crates/openspine-schemas/tests/fixtures.rs": {
+    "mtime": 1782989138.6257205,
+    "ast_hash": "77dedc4d498327179999f26a03cc3b6f",
+    "semantic_hash": ""
+  },
+  "crates/openspine-shell/src/agents/email_reply_drafter.rs": {
+    "mtime": 1783006502.3941321,
+    "ast_hash": "9d3e62cba00e6323c7a0b910d353975a",
+    "semantic_hash": ""
+  },
+  "crates/openspine-shell/src/agents/main_assistant.rs": {
+    "mtime": 1783068373.4403784,
+    "ast_hash": "cb387df6c59759ff94d113f0d9cd260c",
+    "semantic_hash": ""
+  },
+  "crates/openspine-shell/src/agents/mod.rs": {
+    "mtime": 1783006502.394838,
+    "ast_hash": "10818690dcde652f45b12fa862a8aad6",
+    "semantic_hash": ""
+  },
+  "crates/openspine-shell/src/client.rs": {
+    "mtime": 1783006502.395327,
+    "ast_hash": "a9623651325bfeb2e87d676ee80bb405",
+    "semantic_hash": ""
+  },
+  "crates/openspine-shell/src/main.rs": {
+    "mtime": 1783006502.3956995,
+    "ast_hash": "bc3fe74e1ef45b5113042eb24944976f",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1783049538.3775952,
+    "ast_hash": "7532b0b62fcf195deae518e29313f523",
+    "semantic_hash": ""
+  },
+  "scripts/check-claims.sh": {
+    "mtime": 1783054084.5805497,
+    "ast_hash": "4c206c885687402b56a58119a0e25fed",
+    "semantic_hash": ""
+  },
+  "scripts/check-file-sizes.sh": {
+    "mtime": 1782987858.4412627,
+    "ast_hash": "65df98b31835c1b38567feabdea41aed",
+    "semantic_hash": ""
+  },
+  "scripts/check.sh": {
+    "mtime": 1783054084.580989,
+    "ast_hash": "46ae93d6e237eb8d3fbd68d52d27b5c0",
+    "semantic_hash": ""
+  },
+  "site/.astro/collections/docs.schema.json": {
+    "mtime": 1783100406.5050082,
+    "ast_hash": "60785b482deb598858f922d20f03f18a",
+    "semantic_hash": ""
+  },
+  "site/.astro/content-assets.mjs": {
+    "mtime": 1783068985.3232906,
+    "ast_hash": "8aeea624d36ca2b4c7d0e0748b76ba28",
+    "semantic_hash": ""
+  },
+  "site/.astro/content-modules.mjs": {
+    "mtime": 1783068985.3247876,
+    "ast_hash": "3ec55edfde06727ecb4fdf9b251fdcfc",
+    "semantic_hash": ""
+  },
+  "site/.astro/content.d.ts": {
+    "mtime": 1783100407.329241,
+    "ast_hash": "390d5ace4a14930ef0f88b466ee5cf7e",
+    "semantic_hash": ""
+  },
+  "site/.astro/types.d.ts": {
+    "mtime": 1783100407.3295906,
+    "ast_hash": "f3d48b2aa569815a445d3509aa161559",
+    "semantic_hash": ""
+  },
+  "site/.vscode/extensions.json": {
+    "mtime": 1783069068.6314588,
+    "ast_hash": "3adedb22d082dbd1ebb00b75d21403aa",
+    "semantic_hash": ""
+  },
+  "site/.vscode/launch.json": {
+    "mtime": 1783069068.631758,
+    "ast_hash": "60493763dcbc2d109e57da86d997602a",
+    "semantic_hash": ""
+  },
+  "site/astro.config.mjs": {
+    "mtime": 1783100481.5456913,
+    "ast_hash": "17d53de4a51279a14c825313d795c26b",
+    "semantic_hash": ""
+  },
+  "site/package.json": {
+    "mtime": 1783069068.6346223,
+    "ast_hash": "eba7e41e596dd01db7fa9fedc9a67b27",
+    "semantic_hash": ""
+  },
+  "site/src/content.config.ts": {
+    "mtime": 1783069068.6351738,
+    "ast_hash": "9333c054c16ebc82d9223347ffd02563",
+    "semantic_hash": ""
+  },
+  "site/tsconfig.json": {
+    "mtime": 1783069068.6375442,
+    "ast_hash": "1d3613ac08bdda17e2b82251613dbc21",
+    "semantic_hash": ""
+  },
+  ".claude/commands/opsx/apply.md": {
+    "mtime": 1777204115.7491004,
+    "ast_hash": "1678894a7cfd1ea31917ed6ebeabc11b",
+    "semantic_hash": ""
+  },
+  ".claude/commands/opsx/archive.md": {
+    "mtime": 1777204115.749446,
+    "ast_hash": "622fed432675ead218192e24f3343e19",
+    "semantic_hash": ""
+  },
+  ".claude/commands/opsx/explore.md": {
+    "mtime": 1777204115.7468836,
+    "ast_hash": "bca6fe1d095ba5a832abed55072b9def",
+    "semantic_hash": ""
+  },
+  ".claude/commands/opsx/propose.md": {
+    "mtime": 1777204115.7497702,
+    "ast_hash": "0997adc1ed0af0a068544bc87a177770",
+    "semantic_hash": ""
+  },
+  ".claude/skills/openspec-apply-change/SKILL.md": {
+    "mtime": 1777204115.7445762,
+    "ast_hash": "113ad4a13c30634311141d6dadcc0464",
+    "semantic_hash": ""
+  },
+  ".claude/skills/openspec-archive-change/SKILL.md": {
+    "mtime": 1777204115.7450547,
+    "ast_hash": "f010cb3292d101742592bcad1abfe762",
+    "semantic_hash": ""
+  },
+  ".claude/skills/openspec-explore/SKILL.md": {
+    "mtime": 1777204115.7441473,
+    "ast_hash": "d160105373f4fe54bfbe1790b343c51b",
+    "semantic_hash": ""
+  },
+  ".claude/skills/openspec-propose/SKILL.md": {
+    "mtime": 1777204115.7455816,
+    "ast_hash": "0753f4a4ce92da2b27bef07c994bef17",
+    "semantic_hash": ""
+  },
+  ".codex/skills/openspec-apply-change/SKILL.md": {
+    "mtime": 1777204115.7351975,
+    "ast_hash": "113ad4a13c30634311141d6dadcc0464",
+    "semantic_hash": ""
+  },
+  ".codex/skills/openspec-archive-change/SKILL.md": {
+    "mtime": 1777204115.735551,
+    "ast_hash": "f010cb3292d101742592bcad1abfe762",
+    "semantic_hash": ""
+  },
+  ".codex/skills/openspec-explore/SKILL.md": {
+    "mtime": 1777204115.7347174,
+    "ast_hash": "d160105373f4fe54bfbe1790b343c51b",
+    "semantic_hash": ""
+  },
+  ".codex/skills/openspec-propose/SKILL.md": {
+    "mtime": 1777204115.735979,
+    "ast_hash": "0753f4a4ce92da2b27bef07c994bef17",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1783049538.375184,
+    "ast_hash": "176ef068f615b8de673339a0b3dfedf6",
+    "semantic_hash": ""
+  },
+  ".github/workflows/deploy-site.yml": {
+    "mtime": 1783100481.542563,
+    "ast_hash": "92e7932346eaf6f47aac607d870ab019",
+    "semantic_hash": ""
+  },
+  ".omp/skills/README.md": {
+    "mtime": 1783428445.2353244,
+    "ast_hash": "f7055e99d3c54a0d55ada961b2b3ee9c",
+    "semantic_hash": ""
+  },
+  ".omp/skills/blindspot-pass/SKILL.md": {
+    "mtime": 1783428445.2357388,
+    "ast_hash": "43c08079df78885d39a0d32719e264e4",
+    "semantic_hash": ""
+  },
+  ".omp/skills/brainstorm-prototypes/SKILL.md": {
+    "mtime": 1783428445.2361934,
+    "ast_hash": "7ecb4592ec9b39f7e961ba0e9ccd4176",
+    "semantic_hash": ""
+  },
+  ".omp/skills/change-quiz/SKILL.md": {
+    "mtime": 1783428445.236457,
+    "ast_hash": "2fc307b76cd25c8bb185cbc873b20a46",
+    "semantic_hash": ""
+  },
+  ".omp/skills/implementation-notes/SKILL.md": {
+    "mtime": 1783428445.2367215,
+    "ast_hash": "218f55c99d655d3f711c1b964e76032d",
+    "semantic_hash": ""
+  },
+  ".omp/skills/implementation-plan/SKILL.md": {
+    "mtime": 1783428445.2370117,
+    "ast_hash": "378b1b6ae84a31bc360ce0b81862df6f",
+    "semantic_hash": ""
+  },
+  ".omp/skills/interview-me/SKILL.md": {
+    "mtime": 1783428445.2372513,
+    "ast_hash": "89aaf527219612866c262308a4bc6928",
+    "semantic_hash": ""
+  },
+  ".omp/skills/pitch-packager/SKILL.md": {
+    "mtime": 1783428445.2376244,
+    "ast_hash": "2b1b2535e394ac169a452129c5778347",
+    "semantic_hash": ""
+  },
+  ".omp/skills/reference-hunt/SKILL.md": {
+    "mtime": 1783428445.2379646,
+    "ast_hash": "ee5e82e12ca3f186284d9ae844251c90",
+    "semantic_hash": ""
+  },
+  ".opencode/commands/opsx-apply.md": {
+    "mtime": 1777204115.7417011,
+    "ast_hash": "98dfe12d359f39ac0d631c06c7f4d134",
+    "semantic_hash": ""
+  },
+  ".opencode/commands/opsx-archive.md": {
+    "mtime": 1777204115.741876,
+    "ast_hash": "48a27c2c74ccc0c38f73f5fe1731403b",
+    "semantic_hash": ""
+  },
+  ".opencode/commands/opsx-explore.md": {
+    "mtime": 1777204115.7414577,
+    "ast_hash": "74d5125862b00db97818eb3cbbee8167",
+    "semantic_hash": ""
+  },
+  ".opencode/commands/opsx-propose.md": {
+    "mtime": 1777204115.742054,
+    "ast_hash": "a0c6cfc575d565b5343b1d829a198909",
+    "semantic_hash": ""
+  },
+  ".opencode/skills/openspec-apply-change/SKILL.md": {
+    "mtime": 1777204115.740351,
+    "ast_hash": "78fc4f21278a5f6609f5fa00b2b22306",
+    "semantic_hash": ""
+  },
+  ".opencode/skills/openspec-archive-change/SKILL.md": {
+    "mtime": 1777204115.7406933,
+    "ast_hash": "f010cb3292d101742592bcad1abfe762",
+    "semantic_hash": ""
+  },
+  ".opencode/skills/openspec-explore/SKILL.md": {
+    "mtime": 1777204115.7398684,
+    "ast_hash": "01227b0646944af4c0a5fd1b31ec6ce1",
+    "semantic_hash": ""
+  },
+  ".opencode/skills/openspec-propose/SKILL.md": {
+    "mtime": 1777204115.7411351,
+    "ast_hash": "cafdd99d14adcd7f90c0cd6a50ed5f9a",
+    "semantic_hash": ""
+  },
+  ".raw/openspine-agentos-design-log.md": {
+    "mtime": 1783449449.0235903,
+    "ast_hash": "199668fe33f83a49ff752738d14c497c",
+    "semantic_hash": ""
+  },
+  ".raw/openspine-decision-log.md": {
+    "mtime": 1783623042.7339642,
+    "ast_hash": "75766bfb6be984beeb4d03c506b6bb27",
+    "semantic_hash": ""
+  },
+  ".raw/openspine-prd-v9.md": {
+    "mtime": 1777205250.3912094,
+    "ast_hash": "b046b85fa5d438e668c23b243796ffbe",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1783100481.5442462,
+    "ast_hash": "45eeafcd0d0476bc54514b27866f104d",
+    "semantic_hash": ""
+  },
+  "artifacts/README.md": {
+    "mtime": 1782989138.6185968,
+    "ast_hash": "0c1277ae426bd816df971c97f93802e1",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/agents/email_reply_drafter.yaml": {
+    "mtime": 1782990521.7491655,
+    "ast_hash": "2e30f98b91a6f8fbee457fbeac3a4d2b",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/agents/main_assistant_agent.yaml": {
+    "mtime": 1782989138.6191761,
+    "ast_hash": "80376660577abc53b039118daa0e823b",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/packs/owner_control_basic_pack.yaml": {
+    "mtime": 1783068373.4354253,
+    "ast_hash": "b4a7e8c22870bb87bb7aace6f55558de",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/packs/selected_thread_email_draft_pack.yaml": {
+    "mtime": 1782989138.6197827,
+    "ast_hash": "276a767e7c8a79ef0c1d7fce8fd6452c",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/policies/global.yaml": {
+    "mtime": 1782989138.620294,
+    "ast_hash": "93d2859767cb09483fd156ee226ebd04",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/routes/owner_email_selected_thread.yaml": {
+    "mtime": 1782989138.6205413,
+    "ast_hash": "db3f9e83271ea8ce352cafd310ac8d15",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/routes/owner_telegram_main_assistant.yaml": {
+    "mtime": 1782989138.6207407,
+    "ast_hash": "5d79d997a645959ea494f7a0b9b025cc",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/templates/email_reply_draft_template.yaml": {
+    "mtime": 1783006502.3861659,
+    "ast_hash": "58ca279652a55e307da25fc80bda1a69",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/templates/owner_control_template.yaml": {
+    "mtime": 1782997627.2419834,
+    "ast_hash": "6c3c7655ae787d7058604889ce915ce8",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/workflows/owner_control_conversation.yaml": {
+    "mtime": 1782990521.7495778,
+    "ast_hash": "5b94a649901e38bf1a4872d59499088c",
+    "semantic_hash": ""
+  },
+  "artifacts/lyra/workflows/selected_thread_email_reply_draft.yaml": {
+    "mtime": 1782990521.7499278,
+    "ast_hash": "88228b923394cea8bb038b90a2c97f10",
+    "semantic_hash": ""
+  },
+  "compose.yaml": {
+    "mtime": 1783052696.8422744,
+    "ast_hash": "719322c3d641bd5fa6f82b335ac9fd74",
+    "semantic_hash": ""
+  },
+  "docs/gmail-setup.md": {
+    "mtime": 1783006502.396082,
+    "ast_hash": "63b1f034dcf6527b355827c3ac55bbb6",
+    "semantic_hash": ""
+  },
+  "docs/kernel-http-contract.md": {
+    "mtime": 1783068373.4406438,
+    "ast_hash": "cd423a37876a1961f2314f51c22508ea",
+    "semantic_hash": ""
+  },
+  "docs/telegram-setup.md": {
+    "mtime": 1782997627.2507374,
+    "ast_hash": "62823e8067b1f471bf0719079b3329ee",
+    "semantic_hash": ""
+  },
+  "docs/threat-claims.md": {
+    "mtime": 1783054084.5796175,
+    "ast_hash": "4420a14feb8ffb601caae19f62a7ad48",
+    "semantic_hash": ""
+  },
+  "graphify-out/memory/query_20260703_104024_trace_the_full_runtime_call_path_for_a_single_inco.md": {
+    "mtime": 1783077976.3482754,
+    "ast_hash": "cb02ac2cba3450bb0b2dbeeea3322c7f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-core-runtime-schemas/design.md": {
+    "mtime": 1782989201.4506257,
+    "ast_hash": "edadec660699b5aed2352268e7cf9e1f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-core-runtime-schemas/proposal.md": {
+    "mtime": 1782989201.4508238,
+    "ast_hash": "2af5979d6d317775e350991d07133b4a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-core-runtime-schemas/specs/core-runtime-schemas/spec.md": {
+    "mtime": 1782989201.4511182,
+    "ast_hash": "1de96d1cba3d45126c0fa2151416534c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-core-runtime-schemas/tasks.md": {
+    "mtime": 1782989201.4512837,
+    "ast_hash": "eb5b7ee7248a0c327ca4fc12e69fd95d",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-openspine-development-process/design.md": {
+    "mtime": 1777191556.0,
+    "ast_hash": "4ba5c67f32a573710b52338bf4af2652",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-openspine-development-process/proposal.md": {
+    "mtime": 1777206794.317673,
+    "ast_hash": "f905994a32d566b143ee5d6e84e986ee",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-openspine-development-process/specs/openspine-development-process/spec.md": {
+    "mtime": 1777206898.3173254,
+    "ast_hash": "738cca227bc04d7bc80b3a1743183b6b",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-define-openspine-development-process/tasks.md": {
+    "mtime": 1777206928.6805587,
+    "ast_hash": "22f17d8afb9379984c1bac14f91eb452",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-authority-composition/design.md": {
+    "mtime": 1782990560.047312,
+    "ast_hash": "4c20d1159aa8200f92aff4a8bce68103",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-authority-composition/proposal.md": {
+    "mtime": 1782990560.0514548,
+    "ast_hash": "a285dc726169a86a5c7a592bf6eecfcd",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-authority-composition/specs/authority-composition/spec.md": {
+    "mtime": 1782990560.0536783,
+    "ast_hash": "866872270478fd7562744b1be2b31986",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-authority-composition/tasks.md": {
+    "mtime": 1782990560.05426,
+    "ast_hash": "1f5b4c21f978efeccd21ff677d873272",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-digest-bound-draft-approval/design.md": {
+    "mtime": 1783007897.1831174,
+    "ast_hash": "dafe0cb8d66d3c533d209feda90fb0d0",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-digest-bound-draft-approval/proposal.md": {
+    "mtime": 1783007897.1833193,
+    "ast_hash": "5025ecabb0dcd22e404a2a6796fe282a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-digest-bound-draft-approval/specs/digest-bound-draft-approval/spec.md": {
+    "mtime": 1783007897.1836708,
+    "ast_hash": "76c77c035bbd4d9815c9ee78fb119a85",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-digest-bound-draft-approval/tasks.md": {
+    "mtime": 1783007897.183903,
+    "ast_hash": "1a08b176c4fec8f7d951d7f39cbd6182",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-gate-action-api/design.md": {
+    "mtime": 1782991199.8426049,
+    "ast_hash": "009e3786460da9e95fa0c15b2f27f9b5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-gate-action-api/proposal.md": {
+    "mtime": 1782991199.842818,
+    "ast_hash": "223554fb948dab71f15c48da95e201b2",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-gate-action-api/specs/gate-action-api/spec.md": {
+    "mtime": 1782991199.8434103,
+    "ast_hash": "dff6bd7c19a2788e2e8ccf586f40f9a9",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-gate-action-api/tasks.md": {
+    "mtime": 1782991199.8436503,
+    "ast_hash": "3a47d2e22222789455438dd3d648a7a0",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-selected-thread-email-preview-slice/design.md": {
+    "mtime": 1783006624.956689,
+    "ast_hash": "96163e9796969fe466e4af939804b15b",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-selected-thread-email-preview-slice/proposal.md": {
+    "mtime": 1783006624.9568882,
+    "ast_hash": "aab9cfc379a53ff90ae741cf06733840",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-selected-thread-email-preview-slice/specs/selected-thread-email-preview-slice/spec.md": {
+    "mtime": 1783006624.9572601,
+    "ast_hash": "985c3270e1990c818a77c4047c8f0b73",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-selected-thread-email-preview-slice/tasks.md": {
+    "mtime": 1783006624.9575338,
+    "ast_hash": "00af700d9895094e521c70189c81a03b",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-telegram-owner-control-slice/design.md": {
+    "mtime": 1782997946.441649,
+    "ast_hash": "cd19b376db9426cdfac0b00a1fe17250",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-telegram-owner-control-slice/proposal.md": {
+    "mtime": 1782997946.441848,
+    "ast_hash": "e80ef347517541281d899beb8c1965f0",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-telegram-owner-control-slice/specs/telegram-owner-control-slice/spec.md": {
+    "mtime": 1782997946.442141,
+    "ast_hash": "473ef2f240f0f02d9e209a716d4920aa",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-02-implement-telegram-owner-control-slice/tasks.md": {
+    "mtime": 1782997946.4423082,
+    "ast_hash": "da85af066533261a92d91b855b6f83f2",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/design.md": {
+    "mtime": 1783053767.5167544,
+    "ast_hash": "a8270140a392815db0cf6c8747220922",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/proposal.md": {
+    "mtime": 1783053767.516941,
+    "ast_hash": "093d61ba234ce8ca04830e59790bd3c8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/specs/audit-artifact-store/spec.md": {
+    "mtime": 1783053767.5172439,
+    "ast_hash": "081dfc1b8f80d0e73f16c5f47a37c1fd",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/specs/model-gateway/spec.md": {
+    "mtime": 1783053767.517459,
+    "ast_hash": "6a0e2f3d16d9ab7ca129216d3b534fae",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/specs/openspine-development-process/spec.md": {
+    "mtime": 1783053767.5176811,
+    "ast_hash": "c745fb84cbafae079e9946bd819577bb",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/specs/shell-containment/spec.md": {
+    "mtime": 1783053767.5180304,
+    "ast_hash": "3ec6da16e99f956b213445900d717ca8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-backfill-implemented-capability-specs/tasks.md": {
+    "mtime": 1783053767.5182307,
+    "ast_hash": "0140806746bdf0be1565179daedae6d3",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/design.md": {
+    "mtime": 1783052829.6314836,
+    "ast_hash": "fee4874cd26c9f147200cf7e420751e8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/proposal.md": {
+    "mtime": 1783052829.6316504,
+    "ast_hash": "df961b54e6c4617c672bfefe6ce1c01f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/specs/digest-bound-draft-approval/spec.md": {
+    "mtime": 1783052829.6319263,
+    "ast_hash": "376102fef832124a7b357325c00aa1fc",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/specs/gate-action-api/spec.md": {
+    "mtime": 1783052829.632143,
+    "ast_hash": "876dd1d1480ffa72f403bc08800fbfe5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/specs/selected-thread-email-preview-slice/spec.md": {
+    "mtime": 1783052829.6323507,
+    "ast_hash": "ef9e3b76e3284ec0c78a6cf700f8ad8d",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-harden-approval-and-budgets/tasks.md": {
+    "mtime": 1783052829.632518,
+    "ast_hash": "2da20cc6d6469c290f7c0fd0c3c85519",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-implement-artifact-lifecycle-slice/design.md": {
+    "mtime": 1783068431.0954802,
+    "ast_hash": "c06ab30ccaf97d2d04ace163b1ea47e4",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-implement-artifact-lifecycle-slice/proposal.md": {
+    "mtime": 1783068431.0956798,
+    "ast_hash": "32e69df66d8587b853ff154b6794a42a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-implement-artifact-lifecycle-slice/specs/artifact-lifecycle/spec.md": {
+    "mtime": 1783068431.096125,
+    "ast_hash": "afb5ea9e7904a6ddb318ce6182823a88",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-03-implement-artifact-lifecycle-slice/tasks.md": {
+    "mtime": 1783068431.0964715,
+    "ast_hash": "a997b3d9e3e08ed59716a46ba9efc588",
+    "semantic_hash": ""
+  },
+  "openspec/config.yaml": {
+    "mtime": 1777206686.0290773,
+    "ast_hash": "a58ebd35d385f48152b82ac3183d6d00",
+    "semantic_hash": ""
+  },
+  "openspec/specs/artifact-lifecycle/spec.md": {
+    "mtime": 1783068431.097175,
+    "ast_hash": "44549a5a10124b70b3357a6aa9edcc86",
+    "semantic_hash": ""
+  },
+  "openspec/specs/audit-artifact-store/spec.md": {
+    "mtime": 1783053767.5184987,
+    "ast_hash": "a8e49ce9d91f4b295643cd6374d5b1cf",
+    "semantic_hash": ""
+  },
+  "openspec/specs/model-gateway/spec.md": {
+    "mtime": 1783053767.5187166,
+    "ast_hash": "6c3c667db491c1504653d554e2af17b1",
+    "semantic_hash": ""
+  },
+  "openspec/specs/shell-containment/spec.md": {
+    "mtime": 1783053767.5192583,
+    "ast_hash": "08e62b14abf0442637a4053f91d58a89",
+    "semantic_hash": ""
+  },
+  "openspine.docker.example.yaml": {
+    "mtime": 1783007842.4020398,
+    "ast_hash": "5b687a037fdba825605f812260278b0d",
+    "semantic_hash": ""
+  },
+  "openspine.example.yaml": {
+    "mtime": 1783007842.402622,
+    "ast_hash": "6017492ff685ffa6aa6067b8ce55530a",
+    "semantic_hash": ""
+  },
+  "site/AGENTS.md": {
+    "mtime": 1783069068.6320124,
+    "ast_hash": "4d944a80d98bf8891d5b10081a86d3e1",
+    "semantic_hash": ""
+  },
+  "site/CLAUDE.md": {
+    "mtime": 1783069068.6320124,
+    "ast_hash": "4d944a80d98bf8891d5b10081a86d3e1",
+    "semantic_hash": ""
+  },
+  "site/README.md": {
+    "mtime": 1783069068.632637,
+    "ast_hash": "1442c26980dffef71c55f6b27ec9e928",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/architecture.md": {
+    "mtime": 1783100481.5461159,
+    "ast_hash": "1ee7304bccd4e62c1ca39f0b2ef8b80c",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/decisions.md": {
+    "mtime": 1783100481.5465045,
+    "ast_hash": "06587e04da1c18d9f9e307de9ccc7096",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/index.mdx": {
+    "mtime": 1783100481.5468724,
+    "ast_hash": "90227d4bd962f8033fbcdc00534d2ae7",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/quickstart.md": {
+    "mtime": 1783100481.5472708,
+    "ast_hash": "e26c259587673a895531e9d918ff6db2",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/roadmap.md": {
+    "mtime": 1783100481.547625,
+    "ast_hash": "06ba80bccc72ce2d1b84c5164ebebc87",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/threat-model.md": {
+    "mtime": 1783100481.5480313,
+    "ast_hash": "995b06a90f4fdc6cde1e0171a50ac849",
+    "semantic_hash": ""
+  },
+  "site/src/content/docs/why-openspine.md": {
+    "mtime": 1783100481.548338,
+    "ast_hash": "593417c88a8b0b3fcbe71db7fe404e69",
+    "semantic_hash": ""
+  },
+  "site/public/favicon.svg": {
+    "mtime": 1783069068.6348765,
+    "ast_hash": "1883fa1409b1dd7f55f6c36aaaa1d670",
+    "semantic_hash": ""
+  }
 }
