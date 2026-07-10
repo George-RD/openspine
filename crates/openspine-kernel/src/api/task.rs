@@ -34,8 +34,9 @@ pub(super) struct TaskViewBody {
     pending_message: String,
     /// Build plan Step 5: which selection token(s) this grant may spend
     /// (PRD §15 — "only usable inside matching task grant"). Empty for
-    /// every Phase 1 grant; populated by `pipeline::handle_thread_selection`
-    /// for a selected-thread email task.
+    /// every Phase 1 grant; populated by the email-preview lane's grant-binding
+    /// hook (`pipeline::lanes::email_grant_binding`) for a selected-thread
+    /// email task.
     selection_tokens: Vec<String>,
 }
 

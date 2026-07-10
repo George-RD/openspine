@@ -65,6 +65,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-050 | `max_model_calls` is enforced with an atomic upsert, not a count-then-compare | Accepted |
 | D-051 | The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed | Accepted |
 | D-053 | Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids a hard composition error and a structured `UnknownAction` gate denial distinct from `NotGranted` | Accepted |
+| D-054 | Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract; gate is a distributed runtime stage outside the driver prefix | Accepted |
 
 ---
 
@@ -1407,6 +1408,31 @@ Runtime-registered actions/connectors ever become a requirement (they are delibe
 
 
 
+# D-054 — Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in data records
+
+## Decision
+
+The pipeline stages are a typed compiled-in sequence the driver executes, and lanes are compiled-in data records (`refactor-pipeline-driver`, kernel-readiness item 2). `PipelineStage` is a typed enum declared once, with its canonical order fixed as `PipelineStage::SEQUENCE` (nine variants: `Event`, `Verify`, `Identify`, `Route`, `Compose`, `Grant`, `Run`, `Gate`, `Audit`) and its synchronous prefix derived from that as `PipelineStage::SYNC_PREFIX` (the sequence truncated before `Gate`); the driver's execution is checked against `SYNC_PREFIX` — `run_pipeline` records an instrumented executed-stage trace that tests pin equal to the prefix for every lane, and `SYNC_PREFIX` is derived element-by-element from `SEQUENCE` so the declarations cannot drift; the enum is the stage plan the driver is held to, not documentation: `event → verify → identify → route → compose → grant → run`. Lanes are compiled-in `LaneSpec` data records with a hard single-stage hook contract: a lane hook takes typed inputs and returns typed outputs for exactly one stage, and MUST NOT call `resolve_route`, `compose_authority`, `insert_task_grant`, or `run_task`, MUST NOT emit audit for any stage other than its own, and MUST NOT invoke another hook or stage; lanes are kernel values with no runtime registration, mutation, or removal path — never runtime-proposable artifacts. Gate is a distributed runtime stage at the effect boundary (AD-120, D-004), outside the driver prefix: the driver type names `Gate` so the sequence is honest, but execution stays at the shell dispatch surface and the approval callback, and the driver module never calls `gate()`. Lanes carry no sequencing capability — they cannot reorder or omit stages; the driver owns the order via `SYNC_PREFIX`, and per-lane "skips" (owner-control has no preflight verification) are expressed as no-op inputs to that stage, so the stage still runs in order. Finally, `event.received` is emitted only after `Verify` succeeds, preserving today's preflight-failure audit surface: no `event.received` is ever emitted on a preflight-failure path.
+
+## Rationale
+
+Canon (AD-120 and the agent-OS round) never fixed the representation of stages or lanes, only their behavior. A runtime-proposable lane artifact would let approved YAML alter verification order — authority-sensitive machinery this behavior-preserving change must not introduce; runtime lane growth, if ever wanted, goes through the artifact-lifecycle approval path as its own change. The nine-stage listing puts gate after run because effects happen when the shell dispatches intents; the kernel gates each intent at the effect boundary (AD-120, D-004), so the driver names `Gate` to keep the sequence honest while execution stays distributed and the driver module never imports or calls `gate()`. The driver owns order via `SYNC_PREFIX` and a `LaneSpec` carries no sequencing capability, so per-lane variation is expressed as no-op inputs rather than stage omission. Both shipped flows emit the audited envelope only after verification succeeds; pinning that placement in the driver means preflight failures never emit `event.received`, which is exactly today's audit surface and must be preserved by a behavior-preserving refactor.
+
+## Consequences
+
+- `PipelineStage::SEQUENCE` pins the nine stages in canonical order and `PipelineStage::SYNC_PREFIX` derives the synchronous driver prefix before `Gate`; the driver's executed-stage trace is held to `SYNC_PREFIX`, so the enum is the stage plan the driver is checked against — tests assert `SEQUENCE` pins order and an instrumented driver run's executed-stage trace equals `SYNC_PREFIX` for both lanes.
+- `LaneSpec` values (`owner_control_lane()`, `email_preview_lane()`) are compiled-in kernel constants with no runtime registration, mutation, or removal path; a lane hook that reimplements a stage body or calls `resolve_route`/`compose_authority`/`insert_task_grant`/`run_task`, emits cross-stage audit, or invokes another hook fails the contract and review.
+- `gate()` call sites (`api/actions.rs`, `api/generate.rs`, `pipeline/approval.rs`) and the driver module stay independent; the driver module never imports or calls `gate()`, preserving the structural boundary required by this change.
+- `event.received` placement is pinned post-`Verify`; tests assert no `event.received` is emitted on any of the four `/draft` preflight-failure paths (`selection.gmail_not_configured`, `route.refused_uncontained`, `selection.thread_not_found`, `selection.gmail_error`).
+
+## Would change if
+
+Runtime-proposable lanes ever become a requirement — a runtime lane artifact would let approved YAML alter verification order, which is authority-sensitive, so runtime lane growth stays behind the artifact-lifecycle approval path as its own change rather than folded into this behavior-preserving refactor. Equally, if gate were moved into the driver prefix (it stays distributed at the effect boundary per AD-120/D-004), or a lane needed genuine stage-level sequencing capability (forbidden by the `SYNC_PREFIX` invariant today), the compiled-in-sequence stance would be revisited under the same "lanes cannot reorder stages" constraint.
+
+---
+
+
+
 ---
 
 
@@ -1458,3 +1484,4 @@ Potential areas to research before implementation decisions:
 | 2026-07-07 | Added D-051 (agent-OS canon AD-001..153 decomposed into the dependency-edged change sequence in `openspec/openspine-change-sequence.md` per AD-145; stale later-changes placeholders superseded/subsumed with explicit mappings; `implement-secret-intake` carried forward), the spec-round decomposition artifact for the unattended dev loop. |
 | 2026-07-09 | Added D-052 (archive ceremony: `openspec archive --yes` applies deltas mechanically, pre-seeded requirements carried as MODIFIED, `--skip-specs` hand-apply retired, `--yes` permitted only on non-interactive archive; guarded by `scripts/check-omp-ceremony.sh`), settled after empirical archive probes of openspec 1.5.0 / 1.6.0-beta.1 on PR #37. |
 | 2026-07-10 | Added D-053 (kernel extension points become compiled-in registries — connector, action-handler, post-approval, artifact-kind; curated canonical `ActionCatalog` makes unknown action ids a hard `UnknownActionId` composition error and a structured `UnknownAction` gate denial distinct from `NotGranted`), settled while implementing `refactor-kernel-registries`. |
+| 2026-07-10 | Added D-054 (pipeline stages are a typed compiled-in `PipelineStage` sequence the driver executes from its synchronous `SYNC_PREFIX` — `event → verify → identify → route → compose → grant → run`; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract, never runtime-proposable artifacts; gate is a distributed runtime stage at the effect boundary per AD-120/D-004, outside the driver prefix — the driver module never calls `gate()`; lanes cannot reorder or omit stages; `event.received` is emitted only after Verify succeeds, preserving the preflight-failure audit surface), settled while implementing `refactor-pipeline-driver`. |

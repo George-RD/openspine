@@ -1,8 +1,21 @@
-//! The owner-message pipeline (build plan 4a/4b/4c wiring): Telegram update
-//! -> owner verification -> identity resolution -> route resolution ->
-//! containment guard -> authority composition -> task grant -> sandboxed
-//! shell spawn. Every step that terminates the pipeline early is audited,
-//! so "why didn't Lyra reply" is always answerable from `audit_log` alone.
+//! The owner-message pipeline: Telegram update -> owner verification ->
+//! identity resolution -> route resolution -> authority composition -> task
+//! grant -> sandboxed shell spawn.
+//!
+//! The pipeline's execution is now delegated to the single typed
+//! [`driver::run_pipeline`], which interprets one of two compiled-in lane
+//! specifications ([`driver::owner_control_lane`] and
+//! [`driver::email_preview_lane`]) over the nine-stage sequence declared once
+//! in [`driver::PipelineStage`]. This module keeps the shared helpers the
+//! lanes rely on ([`AppState`], [`empty_session_policy`],
+//! [`resolve_owner_identity`], [`notify_owner_best_effort`]) and the public
+//! entry points ([`run_telegram_poll_loop`], [`handle_owner_update`]).
+//!
+//! Lane selection (the `/draft <thread_id>` command) is recognized here, at
+//! the Event-stage boundary, and handed to the driver as lane data — the
+//! driver never re-branches on it. Every step that terminates the pipeline
+//! early is audited, so "why didn't Lyra reply" is always answerable from
+//! `audit_log` alone.
 //!
 //! Phase 1 has exactly one live identity source: the configured Telegram
 //! owner. [`resolve_owner_identity`] is a hardcoded match, not a real
@@ -12,40 +25,33 @@
 //! construction the identity here IS the owner. A persisted multi-identity
 //! graph is future work (a second real identity source), not fabricated
 //! ahead of one.
-//!
-//! [`selection::handle_thread_selection`] (build plan Step 5, D-036/D-037)
-//! is the parallel `/draft <thread_id>` entry point, split into its own
-//! module because it is a whole separate workflow (Gmail existence check,
-//! selection-token minting, `email_reply_drafter` routing) that merely
-//! shares this module's [`AppState`], `resolve_owner_identity`, and
-//! `empty_session_policy` helpers.
 
 mod approval;
+mod driver;
+mod lanes;
 mod post_approval;
 mod selection;
 #[cfg(test)]
 mod tests;
 
 use jiff::Timestamp;
-use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
 use openspine_schemas::action::ActionCatalog;
 use openspine_schemas::event::{ChannelTrust, EventEnvelope};
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType, RelationshipKind};
+use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType};
 use openspine_schemas::policy::{Constraints, SessionPolicy};
-use openspine_schemas::route::RouteResolution;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::artifact_loader::ArtifactRegistry;
 use crate::artifact_store::ArtifactStore;
 use crate::connectors::ConnectorRegistry;
-use crate::sandbox::{self, Sandbox};
+use crate::sandbox::Sandbox;
 use crate::store::Store;
 use crate::telegram::{self, VerifiedUpdate};
 use std::path::PathBuf;
 
 use approval::handle_draft_approval_callback;
-use selection::handle_thread_selection;
+use driver::{email_preview_lane, owner_control_lane, run_pipeline, EventInputs};
 
 /// Everything the pipeline needs to turn one Telegram update into an
 /// audited, sandboxed task. Built once at kernel startup and shared
@@ -128,9 +134,9 @@ fn resolve_owner_identity(
 /// for a legitimate reason), which stays silent-and-audited like every
 /// other denial in this pipeline. A failed reply here is logged, never
 /// propagated: notifying the owner is a courtesy, not part of the
-/// audited authority decision itself. Shared by [`selection`] and
-/// [`approval`] — both are "tell the owner why their tap/command didn't
-/// work" call sites, not just the selection flow.
+/// audited authority decision itself. Shared by the approval and email-preview
+/// lanes — both are "tell the owner why their tap/command didn't work" call
+/// sites, not just the selection flow.
 ///
 /// D-046 (`gate-action-api`'s "kernel-originated owner notifications are a
 /// trusted, audited path"): this send stays ungated — gating the trusted
@@ -199,11 +205,13 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
 /// (ignored, denied, refused, ambiguous) — those are not errors, they are
 /// the pipeline correctly declining to act. Returns `Ok(Some(grant))` once
 /// authority has been composed and persisted, *regardless* of whether the
-/// subsequent shell spawn succeeds (a spawn failure is audited as
-/// `task.shell_failed`, not swallowed, but authority was already granted
-/// and that fact must survive in the return value and the audit log
-/// alike). Only a genuine infrastructure failure — store I/O or an
-/// inconsistent registry — surfaces as `Err`.
+/// subsequent shell spawn succeeds. Only a genuine infrastructure failure —
+/// store I/O or an inconsistent registry — surfaces as `Err`.
+///
+/// Lane selection happens here, at the Event-stage boundary: a `/draft
+/// <thread_id>` message selects the email-preview lane, any other owner
+/// message selects the owner-control lane. The driver interprets the chosen
+/// lane as data; it does not branch on command syntax itself.
 pub async fn handle_owner_update(
     state: &AppState,
     update: &telegram::TelegramUpdate,
@@ -215,10 +223,6 @@ pub async fn handle_owner_update(
             callback_query_id,
             data,
         } => {
-            // D-039/D-044: the inline "Approve" button is the entire trust
-            // boundary for "did the owner approve this exact draft" — it
-            // must be handled here, ahead of any other routing, exactly
-            // like `/draft` (D-036).
             if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
                 handle_draft_approval_callback(
                     state,
@@ -259,220 +263,21 @@ pub async fn handle_owner_update(
         }
     };
 
-    // D-036: recognize the structured thread-selection command *before*
-    // any normal owner-control routing — this is the entire trust boundary
-    // for "did the owner select this thread", so it must run here, ahead
-    // of `main_assistant_agent`'s route, not inside it.
-    if let Some(thread_id) = telegram::parse_draft_command(&text) {
-        return handle_thread_selection(state, chat_id, thread_id).await;
-    }
-
-    let now = Timestamp::now();
-    let raw_ref = state.artifacts.put(text.as_bytes())?;
-    let envelope = telegram::build_owner_envelope(chat_id, raw_ref.clone(), now);
-    state.store.append_audit(
-        "event.received",
-        None,
-        None,
-        None,
-        None,
-        &[],
-        std::slice::from_ref(&raw_ref),
-    )?;
-
-    let identity = resolve_owner_identity(&envelope, ChannelTrust::VerifiedOwnerChannel);
-    // 5a: the registry is shared-mutable (approved proposals activate into
-    // it); take a read guard only long enough to clone the route table out,
-    // never held across the `.await` shell spawn below.
-    let routes = state.registry.read().routes.clone();
-    let route_resolution =
-        resolve_route(&envelope, &identity, Some(RelationshipKind::Owner), &routes);
-
-    let route_id = match route_resolution {
-        RouteResolution::Success { route_id } => route_id,
-        RouteResolution::Denied { reason } => {
-            state
-                .store
-                .append_audit("route.denied", None, None, Some(&reason), None, &[], &[])?;
-            return Ok(None);
-        }
-        RouteResolution::Ambiguous { reason, .. } => {
-            // Never grants widened authority on ambiguity (PRD §6.4) — falls
-            // back to logged inaction, same as an explicit deny, for Phase 1.
-            state.store.append_audit(
-                "route.ambiguous",
-                None,
-                None,
-                Some(&reason),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
-        }
+    // D-036 / design.md: the `/draft <thread_id>` command is the entire
+    // trust boundary for "did the owner select this thread" — it is
+    // recognized here as lane selection, and the driver interprets lane data;
+    // it never re-branches on command syntax. The chosen lane is then run
+    // through the same synchronous stage prefix as every other owner event.
+    let thread_id = telegram::parse_draft_command(&text).map(str::to_string);
+    let spec = if thread_id.is_some() {
+        email_preview_lane()
+    } else {
+        owner_control_lane()
     };
-
-    let route = routes
-        .iter()
-        .find(|r| r.id == route_id)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("resolved route {route_id} not found in registry"))?;
-
-    // D-025 / O-003 / PRD §16: refuse before ever composing authority.
-    if sandbox::refuses_external_communication_without_containment(
-        envelope.lane,
-        &state.sandbox,
-        state.unsafe_allow_uncontained_private_data,
-    ) {
-        state.store.append_audit(
-            "route.refused_uncontained",
-            None,
-            None,
-            Some("external_communication lane requires a containing sandbox driver"),
-            None,
-            &[],
-            &[],
-        )?;
-        return Ok(None);
-    }
-
-    let agent_id = route
-        .agent
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no agent"))?;
-    let workflow_id = route
-        .workflow
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no workflow"))?;
-    let pack_id = route
-        .capability_pack
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
-
-    let (agent, workflow, pack, global_policy) = {
-        let registry = state.registry.read();
-        let agent = registry
-            .agents
-            .get(agent_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
-        let workflow = registry
-            .workflows
-            .get(workflow_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
-        let pack = registry
-            .packs
-            .get(pack_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
-        let global_policy = registry
-            .policies
-            .get("global")
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
-        (agent, workflow, pack, global_policy)
+    let inputs = EventInputs {
+        chat_id,
+        text,
+        thread_id,
     };
-    let session = empty_session_policy();
-    let user = state.owner_user_id.to_string();
-
-    let input = AuthorityInput {
-        event: &envelope,
-        identity: &identity,
-        route: &route,
-        global_policy: &global_policy,
-        agent: &agent,
-        workflow: &workflow,
-        pack: &pack,
-        session: &session,
-        user: &user,
-        purpose: "owner_control_conversation",
-    };
-
-    let grant = match compose_authority(&input, &state.action_catalog, now) {
-        AuthorityOutcome::Granted(grant) => *grant,
-        AuthorityOutcome::Denied { reason } => {
-            state.store.append_audit(
-                "authority.denied",
-                None,
-                None,
-                Some(&reason),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
-        }
-        // D-053: an unknown action id in a fixture is a configuration
-        // defect — audited, no grant minted.
-        AuthorityOutcome::UnknownActionId { id, source } => {
-            state.store.append_audit(
-                "authority.unknown_action_id",
-                None,
-                None,
-                Some(&format!("unknown action id {id} in {source}")),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
-        }
-        // `compose_authority` never produces this itself (see its doc
-        // comment — reserved only for API symmetry with `RouteResolution`);
-        // handled here purely to stay exhaustive against future variants.
-        AuthorityOutcome::Ambiguous { .. } => {
-            state.store.append_audit(
-                "authority.ambiguous",
-                None,
-                None,
-                Some("compose_authority returned Ambiguous, which it is not expected to produce"),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
-        }
-    };
-
-    state.store.insert_task_grant(&grant, &raw_ref, chat_id)?;
-    state.store.append_audit(
-        "authority.granted",
-        None,
-        None,
-        None,
-        Some(grant.id),
-        &[],
-        &[raw_ref],
-    )?;
-
-    match state
-        .sandbox
-        .run_task(&state.kernel_endpoint, &grant.task_token)
-        .await
-    {
-        Ok(()) => {
-            state.store.append_audit(
-                "task.shell_completed",
-                None,
-                None,
-                None,
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-        }
-        Err(err) => {
-            state.store.append_audit(
-                "task.shell_failed",
-                None,
-                None,
-                Some(&err.to_string()),
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-        }
-    }
-
-    Ok(Some(grant))
+    run_pipeline(state, spec, &inputs, Timestamp::now(), &mut Vec::new()).await
 }
