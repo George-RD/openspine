@@ -32,6 +32,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-artifact-lifecycle-slice`
 - `refactor-kernel-registries` (D-053; first change of the AD sequence below —
   its brief stays in place because later `Requires:` lines reference it)
+- `refactor-pipeline-driver` (D-054; its brief stays in place for the same
+  reason)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

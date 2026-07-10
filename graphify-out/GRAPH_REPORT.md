@@ -1,16 +1,16 @@
 # Graph Report - openspine  (2026-07-10)
 
 ## Corpus Check
-- 222 files · ~155,293 words
+- 222 files · ~155,305 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2742 nodes · 4629 edges · 298 communities (266 shown, 32 thin omitted)
+- 2742 nodes · 4629 edges · 299 communities (267 shown, 32 thin omitted)
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 599 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1d628414`
+- Built from commit: `c140dbb5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -256,10 +256,11 @@
 - artifact_propose.rs
 - Overlay & key model
 - Approach
+- artifact_propose.rs
 - Delegation & containment
 - artifact_propose.rs
 - selection.rs
-- head
+- draft
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppState` - 73 edges
@@ -290,7 +291,7 @@
 - 2-file cycle: `crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs`
 - 3-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/api/actions.rs`
 
-## Communities (298 total, 32 thin omitted)
+## Communities (299 total, 32 thin omitted)
 
 ### Community 0 - "README.md"
 Cohesion: 0.18
@@ -385,8 +386,8 @@ Cohesion: 0.12
 Nodes (16): ADDED Requirements, Purpose, Requirement: Lane specifications MUST be compiled-in kernel data, Requirement: Per-flow variation MUST be lane data interpreted by one driver, Requirement: The audited event envelope MUST be emitted only after verification succeeds, Requirement: The driver MUST NOT invoke gate(), Requirement: The kernel pipeline MUST be a typed stage sequence the driver executes, Scenario: A lane cannot skip a stage (+8 more)
 
 ### Community 24 - "AppState"
-Cohesion: 0.27
-Nodes (14): ActionHandler, ActionHandlerRegistry, handle_artifact_propose(), handle_lyra_preview(), handle_read_selected_thread(), handle_setup_workflow_start(), handle_status_read(), handle_telegram_reply() (+6 more)
+Cohesion: 0.40
+Nodes (4): ActionHandler, ActionHandlerRegistry, HashMap, Self
 
 ### Community 25 - "AppState"
 Cohesion: 0.17
@@ -445,8 +446,8 @@ Cohesion: 0.10
 Nodes (19): Purpose, Requirement: Approval-required decisions MUST not execute immediately, Requirement: Every effectful action MUST pass through gate(), Requirement: Gate decisions MUST be auditable, Requirement: Gate decisions MUST use task grant precedence, Requirement: Grant limits MUST be enforced at runtime, Requirement: Kernel-originated owner notifications are a trusted, audited path, Requirement: Unspecified actions MUST be denied (+11 more)
 
 ### Community 43 - "properties"
-Cohesion: 0.10
-Nodes (19): type, default, type, anyOf, anyOf, anyOf, properties, description (+11 more)
+Cohesion: 0.12
+Nodes (16): type, anyOf, anyOf, anyOf, properties, description, lastUpdated, next (+8 more)
 
 ### Community 44 - "ADDED Requirements"
 Cohesion: 0.11
@@ -561,8 +562,8 @@ Cohesion: 0.17
 Nodes (11): ADDED Requirements, MODIFIED Requirements, Requirement: Completed OpenSpec changes MUST be archived, Requirement: OpenSpec artifacts MUST NOT be treated as live runtime authority, Requirement: Security-load-bearing subsystems MUST gain a capability spec in the change that implements them, Scenario: A change implements a new gated subsystem, Scenario: Change is complete, Scenario: Completed process change (+3 more)
 
 ### Community 72 - "properties"
-Cohesion: 0.20
-Nodes (12): items, items, properties, required, type, icon, link, tag (+4 more)
+Cohesion: 0.15
+Nodes (15): items, default, items, type, properties, required, type, head (+7 more)
 
 ### Community 73 - "SKILL.md"
 Cohesion: 0.18
@@ -1061,12 +1062,12 @@ Cohesion: 0.50
 Nodes (3): exclude, extends, include
 
 ### Community 197 - "editUrl"
-Cohesion: 0.14
-Nodes (19): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), EventInputs, LaneSpec, owner_control_lane(), PipelineStage, PreflightFailure (+11 more)
+Cohesion: 0.15
+Nodes (16): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), LaneSpec, owner_control_lane(), PipelineStage, Option, Result (+8 more)
 
 ### Community 198 - "head"
-Cohesion: 0.29
-Nodes (16): email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), owner_build_envelope(), owner_grant_binding(), owner_preflight(), owner_route_guard() (+8 more)
+Cohesion: 0.26
+Nodes (19): EventInputs, PreflightFailure, String, email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), owner_build_envelope() (+11 more)
 
 ### Community 199 - "pagefind"
 Cohesion: 0.67
@@ -1081,8 +1082,8 @@ Cohesion: 0.20
 Nodes (9): Check for context, Ending Discovery, Guardrails, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do, When a change exists (+1 more)
 
 ### Community 282 - "TaskGrant"
-Cohesion: 0.18
-Nodes (14): ArtifactProposePayload, String, authority_sources_use_kind_id_version_format(), GrantLimits, is_expired_uses_expires_at(), owner_control_grant(), round_trips_through_serde(), ArtifactId (+6 more)
+Cohesion: 0.21
+Nodes (21): handle_artifact_propose(), handle_lyra_preview(), handle_read_selected_thread(), handle_setup_workflow_start(), handle_status_read(), handle_telegram_reply(), handle_workflow_invoke(), Option (+13 more)
 
 ### Community 283 - "route.rs"
 Cohesion: 0.17
@@ -1128,6 +1129,10 @@ Nodes (5): Consequences, D-013 — Dynamic behavior easy; dynamic authority hard
 Cohesion: 0.67
 Nodes (3): anyOf, default, editUrl
 
+### Community 294 - "artifact_propose.rs"
+Cohesion: 0.50
+Nodes (3): ArtifactProposePayload, String, Deserialize
+
 ### Community 295 - "Delegation & containment"
 Cohesion: 0.40
 Nodes (5): Delegation & containment, implement-briefcase-packing, implement-escalation-and-refusal, implement-worker-runtime, implement-worker-supervision
@@ -1140,9 +1145,9 @@ Nodes (12): a_double_tap_on_approve_creates_only_one_gmail_draft(), approval_aud
 Cohesion: 0.47
 Nodes (5): build_selection_token(), format_pending_message(), String, Timestamp, Ulid
 
-### Community 299 - "head"
+### Community 298 - "draft"
 Cohesion: 0.67
-Nodes (3): default, type, head
+Nodes (3): default, type, draft
 
 ## Knowledge Gaps
 - **1043 isolated node(s):** `autoresearch.sh script`, `name`, `private`, `@fission-ai/openspec`, `check-claims.sh script` (+1038 more)
@@ -1152,11 +1157,11 @@ Nodes (3): default, type, head
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `AppState` to `handle_owner_update`, `.default`, `artifact_loader.rs`, `mod.rs`, `ActionRequest`, `.put`, `actions.rs`, `post_action`, `AppState`, `TaskGrant`, `sandbox.rs`, `artifact_propose.rs`, `selection.rs`, `digest.rs`, `mod.rs`, `ConnectorRegistry`, `.with_api_url`, `editUrl`, `head`, `AuditMeta`, `AuditEvent`?**
+- **Why does `AppState` connect `AppState` to `handle_owner_update`, `.default`, `artifact_loader.rs`, `mod.rs`, `ActionRequest`, `.put`, `actions.rs`, `post_action`, `AppState`, `TaskGrant`, `sandbox.rs`, `artifact_propose.rs`, `artifact_propose.rs`, `selection.rs`, `digest.rs`, `mod.rs`, `ConnectorRegistry`, `.with_api_url`, `editUrl`, `head`, `AuditMeta`, `AuditEvent`?**
   _High betweenness centrality (0.026) - this node is a cross-community bridge._
-- **Why does `TaskGrant` connect `TaskGrant` to `compose_authority`, `.new`, `handle_owner_update`, `.default`, `.with_api_url`, `editUrl`, `head`, `artifact_propose.rs`, `ProposedArtifact`, `actions.rs`, `post_action`, `ArtifactRef`, `AppState`, `AppState`, `AuditMeta`, `AuditEvent`?**
+- **Why does `TaskGrant` connect `TaskGrant` to `compose_authority`, `.new`, `handle_owner_update`, `.default`, `.with_api_url`, `artifact_propose.rs`, `editUrl`, `head`, `artifact_propose.rs`, `ProposedArtifact`, `actions.rs`, `post_action`, `ArtifactRef`, `AppState`, `AuditMeta`, `AuditEvent`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
-- **Why does `Digest` connect `artifact_activation_tests.rs` to `identity.rs`, `.default`, `head`, `config.rs`, `.put`, `ProposedArtifact`, `digest.rs`, `post_action`, `TaskGrant`, `ArtifactRef`?**
+- **Why does `Digest` connect `artifact_activation_tests.rs` to `identity.rs`, `.default`, `head`, `config.rs`, `artifact_propose.rs`, `.put`, `ProposedArtifact`, `digest.rs`, `post_action`, `ArtifactRef`?**
   _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Are the 34 inferred relationships involving `handle_owner_update()` (e.g. with `activation_with_mutated_payload_is_denied()` and `approved_artifact_activates_into_registry_and_overlay()`) actually correct?**
   _`handle_owner_update()` has 34 INFERRED edges - model-reasoned connections that need verification._
