@@ -1,11 +1,11 @@
 # Graph Report - openspine  (2026-07-10)
 
 ## Corpus Check
-- 221 files · ~154,394 words
+- 221 files · ~154,515 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2725 nodes · 4613 edges · 299 communities (267 shown, 32 thin omitted)
+- 2725 nodes · 4613 edges · 300 communities (268 shown, 32 thin omitted)
 - Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 599 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -261,6 +261,7 @@
 - artifact_propose.rs
 - selection.rs
 - run
+- head
 
 ## God Nodes (most connected - your core abstractions)
 1. `AppState` - 73 edges
@@ -291,7 +292,7 @@
 - 2-file cycle: `crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs`
 - 3-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/api/actions.rs`
 
-## Communities (299 total, 32 thin omitted)
+## Communities (300 total, 32 thin omitted)
 
 ### Community 0 - "README.md"
 Cohesion: 0.18
@@ -562,8 +563,8 @@ Cohesion: 0.17
 Nodes (11): ADDED Requirements, MODIFIED Requirements, Requirement: Completed OpenSpec changes MUST be archived, Requirement: OpenSpec artifacts MUST NOT be treated as live runtime authority, Requirement: Security-load-bearing subsystems MUST gain a capability spec in the change that implements them, Scenario: A change implements a new gated subsystem, Scenario: Change is complete, Scenario: Completed process change (+3 more)
 
 ### Community 72 - "properties"
-Cohesion: 0.15
-Nodes (15): items, default, items, type, properties, required, type, head (+7 more)
+Cohesion: 0.20
+Nodes (12): items, items, properties, required, type, icon, link, tag (+4 more)
 
 ### Community 73 - "SKILL.md"
 Cohesion: 0.18
@@ -1062,12 +1063,12 @@ Cohesion: 0.50
 Nodes (3): exclude, extends, include
 
 ### Community 197 - "editUrl"
-Cohesion: 0.15
-Nodes (16): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), LaneSpec, owner_control_lane(), PipelineStage, Option, Result (+8 more)
+Cohesion: 0.14
+Nodes (19): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), EventInputs, LaneSpec, owner_control_lane(), PipelineStage, PreflightFailure (+11 more)
 
 ### Community 198 - "head"
-Cohesion: 0.26
-Nodes (19): EventInputs, PreflightFailure, String, email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), owner_build_envelope() (+11 more)
+Cohesion: 0.29
+Nodes (16): email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), owner_build_envelope(), owner_grant_binding(), owner_preflight(), owner_route_guard() (+8 more)
 
 ### Community 199 - "pagefind"
 Cohesion: 0.67
@@ -1148,6 +1149,10 @@ Nodes (5): build_selection_token(), format_pending_message(), String, Timestamp,
 ### Community 298 - "run"
 Cohesion: 0.47
 Nodes (5): Cli, main(), Result, String, run()
+
+### Community 299 - "head"
+Cohesion: 0.67
+Nodes (3): default, type, head
 
 ## Knowledge Gaps
 - **1034 isolated node(s):** `autoresearch.sh script`, `name`, `private`, `@fission-ai/openspec`, `check-claims.sh script` (+1029 more)
