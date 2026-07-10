@@ -6,8 +6,8 @@ One driver, two lane records, no behavior change. New code lives in the existing
 
 ### 1. Typed stage sequence — consumed, not decorative
 
-- `PipelineStage` enum in `crates/openspine-kernel/src/pipeline/driver.rs`: nine variants — `Event`, `Verify`, `Identify`, `Route`, `Compose`, `Grant`, `Run`, `Gate`, `Audit` — with the canonical order declared once as `PipelineStage::SEQUENCE` and the synchronous prefix derived from it as `PipelineStage::SYNC_PREFIX` (`SEQUENCE` truncated before `Gate`).
-- The driver's execution is derived from `SYNC_PREFIX`: it iterates the prefix and dispatches each stage through one `match`, so the enum is the executable stage plan, not documentation. Tests assert (a) `SEQUENCE` pins the nine stages in canonical order, and (b) an instrumented driver run's executed-stage trace equals `SYNC_PREFIX` — for both lanes.
+- `PipelineStage` enum in `crates/openspine-kernel/src/pipeline/driver.rs`: nine variants — `Event`, `Verify`, `Identify`, `Route`, `Compose`, `Grant`, `Run`, `Gate`, `Audit` — with the canonical order declared once as `PipelineStage::SEQUENCE` and the synchronous prefix `PipelineStage::SYNC_PREFIX` derived element-by-element from `SEQUENCE` (truncated before `Gate`), so the two declarations cannot drift; a const assertion pins `Gate`/`Audit` as the truncated tail.
+- The driver's execution is checked against `SYNC_PREFIX`: `run_pipeline` records each stage into an instrumented trace as it executes, and tests assert (a) `SEQUENCE` pins the nine stages in canonical order, and (b) the executed-stage trace equals `SYNC_PREFIX` on the happy path — for both lanes. The enum is the stage plan the driver is held to, not documentation.
 - Stage semantics, pinned to current behavior:
   - `Event` = raw intake and lane selection (poll projection, `/draft` command detection). Unaudited, exactly as today.
   - `Verify` = owner/source verification plus lane preflight (for the email preview lane: Gmail configured, containment guard, `thread_exists`). All preflight failure exits keep their current audit events (`selection.gmail_not_configured`, `route.refused_uncontained`, `selection.thread_not_found`, `selection.gmail_error`) and owner notifications.
@@ -33,6 +33,7 @@ One driver, two lane records, no behavior change. New code lives in the existing
 
 - `handle_owner_update` and `handle_thread_selection` bodies are deleted, not wrapped: `pipeline/mod.rs` loses the duplicated stage prefix outright, and `pipeline/selection.rs` is deleted or retains only live selection-specific helpers (token construction, pending-message formatting) that the email lane's hooks call.
 - The file-size gate must pass because code moved or died — not because new files were added around dead weight. No transitional wrappers, aliases, or re-exports remain.
+- One reviewed, accepted micro-deviation: the email lane's `Timestamp::now()` is captured once at driver entry, before the Gmail preflight round-trip, instead of after it. The selection token's effective TTL therefore shrinks by the preflight latency — strictly narrowing (never widens authority) and bounded by an HTTP timeout against a 300s TTL.
 
 ### 4. What does NOT move
 

@@ -52,8 +52,9 @@ impl Store {
 
     // ---- selection tokens ----------------------------------------------
 
-    /// Called by `pipeline::handle_thread_selection` (Step 5) when it
-    /// mints a new thread-selection token.
+    /// Called by the email-preview lane's grant-binding hook
+    /// (`pipeline::lanes::email_grant_binding`) when it mints a new
+    /// thread-selection token.
     pub fn insert_selection_token(&self, token: &SelectionToken) -> Result<(), StoreError> {
         let conn = self.conn.lock();
         conn.execute(

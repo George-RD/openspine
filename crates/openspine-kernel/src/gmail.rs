@@ -197,8 +197,8 @@ impl GmailConnector {
         Ok(parse_thread(thread_id, &json))
     }
 
-    /// Whether `thread_id` exists and is readable. Step 5's selection-mint
-    /// path (`pipeline::handle_thread_selection`) validates this before
+    /// Whether `thread_id` exists and is readable. The email-preview lane's
+    /// preflight (`pipeline::lanes::email_preflight`) validates this before
     /// ever minting a [`openspine_schemas::selection::SelectionToken`] — the
     /// kernel must never mint a selection token for a thread that turns out
     /// not to exist. Uses `format=minimal` rather than [`Self::fetch_thread`]'s

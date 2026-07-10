@@ -2,6 +2,7 @@ use super::*;
 use crate::test_support::fixtures::*;
 
 mod approval;
+mod driver;
 
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
@@ -55,10 +56,19 @@ async fn draft_command_without_gmail_configured_is_a_no_op() {
     // NOT emit `event.received` — no event envelope is built before the
     // preflight check fails.
     assert_eq!(
-        state.store.count_audit_events_of_kind("selection.gmail_not_configured").unwrap(),
+        state
+            .store
+            .count_audit_events_of_kind("selection.gmail_not_configured")
+            .unwrap(),
         1
     );
-    assert_eq!(state.store.count_audit_events_of_kind("event.received").unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("event.received")
+            .unwrap(),
+        0
+    );
 }
 
 #[tokio::test]
@@ -106,10 +116,19 @@ async fn draft_command_for_a_missing_thread_mints_no_grant() {
     // `event.received` — no event envelope is built before the preflight
     // check fails.
     assert_eq!(
-        state.store.count_audit_events_of_kind("selection.thread_not_found").unwrap(),
+        state
+            .store
+            .count_audit_events_of_kind("selection.thread_not_found")
+            .unwrap(),
         1
     );
-    assert_eq!(state.store.count_audit_events_of_kind("event.received").unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("event.received")
+            .unwrap(),
+        0
+    );
 }
 
 #[tokio::test]
@@ -230,10 +249,19 @@ async fn draft_command_is_refused_without_the_unsafe_flag_under_process_driver()
     // `event.received` — no event envelope is built before the preflight
     // check fails.
     assert_eq!(
-        state.store.count_audit_events_of_kind("route.refused_uncontained").unwrap(),
+        state
+            .store
+            .count_audit_events_of_kind("route.refused_uncontained")
+            .unwrap(),
         1
     );
-    assert_eq!(state.store.count_audit_events_of_kind("event.received").unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("event.received")
+            .unwrap(),
+        0
+    );
 }
 /// Returns the `payload_refs` digest strings for every audit event of
 /// `kind`, in append order. Used to pin that an audited grant ref equals the
@@ -251,7 +279,9 @@ fn audit_payload_refs(store: &Store, kind: &str) -> Vec<String> {
                 .and_then(|p| p.as_array())
                 .map(|arr| {
                     arr.iter()
-                        .filter_map(|r| r.get("digest").and_then(|d| d.as_str()).map(str::to_string))
+                        .filter_map(|r| {
+                            r.get("digest").and_then(|d| d.as_str()).map(str::to_string)
+                        })
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
@@ -310,7 +340,8 @@ async fn owner_update_grant_pins_original_message_raw_ref_through_to_audit() {
         .unwrap()
         .expect("owner message must compose a grant");
 
-    // Pin: authority purpose is the owner-control conversation workflow.
+    // Pin: authority purpose and workflow are the owner-control conversation.
+    assert_eq!(grant.purpose, "owner_control_conversation");
     assert_eq!(grant.workflow_id, "owner_control_conversation");
 
     // Pin: the pending task input persisted with the grant is the ORIGINAL
@@ -344,7 +375,8 @@ async fn draft_command_composes_email_preview_grant_whose_pending_ref_is_derived
         .unwrap()
         .expect("a real thread must compose a grant");
 
-    // Pin: authority purpose is the selected-thread email reply draft.
+    // Pin: authority purpose and workflow are the selected-thread email reply draft.
+    assert_eq!(grant.purpose, "selected_thread_email_reply_draft");
     assert_eq!(grant.workflow_id, "selected_thread_email_reply_draft");
 
     // Pin: the pending task input is the DERIVED draft prompt, NOT the raw
@@ -418,8 +450,17 @@ async fn draft_command_with_gmail_api_error_audits_no_event_received() {
     // Preflight-failure contract: a Gmail API error audits
     // `selection.gmail_error` and emits no `event.received`.
     assert_eq!(
-        state.store.count_audit_events_of_kind("selection.gmail_error").unwrap(),
+        state
+            .store
+            .count_audit_events_of_kind("selection.gmail_error")
+            .unwrap(),
         1
     );
-    assert_eq!(state.store.count_audit_events_of_kind("event.received").unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("event.received")
+            .unwrap(),
+        0
+    );
 }

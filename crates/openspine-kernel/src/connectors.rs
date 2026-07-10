@@ -4,7 +4,7 @@
 //! point for connector instances. Gmail's optionality is preserved
 //! bit-for-bit: the registry reports it absent when unconfigured so call
 //! sites keep their graceful-degradation branches (see
-//! `pipeline::selection::handle_thread_selection` and
+//! `pipeline::driver::email_preview_lane` and
 //! `pipeline::approval::create_approved_draft`).
 
 use crate::gmail::GmailConnector;

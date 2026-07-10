@@ -8,7 +8,7 @@ Define the kernel's event pipeline as a single typed stage sequence executed by 
 
 ### Requirement: The kernel pipeline MUST be a typed stage sequence the driver executes
 
-The nine pipeline stages — event, verify, identify, route, compose, grant, run, gate, audit — MUST be declared as a typed sequence in exactly one place, and the driver's execution MUST be derived from that declared sequence: it MUST iterate the synchronous prefix (event through run) rather than restating the order inline.
+The nine pipeline stages — event, verify, identify, route, compose, grant, run, gate, audit — MUST be declared as a typed sequence in exactly one place, with the driver's synchronous prefix (event through run) derived element-by-element from that declaration so the two cannot drift, and the driver's execution MUST be checked against the declared prefix: an instrumented executed-stage trace MUST equal the prefix, pinned by tests for every lane.
 
 #### Scenario: The stage sequence is declared once and pinned
 

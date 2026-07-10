@@ -294,5 +294,8 @@
   "292": "Overlay & key model",
   "293": "Approach",
   "294": "Tasks: Refactor pipeline driver",
-  "295": "Delegation & containment"
+  "295": "Delegation & containment",
+  "296": "artifact_propose.rs",
+  "297": "selection.rs",
+  "298": "run"
 }
