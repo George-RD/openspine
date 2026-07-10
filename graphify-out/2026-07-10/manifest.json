@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/mod.rs": {
-    "mtime": 1783637486.6764338,
-    "ast_hash": "ae9a217913bd53ff8e4ac63bb9709141",
+    "mtime": 1783643612.782054,
+    "ast_hash": "d8e7287d38ed13619eebb180eb533654",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/sandbox.rs": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1783635725.5121717,
-    "ast_hash": "450e4abce5a5cbf385666a87923d25ba",
+    "mtime": 1783643643.155919,
+    "ast_hash": "c9cc0ad1290a5d55471eac55c86620c1",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/refactor-pipeline-driver/design.md": {
-    "mtime": 1783637776.9244835,
-    "ast_hash": "0253637365e806a7d4c9ab8fab0a53e1",
+    "mtime": 1783643676.0171154,
+    "ast_hash": "4f7c4820a0c999cf20c6e7a426986f53",
     "semantic_hash": ""
   },
   "openspec/changes/refactor-pipeline-driver/proposal.md": {
@@ -1180,8 +1180,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/refactor-pipeline-driver/tasks.md": {
-    "mtime": 1783637776.92477,
-    "ast_hash": "04830b5d60c163576249551dac169bcd",
+    "mtime": 1783643682.909644,
+    "ast_hash": "4308ddaaaa1cbc5fbe4565293401f4a1",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/driver.rs": {
