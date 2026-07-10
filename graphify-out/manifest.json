@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1783634314.0472841,
-    "ast_hash": "bfdddb0ed4a475c1e9af6202f24d01c6",
+    "mtime": 1783643823.773582,
+    "ast_hash": "f85eab2fa952a18fe88c237a36e11fc2",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -1180,27 +1180,27 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-10-refactor-pipeline-driver/design.md": {
-    "mtime": 1783643759.9125197,
+    "mtime": 1783643799.1629376,
     "ast_hash": "4f7c4820a0c999cf20c6e7a426986f53",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-10-refactor-pipeline-driver/proposal.md": {
-    "mtime": 1783643759.9127061,
+    "mtime": 1783643799.1631086,
     "ast_hash": "09dffed44ec6a62afbf00945722f1ff0",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-10-refactor-pipeline-driver/specs/pipeline-driver/spec.md": {
-    "mtime": 1783643759.9129806,
+    "mtime": 1783643799.1633859,
     "ast_hash": "dbc20a9884bb99085aa976f1535af2c0",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-10-refactor-pipeline-driver/tasks.md": {
-    "mtime": 1783643759.9131489,
+    "mtime": 1783643799.163577,
     "ast_hash": "4308ddaaaa1cbc5fbe4565293401f4a1",
     "semantic_hash": ""
   },
   "openspec/specs/pipeline-driver/spec.md": {
-    "mtime": 1783643769.9704335,
+    "mtime": 1783643799.1639555,
     "ast_hash": "04549d4e1d371c6c2f7406762240eabf",
     "semantic_hash": ""
   }
