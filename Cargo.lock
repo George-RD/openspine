@@ -1603,6 +1603,7 @@ version = "0.1.0"
 dependencies = [
  "jiff",
  "openspine-schemas",
+ "serde_json",
  "ulid",
 ]
 

@@ -161,4 +161,17 @@ impl Store {
             conn.query_row("SELECT COUNT(*) FROM action_requests", [], |row| row.get(0))?;
         Ok(count as usize)
     }
+
+    #[cfg(test)]
+    pub fn latest_action_request(&self) -> Result<Option<ActionRequest>, StoreError> {
+        let conn = self.conn.lock();
+        let json: Option<String> = conn
+            .query_row(
+                "SELECT request_json FROM action_requests ORDER BY rowid DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
+    }
 }

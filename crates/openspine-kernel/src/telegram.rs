@@ -186,6 +186,16 @@ pub fn parse_approve_callback(data: &str) -> Option<Ulid> {
     data.strip_prefix(APPROVE_CALLBACK_PREFIX)?.parse().ok()
 }
 
+/// Plan approval callback; kept distinct from draft approval so an approved
+/// plan can never fall through to draft dispatch.
+const APPROVE_PLAN_CALLBACK_PREFIX: &str = "approve_plan:";
+
+pub fn parse_approve_plan_callback(data: &str) -> Option<Ulid> {
+    data.strip_prefix(APPROVE_PLAN_CALLBACK_PREFIX)?
+        .parse()
+        .ok()
+}
+
 /// PRD §21.1 step 1 / D-036: the Phase-2 thread-selection trigger is this
 /// exact structured command, recognized by the kernel itself before any
 /// shell/agent ever sees the message — the shell can never claim on the
@@ -338,6 +348,25 @@ impl TelegramConnector {
         let button = InlineKeyboardButton::callback(
             "Approve",
             format!("{APPROVE_CALLBACK_PREFIX}{action_request_id}"),
+        );
+        let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
+        self.bot
+            .send_message(ChatId(chat_id), text)
+            .reply_markup(markup)
+            .await?;
+        Ok(())
+    }
+
+    /// Send a complete plan question with a plan-specific approval callback.
+    pub async fn send_reply_with_plan_approval_button(
+        &self,
+        chat_id: i64,
+        text: &str,
+        action_request_id: Ulid,
+    ) -> anyhow::Result<()> {
+        let button = InlineKeyboardButton::callback(
+            "Approve plan",
+            format!("{APPROVE_PLAN_CALLBACK_PREFIX}{action_request_id}"),
         );
         let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
         self.bot

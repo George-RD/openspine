@@ -25,6 +25,7 @@ pub mod ids;
 pub mod lineage;
 pub mod model;
 pub mod pack;
+pub mod plan;
 pub mod policy;
 pub mod principal;
 pub mod route;

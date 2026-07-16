@@ -32,6 +32,8 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("openspine.status.read"),
         id("workflow.invoke:approved"),
         id("artifact.propose"),
+        id("plan.propose"),
+        id("plan.execute"),
         id("setup.workflow.start"),
         id("memory.read:owner_preferences_limited"),
         id("model.generate:approved_provider"),
@@ -100,6 +102,14 @@ pub fn canonical_catalog() -> ActionCatalog {
             classification: EffectPathClass::GatedShell,
         },
         EffectPath {
+            name: "dispatch_plan_preview".to_string(),
+            classification: EffectPathClass::GatedShell,
+        },
+        EffectPath {
+            name: "resolve_approved_plan".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
             name: "sweep_expired_grants".to_string(),
             classification: EffectPathClass::InternalMaintenanceNonEffect,
         },
@@ -120,8 +130,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            8,
-            "Expected exactly 8 classified effect paths, got {:?}",
+            10,
+            "Expected exactly 10 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -131,6 +141,8 @@ mod tests {
         assert!(path_names.contains(&"dispatch_read_selected_thread"));
         assert!(path_names.contains(&"dispatch_lyra_preview/propose_draft_creation"));
         assert!(path_names.contains(&"dispatch_artifact_propose"));
+        assert!(path_names.contains(&"dispatch_plan_preview"));
+        assert!(path_names.contains(&"resolve_approved_plan"));
         assert!(path_names.contains(&"sweep_expired_grants"));
         assert!(path_names.contains(&"answer_callback_query"));
     }

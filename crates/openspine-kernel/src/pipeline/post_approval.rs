@@ -16,6 +16,7 @@ use openspine_schemas::grant::TaskGrant;
 
 use super::approval::create_approved_draft;
 use super::artifact_activation::activate_approved_artifact;
+use super::plan_approval::resolve_approved_plan;
 use super::AppState;
 
 type PostApprovalFuture<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
@@ -41,15 +42,53 @@ fn handle_create_approved_draft<'a>(
     Box::pin(create_approved_draft(state, grant, request, chat_id))
 }
 
-/// The registration table: `artifact.activate` is the one non-default
-/// entry; the default routes to draft creation.
-const POST_APPROVAL_HANDLERS: &[(&str, PostApprovalHandler)] =
-    &[("artifact.activate", handle_activate_artifact)];
+fn handle_resolve_approved_plan<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    request: &'a ActionRequest,
+    chat_id: i64,
+) -> PostApprovalFuture<'a> {
+    Box::pin(resolve_approved_plan(state, grant, request, chat_id))
+}
+
+fn handle_unknown_approved_action<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    request: &'a ActionRequest,
+    chat_id: i64,
+) -> PostApprovalFuture<'a> {
+    Box::pin(async move {
+        state.store.append_audit(
+            "approval.resolution_refused",
+            Some(&request.action),
+            None,
+            Some("no post-approval handler registered"),
+            Some(grant.id),
+            &[],
+            &[],
+        )?;
+        super::notify_owner_best_effort(
+            state,
+            chat_id,
+            "Approval recorded, but no resolver exists for that action.",
+        )
+        .await;
+        Ok(())
+    })
+}
+
+/// Every approval-bearing action has an explicit resolver. Unknown actions
+/// are refused instead of falling through to draft creation.
+const POST_APPROVAL_HANDLERS: &[(&str, PostApprovalHandler)] = &[
+    ("artifact.activate", handle_activate_artifact),
+    ("plan.execute", handle_resolve_approved_plan),
+    ("email.create_draft", handle_create_approved_draft),
+];
 
 pub(super) fn resolve_post_approval_handler(action: &ActionId) -> PostApprovalHandler {
     POST_APPROVAL_HANDLERS
         .iter()
         .find(|(id, _)| *id == action.as_str())
         .map(|(_, handler)| *handler)
-        .unwrap_or(handle_create_approved_draft)
+        .unwrap_or(handle_unknown_approved_action)
 }
