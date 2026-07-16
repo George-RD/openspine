@@ -125,16 +125,17 @@ fn empty_session_policy() -> SessionPolicy {
 /// trusted-path carve-out remains traceable. The audit append is itself
 /// best-effort: a failure here must never suppress the owner-facing reply it is
 /// only recording.
-async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
+pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
     let now = Timestamp::now();
-    // D-055.2: route this kernel-originated effect through the pure gate.
-    // `owner.notify` is the only trusted kernel-origin action, so `gate()`
-    // with `ActionOrigin::Kernel` auto-allows it and denies anything else —
-    // the catalog's trusted set is the single authority, and dropping
-    // `owner.notify` from it fails this closed rather than silently sending.
+    // `owner.notify` is a kernel-origin effect; bind the request to the
+    // synthetic grant that gate() will authorize and audit.
+    let Some(notify_grant) = kernel_notify_grant() else {
+        tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
+        return;
+    };
     let request = ActionRequest {
         id: Ulid::new(),
-        task_grant_id: Ulid::new(),
+        task_grant_id: notify_grant.id,
         action: ActionId::new("owner.notify"),
         target_ref: None,
         payload_ref: None,
@@ -142,10 +143,6 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
         selection_token_id: None,
         requested_at: now,
         schema_version: 1,
-    };
-    let Some(notify_grant) = kernel_notify_grant() else {
-        tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
-        return;
     };
     let outcome = gate(
         &notify_grant,
@@ -191,6 +188,100 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
     }
 }
 
+/// Mandatory owner delivery for security escalations. Unlike courtesy
+/// notifications, this path never converts a missing grant key, gate denial,
+/// or connector failure into success. Each failed branch records a truthful
+/// `owner.notify_failed` audit before returning the structured error.
+pub(crate) async fn notify_owner_required(
+    state: &AppState,
+    chat_id: i64,
+    text: &str,
+) -> Result<(), crate::store::StoreError> {
+    let now = Timestamp::now();
+    let action = ActionId::new("owner.notify");
+    let Some(notify_grant) = kernel_notify_grant() else {
+        let reason = "grant_hmac_key_unavailable";
+        state.store.append_audit(
+            "owner.notify_failed",
+            Some(&action),
+            None,
+            Some(reason),
+            None,
+            &[],
+            &[],
+        )?;
+        return Err(crate::store::StoreError::OwnerNotificationFailed(
+            reason.to_string(),
+        ));
+    };
+    let request = ActionRequest {
+        id: Ulid::new(),
+        // Keep the request and synthetic authorization grant bound together.
+        task_grant_id: notify_grant.id,
+        action,
+        target_ref: None,
+        payload_ref: None,
+        target_digest: None,
+        selection_token_id: None,
+        requested_at: now,
+        schema_version: 1,
+    };
+    let outcome = gate(
+        &notify_grant,
+        &request,
+        ActionOrigin::Kernel,
+        &state.store,
+        &state.action_catalog,
+        &state.connectors,
+        now,
+    );
+    state.store.append_audit(
+        "action.gated",
+        Some(&request.action),
+        Some(&outcome.decision),
+        None,
+        Some(outcome.audit.task_grant_id),
+        &[],
+        &[],
+    )?;
+    if !matches!(&outcome.decision, GateDecision::Allow) {
+        let reason = format!("gate_denied:{:?}", outcome.decision);
+        state.store.append_audit(
+            "owner.notify_failed",
+            Some(&request.action),
+            Some(&outcome.decision),
+            Some(&reason),
+            Some(outcome.audit.task_grant_id),
+            &[],
+            &[],
+        )?;
+        return Err(crate::store::StoreError::OwnerNotificationFailed(reason));
+    }
+    if let Err(err) = state.connectors.telegram().send_reply(chat_id, text).await {
+        let reason = format!("connector_send_failed:{err}");
+        state.store.append_audit(
+            "owner.notify_failed",
+            Some(&request.action),
+            Some(&outcome.decision),
+            Some(&reason),
+            Some(outcome.audit.task_grant_id),
+            &[],
+            &[],
+        )?;
+        return Err(crate::store::StoreError::OwnerNotificationFailed(reason));
+    }
+    state.store.append_audit(
+        "owner.notified",
+        Some(&request.action),
+        Some(&outcome.decision),
+        None,
+        Some(outcome.audit.task_grant_id),
+        &[],
+        &[],
+    )?;
+    Ok(())
+}
+
 /// Synthetic grant for kernel-origin `owner.notify` (D-055.2). `gate()` with
 /// `ActionOrigin::Kernel` auto-allows only the trusted-origin set. Returns
 /// `None` when the HMAC key is unavailable — callers must skip the effect
@@ -230,6 +321,7 @@ fn kernel_notify_grant() -> Option<TaskGrant> {
         mode: openspine_schemas::grant::GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
+        thread_id: None,
     };
     grant.seal_root(&key);
     Some(grant)

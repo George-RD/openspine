@@ -182,6 +182,7 @@ mod tests {
                 channel_trust: ChannelTrust::VerifiedOwnerChannel,
                 interaction_mode: InteractionMode::OwnerMessage,
             },
+            thread_id: None,
             schema_version: 1,
         }
     }

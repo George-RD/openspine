@@ -13,6 +13,7 @@ mod artifact_store;
 mod benchmark;
 mod config;
 mod connectors;
+mod escalation;
 mod gmail;
 mod identity;
 mod model_gateway;

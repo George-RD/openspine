@@ -10,6 +10,7 @@ use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::digest::{canonical_json, digest_of};
+use openspine_schemas::escalation::{surface_denial, EscalationEvent};
 use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
 use serde::{Deserialize, Serialize};
@@ -69,6 +70,8 @@ pub(super) struct PreviewPayload {
 #[derive(Debug, Serialize)]
 pub(super) struct ActionResponseBody {
     decision: GateDecision,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    counterparty_deferral: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
 }
@@ -137,12 +140,34 @@ pub(super) async fn post_actions(
         )
         .map_err(internal_error)?;
 
-    let GateDecision::Allow = outcome.decision else {
+    let decision = outcome.decision;
+    if !matches!(decision, GateDecision::Allow) {
+        if state.action_catalog.is_counterparty_facing(&action) {
+            if let Some((deferral, notice)) = surface_denial(&grant, &action, &decision, None, now)
+            {
+                let event = EscalationEvent::from_denial(&notice);
+                // AD-133: route through the reusable kernel machinery. It
+                // resolves the persisted task's bound owner chat itself;
+                // the owner-only reason never returns to the worker.
+                crate::escalation::route_escalation(&state, &grant, &event)
+                    .await
+                    .map_err(internal_error)?;
+
+                return Ok(Json(ActionResponseBody {
+                    decision,
+                    counterparty_deferral: Some(deferral.text.to_string()),
+                    result: None,
+                }));
+            }
+        }
+
+        // Non-counterparty denials retain the ordinary typed enum outcome.
         return Ok(Json(ActionResponseBody {
-            decision: outcome.decision,
+            decision,
+            counterparty_deferral: None,
             result: None,
         }));
-    };
+    }
 
     match dispatch_allowed_action(
         &state,
@@ -155,6 +180,7 @@ pub(super) async fn post_actions(
     {
         Ok(result) => Ok(Json(ActionResponseBody {
             decision: GateDecision::Allow,
+            counterparty_deferral: None,
             result: Some(result),
         })),
         Err(err) => {

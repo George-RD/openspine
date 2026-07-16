@@ -68,6 +68,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-054 | Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract; gate is a distributed runtime stage outside the driver prefix | Accepted |
 | D-055 | Gate trusted paths are hardened: carve-outs are enumerated catalog data; `KernelOrigin` is approval-exempt, audit-never-exempt; selection-token validation lives in pure `gate()` with dispatch-side consumption; digests are kernel-re-derived at approval-effect time | Accepted |
 | D-056 | Eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change | Accepted |
+| D-057 | Counterparty-facing actions are an explicit kernel ActionCatalog set (v1: `email.send` only); only such denials receive the canonical deferral + escalation — internal/owner-only/unclassified actions keep typed enum outcomes | Accepted |
+| D-058 | Security escalations require result-returning gated owner delivery: `action.escalated` is appended only after connector success; missing-key/gate/connector failures record `owner.notify_failed` and return structured errors; courtesy notifications may stay best-effort | Accepted |
+| D-059 | Dormant thread bindings are MAC-authenticated before activation: `TaskGrant.thread_id` participates in the root-authority canonical commitment when populated (omitted when `None` for legacy-grant compatibility) | Accepted |
 
 ---
 
@@ -1482,6 +1485,66 @@ AD-111 is settled by the owner — the deferred semantics (judge independence, e
 
 
 
+# D-057 — Counterparty-facing actions are an explicit kernel catalog set
+
+## Decision
+
+A denial receives AD-151's canonical deferral and AD-133 escalation only when the kernel-owned `ActionCatalog` marks the requested action as counterparty-facing. The v1 set contains the existing `email.send` only; owner-channel, internal, draft-only, unknown, and unclassified actions keep ordinary typed enum outcomes. Adding a future external channel requires an explicit catalog entry and classification in the same reviewed change.
+
+## Rationale
+
+The action API has no shell-spoofable counterparty marker, and blanket escalation would expose owner delivery and deferral semantics on internal/owner-only denials.
+
+## Consequences
+
+Escalation surface area grows only through reviewed catalog changes; the deferral/no-leak machinery is exercised on exactly the actions that face a counterparty.
+
+## Would change if
+
+A channel-level counterparty marker becomes kernel-derivable (e.g. from route/persona binding), at which point classification could move from a static catalog set to routed data — via its own reviewed change.
+
+---
+
+# D-058 — Security escalations require result-returning owner delivery
+
+## Decision
+
+`route_escalation` resolves the task's persisted bound owner chat and calls a mandatory gated `owner.notify` path (`notify_owner_required`). Missing-key, gate, and connector failures are recorded as `owner.notify_failed` when that audit append succeeds and are returned as structured errors; audit persistence failures propagate. `action.escalated` is appended only after connector success. Courtesy pipeline notifications may remain best-effort.
+
+## Rationale
+
+A mandatory escalation that silently swallows delivery failure reports success for an owner surface that never happened — the AD-137 untruthful-record class. Full AD-138 dead-letter retry/metrics behavior belongs to `implement-failure-surfacing-contract`.
+
+## Consequences
+
+The API returns a structured failure when escalation delivery fails; the audit trail never claims an escalation the owner did not receive.
+
+## Would change if
+
+The AD-138 dead-letter substrate subsumes this path's retry semantics — the truthfulness contract stays, the retry mechanics may move.
+
+---
+
+# D-059 — Dormant thread bindings are MAC-authenticated before activation
+
+## Decision
+
+`TaskGrant.thread_id` is included in `RootAuthority`'s canonical commitment when populated, while no channel populates or consumes it; when `None`, the key is omitted from canonical bytes so pre-change grants keep verifying. A `None`-to-`Some` rewrite fails MAC verification.
+
+## Rationale
+
+This prevents shell-side rewrites from changing a future conversation binding before the thread-capable channel activation change lands. Activation changes usage and channel integration, not the integrity boundary.
+
+## Consequences
+
+Thread binding ships dormant but tamper-evident; the later activation change needs no MAC-format migration.
+
+## Would change if
+
+The MAC/root payload gains an explicit version field — conditional key omission could then be replaced by versioned canonical shapes.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1532,4 +1595,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-10 | Added D-054 (pipeline stages are a typed compiled-in `PipelineStage` sequence the driver executes from its synchronous `SYNC_PREFIX` — `event → verify → identify → route → compose → grant → run`; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract, never runtime-proposable artifacts; gate is a distributed runtime stage at the effect boundary per AD-120/D-004, outside the driver prefix — the driver module never calls `gate()`; lanes cannot reorder or omit stages; `event.received` is emitted only after Verify succeeds, preserving the preflight-failure audit surface), settled while implementing `refactor-pipeline-driver`. |
 | 2026-07-10 | Added D-055 (gate trusted paths hardened along four axes: (1) every effectful path reaching around `gate()` is enumerated as classified `ActionCatalog` data — `gated-shell` / `post-gate-approved-effect` / `kernel-origin-gated` / `internal-maintenance-non-effect` — with a dedicated characterization test per entry; (2) `ActionOrigin::{Shell, Kernel}` marks kernel-origin effects that route through `gate()` approval-exempt but audit-never-exempt, generalizing D-046's single `owner.notified` carve-out into a finite trusted-origin set (outside the set ⇒ denied); (3) selection-token validation moves into the pure, no-I/O `gate()` decision via `GateContext::find_selection_token` while the atomic single-use consume stays at dispatch, preserving `gate()`'s purity; (4) shell DTOs carry no digest fields and the kernel re-derives payload/target digests from artifact-store bytes at approval-effect time, denying on mismatch and never trusting a shell-supplied digest (per D-041 digests and AD-120's shell-intents/kernel-outcomes boundary); the validate-in-gate / consume-at-dispatch split follows the D-046/D-050 dispatch-side enforcement precedent), settled while implementing `harden-gate-trusted-paths`. |
 | 2026-07-16 | Added D-056 (eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata, checked epoch-nanosecond timestamps, fail-closed lineage consistency; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change), settled during review of `define-lineage-and-eval-store`. |
+| 2026-07-16 | Added D-057 (counterparty-facing actions are an explicit kernel ActionCatalog set, v1 = `email.send` only; only such denials get the canonical deferral + escalation), D-058 (security escalations require result-returning gated owner delivery; `action.escalated` only after connector success; failures recorded as `owner.notify_failed` and returned as structured errors), and D-059 (dormant `thread_id` bindings are MAC-authenticated when populated, omitted from canonical bytes when `None` for legacy compatibility), settled while implementing `implement-escalation-and-refusal`. |
 

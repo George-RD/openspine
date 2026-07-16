@@ -51,6 +51,7 @@ pub fn owner_event() -> EventEnvelope {
             channel_trust: ChannelTrust::VerifiedOwnerChannel,
             interaction_mode: InteractionMode::OwnerMessage,
         },
+        thread_id: None,
         schema_version: 1,
     }
 }
@@ -81,6 +82,7 @@ pub fn email_event() -> EventEnvelope {
             channel_trust: ChannelTrust::OwnerDevice,
             interaction_mode: InteractionMode::UserSelected,
         },
+        thread_id: None,
         schema_version: 1,
     }
 }

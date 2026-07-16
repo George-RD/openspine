@@ -56,6 +56,7 @@ pub(crate) fn grant_with(
         mode: GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
+        thread_id: None,
     };
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     grant

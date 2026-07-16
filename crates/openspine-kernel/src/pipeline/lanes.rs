@@ -122,6 +122,7 @@ pub(super) fn email_build_envelope(
             channel_trust: ChannelTrust::OwnerDevice,
             interaction_mode: InteractionMode::UserSelected,
         },
+        thread_id: None,
         schema_version: 1,
     };
     Ok((envelope, raw_ref))

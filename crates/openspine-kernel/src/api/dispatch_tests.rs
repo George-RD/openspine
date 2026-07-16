@@ -146,6 +146,7 @@ pub(crate) fn mint_grant_with_selection_token(
         mode: openspine_schemas::grant::GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
+        thread_id: None,
     };
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let pending_ref = state.artifacts.put(b"test pending".as_slice()).unwrap();

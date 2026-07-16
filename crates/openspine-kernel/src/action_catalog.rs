@@ -72,6 +72,12 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("web.form_submit"),
     ])
     .with_kernel_origin([id("owner.notify")])
+    .with_counterparty_facing([
+        // email.send is the sole existing counterparty-facing action:
+        // a denial faces the external recipient the worker was replying
+        // to. Kernel-owned classification; shell cannot spoof (AD-151).
+        id("email.send"),
+    ])
     .with_token_requiring([(
         id("email.read_thread:selected_no_attachments"),
         SelectionTokenType::email_thread_selection(),
@@ -79,6 +85,10 @@ pub fn canonical_catalog() -> ActionCatalog {
     .with_effect_paths([
         EffectPath {
             name: "notify_owner_best_effort".to_string(),
+            classification: EffectPathClass::KernelOriginGated,
+        },
+        EffectPath {
+            name: "notify_owner_required".to_string(),
             classification: EffectPathClass::KernelOriginGated,
         },
         EffectPath {
@@ -130,12 +140,20 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            10,
-            "Expected exactly 10 classified effect paths, got {:?}",
+            11,
+            "Expected exactly 11 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
         assert!(path_names.contains(&"notify_owner_best_effort"));
+        assert!(path_names.contains(&"notify_owner_required"));
+        // Characterization: notify_owner_required is a kernel-origin gated
+        // effect, not a post-gate approved effect or shell dispatch.
+        let required = paths
+            .iter()
+            .find(|p| p.name == "notify_owner_required")
+            .expect("notify_owner_required must be in the catalog");
+        assert_eq!(required.classification, EffectPathClass::KernelOriginGated);
         assert!(path_names.contains(&"create_approved_draft"));
         assert!(path_names.contains(&"activate_approved_artifact"));
         assert!(path_names.contains(&"dispatch_read_selected_thread"));
@@ -145,5 +163,13 @@ mod tests {
         assert!(path_names.contains(&"resolve_approved_plan"));
         assert!(path_names.contains(&"sweep_expired_grants"));
         assert!(path_names.contains(&"answer_callback_query"));
+    }
+
+    #[test]
+    fn counterparty_classification_is_kernel_owned_and_fails_closed() {
+        let catalog = canonical_catalog();
+        assert!(catalog.is_counterparty_facing(&id("email.send")));
+        assert!(!catalog.is_counterparty_facing(&id("telegram.reply:owner_channel")));
+        assert!(!catalog.is_counterparty_facing(&id("unknown.future_action")));
     }
 }
