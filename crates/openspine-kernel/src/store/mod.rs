@@ -127,6 +127,10 @@ pub enum StoreError {
     ProposedArtifactLifecycle(String),
     #[error("unauthorized owner assertion: {0}")]
     NotOwner(String),
+    #[error("inconsistent artifact lineage: {0}")]
+    InconsistentLineage(String),
+    #[error("timestamp out of representable range: {0}")]
+    TimestampRange(String),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -359,10 +363,15 @@ mod audit_support;
 mod budget_support;
 #[cfg(test)]
 mod budget_support_tests;
+pub(crate) mod eval_verdict_store;
+#[cfg(test)]
+mod eval_verdict_store_tests;
 mod gate_support;
 mod identity;
 #[cfg(test)]
 mod identity_tests;
+#[cfg(test)]
+mod lineage_tests;
 mod migrations;
 pub(crate) mod proposed_artifacts;
 #[cfg(test)]

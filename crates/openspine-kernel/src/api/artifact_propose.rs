@@ -14,6 +14,7 @@ use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::digest::digest_of;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::lineage::ArtifactLineage;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use ulid::Ulid;
@@ -122,6 +123,9 @@ pub(super) async fn dispatch_artifact_propose(
             task_grant_id: grant.id,
             action_request_id: Some(action_request_id),
             proposed_at: now,
+            // Fresh proposals are root artifacts (no derivation). Explicit
+            // Some(root) — never leave None (None = unknown legacy only).
+            lineage: Some(ArtifactLineage::root()),
         })
         .map_err(|err| DispatchError::Internal(err.into()))?;
     state

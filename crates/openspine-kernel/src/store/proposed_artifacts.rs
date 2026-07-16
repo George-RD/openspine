@@ -13,6 +13,7 @@
 
 use jiff::Timestamp;
 use openspine_schemas::artifact::{can_transition, Lifecycle};
+use openspine_schemas::lineage::ArtifactLineage;
 use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
@@ -36,11 +37,17 @@ pub struct ProposedArtifact {
     /// handler joins back through this column.
     pub action_request_id: Option<Ulid>,
     pub proposed_at: Timestamp,
+    /// Generation/lineage of this artifact (distinct from `version`).
+    /// `Some(root())` for freshly proposed root artifacts; `Some(derived)`
+    /// when parents are known. `None` means provenance is *unknown* —
+    /// pre-lineage legacy rows after migration — and MUST NOT be silently
+    /// rewritten as root (unknown ≠ generation-0).
+    pub lineage: Option<ArtifactLineage>,
 }
 
 /// Raw column tuple for one `proposed_artifacts` row, in `SELECT` order:
 /// `(id, kind, artifact_id, version, state, yaml_digest, task_grant_id,
-/// action_request_id, proposed_at)`.
+/// action_request_id, proposed_at, lineage_json)`.
 type ProposedRow = (
     String,
     String,
@@ -51,6 +58,7 @@ type ProposedRow = (
     String,
     Option<String>,
     String,
+    Option<String>,
 );
 
 /// Serialise a lifecycle state to its on-disk column form (the serde
@@ -69,7 +77,11 @@ fn parse_lifecycle(s: &str) -> Result<Lifecycle, StoreError> {
 }
 
 /// Create the table if absent. Idempotent — safe against both a fresh file
-/// and an existing `data/kernel.db` predating this slice.
+/// and an existing `data/kernel.db` predating this slice. The `lineage_json`
+/// column is nullable: `NULL` means provenance is unknown (legacy rows),
+/// never silently rewritten as root. New inserts supply an explicit value.
+/// An ad-hoc migration in `migrations.rs` adds the column for databases
+/// that already have the table without it.
 pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS proposed_artifacts (\n\
@@ -82,10 +94,38 @@ pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreErro
          \x20   task_grant_id TEXT NOT NULL,\n\
          \x20   action_request_id TEXT,\n\
          \x20   proposed_at TEXT NOT NULL,\n\
+         \x20   lineage_json TEXT,\n\
          \x20   UNIQUE(kind, artifact_id, version)\n\
          );",
     )?;
     Ok(())
+}
+
+fn lineage_to_json(lineage: &Option<ArtifactLineage>) -> Result<Option<String>, StoreError> {
+    match lineage {
+        Some(l) if !l.is_consistent() => Err(StoreError::InconsistentLineage(
+            "generation does not agree with parent presence".into(),
+        )),
+        Some(l) => Ok(Some(serde_json::to_string(l)?)),
+        None => Ok(None),
+    }
+}
+
+fn lineage_from_json(s: Option<&str>) -> Result<Option<ArtifactLineage>, StoreError> {
+    match s {
+        None => Ok(None),
+        Some(raw) => {
+            let lineage: ArtifactLineage = serde_json::from_str(raw).map_err(|err| {
+                StoreError::InconsistentLineage(format!("unparseable lineage_json: {err}"))
+            })?;
+            if !lineage.is_consistent() {
+                return Err(StoreError::InconsistentLineage(
+                    "stored generation does not agree with parent presence".into(),
+                ));
+            }
+            Ok(Some(lineage))
+        }
+    }
 }
 
 impl Store {
@@ -95,10 +135,12 @@ impl Store {
     /// store error rather than a clean `400`.
     pub fn insert_proposed_artifact(&self, row: &ProposedArtifact) -> Result<(), StoreError> {
         let conn = self.conn.lock();
+        let lineage_json = lineage_to_json(&row.lineage)?;
         conn.execute(
             "INSERT INTO proposed_artifacts \
-             (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, action_request_id, proposed_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+             (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
+              action_request_id, proposed_at, lineage_json) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 row.id.to_string(),
                 row.kind,
@@ -109,6 +151,7 @@ impl Store {
                 row.task_grant_id.to_string(),
                 row.action_request_id.map(|u| u.to_string()),
                 row.proposed_at.to_string(),
+                lineage_json,
             ],
         )?;
         Ok(())
@@ -142,7 +185,7 @@ impl Store {
         let row: Option<ProposedRow> = conn
             .query_row(
                 "SELECT id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
-                 action_request_id, proposed_at \
+                 action_request_id, proposed_at, lineage_json \
                  FROM proposed_artifacts WHERE action_request_id = ?1",
                 params![action_request_id.to_string()],
                 |row| {
@@ -156,6 +199,7 @@ impl Store {
                         row.get(6)?,
                         row.get(7)?,
                         row.get(8)?,
+                        row.get(9)?,
                     ))
                 },
             )
@@ -170,6 +214,7 @@ impl Store {
             task_grant_id,
             action_request_id,
             proposed_at,
+            lineage_json,
         )) = row
         else {
             return Ok(None);
@@ -194,6 +239,7 @@ impl Store {
             proposed_at: proposed_at
                 .parse()
                 .map_err(|_| StoreError::BadDigest("proposed_artifacts.proposed_at".into()))?,
+            lineage: lineage_from_json(lineage_json.as_deref())?,
         }))
     }
 

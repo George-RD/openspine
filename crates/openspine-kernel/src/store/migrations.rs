@@ -42,5 +42,15 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         "ALTER TABLE grant_counters ADD COLUMN model_calls INTEGER NOT NULL DEFAULT 0",
     )?;
     // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
-    super::proposed_artifacts::ensure_schema(conn)
+    super::proposed_artifacts::ensure_schema(conn)?;
+    // `define-lineage-and-eval-store`: nullable lineage column on
+    // proposed_artifacts (non-retrofittable set). No DEFAULT — legacy rows
+    // keep NULL (unknown provenance). Unknown MUST NOT be rewritten as root.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE proposed_artifacts ADD COLUMN lineage_json TEXT",
+    )?;
+    // `define-lineage-and-eval-store`: eval-verdict/fitness store as its own
+    // indexed table (non-retrofittable set; AD-111 verdict landing).
+    super::eval_verdict_store::ensure_schema(conn)
 }

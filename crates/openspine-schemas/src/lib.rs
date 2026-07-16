@@ -20,6 +20,7 @@ pub mod grant;
 pub mod grant_chain;
 pub mod identity;
 pub mod ids;
+pub mod lineage;
 pub mod model;
 pub mod pack;
 pub mod policy;

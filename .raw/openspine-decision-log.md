@@ -67,6 +67,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-053 | Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids a hard composition error and a structured `UnknownAction` gate denial distinct from `NotGranted` | Accepted |
 | D-054 | Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract; gate is a distributed runtime stage outside the driver prefix | Accepted |
 | D-055 | Gate trusted paths are hardened: carve-outs are enumerated catalog data; `KernelOrigin` is approval-exempt, audit-never-exempt; selection-token validation lives in pure `gate()` with dispatch-side consumption; digests are kernel-re-derived at approval-effect time | Accepted |
+| D-056 | Eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change | Accepted |
 
 ---
 
@@ -1453,6 +1454,26 @@ The original gate trusted-paths were implicit and scattered: `notify_owner_best_
 Runtime-proposable trusted-origin carve-outs ever become a requirement — the enumerated set is deliberately compile-time catalog data today, and making it runtime-editable would let approved YAML alter which kernel effects bypass approval, which is authority-sensitive; such growth stays behind the artifact-lifecycle approval path as its own change. Equally, if `gate()`'s purity constraint were relaxed to allow state mutation, the token consume could move into `gate()` — but that would break the pure-decision tests and the TOCTOU-avoiding dispatch placement established by D-050, so the validate-in-gate / consume-at-dispatch split stands unless that constraint is explicitly revisited.
 
 ---
+
+# D-056 — Eval-store groundwork defers AD-111 evaluator policy: only the verdict-landing surface is settled
+
+## Decision
+
+`define-lineage-and-eval-store` lands the non-retrofittable schema groundwork only: a generation/lineage model on proposed-artifact rows (`ArtifactLineage`, root/derived consistency enforced fail-closed at both the write boundary and load) and an indexed `eval_verdicts` table (`recorded_at` persisted as checked epoch-nanosecond INTEGER so chronological ordering is exact across whole-second/fractional boundaries). AD-111 is *leaning* and is cited by this change only for the fact that verdicts land in a dedicated indexed store rather than audit-chain rows. The groundwork does NOT settle judge-independence requirements, evaluator identity semantics, attack-trace evidence semantics, or a verdict vocabulary: `verdict` stays an open string, and `fitness`/`evidence`/`evaluator` are optional forward-compatible metadata (`evaluator` is `Option<String>`).
+
+## Rationale
+
+The change brief cites AD-111 solely for verdict landing; promoting its other *leaning* details to normative spec requirements would canonize an unratified decision without owner review (spec-debt rule, D-049 precedent). Landing the indexed surface now keeps the non-retrofittable schema in place while leaving every policy question open for the later evaluation/prover-judge change.
+
+## Consequences
+
+The eval store is usable by later changes (`implement-overlay-eval-gate`, `implement-model-swap-ceremony`) as a landing surface, but any evaluator policy those changes need must be proposed and ratified there. D-006 keeps verdict rows authority-free; D-011 digest binding is retained via the required `artifact_digest` column.
+
+## Would change if
+
+AD-111 is settled by the owner — the deferred semantics (judge independence, evaluator identity, attack traces, verdict vocabulary) would then land as their own change with a spec delta over this table, potentially tightening `verdict` to an enum via migration.
+
+---
 ---
 
 
@@ -1510,3 +1531,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-10 | Added D-053 (kernel extension points become compiled-in registries — connector, action-handler, post-approval, artifact-kind; curated canonical `ActionCatalog` makes unknown action ids a hard `UnknownActionId` composition error and a structured `UnknownAction` gate denial distinct from `NotGranted`), settled while implementing `refactor-kernel-registries`. |
 | 2026-07-10 | Added D-054 (pipeline stages are a typed compiled-in `PipelineStage` sequence the driver executes from its synchronous `SYNC_PREFIX` — `event → verify → identify → route → compose → grant → run`; lanes are compiled-in `LaneSpec` data records with a single-stage hook contract, never runtime-proposable artifacts; gate is a distributed runtime stage at the effect boundary per AD-120/D-004, outside the driver prefix — the driver module never calls `gate()`; lanes cannot reorder or omit stages; `event.received` is emitted only after Verify succeeds, preserving the preflight-failure audit surface), settled while implementing `refactor-pipeline-driver`. |
 | 2026-07-10 | Added D-055 (gate trusted paths hardened along four axes: (1) every effectful path reaching around `gate()` is enumerated as classified `ActionCatalog` data — `gated-shell` / `post-gate-approved-effect` / `kernel-origin-gated` / `internal-maintenance-non-effect` — with a dedicated characterization test per entry; (2) `ActionOrigin::{Shell, Kernel}` marks kernel-origin effects that route through `gate()` approval-exempt but audit-never-exempt, generalizing D-046's single `owner.notified` carve-out into a finite trusted-origin set (outside the set ⇒ denied); (3) selection-token validation moves into the pure, no-I/O `gate()` decision via `GateContext::find_selection_token` while the atomic single-use consume stays at dispatch, preserving `gate()`'s purity; (4) shell DTOs carry no digest fields and the kernel re-derives payload/target digests from artifact-store bytes at approval-effect time, denying on mismatch and never trusting a shell-supplied digest (per D-041 digests and AD-120's shell-intents/kernel-outcomes boundary); the validate-in-gate / consume-at-dispatch split follows the D-046/D-050 dispatch-side enforcement precedent), settled while implementing `harden-gate-trusted-paths`. |
+| 2026-07-16 | Added D-056 (eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata, checked epoch-nanosecond timestamps, fail-closed lineage consistency; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change), settled during review of `define-lineage-and-eval-store`. |
+
