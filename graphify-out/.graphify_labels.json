@@ -303,7 +303,6 @@
   "301": "ActionRequest",
   "302": "tests.rs",
   "303": "get_task",
-  "304": "ApprovalRecord",
   "305": "Approach",
   "306": "action_catalog.rs",
   "307": ".fmt",
@@ -315,11 +314,7 @@
   "313": "editUrl",
   "314": "Proposal: Implement identity store and principal",
   "315": "Tasks: Implement identity store and principal",
-  "316": "head",
   "317": "MODIFIED Requirements",
-  "318": "Delegation & containment",
-  "319": "artifact_propose.rs",
   "320": "benchmark.rs",
-  "321": "draft",
   "322": "head"
 }

@@ -119,6 +119,10 @@ pub enum MatchedIdentifierType {
 pub struct IdentityResolution {
     pub event_id: Ulid,
     pub matched_identity_id: Option<Ulid>,
+    /// The resolved principal (AD-146). `Some` ONLY for the owner fast path
+    /// in v1. Counterparties and unknowns have `None`, preventing implicit
+    /// promotion.
+    pub principal_id: Option<Ulid>,
     /// Confidence in `[0.0, 1.0]`.
     pub confidence: f64,
     pub matched_identifier_type: MatchedIdentifierType,

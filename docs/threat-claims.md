@@ -39,7 +39,9 @@ exist in the workspace.
 | CLAIM-26 | Authenticated Macaroons-simple grant chains reject authority, identity, selection-token, caveat-order, and lineage tampering | `test: id_parent_and_action_list_tamper_fail` `test: selection_token_tamper_invalidates_mac` `test: caveat_reorder_or_remove_invalidates_mac` `test: identity_field_tamper_invalidates_mac` |
 | CLAIM-27 | Shadow grants are represented as a non-executable gate decision and do not run effects | `test: shadow_allow_is_non_executable_effect_suppressed` `test: shadow_grant_effect_suppressed_skips_effect_handler` |
 | CLAIM-28 | AD-036 bound-parameter caveats cannot conflict or be widened across a chain | `test: bound_parameter_conflict_is_caveat_widening` |
-
+| CLAIM-29 | Identity store enforces at most one owner principal at the database layer | `test: database_enforces_at_most_one_owner_principal` |
+| CLAIM-30 | Identity bootstrap/initialization is idempotent and fails closed if DB owner mismatch occurs | `test: bootstrap_owner_principal_creates_exactly_one_owner_and_is_idempotent` `test: bootstrap_owner_principal_fails_closed_on_config_mismatch` |
+| CLAIM-31 | Counterparty identity binding is gated on an authenticated owner-principal context at the API boundary, and is audited atomically; unknown claims never auto-bind | `test: owner_assert_binding_succeeds_and_is_audited_atomically` `test: owner_assert_binding_rejects_non_owner_principal_id` `test: unknown_resolves_to_relationship_unknown_confidence_0_and_no_write` |
 ## Notes
 
 - CLAIM-05 is enforced by `sandbox::tests::process_driver_clears_env_and_sets_only_two_vars`,

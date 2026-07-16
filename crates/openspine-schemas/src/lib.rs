@@ -23,6 +23,7 @@ pub mod ids;
 pub mod model;
 pub mod pack;
 pub mod policy;
+pub mod principal;
 pub mod route;
 pub mod selection;
 pub mod workflow;

@@ -221,7 +221,7 @@ fn email_grant_excludes_inbox_wide_read_matching_prd_12_2() {
         workflow: &workflow,
         pack: &pack,
         session: &session,
-        user: "owner",
+        principal_id: ulid::Ulid::new(),
         purpose: "draft_reply_for_selected_email_thread",
     };
     let AuthorityOutcome::Granted(grant) =

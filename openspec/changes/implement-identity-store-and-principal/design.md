@@ -47,10 +47,9 @@ every file under the 500-line cap; `pipeline/mod.rs` loses the hardcoded
 - `crates/openspine-kernel/src/identity.rs` (new): `IdentityResolver` borrows
   the store plus the bootstrapped owner principal id and the owner's identifier
   hash. `resolve` is **pure of side effects** — it never inserts a row.
-  - Owner fast path: the event's `actor_hint.channel_user_id` (set by
-    `build_owner_envelope`, trustworthy only because `verify_update` already
-    authenticated the owner) is hashed and compared to the owner's identifier
-    hash → `principal_id = Some(owner)`, confidence `1.0`.
+  - Owner fast path: if the caller presents `owner_verified = Some(&VerifiedOwnerContext)` (where
+    `VerifiedOwnerContext` is an unforgeable connector-authenticated token defined inside `telegram.rs`
+    that only verification code can construct) → `principal_id = Some(owner)`, confidence `1.0`.
   - Counterparty: hash lookup in `identity_identifiers` → returns the bound
     `Identity` with its relationship, `principal_id = None`.
   - Unknown: no match → `RelationshipKind::Unknown`, confidence `0`,
@@ -80,12 +79,10 @@ every file under the 500-line cap; `pipeline/mod.rs` loses the hardcoded
   it is a kernel-internal store mutation (like `insert_task_grant`), so D-004's
   "every effect through `gate()`" (an agent-effect rule) is not the relevant
   gate; the relevant guarantee is the owner-principal context.
-- `owner_assert_identity_binding(owner_principal_id, identity)` requires the
-  passed id to resolve to an `is_owner` principal (verified by
-  `owner_principal_by_id`; fail closed otherwise) — this is the owner-approval
-  proof at the API boundary, **not** `with_kernel_origin` and **not** pack
-  exclusion (those are defense-in-depth only). It is exposed only from the
-  owner-control lane, which runs after `verify_update` authenticated the owner.
+- `owner_assert_identity_binding(owner_principal_id, proof, identity)` requires the passed id to resolve to
+  an `is_owner` principal AND a valid `VerifiedOwnerContext` proof token at the boundary — this is the owner-approval
+  proof at the API boundary, **not** `with_kernel_origin` and **not** pack exclusion (those are defense-in-depth only).
+  It is exposed only from the owner-control lane, which runs after `verify_update` authenticated the owner.
 - It is unreachable from the agent path: absent from the action catalog, every
   capability pack, and the shell `ActionHandlerRegistry`; the shell dispatches
   only allowed actions, so a request for it cannot be served.

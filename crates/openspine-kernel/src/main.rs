@@ -14,6 +14,7 @@ mod benchmark;
 mod config;
 mod connectors;
 mod gmail;
+mod identity;
 mod model_gateway;
 mod pipeline;
 mod sandbox;
@@ -89,6 +90,10 @@ async fn main() -> anyhow::Result<()> {
             .context("opening artifact store")?;
     let store =
         store::Store::open(&cfg.data_dir.join("kernel.db")).context("opening kernel store")?;
+    // Bootstrap the owner principal at startup (idempotent, transactional, fail-closed)
+    let owner_principal = store
+        .bootstrap_owner_principal(cfg.owner.telegram_user_id, &cfg.owner.display_name)
+        .context("bootstrapping owner principal failed")?;
     // PRD §18: the audit log is append-only and hash-chained specifically
     // so tampering/corruption is detectable — detect it now, at boot,
     // rather than never. A broken chain means someone edited the SQLite
@@ -165,6 +170,8 @@ async fn main() -> anyhow::Result<()> {
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail),
         owner_user_id: cfg.owner.telegram_user_id,
+        owner_principal_id: owner_principal.id,
+        owner_identity_id: owner_principal.identity_id,
         kernel_endpoint: cfg
             .kernel
             .advertise_endpoint

@@ -52,6 +52,7 @@ async fn owner_lane_executed_stage_trace_matches_sync_prefix() {
         chat_id: 555,
         text: "hello lyra".to_string(),
         thread_id: None,
+        owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
     };
     let mut trace = Vec::new();
     let result = run_pipeline(
@@ -64,6 +65,17 @@ async fn owner_lane_executed_stage_trace_matches_sync_prefix() {
     .await
     .unwrap();
     assert!(result.is_some(), "owner-control lane must compose a grant");
+    let grant = result.unwrap();
+    assert_eq!(
+        grant.user,
+        state.owner_principal_id.to_string(),
+        "composition must consume principal_id, not the Telegram owner config string"
+    );
+    assert_ne!(
+        grant.user,
+        state.owner_user_id.to_string(),
+        "grant.user must not be the raw Telegram owner user id"
+    );
     assert_eq!(trace, PipelineStage::SYNC_PREFIX.to_vec());
 }
 
@@ -74,6 +86,7 @@ async fn email_lane_executed_stage_trace_matches_sync_prefix() {
         chat_id: 555,
         text: "/draft thread-1".to_string(),
         thread_id: Some("thread-1".to_string()),
+        owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
     };
     let mut trace = Vec::new();
     let result = run_pipeline(
@@ -87,4 +100,38 @@ async fn email_lane_executed_stage_trace_matches_sync_prefix() {
     .unwrap();
     assert!(result.is_some(), "email-preview lane must compose a grant");
     assert_eq!(trace, PipelineStage::SYNC_PREFIX.to_vec());
+}
+
+#[tokio::test]
+async fn owner_lane_without_verified_context_fails_closed_before_grant() {
+    // Absent VerifiedOwnerContext, the resolver never yields a principal_id
+    // (and never claims Owner relationship). The pipeline fails closed with
+    // no grant — either via route denial (Ok(None)) or composition error.
+    // The load-bearing contract is: no grant is persisted (AD-146).
+    let state = test_state();
+    let inputs = EventInputs {
+        chat_id: 555,
+        text: "hello lyra".to_string(),
+        thread_id: None,
+        owner_verified: None,
+    };
+    let mut trace = Vec::new();
+    let result = run_pipeline(
+        &state,
+        owner_control_lane(),
+        &inputs,
+        Timestamp::now(),
+        &mut trace,
+    )
+    .await
+    .expect("pipeline infra must not error; fail-closed is a denial, not an I/O fault");
+    assert!(
+        result.is_none(),
+        "no principal_id / no Owner relationship must yield no grant, got {result:?}"
+    );
+    assert_eq!(
+        state.store.count_task_grants().unwrap(),
+        0,
+        "no grant may be persisted when identity has no principal"
+    );
 }
