@@ -41,6 +41,37 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE grant_counters ADD COLUMN model_calls INTEGER NOT NULL DEFAULT 0",
     )?;
+    // AD-105: aggregate bus coordinates on audit_log for existing DBs.
+    // CREATE TABLE IF NOT EXISTS only helps brand-new files; these columns
+    // were added after audit_log first shipped.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE audit_log ADD COLUMN aggregate_id TEXT NOT NULL DEFAULT 'system'",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE audit_log ADD COLUMN aggregate_seq INTEGER NOT NULL DEFAULT 0",
+    )?;
+    // AD-105: durable consumer checkpoints + bus indexes (idempotent replay).
+    // Indexes live here (not SCHEMA_SQL) so legacy DBs get columns first.
+    // - idx_audit_id: unique event IDs even if a legacy table lacked UNIQUE.
+    // - idx_audit_aggregate: lookup by stream.
+    // - idx_audit_aggregate_seq_unique: per-aggregate monotonicity for new
+    //   rows (seq > 0); partial so legacy sentinel seq=0 may repeat.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS consumer_checkpoints (
+            consumer_id TEXT PRIMARY KEY,
+            last_acked_global_seq INTEGER NOT NULL DEFAULT 0,
+            checkpoint_json TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_id
+            ON audit_log (id);
+        CREATE INDEX IF NOT EXISTS idx_audit_aggregate
+            ON audit_log (aggregate_id, aggregate_seq);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_aggregate_seq_unique
+            ON audit_log (aggregate_id, aggregate_seq)
+            WHERE aggregate_seq > 0;",
+    )?;
     // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
     super::proposed_artifacts::ensure_schema(conn)?;
     // `define-lineage-and-eval-store`: nullable lineage column on
