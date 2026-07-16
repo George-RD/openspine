@@ -57,6 +57,14 @@ pub struct TaskView {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ActionOutcome {
     pub decision: GateDecision,
+    /// Canonical counterparty-safe refusal, when the kernel routed an
+    /// escalation. Policy text and owner-only escalation details are never
+    /// represented here.
+    /// This is a dormant transport contract until a shell counterparty-send
+    /// producer ships; keep it deserializable without exposing owner-only
+    /// escalation details.
+    #[allow(dead_code)]
+    pub counterparty_deferral: Option<String>,
     pub result: Option<Value>,
 }
 
@@ -385,6 +393,31 @@ mod tests {
             GateDecision::Deny {
                 reason: DenialReason::ExplicitDeny
             }
+        );
+        assert!(outcome.counterparty_deferral.is_none());
+        assert!(outcome.result.is_none());
+    }
+
+    #[tokio::test]
+    async fn counterparty_denial_preserves_only_canonical_deferral() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/actions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "decision": {"outcome": "deny", "reason": "explicit_deny"},
+                "counterparty_deferral": "I need to check on that — I'll get back to you"
+            })))
+            .mount(&server)
+            .await;
+
+        let client = KernelClient::new(server.uri(), "t".to_string());
+        let outcome = client
+            .submit_action("email.send", None, None)
+            .await
+            .expect("counterparty denial is a structured outcome");
+        assert_eq!(
+            outcome.counterparty_deferral.as_deref(),
+            Some("I need to check on that — I'll get back to you")
         );
         assert!(outcome.result.is_none());
     }

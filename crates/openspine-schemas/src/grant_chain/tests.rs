@@ -41,6 +41,7 @@ fn sample_root() -> TaskGrant {
         mode: GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
+        thread_id: None,
     };
     seal_root(&mut grant, TEST_GRANT_HMAC_KEY);
     grant
@@ -138,6 +139,33 @@ fn egress_class_tamper_invalidates_root_mac() {
         !verify_mac(TEST_GRANT_HMAC_KEY, &grant),
         "adding an egress class must invalidate the MAC"
     );
+}
+
+#[test]
+fn legacy_grant_without_thread_id_still_verifies() {
+    let grant = sample_root();
+    let canonical = String::from_utf8(RootAuthority::from_grant(&grant).canonical_bytes())
+        .expect("canonical root is UTF-8 JSON");
+    assert!(
+        !canonical.contains("thread_id"),
+        "legacy None root form must omit the optional binding"
+    );
+    let mut legacy = serde_json::to_value(&grant).unwrap();
+    legacy
+        .as_object_mut()
+        .expect("grant serializes as object")
+        .remove("thread_id");
+    let decoded: TaskGrant = serde_json::from_value(legacy).unwrap();
+    assert!(decoded.thread_id.is_none());
+    assert!(verify_mac(TEST_GRANT_HMAC_KEY, &decoded));
+}
+
+#[test]
+fn adding_thread_binding_without_resealing_invalidates_mac() {
+    let grant = sample_root();
+    let mut tampered = grant.clone();
+    tampered.thread_id = Some("topic-42".to_string());
+    assert!(!verify_mac(TEST_GRANT_HMAC_KEY, &tampered));
 }
 
 #[test]

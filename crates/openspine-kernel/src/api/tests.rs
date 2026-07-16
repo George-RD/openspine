@@ -70,6 +70,7 @@ async fn email_read_inbox_is_denied_for_owner_control_grant() {
     assert!(body.get("result").is_none());
 
     handle.abort();
+    assert!(body.get("counterparty_deferral").is_none());
 }
 
 #[tokio::test]
@@ -88,6 +89,135 @@ async fn network_raw_egress_is_denied_for_owner_control_grant() {
     assert_eq!(body["decision"]["outcome"], "deny");
     assert_eq!(body["decision"]["reason"], "explicit_deny");
     assert!(body.get("result").is_none());
+
+    handle.abort();
+}
+
+#[tokio::test]
+async fn counterparty_denial_returns_deferral_routes_and_audits() {
+    let server = MockServer::start().await;
+    let token = "test-token";
+    Mock::given(method("POST"))
+        .and(path(format!("/bot{}/SendMessage", token)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 99,
+                "date": 0,
+                "chat": {"id": 555, "type": "private"},
+                "text": "sent"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let connector =
+        TelegramConnector::with_api_url(token.to_string(), server.uri().parse().unwrap());
+    let state = test_state_with_telegram(connector);
+    let store = state.store.clone();
+    let grant = handle_owner_update(&state, &owner_update("send this"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    let (addr, handle) = start_server(state).await;
+
+    let sentinel = "RULE_SENTINEL_POLICY_TEXT";
+    let resp = post_action(
+        addr,
+        &grant.task_token,
+        "email.send",
+        Some(json!({"context": sentinel})),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(
+        body,
+        json!({
+            "decision": {"outcome": "deny", "reason": "explicit_deny"},
+            "counterparty_deferral": "I need to check on that — I'll get back to you"
+        })
+    );
+    assert!(!body.to_string().contains(sentinel));
+    assert!(!body.to_string().contains("policy"));
+    assert!(!body.to_string().contains("EscalationNotice"));
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("action.escalated")
+            .unwrap(),
+        1
+    );
+    let escalated = store
+        .all_audit_event_jsons()
+        .unwrap()
+        .into_iter()
+        .map(|json| serde_json::from_str::<Value>(&json).unwrap())
+        .find(|event| event["kind"] == "action.escalated")
+        .expect("escalation audit row");
+    assert_eq!(
+        escalated["decision"],
+        json!({"outcome": "deny", "reason": "explicit_deny"})
+    );
+    assert_eq!(escalated["task_grant_id"], grant.id.to_string());
+    assert_eq!(escalated["reason"], "explicit_deny");
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    let request_body: Value = requests[0].body_json().unwrap();
+    assert_eq!(request_body["chat_id"], 555);
+    assert!(request_body["text"]
+        .as_str()
+        .unwrap()
+        .contains("email.send"));
+    assert!(request_body["text"]
+        .as_str()
+        .unwrap()
+        .contains("explicit_deny"));
+
+    handle.abort();
+}
+
+#[tokio::test]
+async fn counterparty_escalation_failure_is_not_reported_as_success() {
+    let server = MockServer::start().await;
+    let token = "test-token";
+    Mock::given(method("POST"))
+        .and(path(format!("/bot{}/SendMessage", token)))
+        .respond_with(ResponseTemplate::new(500).set_body_json(json!({
+            "ok": false,
+            "description": "telegram unavailable"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let connector =
+        TelegramConnector::with_api_url(token.to_string(), server.uri().parse().unwrap());
+    let state = test_state_with_telegram(connector);
+    let store = state.store.clone();
+    let grant = handle_owner_update(&state, &owner_update("send this"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    let (addr, handle) = start_server(state).await;
+
+    let resp = post_action(addr, &grant.task_token, "email.send", None).await;
+    assert_eq!(resp.status(), 500);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["error"], "internal_error");
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("owner.notify_failed")
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("action.escalated")
+            .unwrap(),
+        0
+    );
 
     handle.abort();
 }

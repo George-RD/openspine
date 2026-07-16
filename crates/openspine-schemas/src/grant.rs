@@ -77,6 +77,12 @@ pub struct TaskGrant {
     /// Hex HMAC terminal tip over root authority and every chain hop.
     #[serde(default)]
     pub caveat_mac: String,
+    /// Dormant channel-thread binding (AD-148). None until a thread-capable
+    /// channel ships; kernel-owned, never set by the shell. A populated
+    /// binding is MAC-covered; None is omitted from canonical root bytes for
+    /// pre-thread grant compatibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
 }
 
 impl TaskGrant {
@@ -149,6 +155,7 @@ mod tests {
             mode: GrantMode::Live,
             chain: vec![],
             caveat_mac: String::new(),
+            thread_id: None,
         };
         g.seal_root(TEST_GRANT_HMAC_KEY);
         g
@@ -160,6 +167,26 @@ mod tests {
         let back: TaskGrant = serde_json::from_str(&serde_json::to_string(&g).unwrap()).unwrap();
         assert_eq!(g, back);
         assert!(g.verify_mac(TEST_GRANT_HMAC_KEY));
+    }
+
+    #[test]
+    fn legacy_without_thread_id_defaults_to_none() {
+        let mut value = serde_json::to_value(grant()).unwrap();
+        value.as_object_mut().unwrap().remove("thread_id");
+        let back: TaskGrant = serde_json::from_value(value).unwrap();
+        assert!(back.thread_id.is_none());
+    }
+
+    #[test]
+    fn thread_id_round_trips_when_populated() {
+        let mut value = grant();
+        value.thread_id = Some("topic-42".to_string());
+        let json = serde_json::to_value(&value).unwrap();
+        assert_eq!(json["thread_id"], "topic-42");
+        let back: TaskGrant = serde_json::from_value(json).unwrap();
+        assert_eq!(back.thread_id.as_deref(), Some("topic-42"));
+        // Thread binding is kernel-owned and authenticated by the grant MAC.
+        assert!(!back.verify_mac(TEST_GRANT_HMAC_KEY));
     }
 
     #[test]

@@ -321,6 +321,7 @@ mod tests {
             mode: GrantMode::Live,
             chain: vec![],
             caveat_mac: String::new(),
+            thread_id: None,
         };
         grant.seal_root(b"openspine-test-grant-hmac-key-v1");
 
@@ -436,6 +437,7 @@ mod tests {
             mode: GrantMode::Live,
             chain: vec![],
             caveat_mac: String::new(),
+            thread_id: None,
         };
         grant.seal_root(b"openspine-test-grant-hmac-key-v1");
         let catalog = ActionCatalog::new([ActionId::new("openspine.status.read")]);

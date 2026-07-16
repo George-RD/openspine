@@ -324,6 +324,7 @@ pub fn compose_authority(
         mode: openspine_schemas::grant::GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
+        thread_id: None,
     };
 
     AuthorityOutcome::Granted(Box::new(grant))

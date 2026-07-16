@@ -78,6 +78,11 @@ pub struct ActionCatalog {
     token_requiring_actions: HashMap<ActionId, SelectionTokenType>,
     /// Every effectful path that reaches around `gate()` (D-055.1).
     effect_paths: Vec<EffectPath>,
+    /// Actions whose effects face an external counterparty (AD-151). A gate
+    /// denial for these surfaces the canonical deferral + owner escalation;
+    /// all other denials return ordinary enum outcomes only. Kernel-owned
+    /// catalog metadata — never shell-spoofable, never on TaskGrant.
+    counterparty_facing_actions: HashSet<ActionId>,
 }
 
 impl ActionCatalog {
@@ -87,6 +92,7 @@ impl ActionCatalog {
             kernel_origin_actions: HashSet::new(),
             token_requiring_actions: HashMap::new(),
             effect_paths: Vec::new(),
+            counterparty_facing_actions: HashSet::new(),
         }
     }
 
@@ -117,6 +123,21 @@ impl ActionCatalog {
     pub fn with_effect_paths(mut self, paths: impl IntoIterator<Item = EffectPath>) -> Self {
         self.effect_paths = paths.into_iter().collect();
         self
+    }
+
+    /// Mark actions whose effects face an external counterparty (AD-151).
+    /// Unknown/unclassified actions fail closed to non-counterparty.
+    /// Returns `self` for chaining.
+    pub fn with_counterparty_facing(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
+        self.counterparty_facing_actions = actions.into_iter().collect();
+        self
+    }
+
+    /// True if a denial of `id` faces an external counterparty and must
+    /// surface the canonical deferral + owner escalation (AD-151).
+    /// Unknown/unclassified actions return false (fail closed).
+    pub fn is_counterparty_facing(&self, id: &ActionId) -> bool {
+        self.counterparty_facing_actions.contains(id)
     }
 
     /// True if `id` is a kernel-origin action trusted to bypass the granting

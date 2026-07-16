@@ -68,6 +68,9 @@ pub struct RootAuthority {
     pub agent_id: String,
     pub workflow_id: String,
     pub capability_pack_id: String,
+    /// Kernel-owned conversation binding, authenticated with root authority.
+    /// Dormant until a thread-capable channel ships (AD-148).
+    pub thread_id: Option<String>,
 }
 
 impl RootAuthority {
@@ -88,6 +91,7 @@ impl RootAuthority {
             agent_id: grant.agent_id.clone(),
             workflow_id: grant.workflow_id.clone(),
             capability_pack_id: grant.capability_pack_id.clone(),
+            thread_id: grant.thread_id.clone(),
         }
     }
 
@@ -149,6 +153,12 @@ impl RootAuthority {
         // MAC exactly as any other authority field does.
         if !egress.is_empty() {
             payload["allowed_egress_classes"] = serde_json::json!(egress);
+        }
+        // Preserve the pre-thread binding canonical form for legacy grants.
+        // Adding Some(thread_id) still changes the committed bytes and fails
+        // verification unless the authority is resealed.
+        if let Some(thread_id) = &self.thread_id {
+            payload["thread_id"] = serde_json::Value::String(thread_id.clone());
         }
         canonical_json(&payload).into_bytes()
     }

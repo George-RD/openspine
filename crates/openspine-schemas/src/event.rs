@@ -183,6 +183,10 @@ pub struct EventEnvelope {
     pub user_intent_hint: Option<String>,
     pub lane: Lane,
     pub trust_context: TrustContext,
+    /// Dormant channel-thread binding (AD-148). None until a thread-capable
+    /// channel ships; kernel-owned, never set by the shell.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
     pub schema_version: u32,
 }
 
@@ -220,6 +224,7 @@ mod tests {
                 channel_trust: ChannelTrust::VerifiedOwnerChannel,
                 interaction_mode: InteractionMode::OwnerMessage,
             },
+            thread_id: None,
             schema_version: 1,
         }
     }
@@ -230,6 +235,24 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         let back: EventEnvelope = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
+    }
+
+    #[test]
+    fn legacy_without_thread_id_defaults_to_none() {
+        let mut value = serde_json::to_value(sample_envelope()).unwrap();
+        value.as_object_mut().unwrap().remove("thread_id");
+        let back: EventEnvelope = serde_json::from_value(value).unwrap();
+        assert!(back.thread_id.is_none());
+    }
+
+    #[test]
+    fn thread_id_round_trips_when_populated() {
+        let mut envelope = sample_envelope();
+        envelope.thread_id = Some("topic-42".to_string());
+        let value = serde_json::to_value(&envelope).unwrap();
+        assert_eq!(value["thread_id"], "topic-42");
+        let back: EventEnvelope = serde_json::from_value(value).unwrap();
+        assert_eq!(back.thread_id.as_deref(), Some("topic-42"));
     }
 
     #[test]

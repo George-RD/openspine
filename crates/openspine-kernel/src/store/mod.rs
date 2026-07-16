@@ -153,6 +153,10 @@ pub enum StoreError {
     CheckpointRegression(String),
     #[error("numeric ledger value out of SQLite range")]
     NumericRange,
+    #[error("task grant not found for escalation: {0}")]
+    TaskGrantNotFound(Ulid),
+    #[error("mandatory owner notification failed: {0}")]
+    OwnerNotificationFailed(String),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
