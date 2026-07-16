@@ -34,6 +34,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   its brief stays in place because later `Requires:` lines reference it)
 - `refactor-pipeline-driver` (D-054; its brief stays in place for the same
   reason)
+- `harden-gate-trusted-paths` (D-055; its brief stays in place for the same
+  reason)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
