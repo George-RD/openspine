@@ -1450,8 +1450,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate/plan_tests.rs": {
-    "mtime": 1784223079.4469225,
-    "ast_hash": "ac536850dc3a6e2fa6883bb412869ec2",
+    "mtime": 1784223452.65903,
+    "ast_hash": "e0cbd250ea099184e662395a5e00dbb2",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/plan.rs": {
@@ -1460,8 +1460,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/plan_approval.rs": {
-    "mtime": 1784223079.4488626,
-    "ast_hash": "149e68b244198b5223f41c3839be2cd5",
+    "mtime": 1784223370.6172729,
+    "ast_hash": "d018237f8d1dd59965e2bea0342dfe44",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/plan.rs": {
