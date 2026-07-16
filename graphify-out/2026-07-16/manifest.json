@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "docs/threat-claims.md": {
-    "mtime": 1784209691.0699117,
-    "ast_hash": "a1b98ffc1b72ce7a8276c8249f735fc5",
+    "mtime": 1784210575.4638007,
+    "ast_hash": "f9f9d8e12cb8da49f11a7acbb9f2e26d",
     "semantic_hash": ""
   },
   "graphify-out/memory/query_20260703_104024_trace_the_full_runtime_call_path_for_a_single_inco.md": {
@@ -1175,8 +1175,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/driver.rs": {
-    "mtime": 1784209090.7400544,
-    "ast_hash": "6eef80872a15c4890fb65ab9f6a7736d",
+    "mtime": 1784210636.1968448,
+    "ast_hash": "dcc63496063b07c82fdc73bdb5f814b7",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-10-refactor-pipeline-driver/design.md": {
@@ -1225,8 +1225,8 @@
     "semantic_hash": ""
   },
   ".omp/config.yml": {
-    "mtime": 1784187132.4561224,
-    "ast_hash": "5b964f7bba5351f9a68eab617421d049",
+    "mtime": 1784210949.6746562,
+    "ast_hash": "bad1ef51866a10d750e67e58e81d6385",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-harden-gate-trusted-paths/design.md": {
@@ -1330,8 +1330,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/identity.rs": {
-    "mtime": 1784209820.9129977,
-    "ast_hash": "1bcc3b710bfa40020701e9283f47abf1",
+    "mtime": 1784210712.0228827,
+    "ast_hash": "8504a345467f68eb08a956b348a817ae",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/identity_tests.rs": {

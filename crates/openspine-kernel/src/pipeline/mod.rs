@@ -8,8 +8,11 @@
 //! [`driver::email_preview_lane`]) over the nine-stage sequence declared once
 //! in [`driver::PipelineStage`]. This module keeps the shared helpers the
 //! lanes rely on ([`AppState`], [`empty_session_policy`],
-//! [`resolve_owner_identity`], [`notify_owner_best_effort`]) and the public
-//! entry points ([`run_telegram_poll_loop`], [`handle_owner_update`]).
+//! [`notify_owner_best_effort`]) and the public entry points
+//! ([`run_telegram_poll_loop`], [`handle_owner_update`]). Identity resolution
+//! lives in [`crate::identity::IdentityResolver`], driven by an unforgeable
+//! [`crate::telegram::VerifiedOwnerContext`] minted only by
+//! [`crate::telegram::verify_update`].
 //!
 //! Lane selection (the `/draft <thread_id>` command) is recognized here, at
 //! the Event-stage boundary, and handed to the driver as lane data — the
@@ -17,14 +20,10 @@
 //! early is audited, so "why didn't Lyra reply" is always answerable from
 //! `audit_log` alone.
 //!
-//! Phase 1 has exactly one live identity source: the configured Telegram
-//! owner. [`resolve_owner_identity`] is a hardcoded match, not a real
-//! identity graph lookup — [`crate::telegram::verify_update`] already
-//! filtered every event reaching this module down to "owner, private chat,
-//! text message" before an [`AppState`] method ever sees it, so by
-//! construction the identity here IS the owner. A persisted multi-identity
-//! graph is future work (a second real identity source), not fabricated
-//! ahead of one.
+//! v1 has one owner principal (bootstrapped at kernel start). The Telegram
+//! owner user id remains only the channel *authentication* signal for
+//! [`crate::telegram::verify_update`]; composition consumes the resolved
+//! `principal_id` (AD-146).
 
 mod approval;
 mod artifact_activation;
