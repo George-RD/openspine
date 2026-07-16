@@ -36,6 +36,10 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   reason)
 - `harden-gate-trusted-paths` (D-055; its brief stays in place for the same
   reason)
+- `define-grant-chain-and-modes`
+- `implement-identity-store-and-principal`
+- `define-lineage-and-eval-store` (D-056; brief stays in place — later
+  `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
