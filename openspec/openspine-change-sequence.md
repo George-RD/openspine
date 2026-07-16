@@ -49,6 +49,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   later `Requires:` lines reference it)
 - `implement-overlay-eval-gate` (D-060; brief stays in place — later
   `Requires:` lines reference it)
+- `implement-model-swap-ceremony` (D-061..D-063; brief stays in place —
+  later `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
