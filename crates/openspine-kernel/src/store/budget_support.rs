@@ -56,6 +56,29 @@ impl Store {
         Ok(conn.changes() == 1)
     }
 
+    /// Atomically reserve `count` model calls for one golden-set run.
+    /// Failed or timed-out runs consume the reservation, matching ordinary
+    /// model-call accounting: the provider was attempted and cannot be
+    /// treated as free capacity on retry.
+    pub fn try_count_model_calls(
+        &self,
+        grant_id: Ulid,
+        count: u32,
+        max: u32,
+    ) -> Result<bool, StoreError> {
+        if count == 0 || count > max {
+            return Ok(false);
+        }
+        let conn = self.conn.lock();
+        conn.execute(
+            "INSERT INTO grant_counters (grant_id, model_calls) VALUES (?1, ?2)
+             ON CONFLICT(grant_id) DO UPDATE SET model_calls = model_calls + ?2
+             WHERE model_calls + ?2 <= ?3",
+            params![grant_id.to_string(), count, max],
+        )?;
+        Ok(conn.changes() == 1)
+    }
+
     // ---- artifact-put budget (D-046) --------------------------------------
 
     /// Atomically consume one unit of `grant_id`'s artifact-put budget.

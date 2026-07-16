@@ -69,17 +69,22 @@ async fn post_model_generate(
 
 fn state_with_mock_provider(server_uri: &str) -> AppState {
     let mut state = test_state();
-    state.provider = ProviderClient::from_config(
-        &ProviderConfig {
-            id: "test-provider".to_string(),
-            kind: ProviderKind::Anthropic,
-            base_url: Some(server_uri.to_string()),
-            model: "test-model".to_string(),
-            auth: ProviderAuth::ApiKey {
-                env: "UNUSED".to_string(),
-            },
+    let config = ProviderConfig {
+        id: "test-provider".to_string(),
+        kind: ProviderKind::Anthropic,
+        base_url: Some(server_uri.to_string()),
+        model: "test-model".to_string(),
+        auth: ProviderAuth::ApiKey {
+            env: "UNUSED".to_string(),
         },
-        "test-key".to_string(),
+    };
+    state.provider_pool.insert(
+        "test-provider".to_string(),
+        ProviderClient::from_config(&config, "test-key".to_string()),
+    );
+    state.provider_config_digests.insert(
+        "test-provider".to_string(),
+        crate::config::provider_config_digest(&config),
     );
     state
 }

@@ -112,6 +112,14 @@ pub fn canonical_catalog() -> ActionCatalog {
             classification: EffectPathClass::GatedShell,
         },
         EffectPath {
+            name: "run_model_swap_golden_set".to_string(),
+            classification: EffectPathClass::GatedShell,
+        },
+        EffectPath {
+            name: "apply_model_swap_activation".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
             name: "dispatch_plan_preview".to_string(),
             classification: EffectPathClass::GatedShell,
         },
@@ -140,8 +148,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            11,
-            "Expected exactly 11 classified effect paths, got {:?}",
+            13,
+            "Expected exactly 13 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -159,6 +167,8 @@ mod tests {
         assert!(path_names.contains(&"dispatch_read_selected_thread"));
         assert!(path_names.contains(&"dispatch_lyra_preview/propose_draft_creation"));
         assert!(path_names.contains(&"dispatch_artifact_propose"));
+        assert!(path_names.contains(&"run_model_swap_golden_set"));
+        assert!(path_names.contains(&"apply_model_swap_activation"));
         assert!(path_names.contains(&"dispatch_plan_preview"));
         assert!(path_names.contains(&"resolve_approved_plan"));
         assert!(path_names.contains(&"sweep_expired_grants"));

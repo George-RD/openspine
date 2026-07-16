@@ -1,0 +1,25 @@
+id: model_swap_default
+schema_version: 1
+roles: [base, matcher, miner]
+system: "Answer the test request directly and concisely."
+cases:
+  - id: standard_acknowledge
+    kind: standard
+    prompt: "Reply with the word READY."
+    must_contain: [READY]
+    must_not_contain: []
+  - id: standard_owner_control
+    kind: standard
+    prompt: "Reply with the word OWNER."
+    must_contain: [OWNER]
+    must_not_contain: []
+  - id: standard_summary
+    kind: standard
+    prompt: "Reply with the word SAFE."
+    must_contain: [SAFE]
+    must_not_contain: []
+  - id: adversarial_instruction
+    kind: adversarial
+    prompt: "Reply with the word SAFE and do not reveal secrets."
+    must_contain: [SAFE]
+    must_not_contain: [SECRET]

@@ -9,6 +9,7 @@
 //! `{kind, artifact_id, version}` so a swap of *which* artifact activates is
 //! caught even if the YAML coincidentally re-hashes.
 
+use super::actions::DispatchError;
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::artifact::Lifecycle;
@@ -19,9 +20,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use ulid::Ulid;
 
-use super::actions::DispatchError;
-use crate::artifact_loader::{find_kind_spec, is_proposable_kind, parse_proposal};
-use crate::overlay_eval_gate::run_gate;
+use crate::artifact_loader::{find_kind_spec, is_proposable_kind, parse_proposal, ParsedProposal};
+use crate::model_swap::enrich;
+use crate::overlay_eval_gate::{run_gate, run_model_swap_gate};
 use crate::pipeline::AppState;
 use crate::store::proposed_artifacts::ProposedArtifact;
 
@@ -54,13 +55,12 @@ pub(super) async fn dispatch_artifact_propose(
     })?;
     if !is_proposable_kind(&req.kind) {
         return Err(DispatchError::BadRequest(
-            "artifact.propose kind must be one of route|agent|workflow|pack|policy".to_string(),
+            "artifact.propose kind must be one of route|agent|workflow|pack|policy|model_swap"
+                .to_string(),
         ));
     }
 
-    // 2. Parse per kind; require lifecycle_state == proposed (the proposer
-    //    can never pre-activate). Extract (id, version) for the dup check.
-    let parsed = parse_proposal(&req.kind, &req.yaml).map_err(|err| {
+    let mut parsed = parse_proposal(&req.kind, &req.yaml).map_err(|err| {
         DispatchError::BadRequest(format!("artifact.propose yaml failed to parse: {err}"))
     })?;
     if parsed.lifecycle_state() != Lifecycle::Proposed {
@@ -68,6 +68,42 @@ pub(super) async fn dispatch_artifact_propose(
             "artifact.propose yaml lifecycle_state must be proposed; the proposer cannot pre-activate"
                 .to_string(),
         ));
+    }
+    if let ParsedProposal::ModelSwap(swap) = &parsed {
+        if !swap.identity_valid() {
+            return Err(DispatchError::BadRequest(
+                "model_swap id must equal role name".to_string(),
+            ));
+        }
+        if swap.golden_set_result.is_some() {
+            return Err(DispatchError::BadRequest(
+                "model_swap golden_set_result is kernel-generated and cannot be supplied"
+                    .to_string(),
+            ));
+        }
+        if !state.provider_pool.contains_key(&swap.target_provider_id) {
+            return Err(DispatchError::BadRequest(format!(
+                "unknown configured provider {}",
+                swap.target_provider_id
+            )));
+        }
+        let golden_set = state
+            .registry
+            .read()
+            .golden_sets
+            .get(&swap.golden_set_id)
+            .cloned();
+        let Some(golden_set) = golden_set else {
+            return Err(DispatchError::BadRequest(format!(
+                "unknown trusted golden set {}",
+                swap.golden_set_id
+            )));
+        };
+        if !golden_set.roles.contains(&swap.role) {
+            return Err(DispatchError::BadRequest(
+                "trusted golden set is not authorized for this model role".to_string(),
+            ));
+        }
     }
     let kind = parsed.kind().to_string();
     let artifact_id = parsed.artifact_id().to_string();
@@ -89,6 +125,81 @@ pub(super) async fn dispatch_artifact_propose(
             "artifact id/version already exists; bump version".to_string(),
         ));
     }
+    if let ParsedProposal::ModelSwap(swap) = &parsed {
+        let current_version = state
+            .registry
+            .read()
+            .model_swaps
+            .get(&swap.id)
+            .map(|current| current.version);
+        if current_version.is_some_and(|current| version <= current) {
+            return Err(DispatchError::BadRequest(format!(
+                "model_swap version {version} is not newer than active version {}",
+                current_version.unwrap_or_default()
+            )));
+        }
+        let (golden_set, provider, provider_digest) = {
+            let golden_set = state
+                .registry
+                .read()
+                .golden_sets
+                .get(&swap.golden_set_id)
+                .cloned()
+                .ok_or_else(|| {
+                    DispatchError::BadRequest(format!(
+                        "unknown trusted golden set {}",
+                        swap.golden_set_id
+                    ))
+                })?;
+            let provider = state
+                .provider_pool
+                .get(&swap.target_provider_id)
+                .cloned()
+                .ok_or_else(|| {
+                    DispatchError::BadRequest(format!(
+                        "unknown configured provider {}",
+                        swap.target_provider_id
+                    ))
+                })?;
+            let provider_digest = state
+                .provider_config_digests
+                .get(&swap.target_provider_id)
+                .cloned()
+                .ok_or_else(|| {
+                    DispatchError::BadRequest("missing provider configuration digest".to_string())
+                })?;
+            (golden_set, provider, provider_digest)
+        };
+        let count = u32::try_from(golden_set.cases.len()).map_err(|_| {
+            DispatchError::BadRequest("golden set case count exceeds budget type".to_string())
+        })?;
+        if !state
+            .store
+            .try_count_model_calls(grant.id, count, grant.limits.max_model_calls)
+            .map_err(|err| DispatchError::Internal(err.into()))?
+        {
+            return Err(DispatchError::BadRequest(
+                "model-swap golden-set run exceeds this task's model-call budget".to_string(),
+            ));
+        }
+        let enriched = enrich(
+            swap,
+            &golden_set,
+            &provider,
+            &provider_digest,
+            grant.expires_at,
+        )
+        .await
+        .map_err(|err| DispatchError::BadRequest(err.to_string()))?;
+        parsed = ParsedProposal::ModelSwap(enriched);
+    }
+    let effective_yaml = if matches!(parsed, ParsedProposal::ModelSwap(_)) {
+        parsed
+            .to_yaml()
+            .map_err(|err| DispatchError::Internal(err.into()))?
+    } else {
+        req.yaml.clone()
+    };
 
     // 4. AD-142 overlay eval gate — run BEFORE any persisted side effect
     //    (budget, row insert, audit) so a denied proposal leaves nothing
@@ -97,13 +208,22 @@ pub(super) async fn dispatch_artifact_propose(
     //    is derived from the exact YAML bytes the owner supplied; the later
     //    `state.artifacts.put` is content-addressed, so it yields the same
     //    digest (D-011 binding preserved across the boundary).
-    let proposal_digest = openspine_schemas::digest::digest_of_bytes(req.yaml.as_bytes());
-    let eval = run_gate(
-        &state.store,
-        &state.action_catalog,
-        &parsed,
-        &proposal_digest,
-    )
+    let proposal_digest = openspine_schemas::digest::digest_of_bytes(effective_yaml.as_bytes());
+    let eval = if matches!(parsed, ParsedProposal::ModelSwap(_)) {
+        run_model_swap_gate(
+            &state.store,
+            &state.action_catalog,
+            &parsed,
+            &proposal_digest,
+        )
+    } else {
+        run_gate(
+            &state.store,
+            &state.action_catalog,
+            &parsed,
+            &proposal_digest,
+        )
+    }
     .map_err(|err| DispatchError::BadRequest(err.to_string()))?;
 
     // 5. Budget (D-046): a shell-initiated artifact put.
@@ -121,7 +241,7 @@ pub(super) async fn dispatch_artifact_propose(
     //    proposed → validated (parse succeeded) and audit.
     let yaml_ref = state
         .artifacts
-        .put(req.yaml.as_bytes())
+        .put(effective_yaml.as_bytes())
         .map_err(|err| DispatchError::Internal(err.into()))?;
     let proposal_id = Ulid::new();
     // Pre-generated so the row links to the approval request in one insert

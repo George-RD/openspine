@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: activation transaction remains co-located with proposal lifecycle storage
 //! Storage for the `proposed_artifacts` table (5b): one row per
 //! `artifact.propose` dispatch, tracking the proposal through the PRD §13.1
 //! lifecycle (`proposed → validated → review_required → approved → active`)
@@ -13,6 +14,8 @@
 
 use crate::overlay_eval_gate::{JudgePassed, ReplayPassed};
 use jiff::Timestamp;
+use openspine_schemas::action::ActionId;
+use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::artifact::{can_transition, Lifecycle};
 use openspine_schemas::lineage::ArtifactLineage;
 use rusqlite::{params, OptionalExtension};
@@ -130,10 +133,138 @@ fn lineage_from_json(s: Option<&str>) -> Result<Option<ArtifactLineage>, StoreEr
 }
 
 impl Store {
-    /// Persist a fresh proposed-artifact row. The `UNIQUE(kind, artifact_id,
-    /// version)` constraint is the last-line duplicate guard; the dispatcher
-    /// checks for duplicates explicitly first so a hit here surfaces as a
-    /// store error rather than a clean `400`.
+    pub fn find_proposed_artifact(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+    ) -> Result<Option<(Lifecycle, String)>, StoreError> {
+        let conn = self.conn.lock();
+        conn.query_row(
+            "SELECT state, yaml_digest FROM proposed_artifacts
+             WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3
+             ORDER BY proposed_at DESC LIMIT 1",
+            params![kind, artifact_id, version as i64],
+            |row| {
+                let state: String = row.get(0)?;
+                let digest: String = row.get(1)?;
+                Ok((state, digest))
+            },
+        )
+        .optional()?
+        .map(|(state, digest)| Ok((parse_lifecycle(&state)?, digest)))
+        .transpose()
+    }
+}
+
+impl Store {
+    pub fn activate_with_audit(
+        &self,
+        proposal_id: Ulid,
+        action: &ActionId,
+        grant_id: Ulid,
+        payload_ref: &ArtifactRef,
+    ) -> Result<(), StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        #[cfg(test)]
+        if self
+            .activation_tx_failure
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(StoreError::ProposedArtifactLifecycle(
+                "injected activation transaction failure".to_string(),
+            ));
+        }
+        let (kind, artifact_id, version): (String, String, i64) = tx.query_row(
+            "SELECT kind, artifact_id, version FROM proposed_artifacts
+             WHERE id = ?1 AND state = ?2",
+            params![proposal_id.to_string(), lifecycle_name(Lifecycle::Approved)],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+        if kind == "model_swap" {
+            let active_max: Option<i64> = tx.query_row(
+                "SELECT MAX(version) FROM proposed_artifacts
+                 WHERE kind = 'model_swap' AND artifact_id = ?1 AND state = ?2",
+                params![artifact_id, lifecycle_name(Lifecycle::Active)],
+                |row| row.get(0),
+            )?;
+            if active_max.is_some_and(|max| max >= version) {
+                return Err(StoreError::ProposedArtifactLifecycle(
+                    "model swap version is not newer than the active version".to_string(),
+                ));
+            }
+        }
+        let changed = tx.execute(
+            "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
+            params![
+                lifecycle_name(Lifecycle::Active),
+                proposal_id.to_string(),
+                lifecycle_name(Lifecycle::Approved)
+            ],
+        )?;
+        if changed != 1 {
+            return Err(StoreError::ProposedArtifactLifecycle(
+                "proposal was not in approved state".to_string(),
+            ));
+        }
+        if kind == "model_swap" {
+            let retired = tx.execute(
+                "UPDATE proposed_artifacts SET state = ?1
+                 WHERE kind = 'model_swap' AND artifact_id = ?2
+                   AND state = ?3 AND version < ?4",
+                params![
+                    lifecycle_name(Lifecycle::Retired),
+                    artifact_id,
+                    lifecycle_name(Lifecycle::Active),
+                    version
+                ],
+            )?;
+            if retired > 0 {
+                Store::append_audit_conn(
+                    &tx,
+                    "artifact.superseded",
+                    Some(action),
+                    None,
+                    None,
+                    Some(grant_id),
+                    &[],
+                    std::slice::from_ref(payload_ref),
+                )?;
+            }
+        }
+        Store::append_audit_conn(
+            &tx,
+            "artifact.activated",
+            Some(action),
+            None,
+            None,
+            Some(grant_id),
+            &[],
+            std::slice::from_ref(payload_ref),
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+}
+
+impl Store {
+    pub fn active_model_swap_ids(&self) -> Result<Vec<(String, u32)>, StoreError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT artifact_id, MAX(version) FROM proposed_artifacts
+             WHERE kind = 'model_swap' AND state = ?1
+             GROUP BY artifact_id",
+        )?;
+        let rows = stmt.query_map(params![lifecycle_name(Lifecycle::Active)], |row| {
+            Ok((row.get(0)?, row.get::<_, i64>(1)? as u32))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(StoreError::from)
+    }
+}
+
+impl Store {
     pub fn insert_proposed_artifact(&self, row: &ProposedArtifact) -> Result<(), StoreError> {
         if row.state != Lifecycle::Proposed {
             return Err(StoreError::ProposedArtifactLifecycle(
@@ -163,8 +294,6 @@ impl Store {
         Ok(())
     }
 
-    /// Whether `(kind, artifact_id, version)` already has a pending row.
-    /// Backs the dispatcher's duplicate check alongside the live registry.
     pub fn proposed_artifact_exists(
         &self,
         kind: &str,
@@ -181,8 +310,6 @@ impl Store {
         Ok(count > 0)
     }
 
-    /// Load the proposed row an approval `ActionRequest` was minted against
-    /// (5d joins through the `action_request_id` column).
     pub fn find_proposed_artifact_by_action_request(
         &self,
         action_request_id: Ulid,
@@ -283,6 +410,20 @@ impl Store {
                 from_state = lifecycle_name(from)
             )));
         }
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn force_proposed_artifact_state_for_test(
+        &self,
+        id: Ulid,
+        state: Lifecycle,
+    ) -> Result<(), StoreError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2",
+            params![lifecycle_name(state), id.to_string()],
+        )?;
         Ok(())
     }
     /// Atomically persist the two passing eval verdicts and promote exactly

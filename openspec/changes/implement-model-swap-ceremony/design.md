@@ -1,0 +1,11 @@
+# Design: Model swap ceremony
+
+`ModelSwapManifest` is a sixth `ParsedProposal` kind and uses the existing `proposed_artifacts` lifecycle. Its `id` must equal its `ModelRole` (`base`, `matcher`, or `miner`) and versions are monotonic. Its proposal input contains only role, configured provider id, and trusted golden-set id; `golden_set_result` is absent on input.
+
+`GoldenSet` is fixture-only and loaded from `artifacts/lyra/golden_sets`. It is role-bound and requires at least three standard cases and one adversarial case. Each case has an id, prompt, kind, `must_contain`, and `must_not_contain` criteria. The kernel caps cases, prompt/criterion sizes, and observed excerpts. The runner calls the candidate provider for every case, derives substring pass/fail, and records case id/kind, pass, bounded observed excerpt, full-output digest, golden-set digest, and non-secret provider configuration digest. Failed/time-out runs consume the atomically reserved model-call budget.
+
+The generic synchronous `run_gate` refuses model swaps. `dispatch_artifact_propose` performs pure identity/provider/golden-set/version checks, reserves the case count, enriches the manifest, computes the digest from the enriched YAML, and calls the dedicated AD-142 model-swap gate. The existing `promote_authority_bearing_proposal` persists both digest-bound verdicts and exposes the owner approval request.
+
+Activation re-resolves the trusted golden set and provider pool entry before lifecycle or overlay mutation, verifies both digests and role binding, rejects stale versions, writes the enriched active YAML, updates the active role-to-provider map, and inserts the manifest. Startup repeats the same digest checks for persisted active swaps and fails closed on drift or missing provider. The gateway snapshots the active Base provider client before awaiting network I/O; no provider lock is held across await.
+
+The governed runtime surface is the active role mapping consumed by `POST /v1/model/generate`. The configured provider pool (credentials, provider kind, endpoint, and model declarations) is bootstrap-only; changing it cannot silently change the live role assignment because an active persisted swap is revalidated against its non-secret configuration digest at restart.

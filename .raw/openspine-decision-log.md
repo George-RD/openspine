@@ -72,6 +72,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-058 | Security escalations require result-returning gated owner delivery: `action.escalated` is appended only after connector success; missing-key/gate/connector failures record `owner.notify_failed` and return structured errors; courtesy notifications may stay best-effort | Accepted |
 | D-059 | Dormant thread bindings are MAC-authenticated before activation: `TaskGrant.thread_id` participates in the root-authority canonical commitment when populated (omitted when `None` for legacy-grant compatibility) | Accepted |
 | D-060 | The AD-142 overlay eval gate's first-cut evaluator is a deterministic owner-control-history availability gate plus structural artifact probes; the full OQ-17 holdout replay and AD-111 prover-verifier protocol arrive with a later owner-ratified evaluator change (stays within D-056's deferral) | Accepted |
+| D-061 | Model-swap golden sets use a bounded deterministic first cut: operator-owned role-bound fixtures, at least three standard plus one adversarial case, deterministic substring criteria, a 20-case cap, bounded prompts/evidence, and replay timeout capped by both five minutes and the grant's remaining expiry; attempted calls consume reserved budget | Accepted |
+| D-062 | An active model swap is restorable only when the exact normalized manifest matches the latest persisted Active proposal and its digest-bound replay and judge verdicts; startup fails closed rather than silently falling back when DB provenance and overlay state disagree | Accepted |
+| D-063 | Model-swap activation is a serialized, provenance-bound staged protocol: lifecycle, supersession, and activation audit commit transactionally before provider publication; `.pending` files are loader-invisible and startup either completes a digest-matching committed activation or quarantines/removes an uncommitted or tampered candidate | Accepted |
 
 ---
 
@@ -1564,7 +1567,66 @@ Standing rules and later authority-bearing proposals get evidence-gated promotio
 
 The owner ratifies the AD-111 evaluator protocol — the probes are replaced under the same promotion boundary and eval-store schema.
 
+# D-061 — Model-swap golden sets use a bounded deterministic first cut
+
+## Decision
+
+The first AD-152 model-swap evaluator uses operator-owned, role-bound golden-set fixtures with at least three standard cases and one adversarial case, deterministic substring criteria, and a maximum of 20 cases. Prompts, criteria, observed excerpts, and owner summaries are bounded. The whole replay is capped at the lesser of five minutes and the grant's remaining wall-clock expiry. Provider calls consume atomically reserved model-call budget even when replay fails or times out.
+
+## Rationale
+
+AD-152 requires evidence-bearing swaps but leaves the first executable golden-set format open. A deterministic bounded format makes the ceremony enforceable now without prematurely settling AD-111's deferred evaluator-independence policy.
+
+## Consequences
+
+Base, matcher, and miner assignments share one governed proposal format. Failed attempts are not a free retry path. Matcher and miner consumers may arrive later without changing the ceremony.
+
+## Would change if
+
+The owner ratifies a richer evaluator protocol under D-056/D-060; it replaces the deterministic criteria behind the same evidence-gated promotion boundary.
+
 ---
+
+# D-062 — Active model swaps require symmetric DB and overlay provenance
+
+## Decision
+
+Startup restores a model swap only when the exact normalized active manifest matches the latest persisted Active proposal for that role and version, with passing replay and judge verdicts bound to the proposal digest. A missing, inactive, shadowing, or mismatched overlay fails closed; the kernel never silently falls back to an older or bootstrap provider while a newer Active row exists.
+
+## Rationale
+
+Checking only file-carried digests lets an operator-tree edit bypass the ceremony; checking only rows lets missing files silently roll authority back. The trust boundary requires agreement in both directions.
+
+## Consequences
+
+Manual active swap files without ceremony provenance are rejected. Startup detects deletion, downgrade, shadowing, and tampering instead of changing the live provider silently.
+
+## Would change if
+
+The overlay store becomes a transactional projection derived entirely from the proposal database, eliminating the two-surface reconciliation boundary.
+
+---
+
+# D-063 — Model-swap activation uses a serialized staged recovery protocol
+
+## Decision
+
+Model-swap activation writes a loader-invisible `.pending` candidate, transactionally commits monotonic supersession, `Approved → Active`, and `artifact.activated`, then atomically renames and publishes the registry/provider map under one activation serialization boundary. Startup completes a pending rename only when its canonical bytes match the committed Active proposal digest; uncommitted candidates are removed and tampered candidates are quarantined. Generic artifact kinds retain their existing atomic temporary-write path.
+
+## Rationale
+
+No ordering of filesystem, SQLite, and memory publication is natively atomic. An explicit staged protocol makes every crash window recoverable without exposing unaudited authority or preventing restart.
+
+## Consequences
+
+Concurrent stale callbacks cannot overwrite a newer provider. Transaction failure leaves the prior disk, registry, and provider authoritative. Crash recovery is deterministic and digest-bound.
+
+## Would change if
+
+Artifacts and lifecycle state move into one transactional store with an atomic materialized-filesystem projection.
+
+---
+
 
 ## Open Decision Questions — CLOSED (see linked decisions)
 
@@ -1618,4 +1680,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-16 | Added D-056 (eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata, checked epoch-nanosecond timestamps, fail-closed lineage consistency; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change), settled during review of `define-lineage-and-eval-store`. |
 | 2026-07-16 | Added D-057 (counterparty-facing actions are an explicit kernel ActionCatalog set, v1 = `email.send` only; only such denials get the canonical deferral + escalation), D-058 (security escalations require result-returning gated owner delivery; `action.escalated` only after connector success; failures recorded as `owner.notify_failed` and returned as structured errors), and D-059 (dormant `thread_id` bindings are MAC-authenticated when populated, omitted from canonical bytes when `None` for legacy compatibility), settled while implementing `implement-escalation-and-refusal`. |
 | 2026-07-16 | Added D-060 (the AD-142 overlay eval gate ships a deterministic first-cut evaluator — owner-history availability gate + structural probes — with verdicts in the D-056 eval store; the full OQ-17 holdout replay and AD-111 prover-verifier protocol remain owner-reserved), settled while implementing `implement-overlay-eval-gate`. |
+| 2026-07-16 | Added D-061 (bounded deterministic first-cut model-swap golden sets with grant-bounded timeout and consumed attempt budget), D-062 (symmetric Active proposal ↔ exact overlay provenance required at startup), and D-063 (serialized staged model-swap activation with transactional lifecycle/audit and digest-bound crash recovery), settled while implementing `implement-model-swap-ceremony`. |
 

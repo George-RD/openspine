@@ -28,10 +28,12 @@ pub enum GatewayError {
     #[error("provider {0} response did not contain the expected content field")]
     MissingContent(String),
 }
-
 /// One configured provider, ready to call. Built once from
-/// [`ProviderConfig`] + the resolved API key (config.rs's
-/// `provider_api_key`) at kernel startup.
+/// [`ProviderConfig`] + the resolved API key (config.rs's `provider_api_key`)
+/// at kernel startup. Cloning is cheap: `reqwest::Client` is internally
+/// shared; the clone is used to snapshot a provider under an AppState read
+/// lock before awaiting network I/O.
+#[derive(Clone)]
 pub enum ProviderClient {
     Anthropic {
         client: reqwest::Client,

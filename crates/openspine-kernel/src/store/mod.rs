@@ -19,6 +19,8 @@
 //! needs one added before it ships.
 
 use std::path::Path;
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
 
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
@@ -125,6 +127,8 @@ pub(super) fn genesis_digest() -> Digest {
 #[derive(Clone)]
 pub struct Store {
     conn: std::sync::Arc<Mutex<Connection>>,
+    #[cfg(test)]
+    activation_tx_failure: std::sync::Arc<AtomicBool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -168,6 +172,8 @@ impl Store {
         migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: std::sync::Arc::new(Mutex::new(conn)),
+            #[cfg(test)]
+            activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -177,7 +183,14 @@ impl Store {
         migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
             conn: std::sync::Arc::new(Mutex::new(conn)),
+            #[cfg(test)]
+            activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
         })
+    }
+    #[cfg(test)]
+    pub(crate) fn fail_next_activation_tx_for_test(&self) {
+        self.activation_tx_failure
+            .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
     // ---- task grants ----------------------------------------------------

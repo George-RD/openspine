@@ -34,6 +34,17 @@ pub(crate) mod fixtures {
         let overlay_dir = tempfile::tempdir().unwrap().keep();
         let store = Store::open_in_memory().unwrap();
         let owner_principal = store.bootstrap_owner_principal(42, "George").unwrap();
+        let test_provider_config = ProviderConfig {
+            id: "test-provider".to_string(),
+            kind: ProviderKind::Anthropic,
+            base_url: None,
+            model: "test-model".to_string(),
+            auth: ProviderAuth::ApiKey {
+                env: "UNUSED".to_string(),
+            },
+        };
+        let test_provider =
+            ProviderClient::from_config(&test_provider_config, "unused-test-key".to_string());
 
         AppState {
             store,
@@ -49,18 +60,28 @@ pub(crate) mod fixtures {
             owner_identity_id: owner_principal.identity_id,
             kernel_endpoint: "http://127.0.0.1:0".to_string(),
             unsafe_allow_uncontained_private_data: false,
-            provider: ProviderClient::from_config(
-                &ProviderConfig {
-                    id: "test-provider".to_string(),
-                    kind: ProviderKind::Anthropic,
-                    base_url: None,
-                    model: "test-model".to_string(),
-                    auth: ProviderAuth::ApiKey {
-                        env: "UNUSED".to_string(),
-                    },
-                },
-                "unused-test-key".to_string(),
-            ),
+            provider_pool: std::collections::HashMap::from([(
+                "test-provider".to_string(),
+                test_provider,
+            )]),
+            active_model_providers: parking_lot::RwLock::new(std::collections::HashMap::from([
+                (
+                    openspine_schemas::model_swap::ModelRole::Base,
+                    "test-provider".to_string(),
+                ),
+                (
+                    openspine_schemas::model_swap::ModelRole::Matcher,
+                    "test-provider".to_string(),
+                ),
+                (
+                    openspine_schemas::model_swap::ModelRole::Miner,
+                    "test-provider".to_string(),
+                ),
+            ])),
+            provider_config_digests: std::collections::HashMap::from([(
+                "test-provider".to_string(),
+                crate::config::provider_config_digest(&test_provider_config),
+            )]),
             started_at: std::time::Instant::now(),
             overlay_dir,
         }

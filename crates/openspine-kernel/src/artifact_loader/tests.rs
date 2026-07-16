@@ -21,6 +21,7 @@ fn loads_every_real_fixture_without_error() {
     assert!(registry.packs.contains_key("owner_control_basic_pack"));
     assert!(registry.policies.contains_key("global"));
     assert!(registry.templates.contains_key("owner_control_template"));
+    assert!(registry.golden_sets.contains_key("model_swap_default"));
 
     // Step 5 (implement-selected-thread-email-preview-slice) fixtures.
     assert!(registry.agents.contains_key("email_reply_drafter"));
@@ -72,7 +73,7 @@ fn non_yaml_files_are_ignored() {
 /// `overlay_subdir()` agree with the table entry — and the public
 /// `parse_proposal` entry point must agree too (D-048).
 #[test]
-fn kind_table_round_trips_all_five_kinds() {
+fn kind_table_round_trips_all_six_kinds() {
     let base = repo_lyra_dir();
     let fixtures = [
         ("route", "routes/owner_telegram_main_assistant.yaml"),
@@ -82,21 +83,25 @@ fn kind_table_round_trips_all_five_kinds() {
         ("policy", "policies/global.yaml"),
     ];
     for spec in ARTIFACT_KIND_SPECS {
-        let (expected_name, rel) = fixtures
-            .iter()
-            .find(|(name, _)| *name == spec.name)
-            .unwrap_or_else(|| panic!("test fixture map must cover kind {}", spec.name));
-        let yaml = std::fs::read_to_string(base.join(rel))
-            .unwrap_or_else(|e| panic!("fixture {rel} must exist: {e}"));
-        // Parse through the table entry (the single source of truth).
-        let parsed = (spec.parse)(yaml.as_str())
-            .unwrap_or_else(|e| panic!("fixture {rel} must parse via its table entry: {e}"));
-        assert_eq!(parsed.kind(), *expected_name);
-        // overlay_subdir() must agree with the table (D-048 kind table).
+        let owned_yaml;
+        let yaml = if spec.name == "model_swap" {
+            owned_yaml = "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\ntarget_provider_id: test-provider\ngolden_set_id: model_swap_default\ngolden_set_result: null\n".to_string();
+            owned_yaml.as_str()
+        } else {
+            let (_, rel) = fixtures
+                .iter()
+                .find(|(name, _)| *name == spec.name)
+                .unwrap_or_else(|| panic!("test fixture map must cover kind {}", spec.name));
+            owned_yaml = std::fs::read_to_string(base.join(rel))
+                .unwrap_or_else(|e| panic!("fixture {rel} must exist: {e}"));
+            owned_yaml.as_str()
+        };
+        let parsed =
+            (spec.parse)(yaml).unwrap_or_else(|e| panic!("fixture {} must parse: {e}", spec.name));
+        assert_eq!(parsed.kind(), spec.name);
         assert_eq!(parsed.overlay_subdir(), spec.overlay_subdir);
-        // The public entry point must agree with the table too.
-        let via_public = parse_proposal(spec.name, yaml.as_str())
-            .unwrap_or_else(|e| panic!("parse_proposal must agree with the table: {e}"));
+        let via_public = parse_proposal(spec.name, yaml)
+            .unwrap_or_else(|e| panic!("parse_proposal must agree with table: {e}"));
         assert_eq!(via_public.kind(), spec.name);
         assert_eq!(via_public.overlay_subdir(), spec.overlay_subdir);
     }
