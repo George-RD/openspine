@@ -47,6 +47,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-plan-digest-approval`
 - `implement-escalation-and-refusal` (D-057..D-059; brief stays in place —
   later `Requires:` lines reference it)
+- `implement-overlay-eval-gate` (D-060; brief stays in place — later
+  `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
