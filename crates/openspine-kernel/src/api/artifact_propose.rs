@@ -21,6 +21,7 @@ use ulid::Ulid;
 
 use super::actions::DispatchError;
 use crate::artifact_loader::{find_kind_spec, is_proposable_kind, parse_proposal};
+use crate::overlay_eval_gate::run_gate;
 use crate::pipeline::AppState;
 use crate::store::proposed_artifacts::ProposedArtifact;
 
@@ -57,18 +58,7 @@ pub(super) async fn dispatch_artifact_propose(
         ));
     }
 
-    // 2. Budget (D-046): a shell-initiated artifact put.
-    if !state
-        .store
-        .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
-        .map_err(|err| DispatchError::Internal(err.into()))?
-    {
-        return Err(DispatchError::BadRequest(
-            "artifact.propose budget exhausted for this task".to_string(),
-        ));
-    }
-
-    // 3. Parse per kind; require lifecycle_state == proposed (the proposer
+    // 2. Parse per kind; require lifecycle_state == proposed (the proposer
     //    can never pre-activate). Extract (id, version) for the dup check.
     let parsed = parse_proposal(&req.kind, &req.yaml).map_err(|err| {
         DispatchError::BadRequest(format!("artifact.propose yaml failed to parse: {err}"))
@@ -83,7 +73,7 @@ pub(super) async fn dispatch_artifact_propose(
     let artifact_id = parsed.artifact_id().to_string();
     let version = parsed.version();
 
-    // 4. Reject duplicates across the live registry and pending proposals
+    // 3. Reject duplicates across the live registry and pending proposals
     //    (D-028 monotonic versions). Read guard held only for the scan.
     let exists_in_registry = {
         let registry = state.registry.read();
@@ -100,7 +90,34 @@ pub(super) async fn dispatch_artifact_propose(
         ));
     }
 
-    // 5. Persist the reviewed YAML and the proposed row; advance
+    // 4. AD-142 overlay eval gate — run BEFORE any persisted side effect
+    //    (budget, row insert, audit) so a denied proposal leaves nothing
+    //    stranded: the (kind, id, version) stays re-proposable, the owner
+    //    is not silently debited, and no validated row lingers. The digest
+    //    is derived from the exact YAML bytes the owner supplied; the later
+    //    `state.artifacts.put` is content-addressed, so it yields the same
+    //    digest (D-011 binding preserved across the boundary).
+    let proposal_digest = openspine_schemas::digest::digest_of_bytes(req.yaml.as_bytes());
+    let eval = run_gate(
+        &state.store,
+        &state.action_catalog,
+        &parsed,
+        &proposal_digest,
+    )
+    .map_err(|err| DispatchError::BadRequest(err.to_string()))?;
+
+    // 5. Budget (D-046): a shell-initiated artifact put.
+    if !state
+        .store
+        .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
+        .map_err(|err| DispatchError::Internal(err.into()))?
+    {
+        return Err(DispatchError::BadRequest(
+            "artifact.propose budget exhausted for this task".to_string(),
+        ));
+    }
+
+    // 6. Persist the reviewed YAML and the proposed row; advance
     //    proposed → validated (parse succeeded) and audit.
     let yaml_ref = state
         .artifacts
@@ -145,9 +162,14 @@ pub(super) async fn dispatch_artifact_propose(
         )
         .map_err(|err| DispatchError::Internal(err.into()))?;
 
-    // 6. Persist the digest-bound `artifact.activate` request, advance
-    //    validated → review_required, and send the owner an approval button
-    //    carrying only kernel-authored summary text.
+    // 7. Atomically persist both digest-bound eval verdicts and advance
+    //    validated → review_required. Only after this succeeds is the
+    //    digest-bound `artifact.activate` request persisted, so a failed
+    //    promotion leaves no orphan action_request the owner could tap.
+    state
+        .store
+        .promote_authority_bearing_proposal(proposal_id, eval.replay, eval.judge)
+        .map_err(|err| DispatchError::Internal(err.into()))?;
     let target_digest = digest_of(&json!({
         "kind": kind,
         "artifact_id": artifact_id,
@@ -168,12 +190,9 @@ pub(super) async fn dispatch_artifact_propose(
         .store
         .insert_action_request(&request)
         .map_err(|err| DispatchError::Internal(err.into()))?;
-    state
-        .store
-        .set_proposed_artifact_state(proposal_id, Lifecycle::Validated, Lifecycle::ReviewRequired)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
     let summary = format!(
-        "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\nApprove to activate.",
+        "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
+        eval.summary,
         digest = yaml_ref.digest
     );
     state

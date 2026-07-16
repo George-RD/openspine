@@ -17,6 +17,7 @@ mod escalation;
 mod gmail;
 mod identity;
 mod model_gateway;
+mod overlay_eval_gate;
 mod pipeline;
 mod sandbox;
 mod store;

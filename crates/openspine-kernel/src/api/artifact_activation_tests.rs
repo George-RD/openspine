@@ -29,7 +29,7 @@ use super::artifact_propose_tests::route_yaml;
 use super::dispatch_tests::OWNER_CHAT_ID;
 use crate::pipeline::handle_owner_update;
 use crate::telegram::{CallbackQueryUpdate, TelegramConnector, TelegramUpdate};
-use crate::test_support::fixtures::{owner_update, test_state_with_telegram};
+use crate::test_support::fixtures::{owner_update, seed_owner_history, test_state_with_telegram};
 
 /// A verified owner tap on the "Approve" button for `action_request_id` —
 /// same shape as `pipeline::tests::approval`'s private helper of the same
@@ -80,6 +80,7 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
         .await
         .unwrap()
         .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("newly_proposed_route", "proposed")});
     let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
@@ -151,6 +152,7 @@ async fn activation_with_mutated_payload_is_denied() {
         .await
         .unwrap()
         .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("already_active_route", "proposed")});
     let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))

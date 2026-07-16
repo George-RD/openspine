@@ -71,6 +71,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-057 | Counterparty-facing actions are an explicit kernel ActionCatalog set (v1: `email.send` only); only such denials receive the canonical deferral + escalation — internal/owner-only/unclassified actions keep typed enum outcomes | Accepted |
 | D-058 | Security escalations require result-returning gated owner delivery: `action.escalated` is appended only after connector success; missing-key/gate/connector failures record `owner.notify_failed` and return structured errors; courtesy notifications may stay best-effort | Accepted |
 | D-059 | Dormant thread bindings are MAC-authenticated before activation: `TaskGrant.thread_id` participates in the root-authority canonical commitment when populated (omitted when `None` for legacy-grant compatibility) | Accepted |
+| D-060 | The AD-142 overlay eval gate's first-cut evaluator is a deterministic owner-control-history availability gate plus structural artifact probes; the full OQ-17 holdout replay and AD-111 prover-verifier protocol arrive with a later owner-ratified evaluator change (stays within D-056's deferral) | Accepted |
 
 ---
 
@@ -1545,6 +1546,26 @@ The MAC/root payload gains an explicit version field — conditional key omissio
 
 ---
 
+# D-060 — The overlay eval gate's first-cut evaluator is deterministic; the full replay/judge protocol is owner-reserved
+
+## Decision
+
+`implement-overlay-eval-gate` enforces AD-142's structural guarantee — an authority-bearing proposal cannot reach the approval surface without attached replay + judge evidence — using a deterministic first-cut evaluator: an owner-control-history availability gate plus structural artifact probes. Verdicts land in the D-056 eval store using only its settled open schema (open verdict string, optional fitness/evidence/evaluator metadata). Evaluator independence, evaluator identity, attack-trace semantics, and verdict vocabulary remain owner-reserved per D-056; a later owner-ratified evaluator change replaces/extends these probes with the full OQ-17 holdout replay and AD-111 prover-verifier protocol.
+
+## Rationale
+
+The structural cannot-bypass guarantee is the load-bearing property and is achievable deterministically now; settling judge policy here would canonize *leaning* AD-111 semantics without owner review.
+
+## Consequences
+
+Standing rules and later authority-bearing proposals get evidence-gated promotion immediately; evaluator sophistication can grow without touching the promotion boundary.
+
+## Would change if
+
+The owner ratifies the AD-111 evaluator protocol — the probes are replaced under the same promotion boundary and eval-store schema.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1596,4 +1617,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-10 | Added D-055 (gate trusted paths hardened along four axes: (1) every effectful path reaching around `gate()` is enumerated as classified `ActionCatalog` data — `gated-shell` / `post-gate-approved-effect` / `kernel-origin-gated` / `internal-maintenance-non-effect` — with a dedicated characterization test per entry; (2) `ActionOrigin::{Shell, Kernel}` marks kernel-origin effects that route through `gate()` approval-exempt but audit-never-exempt, generalizing D-046's single `owner.notified` carve-out into a finite trusted-origin set (outside the set ⇒ denied); (3) selection-token validation moves into the pure, no-I/O `gate()` decision via `GateContext::find_selection_token` while the atomic single-use consume stays at dispatch, preserving `gate()`'s purity; (4) shell DTOs carry no digest fields and the kernel re-derives payload/target digests from artifact-store bytes at approval-effect time, denying on mismatch and never trusting a shell-supplied digest (per D-041 digests and AD-120's shell-intents/kernel-outcomes boundary); the validate-in-gate / consume-at-dispatch split follows the D-046/D-050 dispatch-side enforcement precedent), settled while implementing `harden-gate-trusted-paths`. |
 | 2026-07-16 | Added D-056 (eval-store groundwork defers AD-111 evaluator policy: only the indexed verdict-landing surface is settled — open verdict string, optional fitness/evidence/evaluator metadata, checked epoch-nanosecond timestamps, fail-closed lineage consistency; judge-independence, evaluator identity, attack-trace evidence semantics, and verdict vocabulary return to the owner with the later evaluation change), settled during review of `define-lineage-and-eval-store`. |
 | 2026-07-16 | Added D-057 (counterparty-facing actions are an explicit kernel ActionCatalog set, v1 = `email.send` only; only such denials get the canonical deferral + escalation), D-058 (security escalations require result-returning gated owner delivery; `action.escalated` only after connector success; failures recorded as `owner.notify_failed` and returned as structured errors), and D-059 (dormant `thread_id` bindings are MAC-authenticated when populated, omitted from canonical bytes when `None` for legacy compatibility), settled while implementing `implement-escalation-and-refusal`. |
+| 2026-07-16 | Added D-060 (the AD-142 overlay eval gate ships a deterministic first-cut evaluator — owner-history availability gate + structural probes — with verdicts in the D-056 eval store; the full OQ-17 holdout replay and AD-111 prover-verifier protocol remain owner-reserved), settled while implementing `implement-overlay-eval-gate`. |
 
