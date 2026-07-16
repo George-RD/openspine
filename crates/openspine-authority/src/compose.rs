@@ -311,6 +311,7 @@ pub fn compose_authority(
         allowed_actions,
         approval_required_actions,
         denied_actions,
+        allowed_egress_classes: input.pack.allowed_egress_classes.clone(),
         output_channels: input.agent.output_channels.allowed.clone(),
         limits: GrantLimits {
             max_model_calls: input.agent.model_policy.max_model_calls_per_task,

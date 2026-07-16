@@ -10,6 +10,7 @@ use openspine_schemas::grant::GrantMode;
 use super::token_tests::test_catalog;
 use super::*;
 
+mod extra_tests;
 pub(crate) fn digest(byte: char) -> Digest {
     Digest::parse(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
 }
@@ -42,6 +43,7 @@ pub(crate) fn grant_with(
             .map(|a| ActionId::new(*a))
             .collect(),
         denied_actions: denied.iter().map(|a| ActionId::new(*a)).collect(),
+        allowed_egress_classes: vec![],
         output_channels: vec![],
         limits: GrantLimits {
             max_model_calls: 8,
@@ -125,6 +127,7 @@ fn allowed_action_returns_allow() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::Allow);
@@ -141,6 +144,7 @@ fn denied_action_returns_deny() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -162,6 +166,7 @@ fn approval_required_action_returns_approval_required() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -183,6 +188,7 @@ fn approval_required_action_does_not_execute() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_ne!(outcome.decision, GateDecision::Allow);
@@ -199,6 +205,7 @@ fn allowed_plus_denied_returns_deny() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -220,6 +227,7 @@ fn allowed_plus_approval_required_returns_approval_required() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(matches!(
@@ -239,6 +247,7 @@ fn unspecified_action_returns_deny() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -260,6 +269,7 @@ fn expired_grant_denies_even_an_allowed_action() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         grant.expires_at,
     );
     assert_eq!(
@@ -284,6 +294,7 @@ fn matching_approval_allows_the_exact_request() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::Allow);
@@ -307,6 +318,7 @@ fn approved_but_payload_changed_since_is_denied_not_reasked() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -332,6 +344,7 @@ fn expired_approval_is_denied_not_reasked() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         expired_at,
     );
     assert_eq!(
@@ -356,6 +369,7 @@ fn rejected_approval_is_denied_not_reasked() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -377,6 +391,7 @@ fn audit_metadata_records_action_grant_and_refs_not_plaintext() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.audit.action, req.action);
@@ -400,6 +415,7 @@ fn denial_audit_metadata_still_carries_refs() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(matches!(outcome.decision, GateDecision::Deny { .. }));
@@ -418,6 +434,7 @@ fn shadow_allow_is_non_executable_effect_suppressed() {
         ActionOrigin::Shell,
         &MockContext::default(),
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::EffectSuppressed);
@@ -434,53 +451,8 @@ fn shadow_deny_remains_deny() {
         ActionOrigin::Shell,
         &MockContext::default(),
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(matches!(outcome.decision, GateDecision::Deny { .. }));
-}
-
-#[test]
-fn bound_parameter_conflict_is_caveat_widening() {
-    // Valid MAC over a chain that contains conflicting AD-036 bindings, so
-    // the failure comes from bindings_valid — not a short-circuit MAC miss.
-    let key = b"openspine-test-grant-hmac-key-v1";
-    let mut grant = grant_with(&["openspine.status.read"], &[], &[]);
-    grant.chain = vec![openspine_schemas::grant::GrantChainStep {
-        grant_id: grant.id,
-        parent_grant_id: None,
-        mode: GrantMode::Live,
-        selection_tokens: grant.selection_tokens.clone(),
-        added_caveats: vec![
-            openspine_schemas::grant::GrantCaveat::BoundParameter {
-                name: "recipient".into(),
-                value: "a@example.com".into(),
-            },
-            openspine_schemas::grant::GrantCaveat::BoundParameter {
-                name: "recipient".into(),
-                value: "b@example.com".into(),
-            },
-        ],
-    }];
-    grant.root_grant_id = grant.id;
-    let root = openspine_schemas::grant_chain::RootAuthority::from_grant(&grant);
-    grant.caveat_mac = openspine_schemas::grant_chain::compute_mac_hex(key, &root, &grant.chain);
-    assert!(
-        grant.verify_mac(key),
-        "precondition: MAC must be valid so bindings_valid is the deny path"
-    );
-    assert!(!openspine_schemas::grant_chain::bindings_valid(&grant));
-    let outcome = gate(
-        &grant,
-        &request_for("openspine.status.read"),
-        ActionOrigin::Shell,
-        &MockContext::default(),
-        &test_catalog(),
-        Timestamp::now(),
-    );
-    assert_eq!(
-        outcome.decision,
-        GateDecision::Deny {
-            reason: DenialReason::CaveatWidening
-        }
-    );
 }

@@ -168,7 +168,7 @@ async fn main() -> anyhow::Result<()> {
         registry: parking_lot::RwLock::new(registry),
         action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox,
-        connectors: ConnectorRegistry::new(telegram, gmail),
+        connectors: ConnectorRegistry::new(telegram, gmail)?,
         owner_user_id: cfg.owner.telegram_user_id,
         owner_principal_id: owner_principal.id,
         owner_identity_id: owner_principal.identity_id,

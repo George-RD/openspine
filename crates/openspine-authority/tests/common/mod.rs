@@ -330,6 +330,7 @@ pub fn owner_control_basic_pack() -> CapabilityPack {
             ActionId::new("coolify.secret_modify"),
             ActionId::new("coolify.delete_resource"),
         ],
+        allowed_egress_classes: vec![],
         constraints: Constraints {
             data_classification_max: Some(DataClassification::Private),
             max_runtime_seconds: Some(120),
@@ -363,6 +364,7 @@ pub fn selected_thread_email_draft_pack() -> CapabilityPack {
             ActionId::new("filesystem.host_write"),
             ActionId::new("telegram.reply:owner_channel"),
         ],
+        allowed_egress_classes: vec![],
         constraints: Constraints {
             data_classification_max: Some(DataClassification::Private),
             max_runtime_seconds: Some(180),

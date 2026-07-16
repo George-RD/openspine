@@ -40,7 +40,8 @@ pub(crate) mod fixtures {
             registry: parking_lot::RwLock::new(registry),
             action_catalog: crate::action_catalog::canonical_catalog(),
             sandbox: Sandbox::Process(ProcessDriver::default()),
-            connectors: ConnectorRegistry::new(telegram, gmail),
+            connectors: ConnectorRegistry::new(telegram, gmail)
+                .expect("built-in egress ratings are conflict-free"),
             action_handlers: ActionHandlerRegistry::default_registrations(),
             owner_user_id: 42,
             owner_principal_id: owner_principal.id,

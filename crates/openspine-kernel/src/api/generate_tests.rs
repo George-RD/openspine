@@ -105,6 +105,7 @@ fn email_reply_drafter_grant(task_token: &str) -> TaskGrant {
         allowed_actions: vec![ActionId::new("model.generate:approved_provider")],
         approval_required_actions: vec![],
         denied_actions: vec![],
+        allowed_egress_classes: vec![],
         output_channels: vec![],
         limits: GrantLimits {
             max_model_calls: 8,

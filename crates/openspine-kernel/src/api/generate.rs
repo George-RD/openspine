@@ -154,6 +154,7 @@ pub(super) async fn post_model_generate(
         ActionOrigin::Shell,
         &state.store,
         &state.action_catalog,
+        &state.connectors,
         now,
     );
     state

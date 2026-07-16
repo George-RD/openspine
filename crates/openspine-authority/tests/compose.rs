@@ -12,6 +12,7 @@ use common::*;
 use openspine_authority::{compose_authority, AuthorityInput, AuthorityOutcome};
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::egress::EgressClass;
 use openspine_schemas::route::RouteEffect;
 
 #[test]
@@ -420,4 +421,28 @@ fn compose_accepts_unwired_known_id() {
         matches!(outcome, AuthorityOutcome::Granted(_)),
         "expected route.activate to compose as a known id, got {outcome:?}"
     );
+}
+
+#[test]
+fn pack_egress_classes_propagate_to_task_grant() {
+    let (event, identity, route, agent, workflow, mut pack, policy, session) = (
+        owner_event(),
+        owner_identity(),
+        owner_route(),
+        main_assistant_agent(),
+        owner_control_conversation_workflow(),
+        owner_control_basic_pack(),
+        global_policy(),
+        empty_session_policy(),
+    );
+    pack.allowed_egress_classes = vec![EgressClass::Search];
+    let input = owner_control_input(
+        &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
+    );
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
+        panic!("expected a grant");
+    };
+    assert_eq!(grant.allowed_egress_classes, vec![EgressClass::Search]);
 }

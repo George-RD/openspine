@@ -14,6 +14,7 @@ use openspine_schemas::action::{
 use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
+use openspine_schemas::egress::EgressClass;
 use openspine_schemas::event::TargetRef;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::selection::{SelectionToken, SelectionTokenType};
@@ -61,6 +62,30 @@ pub enum ActionOrigin {
     Shell,
 }
 
+/// Trusted resolver for the egress class of a rated endpoint (AD-060).
+///
+/// The gate queries this — never the request — so omission or spoofing by
+/// the shell cannot make the egress-class check fail open. The kernel's
+/// connector registry implements this; tests that do not exercise egress
+/// pass [`NoEgress`].
+pub trait EgressClassifier {
+    /// Return the egress class for a rated endpoint, or `None` if the
+    /// action is not a rated egress endpoint.
+    fn classify(&self, action: &ActionId) -> Option<EgressClass>;
+}
+
+/// No-op classifier for contexts without rated egress endpoints.
+/// Existing gate tests and non-egress call paths use this; the check
+/// becomes a no-op for unrated actions.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoEgress;
+
+impl EgressClassifier for NoEgress {
+    fn classify(&self, _action: &ActionId) -> Option<EgressClass> {
+        None
+    }
+}
+
 /// Audit-sufficient metadata for one gate decision (spec.md "Gate decisions
 /// MUST be auditable"). Private payloads are represented by refs/digests
 /// only — [`ArtifactRef`] carries a digest and lifecycle state, never
@@ -97,9 +122,10 @@ pub fn gate(
     origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
+    egress: &dyn EgressClassifier,
     now: Timestamp,
 ) -> GateOutcome {
-    let mut decision = resolve(grant, req, origin, ctx, catalog, now);
+    let mut decision = resolve(grant, req, origin, ctx, catalog, egress, now);
     if grant.mode == openspine_schemas::grant::GrantMode::Shadow
         && matches!(
             decision,
@@ -141,6 +167,7 @@ fn resolve(
     origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
+    egress: &dyn EgressClassifier,
     now: Timestamp,
 ) -> GateDecision {
     // D-004: authority/MAC failures classify as CaveatWidening even when the
@@ -169,6 +196,33 @@ fn resolve(
         };
     }
 
+    // Explicit shell denies retain precedence over every later policy
+    // constraint, including rated-egress coverage. Kernel-origin requests
+    // use the trusted-origin path below instead of shell grant lists.
+    if origin == ActionOrigin::Shell && grant.denied_actions.contains(&req.action) {
+        return GateDecision::Deny {
+            reason: DenialReason::ExplicitDeny,
+        };
+    }
+
+    // AD-060: egress-class enforcement runs before the kernel-origin
+    // early return, on purpose. If a future action were ever both
+    // kernel-origin-trusted AND a rated egress endpoint, the trusted-origin
+    // branch below must not be able to bypass the MAC-bound class
+    // restriction — endpoint typing is a structural property of the
+    // action, not part of the grant-list "granting decision" kernel-origin
+    // is defined to skip. The gate resolves the class from the trusted
+    // classifier (never from the request), and denies if the grant does
+    // not cover it. A pack granted search-class egress cannot submit a
+    // web form, whether the request is shell-origin or kernel-origin.
+    if let Some(class) = egress.classify(&req.action) {
+        if !grant.allowed_egress_classes.contains(&class) {
+            return GateDecision::Deny {
+                reason: DenialReason::EgressClassNotGranted,
+            };
+        }
+    }
+
     // D-055.3: kernel-origin effects are trusted only for the catalog's
     // enumerated trusted-origin set. A kernel request for any action outside
     // that set is denied outright — the kernel may not reach for arbitrary
@@ -180,12 +234,6 @@ fn resolve(
         }
         return GateDecision::Deny {
             reason: DenialReason::KernelOriginNotTrusted,
-        };
-    }
-
-    if grant.denied_actions.contains(&req.action) {
-        return GateDecision::Deny {
-            reason: DenialReason::ExplicitDeny,
         };
     }
 
