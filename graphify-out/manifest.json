@@ -30,13 +30,13 @@
     "semantic_hash": ""
   },
   "openspec/specs/core-runtime-schemas/spec.md": {
-    "mtime": 1782987947.665479,
-    "ast_hash": "e5fbef7363dcf0e92c28874b222e849a",
+    "mtime": 1784207429.6713104,
+    "ast_hash": "ba3363bd6ac0f98e2528f9b4f9caaee9",
     "semantic_hash": ""
   },
   "openspec/specs/gate-action-api/spec.md": {
-    "mtime": 1784197138.375832,
-    "ast_hash": "8b837a8e3a20a134a23ef87a7a2a1c2a",
+    "mtime": 1784207429.6718967,
+    "ast_hash": "45cb32d41a990fe1a7f322582a9c0ec9",
     "semantic_hash": ""
   },
   "openspec/specs/telegram-owner-control-slice/spec.md": {
@@ -70,7 +70,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-authority/src/compose.rs": {
-    "mtime": 1784200831.3924208,
+    "mtime": 1784207395.2565455,
     "ast_hash": "fa7f7febaa9b006d24ea94106ad4deab",
     "semantic_hash": ""
   },
@@ -95,7 +95,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate.rs": {
-    "mtime": 1784207288.5926723,
+    "mtime": 1784207395.2568555,
     "ast_hash": "ea09d4dd3306c5e75951437a053e8e97",
     "semantic_hash": ""
   },
@@ -125,7 +125,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/dispatch_tests.rs": {
-    "mtime": 1784206551.105641,
+    "mtime": 1784207395.2577372,
     "ast_hash": "c5ef524ec80e6b90605044dcb3a6536c",
     "semantic_hash": ""
   },
@@ -135,12 +135,12 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/generate_tests.rs": {
-    "mtime": 1784206409.264567,
+    "mtime": 1784207395.2578871,
     "ast_hash": "cc1b64a67147dfada83f5299724cda61",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/mod.rs": {
-    "mtime": 1784202908.2949188,
+    "mtime": 1784207395.258311,
     "ast_hash": "dd2a118887eb19a7b64786390ab3171c",
     "semantic_hash": ""
   },
@@ -195,7 +195,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1784203956.6546824,
+    "mtime": 1784207395.2584963,
     "ast_hash": "7c5d172dbf353ecfa8c34da8c501e321",
     "semantic_hash": ""
   },
@@ -215,7 +215,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/mod.rs": {
-    "mtime": 1784207324.3206964,
+    "mtime": 1784207395.2589517,
     "ast_hash": "926926d313bf4c7c1f330210dca2064b",
     "semantic_hash": ""
   },
@@ -225,7 +225,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/approval.rs": {
-    "mtime": 1784206409.2729626,
+    "mtime": 1784207395.259146,
     "ast_hash": "e8e552e405826e6fb1fcdfd493e6b963",
     "semantic_hash": ""
   },
@@ -270,7 +270,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/tests.rs": {
-    "mtime": 1784206409.2834384,
+    "mtime": 1784207395.260934,
     "ast_hash": "2b4082ed2b3ed76b979e1f7661f52f82",
     "semantic_hash": ""
   },
@@ -285,7 +285,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/action.rs": {
-    "mtime": 1784200550.311384,
+    "mtime": 1784207395.2649899,
     "ast_hash": "41db308d4f1b8b33363d7f827c4a8f0a",
     "semantic_hash": ""
   },
@@ -320,7 +320,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/grant.rs": {
-    "mtime": 1784206551.0898697,
+    "mtime": 1784207395.2652254,
     "ast_hash": "579b544e544c64802ddb2a146f8d9558",
     "semantic_hash": ""
   },
@@ -335,7 +335,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/lib.rs": {
-    "mtime": 1784203608.3466876,
+    "mtime": 1784207395.2656727,
     "ast_hash": "6611247a900f54a2f5f62a5893e82941",
     "semantic_hash": ""
   },
@@ -375,12 +375,12 @@
     "semantic_hash": ""
   },
   "crates/openspine-shell/src/agents/email_reply_drafter.rs": {
-    "mtime": 1784201696.0489087,
+    "mtime": 1784207395.2658484,
     "ast_hash": "acad87de2e50811da6382f8ea9ad33ed",
     "semantic_hash": ""
   },
   "crates/openspine-shell/src/agents/main_assistant.rs": {
-    "mtime": 1784202191.6335895,
+    "mtime": 1784207395.2659862,
     "ast_hash": "40fb52fb1c7e130921be135c2f1581e4",
     "semantic_hash": ""
   },
@@ -730,7 +730,7 @@
     "semantic_hash": ""
   },
   "docs/threat-claims.md": {
-    "mtime": 1784207288.5938814,
+    "mtime": 1784207395.266188,
     "ast_hash": "40fe94563b970724ad6c6a98e93b9fe6",
     "semantic_hash": ""
   },
@@ -1105,7 +1105,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate/tests.rs": {
-    "mtime": 1784207324.276172,
+    "mtime": 1784207395.257353,
     "ast_hash": "ae8ec02ede0538d92f120ecb119100f4",
     "semantic_hash": ""
   },
@@ -1165,7 +1165,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/driver.rs": {
-    "mtime": 1784204086.2270482,
+    "mtime": 1784207395.2587311,
     "ast_hash": "2a07438c54257dcecd9e473657853727",
     "semantic_hash": ""
   },
@@ -1205,7 +1205,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate/token_tests.rs": {
-    "mtime": 1784207324.2773192,
+    "mtime": 1784207395.257563,
     "ast_hash": "f9884e0f6ee0953c18d24c76a7d47235",
     "semantic_hash": ""
   },
@@ -1215,7 +1215,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/effect_paths.rs": {
-    "mtime": 1784207324.3247757,
+    "mtime": 1784207395.2593117,
     "ast_hash": "2d4e2f4addeb10b4f81970b58f7edf46",
     "semantic_hash": ""
   },
@@ -1259,39 +1259,39 @@
     "ast_hash": "5fa93f4c5a6df255ae2cc575945cd56c",
     "semantic_hash": ""
   },
-  "openspec/changes/define-grant-chain-and-modes/design.md": {
-    "mtime": 1784200135.482465,
-    "ast_hash": "6b06a2dde5a321b50499cd81c96fc4fa",
-    "semantic_hash": ""
-  },
-  "openspec/changes/define-grant-chain-and-modes/proposal.md": {
-    "mtime": 1784200135.49321,
-    "ast_hash": "2d0e6acd0f06c04f32d28ee0a302604e",
-    "semantic_hash": ""
-  },
-  "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md": {
-    "mtime": 1784203534.664681,
-    "ast_hash": "a21e9103bf2232c8b48d2fc3b49a725e",
-    "semantic_hash": ""
-  },
-  "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md": {
-    "mtime": 1784200135.4890623,
-    "ast_hash": "50fd586c8fed3fffd90fdf7af6e98486",
-    "semantic_hash": ""
-  },
-  "openspec/changes/define-grant-chain-and-modes/tasks.md": {
-    "mtime": 1784207315.357715,
-    "ast_hash": "7cbc215246be2f6c177b957eb2714ace",
-    "semantic_hash": ""
-  },
   "crates/openspine-schemas/src/grant_chain.rs": {
-    "mtime": 1784207324.3470774,
+    "mtime": 1784207395.2653525,
     "ast_hash": "7c59db11041103e12951bac2352ae38d",
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/grant_chain/tests.rs": {
-    "mtime": 1784207324.3450634,
+    "mtime": 1784207395.2655487,
     "ast_hash": "56ce2e653ae2f927f3300a6cc885c90f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md": {
+    "mtime": 1784207395.2988224,
+    "ast_hash": "6b06a2dde5a321b50499cd81c96fc4fa",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md": {
+    "mtime": 1784207395.2989097,
+    "ast_hash": "2d0e6acd0f06c04f32d28ee0a302604e",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md": {
+    "mtime": 1784207395.2990885,
+    "ast_hash": "a21e9103bf2232c8b48d2fc3b49a725e",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md": {
+    "mtime": 1784207395.2992215,
+    "ast_hash": "50fd586c8fed3fffd90fdf7af6e98486",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/tasks.md": {
+    "mtime": 1784207395.299296,
+    "ast_hash": "7cbc215246be2f6c177b957eb2714ace",
     "semantic_hash": ""
   }
 }

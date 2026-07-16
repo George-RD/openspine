@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/mod.rs": {
-    "mtime": 1784206474.7309031,
-    "ast_hash": "373c90ea5775c00385b5930d37b9faeb",
+    "mtime": 1784207324.3206964,
+    "ast_hash": "926926d313bf4c7c1f330210dca2064b",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/selection.rs": {
@@ -1105,8 +1105,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate/tests.rs": {
-    "mtime": 1784207302.8098965,
-    "ast_hash": "50d04e9e1aa68f5897395360b2e051bd",
+    "mtime": 1784207324.276172,
+    "ast_hash": "ae8ec02ede0538d92f120ecb119100f4",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/action_catalog.rs": {
@@ -1205,8 +1205,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-gate/src/gate/token_tests.rs": {
-    "mtime": 1784207302.8102648,
-    "ast_hash": "d39262bfd73942b707fc6044794dbdd7",
+    "mtime": 1784207324.2773192,
+    "ast_hash": "f9884e0f6ee0953c18d24c76a7d47235",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/artifact_activation.rs": {
@@ -1215,8 +1215,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/effect_paths.rs": {
-    "mtime": 1784206566.915221,
-    "ast_hash": "3bd56214df23b2e474cbd5c48be4cd54",
+    "mtime": 1784207324.3247757,
+    "ast_hash": "2d4e2f4addeb10b4f81970b58f7edf46",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/telegram/tests.rs": {
@@ -1285,13 +1285,13 @@
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/grant_chain.rs": {
-    "mtime": 1784206203.1546118,
-    "ast_hash": "46bfbe45a23cd8dc2972eec4a2eb5321",
+    "mtime": 1784207324.3470774,
+    "ast_hash": "7c59db11041103e12951bac2352ae38d",
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/grant_chain/tests.rs": {
-    "mtime": 1784207288.5931988,
-    "ast_hash": "2c099629b96c7d452b523892fe645f21",
+    "mtime": 1784207324.3450634,
+    "ast_hash": "56ce2e653ae2f927f3300a6cc885c90f",
     "semantic_hash": ""
   }
 }
