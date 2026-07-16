@@ -44,6 +44,7 @@ pub(crate) fn approval_fixture_grant() -> TaskGrant {
         allowed_actions: vec![],
         approval_required_actions: vec![ActionId::new("email.create_draft")],
         denied_actions: vec![],
+        allowed_egress_classes: vec![],
         output_channels: vec![],
         limits: GrantLimits {
             max_model_calls: 8,

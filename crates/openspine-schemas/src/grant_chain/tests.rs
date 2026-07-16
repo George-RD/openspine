@@ -28,6 +28,7 @@ fn sample_root() -> TaskGrant {
         ],
         approval_required_actions: vec![],
         denied_actions: vec![],
+        allowed_egress_classes: vec![],
         output_channels: vec!["telegram.owner.reply".to_string()],
         limits: GrantLimits {
             max_model_calls: 8,
@@ -45,10 +46,98 @@ fn sample_root() -> TaskGrant {
     grant
 }
 
+/// Reconstruct the root payload shape used before AD-060 added the egress
+/// field. This intentionally mirrors the pre-change implementation so the
+/// compatibility regression below proves an old persisted MAC still verifies.
+fn pre_egress_root_bytes(root: &RootAuthority) -> Vec<u8> {
+    let mut allowed: Vec<String> = root
+        .allowed_actions
+        .iter()
+        .map(|a| a.as_str().to_string())
+        .collect();
+    allowed.sort();
+    let mut approval: Vec<String> = root
+        .approval_required_actions
+        .iter()
+        .map(|a| a.as_str().to_string())
+        .collect();
+    approval.sort();
+    let mut denied: Vec<String> = root
+        .denied_actions
+        .iter()
+        .map(|a| a.as_str().to_string())
+        .collect();
+    denied.sort();
+    let mut channels = root.output_channels.clone();
+    channels.sort();
+    let payload = serde_json::json!({
+        "root_grant_id": root.root_grant_id.to_string(),
+        "expires_at": root.expires_at.to_string(),
+        "allowed_actions": allowed,
+        "approval_required_actions": approval,
+        "denied_actions": denied,
+        "output_channels": channels,
+        "limits": {
+            "max_model_calls": root.limits.max_model_calls,
+            "max_artifacts": root.limits.max_artifacts,
+            "max_runtime_seconds": root.limits.max_runtime_seconds,
+        },
+        "user": root.user,
+        "purpose": root.purpose,
+        "event_id": root.event_id.to_string(),
+        "route_id": root.route_id,
+        "agent_id": root.agent_id,
+        "workflow_id": root.workflow_id,
+        "capability_pack_id": root.capability_pack_id,
+    });
+    canonical_json(&payload).into_bytes()
+}
+
+fn pre_egress_mac_hex(root: &RootAuthority, chain: &[ChainStep]) -> String {
+    let mut tip = hmac_sha256(TEST_GRANT_HMAC_KEY, &pre_egress_root_bytes(root));
+    for step in chain {
+        for caveat in &step.added_caveats {
+            tip = hmac_sha256(&tip, &caveat_bytes(caveat));
+        }
+        tip = hmac_sha256(&tip, &step_bind_bytes(step));
+    }
+    hex_encode(&tip)
+}
+
 #[test]
 fn root_seals_and_verifies() {
     let grant = sample_root();
     assert!(verify_mac(TEST_GRANT_HMAC_KEY, &grant));
+}
+
+#[test]
+fn pre_egress_grant_mac_still_verifies_after_upgrade() {
+    // This is the exact shape of a grant persisted by the pre-AD-060
+    // binary: no egress key in the root payload and an empty class list
+    // supplied only by the post-upgrade in-memory schema default.
+    let mut grant = sample_root();
+    let root = RootAuthority::from_grant(&grant);
+    grant.caveat_mac = pre_egress_mac_hex(&root, &grant.chain);
+    assert!(
+        verify_mac(TEST_GRANT_HMAC_KEY, &grant),
+        "legacy grant MAC must remain valid across an AD-060 upgrade"
+    );
+}
+
+#[test]
+fn egress_class_tamper_invalidates_root_mac() {
+    let mut grant = sample_root();
+    grant.allowed_egress_classes = vec![crate::egress::EgressClass::Search];
+    seal_root(&mut grant, TEST_GRANT_HMAC_KEY);
+    assert!(verify_mac(TEST_GRANT_HMAC_KEY, &grant));
+
+    grant
+        .allowed_egress_classes
+        .push(crate::egress::EgressClass::WebFormPost);
+    assert!(
+        !verify_mac(TEST_GRANT_HMAC_KEY, &grant),
+        "adding an egress class must invalidate the MAC"
+    );
 }
 
 #[test]

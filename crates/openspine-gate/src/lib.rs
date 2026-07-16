@@ -6,4 +6,6 @@
 
 mod gate;
 
-pub use gate::{gate, ActionOrigin, AuditMeta, GateContext, GateOutcome};
+pub use gate::{
+    gate, ActionOrigin, AuditMeta, EgressClassifier, GateContext, GateOutcome, NoEgress,
+};

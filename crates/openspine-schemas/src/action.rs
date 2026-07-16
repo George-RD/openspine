@@ -151,6 +151,9 @@ pub enum DenialReason {
     LimitExceeded,
     UnknownAction,
     CaveatWidening,
+    /// AD-060: the action targets a rated egress endpoint whose class is not
+    /// covered by the grant's allowed egress classes.
+    EgressClassNotGranted,
 }
 
 /// The typed outcome of mediating one action request.

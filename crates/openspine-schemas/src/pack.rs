@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::ActionId;
 use crate::artifact::Lifecycle;
+use crate::egress::EgressClass;
 use crate::event::{AccountRole, Connector, EventType, Lane};
 use crate::identity::RelationshipKind;
 use crate::ids::ArtifactId;
@@ -42,6 +43,11 @@ pub struct CapabilityPack {
     pub approval_required: Vec<ActionId>,
     #[serde(default)]
     pub denied_actions: Vec<ActionId>,
+    /// AD-060: egress classes this pack authorizes. Packs reference classes
+    /// ("may query search-class; may never submit forms"), not individual
+    /// endpoints — the connector registry rates endpoints.
+    #[serde(default)]
+    pub allowed_egress_classes: Vec<EgressClass>,
     #[serde(default)]
     pub constraints: Constraints,
 }
@@ -73,6 +79,7 @@ mod tests {
                 ActionId::new("email.read_inbox"),
                 ActionId::new("email.send"),
             ],
+            allowed_egress_classes: vec![],
             constraints: Constraints {
                 max_runtime_seconds: Some(120),
                 ..Default::default()

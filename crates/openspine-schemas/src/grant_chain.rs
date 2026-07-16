@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
 use crate::action::ActionId;
-
 use crate::digest::canonical_json;
+use crate::egress::EgressClass;
 use crate::grant::{GrantLimits, GrantMode, TaskGrant};
 
 /// One ordered Macaroons-simple caveat (AD-101 / AD-036).
@@ -56,6 +56,9 @@ pub struct RootAuthority {
     pub allowed_actions: Vec<ActionId>,
     pub approval_required_actions: Vec<ActionId>,
     pub denied_actions: Vec<ActionId>,
+    /// AD-060: MAC-bound egress classes. A shell cannot widen these without
+    /// breaking the tip.
+    pub allowed_egress_classes: Vec<EgressClass>,
     pub output_channels: Vec<String>,
     pub limits: GrantLimits,
     pub user: String,
@@ -75,6 +78,7 @@ impl RootAuthority {
             allowed_actions: grant.allowed_actions.clone(),
             approval_required_actions: grant.approval_required_actions.clone(),
             denied_actions: grant.denied_actions.clone(),
+            allowed_egress_classes: grant.allowed_egress_classes.clone(),
             output_channels: grant.output_channels.clone(),
             limits: grant.limits,
             user: grant.user.clone(),
@@ -106,9 +110,15 @@ impl RootAuthority {
             .map(|a| a.as_str().to_string())
             .collect();
         denied.sort();
+        let mut egress: Vec<String> = self
+            .allowed_egress_classes
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect();
+        egress.sort();
         let mut channels = self.output_channels.clone();
         channels.sort();
-        let payload = serde_json::json!({
+        let mut payload = serde_json::json!({
             "root_grant_id": self.root_grant_id.to_string(),
             "expires_at": self.expires_at.to_string(),
             "allowed_actions": allowed,
@@ -128,6 +138,18 @@ impl RootAuthority {
             "workflow_id": self.workflow_id,
             "capability_pack_id": self.capability_pack_id,
         });
+        // Backward compatibility: a grant minted before AD-060 had no
+        // egress-class concept, so its MAC was computed over a payload
+        // that never carried this key. Omitting the key entirely when the
+        // list is empty keeps the canonical bytes — and therefore the
+        // MAC — byte-identical to the pre-change shape for every grant
+        // that predates this field (default/empty). A grant that DOES
+        // carry rated classes still gets the key, and any mutation of a
+        // non-empty list still changes the payload and invalidates the
+        // MAC exactly as any other authority field does.
+        if !egress.is_empty() {
+            payload["allowed_egress_classes"] = serde_json::json!(egress);
+        }
         canonical_json(&payload).into_bytes()
     }
 }

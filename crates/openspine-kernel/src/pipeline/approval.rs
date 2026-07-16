@@ -171,6 +171,7 @@ pub(super) async fn handle_draft_approval_callback(
         ActionOrigin::Shell,
         &state.store,
         &state.action_catalog,
+        &state.connectors,
         now,
     );
     match outcome.decision {

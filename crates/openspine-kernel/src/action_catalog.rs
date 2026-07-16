@@ -64,6 +64,10 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("artifact.activate"),
         id("coolify.delete_resource"),
         id("owner.notify"),
+        // --- AD-060: egress-class rated web endpoints ---
+        id("web.search"),
+        id("web.forum_browse"),
+        id("web.form_submit"),
     ])
     .with_kernel_origin([id("owner.notify")])
     .with_token_requiring([(

@@ -133,6 +133,7 @@ pub(crate) fn mint_grant_with_selection_token(
         allowed_actions: allowed_actions.iter().map(|a| ActionId::new(*a)).collect(),
         approval_required_actions: vec![],
         denied_actions: vec![],
+        allowed_egress_classes: vec![],
         output_channels: vec!["telegram.owner.reply".to_string()],
         limits: GrantLimits {
             max_model_calls: 8,

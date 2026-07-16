@@ -7,6 +7,7 @@ use ulid::Ulid;
 
 use crate::action::ActionId;
 use crate::artifact::Lifecycle;
+use crate::egress::EgressClass;
 use crate::grant_chain::{self, Caveat, ChainStep};
 use crate::ids::ArtifactId;
 
@@ -54,6 +55,10 @@ pub struct TaskGrant {
     pub approval_required_actions: Vec<ActionId>,
     #[serde(default)]
     pub denied_actions: Vec<ActionId>,
+    /// AD-060: egress classes this grant may exercise. Empty means no
+    /// rated egress is authorized (deny-by-default for egress endpoints).
+    #[serde(default)]
+    pub allowed_egress_classes: Vec<EgressClass>,
     #[serde(default)]
     pub output_channels: Vec<String>,
     pub limits: GrantLimits,
@@ -131,6 +136,7 @@ mod tests {
             allowed_actions: vec![ActionId::new("openspine.status.read")],
             approval_required_actions: vec![],
             denied_actions: vec![],
+            allowed_egress_classes: vec![],
             output_channels: vec![],
             limits: GrantLimits {
                 max_model_calls: 1,

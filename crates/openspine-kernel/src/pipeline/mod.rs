@@ -151,6 +151,7 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
         ActionOrigin::Kernel,
         &state.store,
         &state.action_catalog,
+        &state.connectors,
         now,
     );
     if let Err(err) = state.store.append_audit(
@@ -214,6 +215,7 @@ fn kernel_notify_grant() -> Option<TaskGrant> {
         allowed_actions: vec![],
         approval_required_actions: vec![],
         denied_actions: vec![],
+        allowed_egress_classes: vec![],
         output_channels: vec![],
         limits: GrantLimits {
             max_model_calls: 0,

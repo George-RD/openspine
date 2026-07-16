@@ -79,6 +79,7 @@ fn kernel_origin_owner_notify_is_auto_allowed() {
         ActionOrigin::Kernel,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::Allow);
@@ -96,6 +97,7 @@ fn kernel_origin_call_outside_trusted_set_is_denied() {
         ActionOrigin::Kernel,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -117,6 +119,7 @@ fn kernel_origin_unknown_action_is_unknown_not_trusted() {
         ActionOrigin::Kernel,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -138,6 +141,7 @@ fn token_requiring_action_denied_without_token() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -160,6 +164,7 @@ fn token_requiring_action_denied_when_token_missing() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -193,6 +198,7 @@ fn token_requiring_action_denied_for_foreign_grant() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -222,6 +228,7 @@ fn token_requiring_action_denied_when_expired() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -250,6 +257,7 @@ fn token_requiring_action_denied_when_wrong_type() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(
@@ -279,6 +287,7 @@ fn token_requiring_action_allowed_with_valid_token() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::Allow);
@@ -338,6 +347,7 @@ fn gate_denies_catalog_unknown_id_with_unknown_action_reason() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(
@@ -364,6 +374,7 @@ fn gate_keeps_not_granted_for_known_ungranted_id() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(
@@ -389,6 +400,7 @@ fn gate_denies_stale_granted_but_catalog_unknown_id() {
         ActionOrigin::Shell,
         &ctx,
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert!(
@@ -415,6 +427,7 @@ fn expired_invalid_mac_is_caveat_widening_not_grant_expired() {
         ActionOrigin::Shell,
         &MockContext::default(),
         &test_catalog(),
+        &NoEgress,
         Timestamp::now(),
     );
     assert_eq!(

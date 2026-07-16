@@ -121,6 +121,7 @@ pub(super) async fn post_actions(
         ActionOrigin::Shell,
         &state.store,
         &state.action_catalog,
+        &state.connectors,
         now,
     );
     state
