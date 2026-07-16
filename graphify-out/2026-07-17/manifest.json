@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784225115.849434,
-    "ast_hash": "c4a0b092e796b5dc1db35437a6915288",
+    "mtime": 1784244183.1283982,
+    "ast_hash": "dc26af0679836bf68fefd89b7bc3d5a6",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1185,8 +1185,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/artifact_activation.rs": {
-    "mtime": 1784243691.4284372,
-    "ast_hash": "71f9173cf5544eca780d3afdf13e40a7",
+    "mtime": 1784243964.4315104,
+    "ast_hash": "4dddd7f34584ac8aff85aafcc9f639fc",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/effect_paths.rs": {
@@ -1592,11 +1592,6 @@
   "crates/openspine-schemas/src/model_swap.rs": {
     "mtime": 1784233258.9385326,
     "ast_hash": "d58538e2b636a384a94808de1b16b5f6",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784241143.9517508,
-    "ast_hash": "806ce81f7faa30bb8e7760000412c2c2",
     "semantic_hash": ""
   },
   "artifacts/lyra/golden_sets/model_swap_default.yaml": {
