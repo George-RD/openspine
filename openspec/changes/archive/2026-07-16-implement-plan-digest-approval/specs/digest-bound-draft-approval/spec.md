@@ -24,6 +24,26 @@ Given a shell-facing plan proposal payload
 When its fields are inspected
 Then it MUST NOT be able to select the approval digest independently of the canonical stored plan bytes.
 
+#### Scenario: Payload bytes changed after approval
+
+Given an approved `email.create_draft` request
+When the kernel re-derives the payload digest from the artifact store at effect time
+And the re-derived digest differs from the approved payload digest
+Then the kernel MUST deny draft creation.
+
+#### Scenario: Target digest re-derivation mismatch denies
+
+Given an approved `email.create_draft` request
+When the kernel re-derives the target digest (approval.rs:290) and it differs from the approved target digest
+Then the kernel MUST deny draft creation.
+
+#### Scenario: Shell cannot supply a digest
+
+Given a shell-facing request DTO
+When its fields are inspected
+Then it MUST NOT carry a payload or target digest field
+And the kernel MUST compute every digest from store bytes.
+
 ## ADDED Requirements
 
 ### Requirement: Plan approval MUST bind the complete ordered step-list digest

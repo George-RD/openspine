@@ -44,6 +44,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   `Requires:` lines reference it)
 - `implement-egress-classes` (brief stays in place — later `Requires:` lines
   reference it)
+- `implement-plan-digest-approval`
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
