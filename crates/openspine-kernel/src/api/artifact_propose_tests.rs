@@ -25,7 +25,9 @@ use super::artifact_propose::dispatch_artifact_propose;
 use super::dispatch_tests::OWNER_CHAT_ID;
 use crate::pipeline::handle_owner_update;
 use crate::telegram::TelegramConnector;
-use crate::test_support::fixtures::{owner_update, test_state, test_state_with_telegram};
+use crate::test_support::fixtures::{
+    owner_update, seed_owner_history, test_state, test_state_with_telegram,
+};
 
 /// Minimal, always-schema-valid `route` proposal YAML (every field
 /// `Route::deserialize` requires without a `#[serde(default)]`).
@@ -69,6 +71,7 @@ async fn artifact_propose_persists_and_sends_approval_button() {
         .await
         .unwrap()
         .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("dark_mode_route", "proposed")});
     let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
@@ -235,6 +238,7 @@ async fn artifact_propose_rejects_duplicate_id_version() {
         .await
         .unwrap()
         .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("dup_route", "proposed")});
     dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))

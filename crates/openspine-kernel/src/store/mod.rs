@@ -334,6 +334,21 @@ impl Store {
         Ok(())
     }
 
+    /// Count conversation turns attached to owner-control grants only.
+    /// `conversation_state` has no lane column, so provenance comes from
+    /// the persisted, verified `TaskGrant.workflow_id` in `task_grants`.
+    pub fn count_owner_control_conversation_turns(&self) -> Result<usize, StoreError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM conversation_state AS c
+             JOIN task_grants AS g ON g.id = c.task_grant_id
+             WHERE json_extract(g.grant_json, '$.workflow_id') = ?1",
+            params!["owner_control_conversation"],
+            |row| row.get(0),
+        )?;
+        usize::try_from(count).map_err(|_| StoreError::NumericRange)
+    }
+
     /// The most recent `limit` messages for `task_grant_id`, oldest first.
     pub fn recent_conversation(
         &self,

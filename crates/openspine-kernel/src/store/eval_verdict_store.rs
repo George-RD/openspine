@@ -69,7 +69,7 @@ pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreErro
     Ok(())
 }
 
-fn timestamp_to_epoch_nanos(timestamp: Timestamp) -> Result<i64, StoreError> {
+pub(super) fn timestamp_to_epoch_nanos(timestamp: Timestamp) -> Result<i64, StoreError> {
     i64::try_from(timestamp.as_nanosecond()).map_err(|_| {
         StoreError::TimestampRange(format!(
             "epoch nanoseconds {} do not fit SQLite INTEGER",
@@ -118,30 +118,41 @@ fn read_eval_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<EvalRow> {
     ))
 }
 
+/// Insert one eval verdict row against a caller-provided connection. Shared
+/// between `Store::insert_eval_verdict` (locked own connection) and callers
+/// that must write the row inside their own transaction, so both paths use
+/// one column contract.
+pub(super) fn insert_eval_verdict_conn(
+    conn: &rusqlite::Connection,
+    row: &EvalVerdict,
+) -> Result<(), StoreError> {
+    let recorded_at = timestamp_to_epoch_nanos(row.recorded_at)?;
+    conn.execute(
+        "INSERT INTO eval_verdicts \
+         (id, artifact_kind, artifact_id, artifact_version, verdict, \
+          fitness, evidence, evaluator, artifact_digest, recorded_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            row.id.to_string(),
+            row.artifact_kind,
+            row.artifact_id,
+            row.artifact_version as i64,
+            row.verdict,
+            row.fitness,
+            row.evidence,
+            row.evaluator,
+            row.artifact_digest,
+            recorded_at,
+        ],
+    )?;
+    Ok(())
+}
+
 #[allow(dead_code)]
 impl Store {
     pub fn insert_eval_verdict(&self, row: &EvalVerdict) -> Result<(), StoreError> {
         let conn = self.conn.lock();
-        let recorded_at = timestamp_to_epoch_nanos(row.recorded_at)?;
-        conn.execute(
-            "INSERT INTO eval_verdicts \
-             (id, artifact_kind, artifact_id, artifact_version, verdict, \
-              fitness, evidence, evaluator, artifact_digest, recorded_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![
-                row.id.to_string(),
-                row.artifact_kind,
-                row.artifact_id,
-                row.artifact_version as i64,
-                row.verdict,
-                row.fitness,
-                row.evidence,
-                row.evaluator,
-                row.artifact_digest,
-                recorded_at,
-            ],
-        )?;
-        Ok(())
+        insert_eval_verdict_conn(&conn, row)
     }
 
     pub fn eval_verdicts_for_artifact(

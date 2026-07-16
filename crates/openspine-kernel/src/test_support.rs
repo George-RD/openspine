@@ -20,6 +20,7 @@ pub(crate) mod fixtures {
     use crate::sandbox::{ProcessDriver, Sandbox};
     use crate::store::Store;
     use crate::telegram::{TelegramConnector, TelegramUpdate};
+    use openspine_schemas::digest::Digest;
 
     pub(crate) fn repo_lyra_dir() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
@@ -89,5 +90,16 @@ pub(crate) mod fixtures {
             text: Some(text.to_string()),
             ..Default::default()
         }
+    }
+
+    pub(crate) fn seed_owner_history(
+        state: &AppState,
+        grant: &openspine_schemas::grant::TaskGrant,
+    ) {
+        let digest = Digest::parse(format!("sha256:{}", "0".repeat(64))).unwrap();
+        state
+            .store
+            .append_conversation_message(grant.id, "user", &digest)
+            .unwrap();
     }
 }
