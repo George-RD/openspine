@@ -1,16 +1,16 @@
 # Graph Report - openspine  (2026-07-17)
 
 ## Corpus Check
-- 316 files · ~221,290 words
+- 316 files · ~222,331 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3980 nodes · 5108 edges · 706 communities (323 shown, 383 thin omitted)
+- 3994 nodes · 5122 edges · 713 communities (329 shown, 384 thin omitted)
 - Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 488 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `cb4366a3`
+- Built from commit: `a015e0fb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -665,6 +665,13 @@
 - SKILL.md
 - SKILL.md
 - SKILL.md
+- event_bus_tests.rs
+- agent.rs
+- eval_verdict_store_tests.rs
+- Lifecycle
+- policy.rs
+- event_bus.rs
+- pack.rs
 
 ## God Nodes (most connected - your core abstractions)
 1. `gate()` - 46 edges
@@ -693,15 +700,15 @@
 ## Import Cycles
 - None detected.
 
-## Communities (706 total, 383 thin omitted)
+## Communities (713 total, 384 thin omitted)
 
 ### Community 0 - "README.md"
 Cohesion: 0.05
 Nodes (67): String, truncate_for_telegram(), truncate_with_notice(), canonical_json(), HandlerFuture, ActionRequestBody, ActionResponseBody, dispatch_allowed_action() (+59 more)
 
 ### Community 1 - ".new"
-Cohesion: 0.09
-Nodes (48): a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary(), build_prompt(), build_prompt_carries_system_preamble_and_conversation_through(), build_prompt_with_untrusted_context(), PromptMessage, PromptRole, PromptTemplate, ResolvedPrompt (+40 more)
+Cohesion: 0.16
+Nodes (28): a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary(), build_prompt(), build_prompt_carries_system_preamble_and_conversation_through(), build_prompt_with_untrusted_context(), PromptMessage, PromptRole, PromptTemplate, ResolvedPrompt (+20 more)
 
 ### Community 2 - "event.rs"
 Cohesion: 0.09
@@ -772,12 +779,12 @@ Cohesion: 0.08
 Nodes (25): AllValuesOf, astro:content, CollectionEntry, CollectionKey, ContentConfig, DataEntryMap, ExtractCollectionFilterType, ExtractDataType (+17 more)
 
 ### Community 20 - "StoreError"
-Cohesion: 0.15
-Nodes (50): Constraints, Policy, ArtifactId, Option, String, Vec, SessionPolicy, a_deny_route_is_never_composed() (+42 more)
+Cohesion: 0.26
+Nodes (37): a_deny_route_is_never_composed(), approval_required_overrides_plain_allow(), compose_accepts_unwired_known_id(), compose_rejects_unknown_action_id_with_structured_error(), email_grant_excludes_inbox_wide_read_matching_prd_12_2(), explicit_deny_overrides_allow(), main_assistant_grant_never_inherits_email_drafter_authority(), no_candidate_allow_means_action_is_not_granted() (+29 more)
 
 ### Community 21 - "post_action"
 Cohesion: 0.23
-Nodes (12): EventInputs, Option, String, Future, Output, Pin, Send, email_build_envelope() (+4 more)
+Nodes (13): EventInputs, PreflightFailure, Option, String, Future, Output, Pin, Send (+5 more)
 
 ### Community 22 - "ApprovalRecord"
 Cohesion: 0.08
@@ -792,24 +799,24 @@ Cohesion: 0.09
 Nodes (21): ADDED Requirements, Requirement: Action requests and gate decisions MUST be typed, Requirement: Approval records MUST bind reviewed payloads and targets, Requirement: Audit schemas MUST reference private payloads by encrypted or hash refs, Requirement: Event envelopes MUST include source authenticity fields, Requirement: Identity schemas MUST NOT grant runtime authority, Requirement: OpenSpine core runtime objects MUST have explicit schemas, Requirement: Route resolution schemas MUST represent ambiguity (+13 more)
 
 ### Community 25 - "AppState"
-Cohesion: 0.06
-Nodes (38): AgentLimits, AgentManifest, main_assistant_agent(), main_assistant_denies_broad_email_access(), MemoryScope, ModelPolicy, OutputChannels, Persistence (+30 more)
+Cohesion: 0.13
+Nodes (10): From, action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionCatalog, ActionId, ActionRequest, DenialReason, EffectPath (+2 more)
 
 ### Community 26 - ".sweep_expired_grants"
 Cohesion: 0.16
-Nodes (17): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), LaneSpec, owner_control_lane(), PipelineStage, PreflightFailure, Result (+9 more)
+Nodes (16): BuildEnvelopeFn, email_preview_lane(), emit_preflight_failure(), LaneSpec, owner_control_lane(), PipelineStage, Result, Timestamp (+8 more)
 
 ### Community 27 - "Lifecycle"
 Cohesion: 0.10
 Nodes (20): ADDED Requirements, Purpose, Requirement: Allowed-action dispatch MUST resolve through a handler registry, Requirement: Connectors MUST be registered through a connector registry, Requirement: Post-approval resolution MUST route through a registry with a draft-creation default, Requirement: Proposable artifact kinds MUST have a single source of truth, Requirement: Unknown action ids MUST be denied at gate with a structured reason, Requirement: Unknown action ids MUST fail fast at composition (+12 more)
 
 ### Community 28 - "Requirements"
-Cohesion: 0.14
-Nodes (16): EvalRow, Row, digest(), fractional_timestamp_orders_after_exact_second(), insert_and_query_by_artifact_returns_ordered_rows(), latest_eval_verdict_returns_newest_for_artifact(), query_by_verdict_filters_across_artifacts(), verdict() (+8 more)
+Cohesion: 0.22
+Nodes (10): EvalRow, Row, TryFrom, epoch_nanos_to_timestamp(), EvalVerdict, insert_eval_verdict_conn(), map_row(), read_eval_row() (+2 more)
 
 ### Community 29 - "OpenSpine Agent-OS Design Log"
-Cohesion: 0.05
-Nodes (24): AsRef, TryFrom, ConsumerError, IdempotentConsumer, LedgerEntry, PersistedConsumerState, Store, append() (+16 more)
+Cohesion: 0.12
+Nodes (8): AsRef, AuditEvent, AuditKind, AuditKindError, default_aggregate_id(), genesis_hash(), round_trips_through_serde(), EventSubscriptionFilter
 
 ### Community 30 - "ArtifactRef"
 Cohesion: 0.10
@@ -836,8 +843,8 @@ Cohesion: 0.10
 Nodes (19): Purpose, Requirement: Approval-required MUST override plain allow, Requirement: Authority composition MUST be deny-by-default, Requirement: Authority widening MUST require explicit approval, Requirement: Connector and account role MUST NOT grant authority by themselves, Requirement: Explicit deny MUST override allow, Requirement: Identity MUST NOT grant authority by itself, Requirement: Main assistant grant MUST NOT inherit specialist workflow authority (+11 more)
 
 ### Community 40 - "Requirements"
-Cohesion: 0.18
-Nodes (14): round_trips_through_serde(), Connector, Into, Option, Self, String, Timestamp, Ulid (+6 more)
+Cohesion: 0.23
+Nodes (12): InstructionSources, ModelRequest, OutputPolicy, Provider, RedactionRequirement, RetentionMode, Option, String (+4 more)
 
 ### Community 41 - "Requirements"
 Cohesion: 0.11
@@ -880,8 +887,8 @@ Cohesion: 0.17
 Nodes (14): ActionHandler, build_selection_token(), format_pending_message(), String, Timestamp, Ulid, RwLock, email_grant_binding() (+6 more)
 
 ### Community 51 - "ADDED Requirements"
-Cohesion: 0.11
-Nodes (17): model-swap-ceremony Specification, Purpose, Requirement: Activation MUST change only the approved active role assignment, Requirement: Golden sets MUST be bounded and role-bound, Requirement: Model swaps MUST be evidence-bearing AD-142 proposals, Requirement: Provider configuration changes MUST NOT bypass the ceremony, Requirement: Restart MUST require ceremony provenance, Requirements (+9 more)
+Cohesion: 0.08
+Nodes (24): model-swap-ceremony Specification, Purpose, Requirement: Activation MUST use a serialized provenance-bound staged protocol, Requirement: Golden sets MUST be bounded and role-bound, Requirement: Model swaps MUST be evidence-bearing AD-142 proposals, Requirement: Provider configuration changes MUST NOT bypass the ceremony, Requirement: Restart MUST require symmetric latest ceremony provenance, Requirements (+16 more)
 
 ### Community 52 - "ADDED Requirements"
 Cohesion: 0.12
@@ -896,16 +903,16 @@ Cohesion: 0.12
 Nodes (16): ADDED Requirements, Requirement: Counterparty-facing gate denials at the worker action chokepoint MUST surface only the canonical deferral plus an owner-routed escalation, Requirement: Escalation routing MUST be deterministic kernel machinery, Requirement: No policy or rule text MUST cross the worker-facing chokepoint as human-facing content, Requirement: Thread↔grant binding MUST be kernel-owned and dormant until a thread-capable channel ships, Scenario: Allowed action does not escalate or defer, Scenario: Counterparty ApprovalRequired also returns deferral, routes to owner, and audits, Scenario: Counterparty deferral is exactly the canonical constant (+8 more)
 
 ### Community 55 - "Requirements"
-Cohesion: 0.12
-Nodes (16): ADDED Requirements, Model swap ceremony Specification, Requirement: Activation MUST change only the approved active role assignment, Requirement: Golden sets MUST be bounded and role-bound, Requirement: Model swaps MUST be evidence-bearing AD-142 proposals, Requirement: Provider configuration changes MUST NOT bypass the ceremony, Requirement: Restart MUST require ceremony provenance, Scenario: Approved Base swap changes the gateway selection (+8 more)
+Cohesion: 0.08
+Nodes (23): ADDED Requirements, Model swap ceremony Specification, Requirement: Activation MUST use a serialized provenance-bound staged protocol, Requirement: Golden sets MUST be bounded and role-bound, Requirement: Model swaps MUST be evidence-bearing AD-142 proposals, Requirement: Provider configuration changes MUST NOT bypass the ceremony, Requirement: Restart MUST require symmetric latest ceremony provenance, Scenario: Approved Base swap changes the gateway selection (+15 more)
 
 ### Community 56 - "owner_event"
 Cohesion: 0.12
 Nodes (16): pipeline-driver Specification, Purpose, Requirement: Lane specifications MUST be compiled-in kernel data, Requirement: Per-flow variation MUST be lane data interpreted by one driver, Requirement: The audited event envelope MUST be emitted only after verification succeeds, Requirement: The driver MUST NOT invoke gate(), Requirement: The kernel pipeline MUST be a typed stage sequence the driver executes, Requirements (+8 more)
 
 ### Community 57 - ".default"
-Cohesion: 0.12
-Nodes (16): type, anyOf, anyOf, anyOf, properties, description, lastUpdated, next (+8 more)
+Cohesion: 0.10
+Nodes (19): type, default, type, anyOf, anyOf, anyOf, properties, description (+11 more)
 
 ### Community 58 - "Runtime schema groups"
 Cohesion: 0.12
@@ -944,8 +951,8 @@ Cohesion: 0.14
 Nodes (13): ADDED Requirements, Requirement: Approval audit MUST avoid plaintext private payloads, Requirement: Draft creation MUST remain approval-required, Requirement: Draft creation MUST require digest-bound approval, Requirement: Final email send MUST remain denied, Requirement: Target mutation MUST invalidate approval, Scenario: Agent requests send after draft creation, Scenario: Approval is recorded (+5 more)
 
 ### Community 67 - "identity.rs"
-Cohesion: 0.08
-Nodes (48): RelationshipKind, effect_defaults_to_allow_when_omitted(), owner_route(), round_trips_through_serde(), Route, route_can_be_a_deny_route(), RouteActorWhen, RouteEffect (+40 more)
+Cohesion: 0.06
+Nodes (62): RelationshipKind, effect_defaults_to_allow_when_omitted(), owner_route(), round_trips_through_serde(), Route, route_can_be_a_deny_route(), RouteActorWhen, RouteEffect (+54 more)
 
 ### Community 68 - "properties"
 Cohesion: 0.12
@@ -976,8 +983,8 @@ Cohesion: 0.14
 Nodes (13): dependencies, astro, @astrojs/starlight, sharp, name, scripts, astro, build (+5 more)
 
 ### Community 75 - "SKILL.md"
-Cohesion: 0.23
-Nodes (12): get_task(), Arc, HeaderMap, Json, Result, State, StatusCode, String (+4 more)
+Cohesion: 0.10
+Nodes (32): get_task(), Arc, HeaderMap, Json, Result, State, StatusCode, String (+24 more)
 
 ### Community 76 - "Tasks: Harden approval and budgets"
 Cohesion: 0.33
@@ -1012,8 +1019,8 @@ Cohesion: 0.15
 Nodes (12): identity-store Specification, Purpose, Requirement: A Principal is a first-class, authority-free record and v1 enforces exactly one owner, Requirement: Identity binding MUST happen only via an audited, owner-approved path, Requirement: Identity resolution MUST be a read-only seam that never binds or mints principals, Requirements, Scenario: Binding attempt without owner context is rejected, Scenario: Idempotent bootstrap establishes exactly one owner (+4 more)
 
 ### Community 84 - "Proposal: Implement gate action API"
-Cohesion: 0.08
-Nodes (25): can_transition(), derived_lineage_round_trips_on_artifact_row(), inconsistent_generation_zero_with_parents_is_rejected(), inconsistent_positive_generation_without_parents_is_rejected(), lineage_is_distinct_from_version(), root_lineage_round_trips_on_artifact_row(), row_with(), stored_inconsistent_lineage_fails_closed_on_load() (+17 more)
+Cohesion: 0.09
+Nodes (24): derived_lineage_round_trips_on_artifact_row(), inconsistent_generation_zero_with_parents_is_rejected(), inconsistent_positive_generation_without_parents_is_rejected(), lineage_is_distinct_from_version(), root_lineage_round_trips_on_artifact_row(), row_with(), stored_inconsistent_lineage_fails_closed_on_load(), unknown_lineage_is_none_not_root() (+16 more)
 
 ### Community 85 - "Proposal: Implement selected-thread email preview slice"
 Cohesion: 0.15
@@ -1748,8 +1755,8 @@ Cohesion: 0.50
 Nodes (3): exclude, extends, include
 
 ### Community 316 - "Option"
-Cohesion: 0.67
-Nodes (3): default, type, draft
+Cohesion: 0.27
+Nodes (6): ConsumerError, IdempotentConsumer, LedgerEntry, PersistedConsumerState, Store, ConsumerCheckpoint
 
 ### Community 317 - "Ulid"
 Cohesion: 0.67
@@ -1763,10 +1770,34 @@ Nodes (3): default, type, head
 Cohesion: 0.67
 Nodes (3): default, type, pagefind
 
+### Community 706 - "event_bus_tests.rs"
+Cohesion: 0.20
+Nodes (8): append(), consumer_id_is_bound_to_filter(), failed_handler_does_not_advance_checkpoint(), filtered_replay_is_idempotent(), kind_filter_preserves_global_order(), persisted_checkpoint_survives_reload(), replay_after_watermark_skips_earlier_rows(), unique_ids_and_per_aggregate_sequences()
+
+### Community 707 - "agent.rs"
+Cohesion: 0.33
+Nodes (12): AgentLimits, AgentManifest, main_assistant_agent(), main_assistant_denies_broad_email_access(), MemoryScope, ModelPolicy, OutputChannels, Persistence (+4 more)
+
+### Community 708 - "eval_verdict_store_tests.rs"
+Cohesion: 0.31
+Nodes (7): digest(), fractional_timestamp_orders_after_exact_second(), insert_and_query_by_artifact_returns_ordered_rows(), latest_eval_verdict_returns_newest_for_artifact(), query_by_verdict_filters_across_artifacts(), verdict(), verdict_vocabulary_is_open()
+
+### Community 709 - "Lifecycle"
+Cohesion: 0.24
+Nodes (6): can_transition(), Lifecycle, ArtifactId, String, Vec, WorkflowManifest
+
+### Community 710 - "policy.rs"
+Cohesion: 0.29
+Nodes (7): Constraints, Policy, ArtifactId, Option, String, Vec, SessionPolicy
+
+### Community 712 - "pack.rs"
+Cohesion: 0.60
+Nodes (5): allow_and_deny_lists_never_overlap_in_the_fixture(), AppliesTo, CapabilityPack, owner_control_basic_pack(), round_trips_through_serde()
+
 ## Knowledge Gaps
-- **1466 isolated node(s):** `set.sh script`, `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactProposePayload` (+1461 more)
+- **1480 isolated node(s):** `set.sh script`, `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactProposePayload` (+1475 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **383 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **384 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -1775,6 +1806,8 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.020) - this node is a cross-community bridge._
 - **Why does `Digest` connect `Ok` to `D-022 — Agent-owned inbox is distinct from owner mailbox access`, `.put`, `client.rs`, `properties`, `Requirements`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
+- **Why does `AuditKind` connect `OpenSpine Agent-OS Design Log` to `event_bus_tests.rs`, `Requirements`, `event_bus.rs`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Are the 40 inferred relationships involving `gate()` (e.g. with `bound_parameter_conflict_is_caveat_widening()` and `explicit_shell_deny_precedes_uncovered_egress_class()`) actually correct?**
   _`gate()` has 40 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 35 inferred relationships involving `handle_owner_update()` (e.g. with `activation_with_mutated_payload_is_denied()` and `approved_artifact_activates_into_registry_and_overlay()`) actually correct?**
@@ -1783,5 +1816,3 @@ _Questions this graph is uniquely positioned to answer:_
   _`request_for()` has 15 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 32 inferred relationships involving `owner_update()` (e.g. with `approve_callback_update()` and `activation_with_mutated_payload_is_denied()`) actually correct?**
   _`owner_update()` has 32 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 15 inferred relationships involving `grant_with()` (e.g. with `bound_parameter_conflict_is_caveat_widening()` and `explicit_shell_deny_precedes_uncovered_egress_class()`) actually correct?**
-  _`grant_with()` has 15 INFERRED edges - model-reasoned connections that need verification._

@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1784244462.3279378,
+    "mtime": 1784244508.6468165,
     "ast_hash": "7800d1190a9c16b50a005827df9e3d66",
     "semantic_hash": ""
   },
@@ -35,7 +35,7 @@
     "semantic_hash": ""
   },
   "openspec/specs/gate-action-api/spec.md": {
-    "mtime": 1784244434.4138799,
+    "mtime": 1784244508.6475315,
     "ast_hash": "3b2d3de94008f8e89c9ef7f7ee7f5b60",
     "semantic_hash": ""
   },
@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/artifact-lifecycle/spec.md": {
-    "mtime": 1784244434.4135795,
-    "ast_hash": "7f0c7fc132bbf1dbb57e094a610d2289",
+    "mtime": 1784245909.5349755,
+    "ast_hash": "73efd3b92e6ad373befdb83edbd574a8",
     "semantic_hash": ""
   },
   "openspec/specs/audit-artifact-store/spec.md": {
@@ -1660,38 +1660,38 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/design.md": {
-    "mtime": 1784244291.667573,
+    "mtime": 1784244508.6439416,
     "ast_hash": "8fc2d35dbc7e8f2aa29f88211cc2452f",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/proposal.md": {
-    "mtime": 1784244291.667848,
+    "mtime": 1784244508.644094,
     "ast_hash": "92ddf2bc877ca566c9ca0e36159cb3c2",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/specs/artifact-lifecycle/spec.md": {
-    "mtime": 1784244423.8192375,
-    "ast_hash": "48733750bf8fbbac2339b4c8b0e8dbab",
+    "mtime": 1784245941.3396766,
+    "ast_hash": "f9e59923c27f562b8d4b657ea16f76d7",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/specs/gate-action-api/spec.md": {
-    "mtime": 1784244291.6686323,
+    "mtime": 1784244508.6455417,
     "ast_hash": "5eb1ffe8e7a5adf74f90e3cf2434595a",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/specs/model-swap-ceremony/spec.md": {
-    "mtime": 1784244291.6691957,
-    "ast_hash": "0d5e33067884a20255ea816cb69ced81",
+    "mtime": 1784245927.9483416,
+    "ast_hash": "fc1e3ed2ae060ffbdd3ebff03ca5d53e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-implement-model-swap-ceremony/tasks.md": {
-    "mtime": 1784244291.6695058,
+    "mtime": 1784244508.6459486,
     "ast_hash": "c59c24aa7c36765bc20f5e41d3992819",
     "semantic_hash": ""
   },
   "openspec/specs/model-swap-ceremony/spec.md": {
-    "mtime": 1784244434.4142494,
-    "ast_hash": "679ef661a54f3b13dd65f4927344353c",
+    "mtime": 1784245909.538213,
+    "ast_hash": "980fecb35ae3c7d4932ecd7ecf6d9cf9",
     "semantic_hash": ""
   }
 }

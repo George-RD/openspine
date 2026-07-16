@@ -89,7 +89,7 @@ Then the artifact MUST be present in the loaded registry
 And MUST participate in authority composition exactly as a fixture-loaded artifact would.
 
 ### Requirement: Authority-bearing proposals require overlay evaluation before approval
-The kernel MUST run offline replay against a provenance-filtered captured owner-control history and an adversarial risk-judge pass before a route, agent, workflow, pack, or policy proposal reaches `review_required` or exposes an owner approval tap. Both passing verdicts MUST be digest-bound to the stored proposal and persisted in the eval-verdict store. If the history or either evaluator is unavailable, the proposal MUST remain outside the approval surface. For a model_swap proposal, kernel-executed golden-set replay replaces captured owner-control history as the replay evidence; its replay and risk-judge verdicts MUST bind the exact stored proposal digest.
+Every authority-bearing proposal MUST pass a digest-bound replay and adversarial risk-judge evaluation before reaching `review_required` or exposing an owner approval tap. Every authority-bearing proposal other than `model_swap` MUST replay against provenance-filtered captured owner-control history; if that history or either evaluator is unavailable, the proposal MUST remain outside the approval surface. A `model_swap` proposal MUST instead use kernel-executed golden-set replay as its captured replay evidence. In both paths, both passing verdicts MUST bind the exact stored proposal digest and persist in the eval-verdict store.
 
 #### Scenario: Proposal with two passing evaluations reaches approval
 - **GIVEN** a validated route, agent, workflow, pack, or policy proposal
@@ -99,7 +99,7 @@ The kernel MUST run offline replay against a provenance-filtered captured owner-
 - **AND** the owner approval summary includes evaluation evidence
 
 #### Scenario: Proposal without captured owner history is denied
-- **GIVEN** an authority-bearing route, agent, workflow, pack, or policy proposal with no provenance-filtered owner-control history
+- **GIVEN** an authority-bearing proposal other than `model_swap` with no provenance-filtered owner-control history
 - **WHEN** the overlay evaluation gate runs
 - **THEN** the proposal does not reach `review_required`
 - **AND** no owner approval button is sent
