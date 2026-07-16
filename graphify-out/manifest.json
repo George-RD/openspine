@@ -30,12 +30,12 @@
     "semantic_hash": ""
   },
   "openspec/specs/core-runtime-schemas/spec.md": {
-    "mtime": 1784207429.6713104,
+    "mtime": 1784207451.7117407,
     "ast_hash": "ba3363bd6ac0f98e2528f9b4f9caaee9",
     "semantic_hash": ""
   },
   "openspec/specs/gate-action-api/spec.md": {
-    "mtime": 1784207429.6718967,
+    "mtime": 1784207451.7120523,
     "ast_hash": "45cb32d41a990fe1a7f322582a9c0ec9",
     "semantic_hash": ""
   },
@@ -1270,28 +1270,53 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md": {
-    "mtime": 1784207395.2988224,
+    "mtime": 1784207451.7108116,
     "ast_hash": "6b06a2dde5a321b50499cd81c96fc4fa",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md": {
-    "mtime": 1784207395.2989097,
+    "mtime": 1784207451.7109296,
     "ast_hash": "2d0e6acd0f06c04f32d28ee0a302604e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md": {
-    "mtime": 1784207395.2990885,
+    "mtime": 1784207451.711185,
     "ast_hash": "a21e9103bf2232c8b48d2fc3b49a725e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md": {
-    "mtime": 1784207395.2992215,
+    "mtime": 1784207451.7113578,
     "ast_hash": "50fd586c8fed3fffd90fdf7af6e98486",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/tasks.md": {
-    "mtime": 1784207395.299296,
+    "mtime": 1784207451.7114444,
     "ast_hash": "7cbc215246be2f6c177b957eb2714ace",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-identity-store-and-principal/design.md": {
+    "mtime": 1784208649.259374,
+    "ast_hash": "a427f188e77e30f29ff77e5fd61d912a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-identity-store-and-principal/proposal.md": {
+    "mtime": 1784208641.3821192,
+    "ast_hash": "bb9963512408a17234b0d333402a4c82",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-identity-store-and-principal/specs/core-runtime-schemas/spec.md": {
+    "mtime": 1784208656.9208958,
+    "ast_hash": "9e35adb969dd2a3b364bf877b6b1c900",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-identity-store-and-principal/specs/identity-store/spec.md": {
+    "mtime": 1784208680.1619954,
+    "ast_hash": "6089b5fc1c5df4b62f41eea3d4dbecb6",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-identity-store-and-principal/tasks.md": {
+    "mtime": 1784208649.2610645,
+    "ast_hash": "2bdf563d737e4491386df2421bad7962",
     "semantic_hash": ""
   }
 }

@@ -300,7 +300,11 @@
   "298": "Delegation & containment",
   "299": "SelectionToken",
   "300": "tasks.md",
+  "301": "ActionRequest",
+  "302": "tests.rs",
+  "303": "get_task",
   "304": "ApprovalRecord",
+  "305": "Approach",
   "306": "action_catalog.rs",
   "307": ".fmt",
   "308": "artifact_propose.rs",
@@ -309,5 +313,13 @@
   "311": "D-054 — Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in data records",
   "312": "D-014 — Bootstrap/setup secrets bypass shell/model context",
   "313": "editUrl",
-  "316": "head"
+  "314": "Proposal: Implement identity store and principal",
+  "315": "Tasks: Implement identity store and principal",
+  "316": "head",
+  "317": "MODIFIED Requirements",
+  "318": "Delegation & containment",
+  "319": "artifact_propose.rs",
+  "320": "benchmark.rs",
+  "321": "draft",
+  "322": "head"
 }
