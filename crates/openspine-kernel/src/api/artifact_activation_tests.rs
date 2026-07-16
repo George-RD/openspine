@@ -122,6 +122,16 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
         .unwrap()
         .expect("the proposed_artifacts row must still exist after activation");
     assert_eq!(row.state, Lifecycle::Active);
+
+    // D-055.1: Path 3 is gate-mediated (preceding gate() Allow) and audited
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("artifact.activated")
+            .unwrap(),
+        1,
+        "Expected exactly one artifact.activated audit event"
+    );
 }
 
 #[tokio::test]

@@ -8,11 +8,12 @@
 //! (D-044: the shell that requested the preview is long gone by the time a
 //! human taps a button).
 
+use crate::artifact_store::ArtifactStoreError;
 use jiff::Timestamp;
-use openspine_gate::gate;
+use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionRequest, GateDecision};
 use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord, TimeoutBehavior};
-use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::digest_of;
 use openspine_schemas::grant::TaskGrant;
 use serde_json::json;
@@ -164,7 +165,14 @@ pub(super) async fn handle_draft_approval_callback(
         &[],
     )?;
 
-    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
+    let outcome = gate(
+        &grant,
+        &request,
+        ActionOrigin::Shell,
+        &state.store,
+        &state.action_catalog,
+        now,
+    );
     match outcome.decision {
         GateDecision::Allow => {
             let handler = resolve_post_approval_handler(&request.action);
@@ -213,7 +221,34 @@ pub(super) async fn create_approved_draft(
         .payload_ref
         .as_ref()
         .expect("checked by handle_draft_approval_callback before dispatch");
-    let bytes = state.artifacts.get(payload_ref)?;
+    // D-041/D-011: the payload itself is content-addressed by digest. Re-read
+    // it from the artifact store and verify the bytes still hash to the digest
+    // bound at approval time (D-055.4). `get` decrypts and checks the digest;
+    // a mismatch means the stored payload was tampered with or corrupted since
+    // approval, so the draft must not be created from content the owner never
+    // reviewed.
+    let bytes = match state.artifacts.get(payload_ref) {
+        Ok(bytes) => bytes,
+        Err(ArtifactStoreError::DigestMismatch) => {
+            state.store.append_audit(
+                "draft.payload_mutated_since_approval",
+                Some(&request.action),
+                None,
+                Some("recomputed payload digest no longer matches the approved one"),
+                Some(grant.id),
+                &[],
+                std::slice::from_ref(payload_ref),
+            )?;
+            notify_owner_best_effort(
+                state,
+                chat_id,
+                "The draft content changed since you approved it — please run /draft again.",
+            )
+            .await;
+            return Ok(());
+        }
+        Err(other) => return Err(other.into()),
+    };
     let payload: serde_json::Value = serde_json::from_slice(&bytes)?;
     let subject = payload["subject"].as_str().unwrap_or_default();
     let body = payload["body"].as_str().unwrap_or_default();
@@ -294,14 +329,18 @@ pub(super) async fn create_approved_draft(
         "recipients": [target.recipient],
     }));
     if Some(&current_target_digest) != request.target_digest.as_ref() {
+        let target_ref = ArtifactRef {
+            digest: current_target_digest.clone(),
+            schema_version: 1,
+        };
         state.store.append_audit(
             "draft.target_mutated_since_approval",
             Some(&request.action),
             None,
             Some("recomputed target digest no longer matches the approved one"),
             Some(grant.id),
-            &[],
-            &[],
+            &[target_ref],
+            std::slice::from_ref(payload_ref),
         )?;
         notify_owner_best_effort(
             state,
@@ -326,26 +365,36 @@ pub(super) async fn create_approved_draft(
                     vec![]
                 }
             };
+            let target_ref = ArtifactRef {
+                digest: current_target_digest.clone(),
+                schema_version: 1,
+            };
+            let mut payload_refs = vec![payload_ref.clone()];
+            payload_refs.extend(draft_id_refs);
             state.store.append_audit(
                 "draft.created",
                 Some(&request.action),
                 None,
                 None,
                 Some(grant.id),
-                &[],
-                &draft_id_refs,
+                &[target_ref],
+                &payload_refs,
             )?;
             notify_owner_best_effort(state, chat_id, "Draft created in Gmail.").await;
         }
         Err(err) => {
+            let target_ref = ArtifactRef {
+                digest: current_target_digest.clone(),
+                schema_version: 1,
+            };
             state.store.append_audit(
                 "draft.creation_failed",
                 Some(&request.action),
                 None,
                 Some(&err.to_string()),
                 Some(grant.id),
-                &[],
-                &[],
+                &[target_ref],
+                std::slice::from_ref(payload_ref),
             )?;
             notify_owner_best_effort(
                 state,
@@ -355,122 +404,5 @@ pub(super) async fn create_approved_draft(
             .await;
         }
     }
-    Ok(())
-}
-
-/// Activate an approved `artifact.propose` proposal (5d): re-parse the
-/// exact YAML bytes the approval was digest-bound to (defence in depth —
-/// the shell never gets to re-supply anything at activation time), flip
-/// its `lifecycle_state` to `active`, persist it into the `data/artifacts.d`
-/// overlay so it survives a restart, and insert it into the live registry
-/// so it participates in routing/composition immediately.
-pub(super) async fn activate_approved_artifact(
-    state: &AppState,
-    grant: &TaskGrant,
-    request: &ActionRequest,
-    chat_id: i64,
-) -> anyhow::Result<()> {
-    let Some(row) = state
-        .store
-        .find_proposed_artifact_by_action_request(request.id)?
-    else {
-        state.store.append_audit(
-            "artifact.activation_failed",
-            Some(&request.action),
-            None,
-            Some("no proposed_artifacts row for this action request"),
-            Some(grant.id),
-            &[],
-            &[],
-        )?;
-        notify_owner_best_effort(state, chat_id, "That artifact proposal is no longer valid.")
-            .await;
-        return Ok(());
-    };
-
-    let payload_ref = request
-        .payload_ref
-        .as_ref()
-        .expect("checked by dispatch_artifact_propose before dispatch");
-    let bytes = state.artifacts.get(payload_ref)?;
-    let yaml = String::from_utf8_lossy(&bytes);
-
-    let mut parsed = match crate::artifact_loader::parse_proposal(&row.kind, &yaml) {
-        Ok(parsed) => parsed,
-        Err(err) => {
-            state.store.append_audit(
-                "artifact.activation_failed",
-                Some(&request.action),
-                None,
-                Some("reparse_failed"),
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-            tracing::warn!(error = %err, "approved artifact proposal failed to re-parse");
-            notify_owner_best_effort(
-                state,
-                chat_id,
-                "Approved, but the artifact could not be re-validated — activation aborted.",
-            )
-            .await;
-            return Ok(());
-        }
-    };
-
-    state.store.set_proposed_artifact_state(
-        row.id,
-        Lifecycle::ReviewRequired,
-        Lifecycle::Approved,
-    )?;
-
-    parsed.activate();
-    let yaml_text = parsed
-        .to_yaml()
-        .expect("a value this crate just deserialized always re-serializes");
-
-    // Persist to the overlay so activation survives a restart (5d.3):
-    // write-to-temp-then-rename, the same atomicity pattern as
-    // `ArtifactStore::put`. The registry insert below happens only after a
-    // successful rename — a crash in between leaves the overlay file
-    // present but the in-memory registry stale until restart, where the
-    // startup loader re-merges the overlay; acceptable, not a correctness
-    // gap (5d.6).
-    let subdir = state.overlay_dir.join(parsed.overlay_subdir());
-    std::fs::create_dir_all(&subdir)?;
-    let final_path = subdir.join(format!(
-        "{}-v{}.yaml",
-        parsed.artifact_id(),
-        parsed.version()
-    ));
-    let tmp_path = final_path.with_extension(format!("tmp.{}", row.id));
-    std::fs::write(&tmp_path, yaml_text.as_bytes())?;
-    std::fs::rename(&tmp_path, &final_path)?;
-
-    let artifact_id = parsed.artifact_id().to_string();
-    let version = parsed.version();
-    {
-        let mut registry = state.registry.write();
-        parsed.insert_into(&mut registry);
-    }
-
-    state
-        .store
-        .set_proposed_artifact_state(row.id, Lifecycle::Approved, Lifecycle::Active)?;
-    state.store.append_audit(
-        "artifact.activated",
-        Some(&request.action),
-        None,
-        None,
-        Some(grant.id),
-        &[],
-        std::slice::from_ref(payload_ref),
-    )?;
-    notify_owner_best_effort(
-        state,
-        chat_id,
-        &format!("Artifact {artifact_id} v{version} is now active."),
-    )
-    .await;
     Ok(())
 }

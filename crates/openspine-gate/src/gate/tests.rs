@@ -1,17 +1,23 @@
 use std::collections::HashMap;
 
-use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord};
+use openspine_schemas::artifact::{ArtifactRef, Lifecycle};
 use openspine_schemas::digest::Digest;
 use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::GrantLimits;
 
+use super::token_tests::test_catalog;
 use super::*;
 
-fn digest(byte: char) -> Digest {
+pub(crate) fn digest(byte: char) -> Digest {
     Digest::parse(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
 }
 
-fn grant_with(allowed: &[&str], approval_required: &[&str], denied: &[&str]) -> TaskGrant {
+pub(crate) fn grant_with(
+    allowed: &[&str],
+    approval_required: &[&str],
+    denied: &[&str],
+) -> TaskGrant {
     let issued_at = Timestamp::now();
     TaskGrant {
         id: Ulid::new(),
@@ -45,7 +51,7 @@ fn grant_with(allowed: &[&str], approval_required: &[&str], denied: &[&str]) -> 
     }
 }
 
-fn request_for(action: &str) -> ActionRequest {
+pub(crate) fn request_for(action: &str) -> ActionRequest {
     ActionRequest {
         id: Ulid::new(),
         task_grant_id: Ulid::new(),
@@ -59,13 +65,12 @@ fn request_for(action: &str) -> ActionRequest {
             schema_version: 1,
         }),
         target_digest: Some(digest('b')),
+        selection_token_id: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     }
 }
 
-/// Test double for [`GateContext`]: a fixed table of approval records
-/// keyed by the `action_request_id` they decide.
 #[derive(Default)]
 struct MockContext {
     approvals: HashMap<Ulid, ApprovalRecord>,
@@ -103,7 +108,14 @@ fn allowed_action_returns_allow() {
     let grant = grant_with(&["openspine.status.read"], &[], &[]);
     let req = request_for("openspine.status.read");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(outcome.decision, GateDecision::Allow);
 }
 
@@ -112,7 +124,14 @@ fn denied_action_returns_deny() {
     let grant = grant_with(&[], &[], &["email.read_inbox"]);
     let req = request_for("email.read_inbox");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -126,7 +145,14 @@ fn approval_required_action_returns_approval_required() {
     let grant = grant_with(&[], &["email.create_draft"], &[]);
     let req = request_for("email.create_draft");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::ApprovalRequired {
@@ -137,12 +163,17 @@ fn approval_required_action_returns_approval_required() {
 
 #[test]
 fn approval_required_action_does_not_execute() {
-    // "Does not execute" for a pure decision function means: the
-    // outcome is never `Allow` until a matching approval exists.
     let grant = grant_with(&[], &["email.create_draft"], &[]);
     let req = request_for("email.create_draft");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_ne!(outcome.decision, GateDecision::Allow);
 }
 
@@ -151,7 +182,14 @@ fn allowed_plus_denied_returns_deny() {
     let grant = grant_with(&["email.send"], &[], &["email.send"]);
     let req = request_for("email.send");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -165,7 +203,14 @@ fn allowed_plus_approval_required_returns_approval_required() {
     let grant = grant_with(&["email.create_draft"], &["email.create_draft"], &[]);
     let req = request_for("email.create_draft");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert!(matches!(
         outcome.decision,
         GateDecision::ApprovalRequired { .. }
@@ -177,7 +222,14 @@ fn unspecified_action_returns_deny() {
     let grant = grant_with(&["openspine.status.read"], &[], &[]);
     let req = request_for("network.raw_egress");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -191,7 +243,14 @@ fn expired_grant_denies_even_an_allowed_action() {
     let grant = grant_with(&["openspine.status.read"], &[], &[]);
     let req = request_for("openspine.status.read");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), grant.expires_at);
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        grant.expires_at,
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -208,7 +267,14 @@ fn matching_approval_allows_the_exact_request() {
     let ctx = MockContext {
         approvals: HashMap::from([(req.id, approval)]),
     };
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(outcome.decision, GateDecision::Allow);
 }
 
@@ -217,7 +283,6 @@ fn approved_but_payload_changed_since_is_denied_not_reasked() {
     let grant = grant_with(&[], &["email.create_draft"], &[]);
     let mut req = request_for("email.create_draft");
     let approval = approval_for(&req, ApprovalDecision::Approved, 900);
-    // The agent mutates the payload after approval (edited body, new digest).
     req.payload_ref = Some(ArtifactRef {
         digest: digest('f'),
         schema_version: 1,
@@ -225,7 +290,14 @@ fn approved_but_payload_changed_since_is_denied_not_reasked() {
     let ctx = MockContext {
         approvals: HashMap::from([(req.id, approval)]),
     };
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -243,7 +315,14 @@ fn expired_approval_is_denied_not_reasked() {
     let ctx = MockContext {
         approvals: HashMap::from([(req.id, approval)]),
     };
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), expired_at);
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        expired_at,
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -260,7 +339,14 @@ fn rejected_approval_is_denied_not_reasked() {
     let ctx = MockContext {
         approvals: HashMap::from([(req.id, approval)]),
     };
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(
         outcome.decision,
         GateDecision::Deny {
@@ -274,7 +360,14 @@ fn audit_metadata_records_action_grant_and_refs_not_plaintext() {
     let grant = grant_with(&["openspine.status.read"], &[], &[]);
     let req = request_for("openspine.status.read");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert_eq!(outcome.audit.action, req.action);
     assert_eq!(outcome.audit.task_grant_id, grant.id);
     assert_eq!(outcome.audit.target_ref, req.target_ref);
@@ -290,113 +383,14 @@ fn denial_audit_metadata_still_carries_refs() {
     let grant = grant_with(&[], &[], &["email.send"]);
     let req = request_for("email.send");
     let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        Timestamp::now(),
+    );
     assert!(matches!(outcome.decision, GateDecision::Deny { .. }));
     assert_eq!(outcome.audit.payload_refs.len(), 1);
-}
-
-/// Test fixture catalog: the canonical set of action ids the kernel
-/// recognizes. Mirrors `openspine_kernel::action_catalog::canonical_catalog`
-/// so gate tests can exercise fail-fast behavior without depending on the
-/// kernel crate.
-fn test_catalog() -> ActionCatalog {
-    let ids = [
-        "openspine.status.read",
-        "workflow.invoke:approved",
-        "artifact.propose",
-        "setup.workflow.start",
-        "memory.read:owner_preferences_limited",
-        "model.generate:approved_provider",
-        "lyra.ui.preview",
-        "telegram.reply:owner_channel",
-        "connector.enable",
-        "route.activate",
-        "capability_pack.change",
-        "workflow.activate",
-        "policy.change_proposal",
-        "email.read_inbox",
-        "email.read_thread:unselected",
-        "email.send",
-        "email.read_attachment",
-        "network.raw_egress",
-        "vault.secret_read",
-        "policy.modify_direct",
-        "filesystem.host_read",
-        "filesystem.host_write",
-        "coolify.deploy",
-        "coolify.rollback",
-        "coolify.secret_modify",
-        "email.read_thread:selected_no_attachments",
-        "memory.read:writing_preferences_scoped",
-        "artifact.write:task_scratch",
-        "email.create_draft",
-        "artifact.activate",
-        "coolify.delete_resource",
-    ];
-    ActionCatalog::new(ids.iter().map(|s| ActionId::new(*s)))
-}
-
-/// D-053: a request whose action id is not in the catalog is denied with
-/// `DenialReason::UnknownAction` — fail-fast on unknown ids. The denial is
-/// still audited.
-#[test]
-fn gate_denies_catalog_unknown_id_with_unknown_action_reason() {
-    let grant = grant_with(&["openspine.status.read"], &[], &[]);
-    let req = request_for("totally.unknown.action");
-    let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
-    assert!(
-        matches!(
-            outcome.decision,
-            GateDecision::Deny {
-                reason: DenialReason::UnknownAction
-            }
-        ),
-        "expected UnknownAction denial, got {:?}",
-        outcome.decision
-    );
-    assert_eq!(outcome.audit.action, req.action);
-}
-
-/// D-053: a request whose action is *known* to the catalog but was never
-/// granted keeps the pre-existing `NotGranted` denial verbatim. The catalog
-/// check must not shadow the grant-membership check.
-#[test]
-fn gate_keeps_not_granted_for_known_ungranted_id() {
-    let grant = grant_with(&["email.read_inbox"], &[], &[]);
-    let req = request_for("email.send");
-    let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
-    assert!(
-        matches!(
-            outcome.decision,
-            GateDecision::Deny {
-                reason: DenialReason::NotGranted
-            }
-        ),
-        "expected NotGranted for a known-but-ungranted id, got {:?}",
-        outcome.decision
-    );
-}
-
-/// D-053: a grant persisted before the catalog existed could carry an
-/// out-of-catalog id in its `allowed_actions`. The gate is the last line of
-/// defense — such an id must resolve to `UnknownAction`, never to a
-/// list-derived `Allow`.
-#[test]
-fn gate_denies_stale_granted_but_catalog_unknown_id() {
-    let grant = grant_with(&["totally.unknown.action"], &[], &[]);
-    let req = request_for("totally.unknown.action");
-    let ctx = MockContext::default();
-    let outcome = gate(&grant, &req, &ctx, &test_catalog(), Timestamp::now());
-    assert!(
-        matches!(
-            outcome.decision,
-            GateDecision::Deny {
-                reason: DenialReason::UnknownAction
-            }
-        ),
-        "expected UnknownAction for a stale-granted out-of-catalog id, got {:?}",
-        outcome.decision
-    );
 }

@@ -297,5 +297,21 @@
   "295": "Delegation & containment",
   "296": "artifact_propose.rs",
   "297": "selection.rs",
-  "298": "draft"
+  "298": "draft",
+  "299": "SelectionToken",
+  "300": "MODIFIED Requirements",
+  "301": "token_tests.rs",
+  "302": "Result",
+  "303": "Proposal: Harden gate trusted paths",
+  "304": "ApprovalRecord",
+  "305": "fixtures.rs",
+  "306": "Design: Harden gate trusted paths",
+  "307": "Requirement: Selection tokens MUST be single-use, expiring, and scope-fixed",
+  "308": "Tasks: Harden gate trusted paths",
+  "309": "effect_paths.rs",
+  "310": "MockContext",
+  "311": "D-054 — Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in data records",
+  "312": "D-014 — Bootstrap/setup secrets bypass shell/model context",
+  "313": "benchmark.rs",
+  "314": "head"
 }

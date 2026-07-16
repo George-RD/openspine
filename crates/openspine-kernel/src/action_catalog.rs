@@ -10,7 +10,8 @@
 //! ([`openspine_gate::gate`]) both consult this catalog to fail-fast on an
 //! id outside the universe.
 
-use openspine_schemas::action::{ActionCatalog, ActionId};
+use openspine_schemas::action::{ActionCatalog, ActionId, EffectPath, EffectPathClass};
+use openspine_schemas::selection::SelectionTokenType;
 
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
@@ -62,5 +63,71 @@ pub fn canonical_catalog() -> ActionCatalog {
         // --- fixtures: owner_control_basic_pack approval_required ---
         id("artifact.activate"),
         id("coolify.delete_resource"),
+        id("owner.notify"),
     ])
+    .with_kernel_origin([id("owner.notify")])
+    .with_token_requiring([(
+        id("email.read_thread:selected_no_attachments"),
+        SelectionTokenType::email_thread_selection(),
+    )])
+    .with_effect_paths([
+        EffectPath {
+            name: "notify_owner_best_effort".to_string(),
+            classification: EffectPathClass::KernelOriginGated,
+        },
+        EffectPath {
+            name: "create_approved_draft".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
+            name: "activate_approved_artifact".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
+            name: "dispatch_read_selected_thread".to_string(),
+            classification: EffectPathClass::GatedShell,
+        },
+        EffectPath {
+            name: "dispatch_lyra_preview/propose_draft_creation".to_string(),
+            classification: EffectPathClass::GatedShell,
+        },
+        EffectPath {
+            name: "dispatch_artifact_propose".to_string(),
+            classification: EffectPathClass::GatedShell,
+        },
+        EffectPath {
+            name: "sweep_expired_grants".to_string(),
+            classification: EffectPathClass::InternalMaintenanceNonEffect,
+        },
+        EffectPath {
+            name: "answer_callback_query".to_string(),
+            classification: EffectPathClass::InternalMaintenanceNonEffect,
+        },
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
+        let catalog = canonical_catalog();
+        let paths = catalog.effect_paths();
+        assert_eq!(
+            paths.len(),
+            8,
+            "Expected exactly 8 classified effect paths, got {:?}",
+            paths
+        );
+        let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
+        assert!(path_names.contains(&"notify_owner_best_effort"));
+        assert!(path_names.contains(&"create_approved_draft"));
+        assert!(path_names.contains(&"activate_approved_artifact"));
+        assert!(path_names.contains(&"dispatch_read_selected_thread"));
+        assert!(path_names.contains(&"dispatch_lyra_preview/propose_draft_creation"));
+        assert!(path_names.contains(&"dispatch_artifact_propose"));
+        assert!(path_names.contains(&"sweep_expired_grants"));
+        assert!(path_names.contains(&"answer_callback_query"));
+    }
 }

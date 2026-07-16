@@ -8,7 +8,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use jiff::Timestamp;
-use openspine_gate::gate;
+use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest, DenialReason, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::canonical_json;
@@ -25,6 +25,7 @@ use crate::pipeline::AppState;
 const CONVERSATION_HISTORY_LIMIT: usize = 20;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct GenerateRequestBody {
     #[allow(dead_code)] // carried for audit/future routing; not yet branched on
     purpose: String,
@@ -142,11 +143,19 @@ pub(super) async fn post_model_generate(
         target_ref: None,
         payload_ref: Some(payload_ref.clone()),
         target_digest: None,
+        selection_token_id: None,
         requested_at: now,
         schema_version: 1,
     };
 
-    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
+    let outcome = gate(
+        &grant,
+        &request,
+        ActionOrigin::Shell,
+        &state.store,
+        &state.action_catalog,
+        now,
+    );
     state
         .store
         .append_audit(

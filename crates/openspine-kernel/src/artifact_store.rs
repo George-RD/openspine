@@ -138,6 +138,35 @@ impl ArtifactStore {
 }
 
 #[cfg(test)]
+impl ArtifactStore {
+    /// Test-only: write `plaintext` (encrypted) at the content-addressed path
+    /// for `digest`, bypassing the normal "match the bytes to the digest" check
+    /// that `put` enforces. Lets a test stage a stored blob whose decrypted
+    /// bytes do NOT hash to `digest`, so `get` returns `DigestMismatch` — the
+    /// exact condition `create_approved_draft` must deny on (D-055.4).
+    pub(crate) fn put_tampered_for_test(
+        &self,
+        digest: &openspine_schemas::digest::Digest,
+        plaintext: &[u8],
+    ) -> Result<(), ArtifactStoreError> {
+        let hex = Self::digest_hex(digest);
+        let path = self.blob_path(hex);
+        let mut nonce_bytes = [0u8; NONCE_LEN];
+        rand::rng().fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::try_from(nonce_bytes.as_slice()).expect("nonce is exactly 12 bytes");
+        let ciphertext = self
+            .cipher
+            .encrypt(&nonce, plaintext)
+            .map_err(|_| ArtifactStoreError::Encrypt)?;
+        let mut blob = Vec::with_capacity(NONCE_LEN + ciphertext.len());
+        blob.extend_from_slice(&nonce_bytes);
+        blob.extend_from_slice(&ciphertext);
+        std::fs::write(&path, &blob).map_err(|source| ArtifactStoreError::Io { path, source })?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -156,6 +156,7 @@ pub(super) async fn dispatch_artifact_propose(
         target_ref: None,
         payload_ref: Some(yaml_ref.clone()),
         target_digest: Some(target_digest),
+        selection_token_id: None,
         requested_at: now,
         schema_version: 1,
     };

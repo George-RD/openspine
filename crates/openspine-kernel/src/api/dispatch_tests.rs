@@ -23,7 +23,7 @@ use super::tests::{post_action, start_server};
 use crate::gmail::GmailConnector;
 use crate::test_support::fixtures::{test_state, test_state_with_gmail};
 
-pub(super) const OWNER_CHAT_ID: i64 = 555;
+pub(crate) const OWNER_CHAT_ID: i64 = 555;
 
 fn sample_gmail_thread_json() -> Value {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -81,7 +81,7 @@ fn gmail_connector(token_server: &MockServer, api_server: &MockServer) -> GmailC
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri())
 }
 
-pub(super) fn mint_grant_with_selection_token(
+pub(crate) fn mint_grant_with_selection_token(
     state: &crate::pipeline::AppState,
     allowed_actions: &[&str],
     token_expires_at: Timestamp,
@@ -91,7 +91,7 @@ pub(super) fn mint_grant_with_selection_token(
     let token = SelectionToken {
         id: Ulid::new(),
         schema_version: 1,
-        token_type: SelectionTokenType::EmailThreadSelection,
+        token_type: SelectionTokenType::email_thread_selection(),
         user: user.clone(),
         target_id: "thread-1".to_string(),
         selected_by: user.clone(),
@@ -265,12 +265,10 @@ async fn email_read_selected_thread_rejects_foreign_grant() {
         Some(json!({ "selection_token_id": token.id.to_string() })),
     )
     .await;
-    assert_eq!(resp.status(), 400);
+    assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(
-        body["error"],
-        "selection_token_id is not bound to this task grant"
-    );
+    assert_eq!(body["decision"]["outcome"], "deny");
+    assert_eq!(body["decision"]["reason"], "selection_token_invalid");
 
     handle.abort();
 }
@@ -298,9 +296,10 @@ async fn email_read_selected_thread_rejects_expired_token() {
         Some(json!({ "selection_token_id": token.id.to_string() })),
     )
     .await;
-    assert_eq!(resp.status(), 400);
+    assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(body["error"], "selection token has expired");
+    assert_eq!(body["decision"]["outcome"], "deny");
+    assert_eq!(body["decision"]["reason"], "selection_token_invalid");
 
     handle.abort();
 }
@@ -321,6 +320,9 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
 
     let (addr, handle) = start_server(state).await;
 
+    // An empty payload presents no selection token. `email.read_thread:
+    // selected_no_attachments` is token-requiring, so the pure gate denies
+    // it (D-055.1) — a `200` with `GateDecision::Deny`, not a `400`.
     let resp = post_action(
         addr,
         &grant.task_token,
@@ -328,13 +330,13 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
         Some(json!({})),
     )
     .await;
-    assert_eq!(resp.status(), 400);
+    assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(
-        body["error"],
-        "email.read_thread:selected_no_attachments payload must be exactly {\"selection_token_id\": string}"
-    );
+    assert_eq!(body["decision"]["outcome"], "deny");
+    assert_eq!(body["decision"]["reason"], "selection_token_invalid");
 
+    // A non-ULID `selection_token_id` cannot be parsed, so no token is
+    // presented to the gate — same deny as a missing token.
     let resp = post_action(
         addr,
         &grant.task_token,
@@ -342,14 +344,15 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
         Some(json!({ "selection_token_id": "not-a-ulid" })),
     )
     .await;
-    assert_eq!(resp.status(), 400);
+    assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(body["error"], "selection_token_id is not a valid id");
+    assert_eq!(body["decision"]["outcome"], "deny");
+    assert_eq!(body["decision"]["reason"], "selection_token_invalid");
 
     // D-036: the shell has no way to name a thread directly — only a
-    // selection token it was handed. A `thread_id` field is unknown to
-    // `ReadThreadPayload` (`deny_unknown_fields`), so this is rejected the
-    // same way as any other malformed payload, never silently ignored.
+    // selection token it was handed. A `thread_id` field presents no
+    // `selection_token_id`, so the gate denies it the same way as any other
+    // payload missing the required token, never silently ignored.
     let resp = post_action(
         addr,
         &grant.task_token,
@@ -357,12 +360,10 @@ async fn email_read_selected_thread_rejects_malformed_payload() {
         Some(json!({ "thread_id": "thread-1" })),
     )
     .await;
-    assert_eq!(resp.status(), 400);
+    assert_eq!(resp.status(), 200);
     let body: Value = resp.json().await.unwrap();
-    assert_eq!(
-        body["error"],
-        "email.read_thread:selected_no_attachments payload must be exactly {\"selection_token_id\": string}"
-    );
+    assert_eq!(body["decision"]["outcome"], "deny");
+    assert_eq!(body["decision"]["reason"], "selection_token_invalid");
 
     handle.abort();
 }

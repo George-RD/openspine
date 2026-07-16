@@ -3,6 +3,7 @@ use crate::test_support::fixtures::*;
 
 mod approval;
 mod driver;
+mod effect_paths;
 
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
@@ -294,7 +295,11 @@ fn audit_payload_refs(store: &Store, kind: &str) -> Vec<String> {
 /// (so the containment guard passes and the selection flow reaches
 /// composition). Shared by the email-preview lane characterization tests so
 /// the wiremock wiring is declared once.
-async fn gmail_state_with_real_thread() -> AppState {
+///
+/// The returned `MockServer`s MUST be held for the duration of the caller's
+/// test: `GmailConnector` only stores the URI strings, so dropping the
+/// servers freezes the mock endpoints mid-test (latent race under load).
+async fn gmail_state_with_real_thread() -> (AppState, wiremock::MockServer, wiremock::MockServer) {
     use crate::gmail::GmailConnector;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -328,7 +333,7 @@ async fn gmail_state_with_real_thread() -> AppState {
     // D-025: opt in so the containment guard passes and the email-preview
     // lane reaches grant composition (the guard itself is pinned separately).
     state.unsafe_allow_uncontained_private_data = true;
-    state
+    (state, token_server, api_server)
 }
 
 #[tokio::test]
@@ -368,7 +373,7 @@ async fn owner_update_grant_pins_original_message_raw_ref_through_to_audit() {
 
 #[tokio::test]
 async fn draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message() {
-    let state = gmail_state_with_real_thread().await;
+    let (state, _token_server, _api_server) = gmail_state_with_real_thread().await;
     let update = owner_update("/draft thread-1");
     let grant = handle_owner_update(&state, &update)
         .await

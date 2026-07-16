@@ -69,7 +69,7 @@ async fn owner_lane_executed_stage_trace_matches_sync_prefix() {
 
 #[tokio::test]
 async fn email_lane_executed_stage_trace_matches_sync_prefix() {
-    let state = gmail_state_with_real_thread().await;
+    let (state, _token_server, _api_server) = gmail_state_with_real_thread().await;
     let inputs = EventInputs {
         chat_id: 555,
         text: "/draft thread-1".to_string(),
