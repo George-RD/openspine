@@ -16,7 +16,7 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::event::TargetRef;
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::selection::SelectionToken;
+use openspine_schemas::selection::{SelectionToken, SelectionTokenType};
 
 /// Everything a caller must be able to look up for `gate()` to resolve one
 /// [`ActionRequest`] without doing storage I/O itself.
@@ -35,6 +35,26 @@ pub trait GateContext {
     fn find_selection_token(&self, id: Ulid) -> Option<SelectionToken>;
 }
 
+/// Where an action request originates from (D-055.3).
+///
+/// The gate treats kernel-origin effects as trusted *by default* for the
+/// catalog's enumerated trusted-origin set: an `owner.notify`-style effect
+/// that the kernel itself emits (never a shell) is allowed without a granting
+/// decision. A kernel-origin request for any action OUTSIDE that set is
+/// denied — the kernel may not reach for arbitrary actions without being
+/// explicitly enumerated as trusted. Shell-origin requests (the default for
+/// everything a connector dispatcher runs) follow the normal granting
+/// decision path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionOrigin {
+    /// A request emitted by the kernel's own pipeline (e.g. notify-owner),
+    /// trusted only for the catalog's `kernel_origin_actions` set.
+    Kernel,
+    /// A request submitted by a shell through a connector dispatcher. The
+    /// default; follows the normal grant-listing decision path.
+    Shell,
+}
+
 /// Audit-sufficient metadata for one gate decision (spec.md "Gate decisions
 /// MUST be auditable"). Private payloads are represented by refs/digests
 /// only — [`ArtifactRef`] carries a digest and lifecycle state, never
@@ -45,6 +65,7 @@ pub trait GateContext {
 pub struct AuditMeta {
     pub action: ActionId,
     pub task_grant_id: Ulid,
+    pub origin: ActionOrigin,
     pub target_ref: Option<TargetRef>,
     pub target_digest: Option<Digest>,
     pub payload_refs: Vec<ArtifactRef>,
@@ -67,15 +88,17 @@ pub struct GateOutcome {
 pub fn gate(
     grant: &TaskGrant,
     req: &ActionRequest,
+    origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
     now: Timestamp,
 ) -> GateOutcome {
     GateOutcome {
-        decision: resolve(grant, req, ctx, catalog, now),
+        decision: resolve(grant, req, origin, ctx, catalog, now),
         audit: AuditMeta {
             action: req.action.clone(),
             task_grant_id: grant.id,
+            origin,
             target_ref: req.target_ref.clone(),
             target_digest: req.target_digest.clone(),
             payload_refs: req.payload_ref.iter().cloned().collect(),
@@ -86,6 +109,7 @@ pub fn gate(
 fn resolve(
     grant: &TaskGrant,
     req: &ActionRequest,
+    origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
     now: Timestamp,
@@ -109,10 +133,33 @@ fn resolve(
         };
     }
 
+    // D-055.3: kernel-origin effects are trusted only for the catalog's
+    // enumerated trusted-origin set. A kernel request for any action outside
+    // that set is denied outright — the kernel may not reach for arbitrary
+    // actions without being explicitly enumerated as trusted. Shell-origin
+    // requests fall through to the normal granting decision.
+    if origin == ActionOrigin::Kernel {
+        if catalog.is_kernel_origin(&req.action) {
+            return GateDecision::Allow;
+        }
+        return GateDecision::Deny {
+            reason: DenialReason::KernelOriginNotTrusted,
+        };
+    }
+
     if grant.denied_actions.contains(&req.action) {
         return GateDecision::Deny {
             reason: DenialReason::ExplicitDeny,
         };
+    }
+
+    // D-055.1: if the catalog requires a selection token for this action,
+    // the request must carry a valid, grant-bound, unexpired selection token
+    // of the correct type before any listing decision is consulted.
+    if let Some(expected_type) = catalog.requires_selection_token(&req.action) {
+        if let Some(reason) = validate_selection_token(grant, req, expected_type, ctx, now) {
+            return GateDecision::Deny { reason };
+        }
     }
 
     if grant.approval_required_actions.contains(&req.action) {
@@ -126,6 +173,43 @@ fn resolve(
     GateDecision::Deny {
         reason: DenialReason::NotGranted,
     }
+}
+
+/// D-055.1: validate the selection token carried by a request for a
+/// `token_requiring` action. Returns `Some(reason)` to deny, or `None` to
+/// let the token check pass.
+fn validate_selection_token(
+    grant: &TaskGrant,
+    req: &ActionRequest,
+    expected_type: &SelectionTokenType,
+    ctx: &dyn GateContext,
+    now: Timestamp,
+) -> Option<DenialReason> {
+    let token_id = match req.selection_token_id {
+        Some(id) => id,
+        None => return Some(DenialReason::SelectionTokenInvalid),
+    };
+
+    // Bound to this grant: a token minted for a different grant must not
+    // authorize an action under this one (D-055.1).
+    if !grant.selection_tokens.contains(&token_id) {
+        return Some(DenialReason::SelectionTokenInvalid);
+    }
+
+    let token = match ctx.find_selection_token(token_id) {
+        Some(t) => t,
+        None => return Some(DenialReason::SelectionTokenInvalid),
+    };
+
+    if &token.token_type != expected_type {
+        return Some(DenialReason::SelectionTokenInvalid);
+    }
+
+    if token.expires_at <= now {
+        return Some(DenialReason::SelectionTokenInvalid);
+    }
+
+    None
 }
 
 fn resolve_approval_required(
@@ -169,3 +253,5 @@ fn resolve_approval_required(
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod token_tests;

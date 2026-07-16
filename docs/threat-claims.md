@@ -30,6 +30,12 @@ exist in the workspace.
 | CLAIM-17 | Final email send is denied regardless of grant or approval state | `test: global_policy_round_trips_and_denies_send` |
 | CLAIM-18 | Kernel replies are channel-bound: always sent to the grant-bound owner chat, never an override | `test: lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat` |
 | CLAIM-19 | System-operations actions (host filesystem, raw network egress) are high-impact and denied by default, not casually allowed | `test: host_filesystem_read_and_write_are_denied_for_owner_control_grant` |
+ | CLAIM-20 | Kernel-origin effects are routed through `gate()` and are audit-never-exempt — `notify_owner_best_effort` is approval-exempt but still emits `AuditMeta`, never bypassing the gate or its audit | `test: owner_notify_routes_through_gate_and_audits` |
+ | CLAIM-21 | A kernel-origin call for an action outside the enumerated trusted-origin set is denied by `gate()` | `test: kernel_origin_call_outside_trusted_set_is_denied` |
+ | CLAIM-22 | A kernel-origin call for an enumerated trusted action (`owner.notify`) is auto-allowed (approval-exempt) yet always emits `AuditMeta` — never audit-exempt | `test: kernel_origin_owner_notify_is_auto_allowed` |
+ | CLAIM-23 | Selection-token validation (bound grant, missing/expired/foreign/wrong-type) is a `gate()` decision property, not a dispatch-site check | `test: token_requiring_action_denied_for_foreign_grant` |
+ | CLAIM-24 | The kernel re-derives the payload digest at approval-effect time and denies the effect if the stored payload was mutated since approval; no shell-supplied digest is trusted | `test: payload_mutated_since_approval_is_denied_and_creates_no_draft` |
+ | CLAIM-25 | `answerCallbackQuery` is a control-plane ack with no security effect and is classified as a non-effect path (no `gate()` authority) | `test: answer_callback_query_is_a_control_plane_ack_with_no_security_effect` |
 
 ## Notes
 

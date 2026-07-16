@@ -27,6 +27,7 @@
 //! ahead of one.
 
 mod approval;
+mod artifact_activation;
 mod driver;
 mod lanes;
 mod post_approval;
@@ -35,11 +36,14 @@ mod selection;
 mod tests;
 
 use jiff::Timestamp;
-use openspine_schemas::action::ActionCatalog;
+use openspine_gate::{gate, ActionOrigin};
+use openspine_schemas::action::{ActionCatalog, ActionId, ActionRequest, GateDecision};
+use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::event::{ChannelTrust, EventEnvelope};
-use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::grant::{GrantLimits, TaskGrant};
 use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType};
 use openspine_schemas::policy::{Constraints, SessionPolicy};
+use ulid::Ulid;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::artifact_loader::ArtifactRegistry;
@@ -138,21 +142,109 @@ fn resolve_owner_identity(
 /// lanes — both are "tell the owner why their tap/command didn't work" call
 /// sites, not just the selection flow.
 ///
-/// D-046 (`gate-action-api`'s "kernel-originated owner notifications are a
-/// trusted, audited path"): this send stays ungated — gating the trusted
-/// kernel against itself adds ceremony, not security — but every send is
-/// audited as `owner.notified` so the trusted-path carve-out remains
-/// traceable. The audit append is itself best-effort: a failure here must
-/// never suppress the owner-facing reply it is only recording.
+/// D-055.2: kernel-originated effects route through `gate()` like any other
+/// action, but `ActionOrigin::Kernel` auto-allows only actions in the catalog's
+/// trusted kernel-origin set (`owner.notify`). `gate()` is the single authority
+/// for that carve-out; if `owner.notify` is ever dropped from the set, the send
+/// fails closed. Every send is still audited as `owner.notified` so the
+/// trusted-path carve-out remains traceable. The audit append is itself
+/// best-effort: a failure here must never suppress the owner-facing reply it is
+/// only recording.
 async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
-    if let Err(err) = state
-        .store
-        .append_audit("owner.notified", None, None, None, None, &[], &[])
-    {
+    let now = Timestamp::now();
+    // D-055.2: route this kernel-originated effect through the pure gate.
+    // `owner.notify` is the only trusted kernel-origin action, so `gate()`
+    // with `ActionOrigin::Kernel` auto-allows it and denies anything else —
+    // the catalog's trusted set is the single authority, and dropping
+    // `owner.notify` from it fails this closed rather than silently sending.
+    let request = ActionRequest {
+        id: Ulid::new(),
+        task_grant_id: Ulid::new(),
+        action: ActionId::new("owner.notify"),
+        target_ref: None,
+        payload_ref: None,
+        target_digest: None,
+        selection_token_id: None,
+        requested_at: now,
+        schema_version: 1,
+    };
+    let outcome = gate(
+        &kernel_notify_grant(),
+        &request,
+        ActionOrigin::Kernel,
+        &state.store,
+        &state.action_catalog,
+        now,
+    );
+    if let Err(err) = state.store.append_audit(
+        "action.gated",
+        Some(&request.action),
+        Some(&outcome.decision),
+        None,
+        Some(outcome.audit.task_grant_id),
+        &[],
+        &[],
+    ) {
+        tracing::warn!(error = %err, "failed to audit a kernel-origin gate outcome");
+    }
+
+    let GateDecision::Allow = outcome.decision else {
+        tracing::warn!(
+            decision = ?outcome.decision,
+            "owner.notify was denied by gate(); not notifying the owner"
+        );
+        return;
+    };
+    if let Err(err) = state.store.append_audit(
+        "owner.notified",
+        Some(&request.action),
+        Some(&outcome.decision),
+        None,
+        Some(outcome.audit.task_grant_id),
+        &[],
+        &[],
+    ) {
         tracing::warn!(error = %err, "failed to audit a best-effort owner notification");
     }
     if let Err(err) = state.connectors.telegram().send_reply(chat_id, text).await {
         tracing::warn!(error = %err, "failed to notify owner of a pipeline failure");
+    }
+}
+
+/// A minimal, synthetically-composed grant used solely to give `gate()` a
+/// context for a kernel-originated owner notification (D-055.2).
+/// `owner.notify` is the only trusted kernel-origin action, so `gate()` with
+/// `ActionOrigin::Kernel` auto-allows it and denies anything else; the
+/// synthetic grant's fields are never inspected for a trusted kernel-origin
+/// action, so their values are inert here.
+fn kernel_notify_grant() -> TaskGrant {
+    let now = Timestamp::now();
+    TaskGrant {
+        id: Ulid::new(),
+        schema_version: 1,
+        lifecycle_state: Lifecycle::Active,
+        user: "kernel".to_string(),
+        purpose: "owner-notify".to_string(),
+        issued_by: "kernel".to_string(),
+        issued_at: now,
+        expires_at: now + std::time::Duration::from_secs(60),
+        event_id: Ulid::new(),
+        route_id: "kernel_notification".to_string(),
+        agent_id: "kernel".to_string(),
+        workflow_id: "kernel_notification".to_string(),
+        capability_pack_id: "kernel".to_string(),
+        authority_sources: vec![],
+        selection_tokens: vec![],
+        allowed_actions: vec![],
+        approval_required_actions: vec![],
+        denied_actions: vec![],
+        output_channels: vec![],
+        limits: GrantLimits {
+            max_model_calls: 0,
+            max_artifacts: 0,
+            max_runtime_seconds: 0,
+        },
+        task_token: String::new(),
     }
 }
 

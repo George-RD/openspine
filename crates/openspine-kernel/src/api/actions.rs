@@ -7,12 +7,11 @@ use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use jiff::Timestamp;
-use openspine_gate::gate;
+use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::digest::{canonical_json, digest_of};
 use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::selection::SelectionTokenType;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::str::FromStr;
@@ -23,6 +22,7 @@ use super::{authenticate, internal_error};
 use crate::pipeline::AppState;
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct ActionRequestBody {
     action: String,
     #[serde(default)]
@@ -89,6 +89,15 @@ pub(super) async fn post_actions(
         }
         None => None,
     };
+    // Surface any selection token the shell presented so the pure gate can
+    // validate its possession/binding/expiry (D-055.1). The dispatch layer
+    // no longer re-derives this — gate() is the single authority.
+    let selection_token_id = body
+        .payload
+        .as_ref()
+        .and_then(|v| v.get("selection_token_id"))
+        .and_then(|v| v.as_str())
+        .and_then(|s| Ulid::from_str(s).ok());
 
     // Step 4 has no action that consumes a typed `target_ref`/`target_digest`
     // (the wire contract carries `target` generically for a future action —
@@ -101,11 +110,19 @@ pub(super) async fn post_actions(
         target_ref: None,
         payload_ref: payload_ref.clone(),
         target_digest: None,
+        selection_token_id,
         requested_at: now,
         schema_version: 1,
     };
 
-    let outcome = gate(&grant, &request, &state.store, &state.action_catalog, now);
+    let outcome = gate(
+        &grant,
+        &request,
+        ActionOrigin::Shell,
+        &state.store,
+        &state.action_catalog,
+        now,
+    );
     state
         .store
         .append_audit(
@@ -347,6 +364,7 @@ async fn propose_draft_creation(
         }),
         payload_ref: Some(payload_ref),
         target_digest: Some(target_digest),
+        selection_token_id: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -366,7 +384,7 @@ async fn propose_draft_creation(
 /// actual Gmail-connector failure after a valid consume is `500`.
 pub(super) async fn dispatch_read_selected_thread(
     state: &AppState,
-    grant: &TaskGrant,
+    _grant: &TaskGrant,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
     let payload = payload.ok_or_else(|| {
@@ -385,31 +403,18 @@ pub(super) async fn dispatch_read_selected_thread(
         DispatchError::BadRequest("selection_token_id is not a valid id".to_string())
     })?;
 
-    if !grant.selection_tokens.contains(&token_id) {
-        return Err(DispatchError::BadRequest(
-            "selection_token_id is not bound to this task grant".to_string(),
-        ));
-    }
-
+    // gate() (in post_actions) has already validated token possession,
+    // grant binding, type, and expiry. Re-read the token here only to obtain
+    // the target id the Gmail fetch needs (D-055.1: validation now lives in
+    // the pure gate, not dispatch).
     let token = state
         .store
         .find_selection_token(token_id)
         .map_err(|err| DispatchError::Internal(err.into()))?
         .ok_or_else(|| DispatchError::BadRequest("unknown selection token".to_string()))?;
 
-    if token.token_type != SelectionTokenType::EmailThreadSelection {
-        return Err(DispatchError::BadRequest(
-            "selection token is not an email thread selection".to_string(),
-        ));
-    }
-    if token.expires_at <= Timestamp::now() {
-        return Err(DispatchError::BadRequest(
-            "selection token has expired".to_string(),
-        ));
-    }
-
-    // Atomic — see `Store::try_consume_selection_token`'s doc comment on
-    // why this must happen in one statement, before the Gmail call.
+    // Atomic single-use consume, post-allow (D-050 / D-055.3). A failed
+    // consume is a denial, never a re-ask.
     let consumed = state
         .store
         .try_consume_selection_token(token_id)

@@ -93,8 +93,9 @@ fn genesis_digest() -> Digest {
         .expect("64 zero hex chars is always a well-formed sha256 digest")
 }
 
+#[derive(Clone)]
 pub struct Store {
-    conn: Mutex<Connection>,
+    conn: std::sync::Arc<Mutex<Connection>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -118,7 +119,7 @@ impl Store {
         conn.execute_batch(SCHEMA_SQL)?;
         migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: std::sync::Arc::new(Mutex::new(conn)),
         })
     }
 
@@ -127,7 +128,7 @@ impl Store {
         conn.execute_batch(SCHEMA_SQL)?;
         migrations::apply_ad_hoc_migrations(&conn)?;
         Ok(Self {
-            conn: Mutex::new(conn),
+            conn: std::sync::Arc::new(Mutex::new(conn)),
         })
     }
 

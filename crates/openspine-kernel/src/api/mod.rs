@@ -22,10 +22,10 @@ mod task;
 mod telegram_truncate;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[cfg(test)]
-mod dispatch_tests;
+pub(crate) mod dispatch_tests;
 
 #[cfg(test)]
 mod generate_tests;

@@ -7,8 +7,10 @@
 //! one vocabulary instead of two parallel enums.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use ulid::Ulid;
+
+use crate::selection::SelectionTokenType;
 
 use crate::artifact::ArtifactRef;
 use crate::event::TargetRef;
@@ -48,20 +50,88 @@ impl From<&str> for ActionId {
 /// action universe: authority composition rejects it and `gate()` denies it.
 /// Known but unimplemented ids (e.g. `route.activate`) are still members —
 /// the catalog governs *existence*, not *dispatching*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EffectPathClass {
+    GatedShell,
+    PostGateApprovedEffect,
+    KernelOriginGated,
+    InternalMaintenanceNonEffect,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EffectPath {
+    pub name: String,
+    pub classification: EffectPathClass,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ActionCatalog {
     ids: HashSet<ActionId>,
+    /// Actions the kernel itself may emit without a granting decision
+    /// (D-055.3). A kernel-origin request for an action OUTSIDE this set is
+    /// denied outright — the kernel may not reach for arbitrary actions
+    /// without being explicitly enumerated as trusted.
+    kernel_origin_actions: HashSet<ActionId>,
+    /// Actions that require a valid, grant-bound, unexpired selection token
+    /// of the correct type before `gate()` will grant them (D-055.1).
+    token_requiring_actions: HashMap<ActionId, SelectionTokenType>,
+    /// Every effectful path that reaches around `gate()` (D-055.1).
+    effect_paths: Vec<EffectPath>,
 }
 
 impl ActionCatalog {
     pub fn new(ids: impl IntoIterator<Item = ActionId>) -> Self {
         ActionCatalog {
             ids: ids.into_iter().collect(),
+            kernel_origin_actions: HashSet::new(),
+            token_requiring_actions: HashMap::new(),
+            effect_paths: Vec::new(),
         }
     }
 
     pub fn contains(&self, id: &ActionId) -> bool {
         self.ids.contains(id)
+    }
+
+    /// Mark the given actions as kernel-origin (D-055.3): trusted to run
+    /// without a granting decision when `gate()` is called with
+    /// [`ActionOrigin::Kernel`]. Returns `self` for chaining.
+    pub fn with_kernel_origin(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
+        self.kernel_origin_actions = actions.into_iter().collect();
+        self
+    }
+
+    /// Mark the given actions as requiring a selection token of the expected type (D-055.1):
+    /// `gate()` validates possession of a matching, unexpired, grant-bound
+    /// selection token before granting them. Returns `self` for chaining.
+    pub fn with_token_requiring(
+        mut self,
+        actions: impl IntoIterator<Item = (ActionId, SelectionTokenType)>,
+    ) -> Self {
+        self.token_requiring_actions = actions.into_iter().collect();
+        self
+    }
+
+    /// Enumerate effect paths (D-055.1). Returns `self` for chaining.
+    pub fn with_effect_paths(mut self, paths: impl IntoIterator<Item = EffectPath>) -> Self {
+        self.effect_paths = paths.into_iter().collect();
+        self
+    }
+
+    /// True if `id` is a kernel-origin action trusted to bypass the granting
+    /// decision (D-055.3).
+    pub fn is_kernel_origin(&self, id: &ActionId) -> bool {
+        self.kernel_origin_actions.contains(id)
+    }
+
+    /// If `id` requires a selection token, returns the expected token type (D-055.1).
+    pub fn requires_selection_token(&self, id: &ActionId) -> Option<&SelectionTokenType> {
+        self.token_requiring_actions.get(id)
+    }
+
+    pub fn effect_paths(&self) -> &[EffectPath] {
+        &self.effect_paths
     }
 }
 
@@ -76,6 +146,7 @@ pub enum DenialReason {
     ApprovalDigestMismatch,
     ApprovalExpired,
     SelectionTokenInvalid,
+    KernelOriginNotTrusted,
     ChannelBindingViolation,
     LimitExceeded,
     UnknownAction,
@@ -111,6 +182,8 @@ pub struct ActionRequest {
     pub target_ref: Option<TargetRef>,
     pub payload_ref: Option<ArtifactRef>,
     pub target_digest: Option<crate::digest::Digest>,
+    #[serde(default)]
+    pub selection_token_id: Option<Ulid>,
     pub requested_at: jiff::Timestamp,
     pub schema_version: u32,
 }

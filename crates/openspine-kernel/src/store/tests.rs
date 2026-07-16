@@ -70,6 +70,7 @@ fn sample_action_request() -> ActionRequest {
             schema_version: 1,
         }),
         target_digest: Some(Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap()),
+        selection_token_id: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     }
@@ -80,7 +81,7 @@ fn sample_selection_token() -> SelectionToken {
     SelectionToken {
         id: Ulid::new(),
         schema_version: 1,
-        token_type: SelectionTokenType::EmailThreadSelection,
+        token_type: SelectionTokenType::email_thread_selection(),
         user: "owner".to_string(),
         target_id: "thread-1".to_string(),
         selected_by: "owner".to_string(),
@@ -457,4 +458,9 @@ fn sweep_removes_only_grants_expired_more_than_a_day() {
             .unwrap()
     };
     assert_eq!(remaining, vec![recent_id]);
+
+    // Path 7: sweep_expired_grants is an internal-maintenance non-effect.
+    // It must not call gate() or produce any audit events.
+    let audit_count = store.count_audit_events_of_kind("action.gated").unwrap();
+    assert_eq!(audit_count, 0, "sweep must not produce gate audit events");
 }

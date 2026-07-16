@@ -7,11 +7,26 @@ use ulid::Ulid;
 
 use crate::event::{AccountRole, Connector};
 
-/// PRD §15 `type`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelectionTokenType {
-    EmailThreadSelection,
+/// PRD §15 `type`. String-backed (like [`crate::action::ActionId`]) rather
+/// than a closed enum: PRD §2 requires schemas to stay general enough for
+/// future selection domains, so unknown/future type values remain
+/// representable on the wire — what rejects a non-matching type is the
+/// catalog's expected-type check inside `gate()` (D-055.1), not
+/// deserialization. The kernel mints only
+/// [`SelectionTokenType::email_thread_selection`] today (PRD §15).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct SelectionTokenType(pub String);
+
+impl SelectionTokenType {
+    pub fn new(s: impl Into<String>) -> Self {
+        SelectionTokenType(s.into())
+    }
+
+    /// The only selection type any kernel path mints (PRD §15).
+    pub fn email_thread_selection() -> Self {
+        SelectionTokenType("email_thread_selection".to_string())
+    }
 }
 
 /// PRD §15 `verification_method`.
@@ -77,7 +92,7 @@ mod tests {
         SelectionToken {
             id: Ulid::new(),
             schema_version: 1,
-            token_type: SelectionTokenType::EmailThreadSelection,
+            token_type: SelectionTokenType::email_thread_selection(),
             user: "owner".to_string(),
             target_id: "thread_abc123".to_string(),
             selected_by: "owner".to_string(),

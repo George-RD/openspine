@@ -6,4 +6,4 @@
 
 mod gate;
 
-pub use gate::{gate, AuditMeta, GateContext, GateOutcome};
+pub use gate::{gate, ActionOrigin, AuditMeta, GateContext, GateOutcome};

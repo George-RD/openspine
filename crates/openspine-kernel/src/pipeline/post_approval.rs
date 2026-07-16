@@ -14,7 +14,8 @@ use std::pin::Pin;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::grant::TaskGrant;
 
-use super::approval::{activate_approved_artifact, create_approved_draft};
+use super::approval::create_approved_draft;
+use super::artifact_activation::activate_approved_artifact;
 use super::AppState;
 
 type PostApprovalFuture<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;

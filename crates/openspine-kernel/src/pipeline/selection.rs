@@ -29,7 +29,7 @@ pub(super) fn build_selection_token(
     SelectionToken {
         id: Ulid::new(),
         schema_version: 1,
-        token_type: SelectionTokenType::EmailThreadSelection,
+        token_type: SelectionTokenType::email_thread_selection(),
         user: user.clone(),
         target_id: thread_id.to_string(),
         selected_by: user.clone(),
