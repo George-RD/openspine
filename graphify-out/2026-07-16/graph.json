@@ -2848,7 +2848,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests",
-      "community": 69,
+      "community": 282,
       "norm_label": "preview_tests.rs"
     },
     {
@@ -2858,7 +2858,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat",
-      "community": 69,
+      "community": 282,
       "norm_label": "lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat()"
     },
     {
@@ -2868,7 +2868,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_lyra_ui_preview_truncates_long_body_to_utf16_limit",
-      "community": 69,
+      "community": 282,
       "norm_label": "lyra_ui_preview_truncates_long_body_to_utf16_limit()"
     },
     {
@@ -2878,7 +2878,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_truncated_preview_carries_no_approval_button_and_persists_no_action_request",
-      "community": 69,
+      "community": 282,
       "norm_label": "truncated_preview_carries_no_approval_button_and_persists_no_action_request()"
     },
     {
@@ -6015,7 +6015,7 @@
       "label": "kernel_notify_grant()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L224",
+      "source_location": "L222",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_kernel_notify_grant",
       "community": 25,
@@ -6035,7 +6035,7 @@
       "label": "run_telegram_poll_loop()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L272",
+      "source_location": "L270",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
       "community": 3,
@@ -6055,7 +6055,7 @@
       "label": "handle_owner_update()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
       "community": 3,
@@ -6328,7 +6328,7 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_approval_owner_notify_routes_through_gate_and_audits",
-      "community": 309,
+      "community": 282,
       "norm_label": "owner_notify_routes_through_gate_and_audits()"
     },
     {
@@ -8388,7 +8388,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support",
-      "community": 309,
+      "community": 69,
       "norm_label": "test_support.rs"
     },
     {
@@ -8398,7 +8398,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_repo_lyra_dir",
-      "community": 309,
+      "community": 69,
       "norm_label": "repo_lyra_dir()"
     },
     {
@@ -8408,7 +8408,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_pathbuf",
-      "community": 309,
+      "community": 69,
       "norm_label": "pathbuf"
     },
     {
@@ -8418,7 +8418,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_build_state",
-      "community": 309,
+      "community": 69,
       "norm_label": "build_state()"
     },
     {
@@ -8428,7 +8428,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_telegramconnector",
-      "community": 309,
+      "community": 69,
       "norm_label": "telegramconnector"
     },
     {
@@ -8438,7 +8438,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_option",
-      "community": 309,
+      "community": 69,
       "norm_label": "option"
     },
     {
@@ -8448,7 +8448,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_gmailconnector",
-      "community": 309,
+      "community": 69,
       "norm_label": "gmailconnector"
     },
     {
@@ -8468,7 +8468,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_test_state_with_telegram",
-      "community": 309,
+      "community": 282,
       "norm_label": "test_state_with_telegram()"
     },
     {
@@ -10605,7 +10605,7 @@
       "label": "identity_field_tamper_invalidates_mac()",
       "file_type": "code",
       "source_file": "crates/openspine-schemas/src/grant_chain/tests.rs",
-      "source_location": "L178",
+      "source_location": "L175",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_identity_field_tamper_invalidates_mac",
       "community": 314,
@@ -35172,7 +35172,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-gate/src/gate/tests.rs",
-      "source_location": "L473",
+      "source_location": "L472",
       "weight": 1.0,
       "source": "crates_openspine_gate_src_gate_tests_bound_parameter_conflict_is_caveat_widening",
       "target": "crates_openspine_gate_src_gate_gate"
@@ -35425,7 +35425,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L177",
+      "source_location": "L175",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod_notify_owner_best_effort",
       "target": "crates_openspine_gate_src_gate_gate"
@@ -36304,7 +36304,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-gate/src/gate/tests.rs",
-      "source_location": "L475",
+      "source_location": "L474",
       "weight": 1.0,
       "source": "crates_openspine_gate_src_gate_tests_bound_parameter_conflict_is_caveat_widening",
       "target": "crates_openspine_gate_src_gate_tests_request_for",
@@ -36929,7 +36929,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-gate/src/gate/tests.rs",
-      "source_location": "L478",
+      "source_location": "L477",
       "weight": 1.0,
       "source": "crates_openspine_gate_src_gate_tests_bound_parameter_conflict_is_caveat_widening",
       "target": "crates_openspine_gate_src_gate_token_tests_test_catalog"
@@ -50521,7 +50521,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L379",
+      "source_location": "L377",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
       "target": "crates_openspine_kernel_src_pipeline_driver_owner_control_lane"
@@ -50543,7 +50543,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L377",
+      "source_location": "L375",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
       "target": "crates_openspine_kernel_src_pipeline_driver_email_preview_lane"
@@ -50653,7 +50653,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L386",
+      "source_location": "L384",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
       "target": "crates_openspine_kernel_src_pipeline_driver_run_pipeline"
@@ -51477,7 +51477,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod",
       "target": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -51487,7 +51487,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L224",
+      "source_location": "L222",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod",
       "target": "crates_openspine_kernel_src_pipeline_mod_kernel_notify_grant",
@@ -51539,7 +51539,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L272",
+      "source_location": "L270",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod",
       "target": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
@@ -51692,7 +51692,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -51714,7 +51714,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L272",
+      "source_location": "L270",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
@@ -51933,7 +51933,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L224",
+      "source_location": "L222",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_kernel_notify_grant",
@@ -51944,7 +51944,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L224",
+      "source_location": "L222",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_pipeline_mod_kernel_notify_grant",
@@ -51955,7 +51955,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -51967,7 +51967,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L300",
+      "source_location": "L298",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
       "target": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -51977,7 +51977,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L272",
+      "source_location": "L270",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_run_telegram_poll_loop",
@@ -51988,7 +51988,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -52059,7 +52059,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -52070,7 +52070,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/mod.rs",
-      "source_location": "L319",
+      "source_location": "L317",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_pipeline_mod_handle_owner_update",
@@ -53174,7 +53174,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/pipeline/tests/effect_paths.rs",
-      "source_location": "L338",
+      "source_location": "L337",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_tests_effect_paths_shadow_grant_effect_suppressed_skips_effect_handler",
       "target": "crates_openspine_kernel_src_pipeline_tests_effect_paths_parse_audit_event",
@@ -53318,7 +53318,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/pipeline/tests/effect_paths.rs",
-      "source_location": "L294",
+      "source_location": "L293",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_pipeline_tests_effect_paths_shadow_grant_effect_suppressed_skips_effect_handler",
       "target": "crates_openspine_kernel_src_test_support_test_state_with_telegram"
@@ -64085,7 +64085,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/grant_chain/tests.rs",
-      "source_location": "L178",
+      "source_location": "L175",
       "weight": 1.0,
       "source": "crates_openspine_schemas_src_grant_chain_tests",
       "target": "crates_openspine_schemas_src_grant_chain_tests_identity_field_tamper_invalidates_mac",
@@ -64159,7 +64159,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-schemas/src/grant_chain/tests.rs",
-      "source_location": "L179",
+      "source_location": "L176",
       "weight": 1.0,
       "source": "crates_openspine_schemas_src_grant_chain_tests_identity_field_tamper_invalidates_mac",
       "target": "crates_openspine_schemas_src_grant_chain_tests_sample_root",
@@ -83964,5 +83964,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "9db2b4b8c7903195fb64717f1df0c6269f9e846e"
+  "built_at_commit": "81396ee5e8e1d9bea8a94dff29a29328ff7d3aad"
 }

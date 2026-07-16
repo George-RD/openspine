@@ -1,7 +1,7 @@
 # Graph Report - openspine  (2026-07-16)
 
 ## Corpus Check
-- 239 files · ~170,660 words
+- 239 files · ~170,656 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9db2b4b8`
+- Built from commit: `81396ee5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -568,8 +568,8 @@ Cohesion: 0.15
 Nodes (13): anyOf, default, type, type, type, badge, hidden, label (+5 more)
 
 ### Community 69 - ".with_api_url"
-Cohesion: 0.24
-Nodes (19): email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_malformed_payload(), email_read_selected_thread_rejects_second_use(), email_read_selected_thread_returns_thread_via_mocked_gmail(), gmail_connector(), mint_grant_with_selection_token(), mount_gmail_thread_endpoint() (+11 more)
+Cohesion: 0.20
+Nodes (22): email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_malformed_payload(), email_read_selected_thread_rejects_second_use(), email_read_selected_thread_returns_thread_via_mocked_gmail(), gmail_connector(), mint_grant_with_selection_token(), mount_gmail_thread_endpoint() (+14 more)
 
 ### Community 70 - "Proposal: Define OpenSpine development process"
 Cohesion: 0.17
@@ -1100,8 +1100,8 @@ Cohesion: 0.20
 Nodes (9): Check for context, Ending Discovery, Guardrails, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do, When a change exists (+1 more)
 
 ### Community 282 - "TaskGrant"
-Cohesion: 0.32
-Nodes (13): approval_required_action_stops_before_dispatch(), email_read_inbox_is_denied_for_owner_control_grant(), host_filesystem_read_and_write_are_denied_for_owner_control_grant(), network_raw_egress_is_denied_for_owner_control_grant(), post_action(), JoinHandle, Option, Response (+5 more)
+Cohesion: 0.22
+Nodes (18): lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat(), lyra_ui_preview_truncates_long_body_to_utf16_limit(), truncated_preview_carries_no_approval_button_and_persists_no_action_request(), approval_required_action_stops_before_dispatch(), email_read_inbox_is_denied_for_owner_control_grant(), host_filesystem_read_and_write_are_denied_for_owner_control_grant(), network_raw_egress_is_denied_for_owner_control_grant(), post_action() (+10 more)
 
 ### Community 283 - "ADDED Requirements"
 Cohesion: 0.18
@@ -1204,8 +1204,8 @@ Cohesion: 0.50
 Nodes (3): ArtifactProposePayload, String, Deserialize
 
 ### Community 309 - "effect_paths.rs"
-Cohesion: 0.16
-Nodes (16): owner_notify_routes_through_gate_and_audits(), parse_audit_event(), Value, shadow_grant_effect_suppressed_skips_effect_handler(), test_path_2_create_draft_payload_mutated_audited(), test_path_3_activate_artifact_failure_audited(), test_path_4_read_selected_thread_gated_and_audited(), test_path_5_preview_gated_and_audited() (+8 more)
+Cohesion: 0.29
+Nodes (8): parse_audit_event(), Value, shadow_grant_effect_suppressed_skips_effect_handler(), test_path_2_create_draft_payload_mutated_audited(), test_path_3_activate_artifact_failure_audited(), test_path_4_read_selected_thread_gated_and_audited(), test_path_5_preview_gated_and_audited(), test_path_6_artifact_propose_gated_and_audited()
 
 ### Community 310 - "Overlay & key model"
 Cohesion: 0.39
@@ -1243,7 +1243,7 @@ Nodes (3): default, type, head
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `AppState` to `handle_owner_update`, `.default`, `artifact_loader.rs`, `config.rs`, `mod.rs`, `.put`, `Delegation & containment`, `post_action`, `AppState`, `TaskGrant`, `sandbox.rs`, `artifact_propose.rs`, `artifact_propose.rs`, `effect_paths.rs`, `ConnectorRegistry`, `.with_api_url`, `editUrl`, `head`, `AuditMeta`?**
+- **Why does `AppState` connect `AppState` to `ConnectorRegistry`, `handle_owner_update`, `sandbox.rs`, `.with_api_url`, `editUrl`, `head`, `artifact_loader.rs`, `mod.rs`, `.put`, `.default`, `config.rs`, `Delegation & containment`, `artifact_propose.rs`, `artifact_propose.rs`, `post_action`, `AppState`, `TaskGrant`, `AuditMeta`?**
   _High betweenness centrality (0.024) - this node is a cross-community bridge._
 - **Why does `TaskGrant` connect `actions.rs` to `.new`, `ConnectorRegistry`, `handle_owner_update`, `artifact_activation_tests.rs`, `.with_api_url`, `editUrl`, `head`, `artifact_propose.rs`, `.default`, `ProposedArtifact`, `D-040 — Pending (pre-approval) `ActionRequest`s are persisted in a new `action_requests` table`, `artifact_propose.rs`, `post_action`, `AppState`, `AppState`, `sample_root`, `AuditMeta`, `ArtifactRef`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._

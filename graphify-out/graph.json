@@ -38,7 +38,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose",
-      "community": 99,
+      "community": 27,
       "norm_label": "compose.rs"
     },
     {
@@ -48,7 +48,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_authorityinput",
-      "community": 99,
+      "community": 27,
       "norm_label": "authorityinput"
     },
     {
@@ -58,7 +58,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_policy",
-      "community": 99,
+      "community": 27,
       "norm_label": "policy"
     },
     {
@@ -68,7 +68,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_agentmanifest",
-      "community": 99,
+      "community": 27,
       "norm_label": "agentmanifest"
     },
     {
@@ -78,7 +78,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_workflowmanifest",
-      "community": 99,
+      "community": 27,
       "norm_label": "workflowmanifest"
     },
     {
@@ -88,7 +88,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_capabilitypack",
-      "community": 99,
+      "community": 27,
       "norm_label": "capabilitypack"
     },
     {
@@ -98,7 +98,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_authorityoutcome",
-      "community": 99,
+      "community": 27,
       "norm_label": "authorityoutcome"
     },
     {
@@ -108,7 +108,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_box",
-      "community": 99,
+      "community": 27,
       "norm_label": "box"
     },
     {
@@ -118,7 +118,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_string",
-      "community": 99,
+      "community": 27,
       "norm_label": "string"
     },
     {
@@ -128,7 +128,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_classification_rank",
-      "community": 99,
+      "community": 27,
       "norm_label": "classification_rank()"
     },
     {
@@ -138,7 +138,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_narrow",
-      "community": 99,
+      "community": 27,
       "norm_label": "narrow()"
     },
     {
@@ -148,7 +148,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_hashset",
-      "community": 99,
+      "community": 27,
       "norm_label": "hashset"
     },
     {
@@ -158,7 +158,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_mint_task_token",
-      "community": 99,
+      "community": 27,
       "norm_label": "mint_task_token()"
     },
     {
@@ -168,7 +168,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_unknown_candidate",
-      "community": 99,
+      "community": 27,
       "norm_label": "unknown_candidate()"
     },
     {
@@ -178,7 +178,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_option",
-      "community": 99,
+      "community": 27,
       "norm_label": "option"
     },
     {
@@ -188,7 +188,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_compose_authority",
-      "community": 99,
+      "community": 27,
       "norm_label": "compose_authority()"
     },
     {
@@ -198,7 +198,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_compose_rs_timestamp",
-      "community": 99,
+      "community": 27,
       "norm_label": "timestamp"
     },
     {
@@ -218,7 +218,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "route.rs"
     },
     {
@@ -228,7 +228,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_matches",
-      "community": 94,
+      "community": 27,
       "norm_label": "matches()"
     },
     {
@@ -238,7 +238,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_rs_option",
-      "community": 94,
+      "community": 27,
       "norm_label": "option"
     },
     {
@@ -248,7 +248,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_resolve_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "resolve_route()"
     },
     {
@@ -258,7 +258,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_artifact_ref",
-      "community": 299,
+      "community": 27,
       "norm_label": "artifact_ref()"
     },
     {
@@ -268,7 +268,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_owner_event",
-      "community": 299,
+      "community": 27,
       "norm_label": "owner_event()"
     },
     {
@@ -278,7 +278,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_owner_identity_resolution",
-      "community": 299,
+      "community": 27,
       "norm_label": "owner_identity_resolution()"
     },
     {
@@ -288,7 +288,7 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_owner_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "owner_route()"
     },
     {
@@ -298,7 +298,7 @@
       "source_location": "L230",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_owner_route_matches_when_verified_and_owner",
-      "community": 299,
+      "community": 27,
       "norm_label": "owner_route_matches_when_verified_and_owner()"
     },
     {
@@ -308,7 +308,7 @@
       "source_location": "L246",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_unverified_source_never_matches_a_route_requiring_verification",
-      "community": 299,
+      "community": 27,
       "norm_label": "unverified_source_never_matches_a_route_requiring_verification()"
     },
     {
@@ -318,7 +318,7 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_email_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "email_route()"
     },
     {
@@ -328,7 +328,7 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route()"
     },
     {
@@ -338,7 +338,7 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_no_relationship_match_denies_the_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "no_relationship_match_denies_the_route()"
     },
     {
@@ -348,7 +348,7 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_exact_deny_route_wins_over_allow_route",
-      "community": 299,
+      "community": 27,
       "norm_label": "exact_deny_route_wins_over_allow_route()"
     },
     {
@@ -358,7 +358,7 @@
       "source_location": "L329",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_priority_tie_with_equal_specificity_is_ambiguous",
-      "community": 299,
+      "community": 27,
       "norm_label": "priority_tie_with_equal_specificity_is_ambiguous()"
     },
     {
@@ -368,7 +368,7 @@
       "source_location": "L348",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_higher_priority_route_wins_over_lower_priority",
-      "community": 299,
+      "community": 27,
       "norm_label": "higher_priority_route_wins_over_lower_priority()"
     },
     {
@@ -378,7 +378,7 @@
       "source_location": "L368",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_quarantined_routes_never_match",
-      "community": 299,
+      "community": 27,
       "norm_label": "quarantined_routes_never_match()"
     },
     {
@@ -388,7 +388,7 @@
       "source_location": "L381",
       "_origin": "ast",
       "id": "crates_openspine_authority_src_route_no_matching_route_is_denied_not_ambiguous",
-      "community": 299,
+      "community": 27,
       "norm_label": "no_matching_route_is_denied_not_ambiguous()"
     },
     {
@@ -2848,7 +2848,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests",
-      "community": 282,
+      "community": 69,
       "norm_label": "preview_tests.rs"
     },
     {
@@ -2858,7 +2858,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat",
-      "community": 282,
+      "community": 69,
       "norm_label": "lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat()"
     },
     {
@@ -2868,7 +2868,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_lyra_ui_preview_truncates_long_body_to_utf16_limit",
-      "community": 282,
+      "community": 69,
       "norm_label": "lyra_ui_preview_truncates_long_body_to_utf16_limit()"
     },
     {
@@ -2878,7 +2878,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_preview_tests_truncated_preview_carries_no_approval_button_and_persists_no_action_request",
-      "community": 282,
+      "community": 1,
       "norm_label": "truncated_preview_carries_no_approval_button_and_persists_no_action_request()"
     },
     {
@@ -3058,7 +3058,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests",
-      "community": 282,
+      "community": 3,
       "norm_label": "tests.rs"
     },
     {
@@ -3068,7 +3068,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_start_server",
-      "community": 282,
+      "community": 3,
       "norm_label": "start_server()"
     },
     {
@@ -3078,7 +3078,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_socketaddr",
-      "community": 282,
+      "community": 3,
       "norm_label": "socketaddr"
     },
     {
@@ -3088,7 +3088,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_joinhandle",
-      "community": 282,
+      "community": 3,
       "norm_label": "joinhandle"
     },
     {
@@ -3098,7 +3098,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_post_action",
-      "community": 282,
+      "community": 3,
       "norm_label": "post_action()"
     },
     {
@@ -3108,7 +3108,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_option",
-      "community": 282,
+      "community": 3,
       "norm_label": "option"
     },
     {
@@ -3118,7 +3118,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_value",
-      "community": 282,
+      "community": 3,
       "norm_label": "value"
     },
     {
@@ -3128,7 +3128,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_rs_response",
-      "community": 282,
+      "community": 3,
       "norm_label": "response"
     },
     {
@@ -3138,7 +3138,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_email_read_inbox_is_denied_for_owner_control_grant",
-      "community": 282,
+      "community": 3,
       "norm_label": "email_read_inbox_is_denied_for_owner_control_grant()"
     },
     {
@@ -3148,7 +3148,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_network_raw_egress_is_denied_for_owner_control_grant",
-      "community": 282,
+      "community": 3,
       "norm_label": "network_raw_egress_is_denied_for_owner_control_grant()"
     },
     {
@@ -3158,7 +3158,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_host_filesystem_read_and_write_are_denied_for_owner_control_grant",
-      "community": 282,
+      "community": 3,
       "norm_label": "host_filesystem_read_and_write_are_denied_for_owner_control_grant()"
     },
     {
@@ -3168,7 +3168,7 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_telegram_reply_is_sent_to_grant_bound_chat",
-      "community": 282,
+      "community": 3,
       "norm_label": "telegram_reply_is_sent_to_grant_bound_chat()"
     },
     {
@@ -3178,7 +3178,7 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_telegram_reply_payload_rejects_chat_id_override",
-      "community": 282,
+      "community": 3,
       "norm_label": "telegram_reply_payload_rejects_chat_id_override()"
     },
     {
@@ -3188,7 +3188,7 @@
       "source_location": "L210",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_tests_approval_required_action_stops_before_dispatch",
-      "community": 282,
+      "community": 3,
       "norm_label": "approval_required_action_stops_before_dispatch()"
     },
     {
@@ -5688,7 +5688,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_owner_control_lane",
-      "community": 197,
+      "community": 282,
       "norm_label": "owner_control_lane()"
     },
     {
@@ -5698,7 +5698,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_email_preview_lane",
-      "community": 197,
+      "community": 282,
       "norm_label": "email_preview_lane()"
     },
     {
@@ -5928,7 +5928,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_appstate",
-      "community": 25,
+      "community": 198,
       "norm_label": "appstate"
     },
     {
@@ -5948,7 +5948,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "rwlock",
-      "community": 25,
+      "community": 198,
       "norm_label": "rwlock"
     },
     {
@@ -5958,7 +5958,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_rs_string",
-      "community": 25,
+      "community": 198,
       "norm_label": "string"
     },
     {
@@ -5988,7 +5988,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_empty_session_policy",
-      "community": 197,
+      "community": 25,
       "norm_label": "empty_session_policy()"
     },
     {
@@ -5998,7 +5998,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_resolve_owner_identity",
-      "community": 57,
+      "community": 27,
       "norm_label": "resolve_owner_identity()"
     },
     {
@@ -6068,7 +6068,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_post_approval",
-      "community": 25,
+      "community": 198,
       "norm_label": "post_approval.rs"
     },
     {
@@ -6128,7 +6128,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection",
-      "community": 198,
+      "community": 294,
       "norm_label": "selection.rs"
     },
     {
@@ -6138,7 +6138,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection_build_selection_token",
-      "community": 198,
+      "community": 294,
       "norm_label": "build_selection_token()"
     },
     {
@@ -6148,7 +6148,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection_rs_timestamp",
-      "community": 198,
+      "community": 294,
       "norm_label": "timestamp"
     },
     {
@@ -6158,7 +6158,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection_format_pending_message",
-      "community": 198,
+      "community": 294,
       "norm_label": "format_pending_message()"
     },
     {
@@ -6168,7 +6168,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection_rs_ulid",
-      "community": 198,
+      "community": 294,
       "norm_label": "ulid"
     },
     {
@@ -6178,7 +6178,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_selection_rs_string",
-      "community": 198,
+      "community": 294,
       "norm_label": "string"
     },
     {
@@ -6328,7 +6328,7 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_approval_owner_notify_routes_through_gate_and_audits",
-      "community": 282,
+      "community": 309,
       "norm_label": "owner_notify_routes_through_gate_and_audits()"
     },
     {
@@ -6348,7 +6348,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_driver",
-      "community": 197,
+      "community": 282,
       "norm_label": "driver.rs"
     },
     {
@@ -6358,7 +6358,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_driver_pipeline_stage_sequence_is_declared_once_and_pinned",
-      "community": 197,
+      "community": 282,
       "norm_label": "pipeline_stage_sequence_is_declared_once_and_pinned()"
     },
     {
@@ -6368,7 +6368,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_driver_driver_sync_prefix_excludes_gate_and_audit_stages",
-      "community": 197,
+      "community": 282,
       "norm_label": "driver_sync_prefix_excludes_gate_and_audit_stages()"
     },
     {
@@ -6378,7 +6378,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_driver_owner_lane_executed_stage_trace_matches_sync_prefix",
-      "community": 197,
+      "community": 282,
       "norm_label": "owner_lane_executed_stage_trace_matches_sync_prefix()"
     },
     {
@@ -6388,7 +6388,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_driver_email_lane_executed_stage_trace_matches_sync_prefix",
-      "community": 197,
+      "community": 282,
       "norm_label": "email_lane_executed_stage_trace_matches_sync_prefix()"
     },
     {
@@ -6428,7 +6428,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_effect_paths_test_path_1_notify_owner_gated_and_audited",
-      "community": 25,
+      "community": 309,
       "norm_label": "test_path_1_notify_owner_gated_and_audited()"
     },
     {
@@ -6838,7 +6838,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_sandbox_sandbox",
-      "community": 35,
+      "community": 198,
       "norm_label": "sandbox"
     },
     {
@@ -6858,7 +6858,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_sandbox_refuses_external_communication_without_containment",
-      "community": 35,
+      "community": 198,
       "norm_label": "refuses_external_communication_without_containment()"
     },
     {
@@ -7248,7 +7248,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_genesis_digest",
-      "community": 302,
+      "community": 30,
       "norm_label": "genesis_digest()"
     },
     {
@@ -7328,7 +7328,7 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_store_open",
-      "community": 30,
+      "community": 1,
       "norm_label": ".open()"
     },
     {
@@ -7338,7 +7338,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_rs_path",
-      "community": 30,
+      "community": 1,
       "norm_label": "path"
     },
     {
@@ -7488,7 +7488,7 @@
       "source_location": "L356",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_store_mod_store_verify_audit_chain",
-      "community": 302,
+      "community": 30,
       "norm_label": ".verify_audit_chain()"
     },
     {
@@ -8038,7 +8038,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_verify_update",
-      "community": 303,
+      "community": 9,
       "norm_label": "verify_update()"
     },
     {
@@ -8218,7 +8218,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests",
-      "community": 303,
+      "community": 9,
       "norm_label": "tests.rs"
     },
     {
@@ -8228,7 +8228,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_update",
-      "community": 303,
+      "community": 9,
       "norm_label": "update()"
     },
     {
@@ -8238,7 +8238,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_rs_option",
-      "community": 303,
+      "community": 9,
       "norm_label": "option"
     },
     {
@@ -8248,7 +8248,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_configured_owner_text_message_is_verified",
-      "community": 303,
+      "community": 9,
       "norm_label": "configured_owner_text_message_is_verified()"
     },
     {
@@ -8258,7 +8258,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_unknown_telegram_user_is_ignored_not_routed",
-      "community": 303,
+      "community": 9,
       "norm_label": "unknown_telegram_user_is_ignored_not_routed()"
     },
     {
@@ -8268,7 +8268,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_missing_sender_is_ignored",
-      "community": 303,
+      "community": 9,
       "norm_label": "missing_sender_is_ignored()"
     },
     {
@@ -8278,7 +8278,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_non_text_update_from_owner_is_ignored",
-      "community": 303,
+      "community": 9,
       "norm_label": "non_text_update_from_owner_is_ignored()"
     },
     {
@@ -8288,7 +8288,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_owner_message_in_a_group_chat_is_ignored_not_routed",
-      "community": 303,
+      "community": 9,
       "norm_label": "owner_message_in_a_group_chat_is_ignored_not_routed()"
     },
     {
@@ -8308,7 +8308,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_draft_command_extracts_a_well_formed_thread_id",
-      "community": 303,
+      "community": 9,
       "norm_label": "draft_command_extracts_a_well_formed_thread_id()"
     },
     {
@@ -8318,7 +8318,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_draft_command_trims_surrounding_whitespace",
-      "community": 303,
+      "community": 9,
       "norm_label": "draft_command_trims_surrounding_whitespace()"
     },
     {
@@ -8328,7 +8328,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_draft_command_with_no_id_is_rejected",
-      "community": 303,
+      "community": 9,
       "norm_label": "draft_command_with_no_id_is_rejected()"
     },
     {
@@ -8338,7 +8338,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_text_without_the_draft_prefix_is_not_a_draft_command",
-      "community": 303,
+      "community": 9,
       "norm_label": "text_without_the_draft_prefix_is_not_a_draft_command()"
     },
     {
@@ -8348,7 +8348,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_a_prefix_without_a_whitespace_boundary_is_not_a_draft_command",
-      "community": 303,
+      "community": 9,
       "norm_label": "a_prefix_without_a_whitespace_boundary_is_not_a_draft_command()"
     },
     {
@@ -8358,7 +8358,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_a_thread_id_with_path_or_query_metacharacters_is_rejected",
-      "community": 303,
+      "community": 9,
       "norm_label": "a_thread_id_with_path_or_query_metacharacters_is_rejected()"
     },
     {
@@ -8368,7 +8368,7 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_an_overly_long_thread_id_is_rejected",
-      "community": 303,
+      "community": 9,
       "norm_label": "an_overly_long_thread_id_is_rejected()"
     },
     {
@@ -8378,7 +8378,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_tests_answer_callback_query_is_a_control_plane_ack_with_no_security_effect",
-      "community": 303,
+      "community": 9,
       "norm_label": "answer_callback_query_is_a_control_plane_ack_with_no_security_effect()"
     },
     {
@@ -8388,7 +8388,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support",
-      "community": 69,
+      "community": 309,
       "norm_label": "test_support.rs"
     },
     {
@@ -8398,7 +8398,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_repo_lyra_dir",
-      "community": 69,
+      "community": 309,
       "norm_label": "repo_lyra_dir()"
     },
     {
@@ -8408,7 +8408,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_pathbuf",
-      "community": 69,
+      "community": 309,
       "norm_label": "pathbuf"
     },
     {
@@ -8418,7 +8418,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_build_state",
-      "community": 69,
+      "community": 309,
       "norm_label": "build_state()"
     },
     {
@@ -8428,7 +8428,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_telegramconnector",
-      "community": 69,
+      "community": 309,
       "norm_label": "telegramconnector"
     },
     {
@@ -8438,7 +8438,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_option",
-      "community": 69,
+      "community": 309,
       "norm_label": "option"
     },
     {
@@ -8448,7 +8448,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_rs_gmailconnector",
-      "community": 69,
+      "community": 309,
       "norm_label": "gmailconnector"
     },
     {
@@ -8468,7 +8468,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_test_state_with_telegram",
-      "community": 282,
+      "community": 309,
       "norm_label": "test_state_with_telegram()"
     },
     {
@@ -8528,7 +8528,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionid_new",
-      "community": 288,
+      "community": 1,
       "norm_label": ".new()"
     },
     {
@@ -8538,7 +8538,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_into",
-      "community": 288,
+      "community": 1,
       "norm_label": "into"
     },
     {
@@ -8818,7 +8818,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionrequest",
-      "community": 148,
+      "community": 25,
       "norm_label": "actionrequest"
     },
     {
@@ -8838,7 +8838,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_timestamp",
-      "community": 148,
+      "community": 25,
       "norm_label": "timestamp"
     },
     {
@@ -9308,7 +9308,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_genesis_hash",
-      "community": 302,
+      "community": 304,
       "norm_label": "genesis_hash()"
     },
     {
@@ -9318,7 +9318,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_audit_round_trips_through_serde",
-      "community": 302,
+      "community": 304,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -9358,7 +9358,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest",
-      "community": 302,
+      "community": 304,
       "norm_label": "digest"
     },
     {
@@ -9368,7 +9368,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_string",
-      "community": 302,
+      "community": 304,
       "norm_label": "string"
     },
     {
@@ -9378,7 +9378,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_as_str",
-      "community": 302,
+      "community": 304,
       "norm_label": ".as_str()"
     },
     {
@@ -9388,7 +9388,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_is_valid",
-      "community": 302,
+      "community": 304,
       "norm_label": ".is_valid()"
     },
     {
@@ -9398,7 +9398,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_parse",
-      "community": 302,
+      "community": 304,
       "norm_label": ".parse()"
     },
     {
@@ -9408,7 +9408,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_into",
-      "community": 302,
+      "community": 304,
       "norm_label": "into"
     },
     {
@@ -9428,7 +9428,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_self",
-      "community": 302,
+      "community": 306,
       "norm_label": "self"
     },
     {
@@ -9438,7 +9438,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_invaliddigest",
-      "community": 302,
+      "community": 304,
       "norm_label": "invaliddigest"
     },
     {
@@ -9448,7 +9448,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_rs_display",
-      "community": 302,
+      "community": 304,
       "norm_label": "display"
     },
     {
@@ -9478,7 +9478,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "serialize",
-      "community": 21,
+      "community": 306,
       "norm_label": "serialize"
     },
     {
@@ -9538,7 +9538,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_deserialize",
-      "community": 302,
+      "community": 306,
       "norm_label": ".deserialize()"
     },
     {
@@ -9548,7 +9548,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "d",
-      "community": 302,
+      "community": 306,
       "norm_label": "d"
     },
     {
@@ -9578,7 +9578,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_canonicalvalue_a",
-      "community": 21,
+      "community": 306,
       "norm_label": "canonicalvalue<'a>"
     },
     {
@@ -9618,7 +9618,7 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_matches_hash",
-      "community": 302,
+      "community": 67,
       "norm_label": "digest_matches_hash()"
     },
     {
@@ -9758,7 +9758,7 @@
       "source_location": "L261",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_digest_digest_round_trips_through_serde",
-      "community": 302,
+      "community": 304,
       "norm_label": "digest_round_trips_through_serde()"
     },
     {
@@ -9848,7 +9848,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_dataclassification",
-      "community": 57,
+      "community": 27,
       "norm_label": "dataclassification"
     },
     {
@@ -9858,7 +9858,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_lane",
-      "community": 35,
+      "community": 198,
       "norm_label": "lane"
     },
     {
@@ -9868,7 +9868,7 @@
       "source_location": "L101",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_channeltrust",
-      "community": 57,
+      "community": 27,
       "norm_label": "channeltrust"
     },
     {
@@ -10038,7 +10038,7 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_actor_hint_defaults_to_all_none",
-      "community": 27,
+      "community": 57,
       "norm_label": "actor_hint_defaults_to_all_none()"
     },
     {
@@ -10048,7 +10048,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant",
-      "community": 14,
+      "community": 308,
       "norm_label": "grant.rs"
     },
     {
@@ -10058,7 +10058,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_grantlimits",
-      "community": 14,
+      "community": 308,
       "norm_label": "grantlimits"
     },
     {
@@ -10068,7 +10068,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_grantmode",
-      "community": 14,
+      "community": 308,
       "norm_label": "grantmode"
     },
     {
@@ -10078,7 +10078,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_taskgrant",
-      "community": 14,
+      "community": 308,
       "norm_label": "taskgrant"
     },
     {
@@ -10088,7 +10088,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_ulid",
-      "community": 14,
+      "community": 308,
       "norm_label": "ulid"
     },
     {
@@ -10098,7 +10098,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_string",
-      "community": 14,
+      "community": 308,
       "norm_label": "string"
     },
     {
@@ -10108,7 +10108,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_timestamp",
-      "community": 14,
+      "community": 308,
       "norm_label": "timestamp"
     },
     {
@@ -10118,7 +10118,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_artifactid",
-      "community": 14,
+      "community": 308,
       "norm_label": "artifactid"
     },
     {
@@ -10128,7 +10128,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_vec",
-      "community": 14,
+      "community": 308,
       "norm_label": "vec"
     },
     {
@@ -10138,7 +10138,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_rs_option",
-      "community": 14,
+      "community": 308,
       "norm_label": "option"
     },
     {
@@ -10148,7 +10148,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_taskgrant_is_expired",
-      "community": 14,
+      "community": 308,
       "norm_label": ".is_expired()"
     },
     {
@@ -10158,7 +10158,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_taskgrant_seal_root",
-      "community": 14,
+      "community": 308,
       "norm_label": ".seal_root()"
     },
     {
@@ -10178,7 +10178,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_taskgrant_verify_mac",
-      "community": 14,
+      "community": 308,
       "norm_label": ".verify_mac()"
     },
     {
@@ -10198,7 +10198,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_taskgrant_caveats",
-      "community": 14,
+      "community": 308,
       "norm_label": ".caveats()"
     },
     {
@@ -10208,7 +10208,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_grant",
-      "community": 14,
+      "community": 308,
       "norm_label": "grant()"
     },
     {
@@ -10218,7 +10218,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_round_trip_and_mac",
-      "community": 14,
+      "community": 308,
       "norm_label": "round_trip_and_mac()"
     },
     {
@@ -10228,7 +10228,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_legacy_missing_chain_defaults_but_fails_closed",
-      "community": 14,
+      "community": 308,
       "norm_label": "legacy_missing_chain_defaults_but_fails_closed()"
     },
     {
@@ -10538,7 +10538,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests",
-      "community": 314,
+      "community": 14,
       "norm_label": "tests.rs"
     },
     {
@@ -10548,7 +10548,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_sample_root",
-      "community": 314,
+      "community": 14,
       "norm_label": "sample_root()"
     },
     {
@@ -10558,7 +10558,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_root_seals_and_verifies",
-      "community": 314,
+      "community": 14,
       "norm_label": "root_seals_and_verifies()"
     },
     {
@@ -10568,7 +10568,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_child_derives_from_parent_tip_without_root_key",
-      "community": 314,
+      "community": 14,
       "norm_label": "child_derives_from_parent_tip_without_root_key()"
     },
     {
@@ -10578,7 +10578,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_selection_token_tamper_invalidates_mac",
-      "community": 314,
+      "community": 14,
       "norm_label": "selection_token_tamper_invalidates_mac()"
     },
     {
@@ -10588,7 +10588,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_id_parent_and_action_list_tamper_fail",
-      "community": 314,
+      "community": 14,
       "norm_label": "id_parent_and_action_list_tamper_fail()"
     },
     {
@@ -10598,7 +10598,7 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_caveat_reorder_or_remove_invalidates_mac",
-      "community": 314,
+      "community": 14,
       "norm_label": "caveat_reorder_or_remove_invalidates_mac()"
     },
     {
@@ -10608,7 +10608,7 @@
       "source_location": "L175",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_grant_chain_tests_identity_field_tamper_invalidates_mac",
-      "community": 314,
+      "community": 14,
       "norm_label": "identity_field_tamper_invalidates_mac()"
     },
     {
@@ -10618,7 +10618,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity",
-      "community": 298,
+      "community": 27,
       "norm_label": "identity.rs"
     },
     {
@@ -10628,7 +10628,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_entitytype",
-      "community": 298,
+      "community": 27,
       "norm_label": "entitytype"
     },
     {
@@ -10638,7 +10638,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identifierkind",
-      "community": 298,
+      "community": 27,
       "norm_label": "identifierkind"
     },
     {
@@ -10648,7 +10648,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identifierverificationmethod",
-      "community": 298,
+      "community": 27,
       "norm_label": "identifierverificationmethod"
     },
     {
@@ -10658,7 +10658,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identifier",
-      "community": 298,
+      "community": 27,
       "norm_label": "identifier"
     },
     {
@@ -10668,7 +10668,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_relationshipkind",
-      "community": 94,
+      "community": 27,
       "norm_label": "relationshipkind"
     },
     {
@@ -10678,7 +10678,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_relationship",
-      "community": 298,
+      "community": 27,
       "norm_label": "relationship"
     },
     {
@@ -10688,7 +10688,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_rs_ulid",
-      "community": 298,
+      "community": 27,
       "norm_label": "ulid"
     },
     {
@@ -10698,7 +10698,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_rs_option",
-      "community": 298,
+      "community": 27,
       "norm_label": "option"
     },
     {
@@ -10708,7 +10708,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identity",
-      "community": 298,
+      "community": 27,
       "norm_label": "identity"
     },
     {
@@ -10718,7 +10718,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_rs_string",
-      "community": 298,
+      "community": 27,
       "norm_label": "string"
     },
     {
@@ -10728,7 +10728,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_rs_vec",
-      "community": 298,
+      "community": 27,
       "norm_label": "vec"
     },
     {
@@ -10738,7 +10738,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_matchedidentifiertype",
-      "community": 298,
+      "community": 27,
       "norm_label": "matchedidentifiertype"
     },
     {
@@ -10748,7 +10748,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identityresolution",
-      "community": 298,
+      "community": 27,
       "norm_label": "identityresolution"
     },
     {
@@ -10758,7 +10758,7 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_sample_identity",
-      "community": 298,
+      "community": 27,
       "norm_label": "sample_identity()"
     },
     {
@@ -10768,7 +10768,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_round_trips_through_serde",
-      "community": 298,
+      "community": 27,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -10778,7 +10778,7 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_identity_json_has_no_authority_field",
-      "community": 298,
+      "community": 27,
       "norm_label": "identity_json_has_no_authority_field()"
     },
     {
@@ -10788,7 +10788,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_deny_unknown_fields_rejects_capability_pack_id",
-      "community": 298,
+      "community": 27,
       "norm_label": "deny_unknown_fields_rejects_capability_pack_id()"
     },
     {
@@ -10958,7 +10958,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack",
-      "community": 301,
+      "community": 27,
       "norm_label": "pack.rs"
     },
     {
@@ -10998,7 +10998,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack_capabilitypack",
-      "community": 301,
+      "community": 27,
       "norm_label": "capabilitypack"
     },
     {
@@ -11008,7 +11008,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack_rs_artifactid",
-      "community": 301,
+      "community": 27,
       "norm_label": "artifactid"
     },
     {
@@ -11018,7 +11018,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack_rs_vec",
-      "community": 301,
+      "community": 27,
       "norm_label": "vec"
     },
     {
@@ -11038,7 +11038,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack_round_trips_through_serde",
-      "community": 301,
+      "community": 27,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -11048,7 +11048,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_pack_allow_and_deny_lists_never_overlap_in_the_fixture",
-      "community": 301,
+      "community": 27,
       "norm_label": "allow_and_deny_lists_never_overlap_in_the_fixture()"
     },
     {
@@ -11058,7 +11058,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy",
-      "community": 301,
+      "community": 27,
       "norm_label": "policy.rs"
     },
     {
@@ -11068,7 +11068,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_constraints",
-      "community": 301,
+      "community": 27,
       "norm_label": "constraints"
     },
     {
@@ -11078,7 +11078,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_rs_option",
-      "community": 301,
+      "community": 27,
       "norm_label": "option"
     },
     {
@@ -11088,7 +11088,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_rs_string",
-      "community": 301,
+      "community": 27,
       "norm_label": "string"
     },
     {
@@ -11098,7 +11098,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_policy",
-      "community": 301,
+      "community": 27,
       "norm_label": "policy"
     },
     {
@@ -11108,7 +11108,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_rs_artifactid",
-      "community": 301,
+      "community": 27,
       "norm_label": "artifactid"
     },
     {
@@ -11118,7 +11118,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_rs_vec",
-      "community": 301,
+      "community": 27,
       "norm_label": "vec"
     },
     {
@@ -11128,7 +11128,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_sessionpolicy",
-      "community": 301,
+      "community": 27,
       "norm_label": "sessionpolicy"
     },
     {
@@ -11138,7 +11138,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_policy_round_trips_through_serde",
-      "community": 301,
+      "community": 27,
       "norm_label": "policy_round_trips_through_serde()"
     },
     {
@@ -11148,7 +11148,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_policy_constraints_default_to_all_unset",
-      "community": 301,
+      "community": 27,
       "norm_label": "constraints_default_to_all_unset()"
     },
     {
@@ -11158,7 +11158,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route",
-      "community": 94,
+      "community": 27,
       "norm_label": "route.rs"
     },
     {
@@ -11168,7 +11168,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routeactorwhen",
-      "community": 94,
+      "community": 27,
       "norm_label": "routeactorwhen"
     },
     {
@@ -11178,7 +11178,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_rs_option",
-      "community": 94,
+      "community": 27,
       "norm_label": "option"
     },
     {
@@ -11188,7 +11188,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routewhen",
-      "community": 94,
+      "community": 57,
       "norm_label": "routewhen"
     },
     {
@@ -11198,7 +11198,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_rs_connector",
-      "community": 94,
+      "community": 57,
       "norm_label": "connector"
     },
     {
@@ -11208,7 +11208,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routewhen_specificity",
-      "community": 94,
+      "community": 57,
       "norm_label": ".specificity()"
     },
     {
@@ -11218,7 +11218,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routeeffect",
-      "community": 94,
+      "community": 27,
       "norm_label": "routeeffect"
     },
     {
@@ -11228,7 +11228,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_route",
-      "community": 94,
+      "community": 27,
       "norm_label": "route"
     },
     {
@@ -11238,7 +11238,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_rs_artifactid",
-      "community": 94,
+      "community": 27,
       "norm_label": "artifactid"
     },
     {
@@ -11248,7 +11248,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_routeresolution",
-      "community": 94,
+      "community": 27,
       "norm_label": "routeresolution"
     },
     {
@@ -11258,7 +11258,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_rs_string",
-      "community": 94,
+      "community": 27,
       "norm_label": "string"
     },
     {
@@ -11268,7 +11268,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_owner_route",
-      "community": 94,
+      "community": 27,
       "norm_label": "owner_route()"
     },
     {
@@ -11278,7 +11278,7 @@
       "source_location": "L157",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_round_trips_through_serde",
-      "community": 94,
+      "community": 27,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -11288,7 +11288,7 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_effect_defaults_to_allow_when_omitted",
-      "community": 94,
+      "community": 27,
       "norm_label": "effect_defaults_to_allow_when_omitted()"
     },
     {
@@ -11298,7 +11298,7 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_specificity_counts_explicit_when_fields",
-      "community": 94,
+      "community": 27,
       "norm_label": "specificity_counts_explicit_when_fields()"
     },
     {
@@ -11308,7 +11308,7 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_ambiguous_resolution_names_the_fallback_route_verbatim",
-      "community": 94,
+      "community": 27,
       "norm_label": "ambiguous_resolution_names_the_fallback_route_verbatim()"
     },
     {
@@ -11318,7 +11318,7 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_route_route_can_be_a_deny_route",
-      "community": 94,
+      "community": 27,
       "norm_label": "route_can_be_a_deny_route()"
     },
     {
@@ -11588,7 +11588,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures",
-      "community": 305,
+      "community": 10,
       "norm_label": "fixtures.rs"
     },
     {
@@ -11598,7 +11598,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_artifacts_dir",
-      "community": 305,
+      "community": 10,
       "norm_label": "artifacts_dir()"
     },
     {
@@ -11608,7 +11608,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_rs_pathbuf",
-      "community": 305,
+      "community": 10,
       "norm_label": "pathbuf"
     },
     {
@@ -11618,7 +11618,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_read",
-      "community": 305,
+      "community": 10,
       "norm_label": "read()"
     },
     {
@@ -11628,7 +11628,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_rs_string",
-      "community": 305,
+      "community": 10,
       "norm_label": "string"
     },
     {
@@ -11638,7 +11638,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_telegram_route_is_expressible_declaratively",
-      "community": 305,
+      "community": 10,
       "norm_label": "owner_telegram_route_is_expressible_declaratively()"
     },
     {
@@ -11648,7 +11648,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_email_selected_thread_route_is_expressible_declaratively",
-      "community": 305,
+      "community": 10,
       "norm_label": "owner_email_selected_thread_route_is_expressible_declaratively()"
     },
     {
@@ -11658,7 +11658,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_agent_manifests_round_trip",
-      "community": 305,
+      "community": 10,
       "norm_label": "agent_manifests_round_trip()"
     },
     {
@@ -11668,7 +11668,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_email_grant_pack_excludes_read_inbox_and_send",
-      "community": 305,
+      "community": 10,
       "norm_label": "email_grant_pack_excludes_read_inbox_and_send()"
     },
     {
@@ -11678,7 +11678,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_owner_control_pack_round_trips",
-      "community": 305,
+      "community": 10,
       "norm_label": "owner_control_pack_round_trips()"
     },
     {
@@ -11688,7 +11688,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_workflow_manifests_round_trip",
-      "community": 305,
+      "community": 10,
       "norm_label": "workflow_manifests_round_trip()"
     },
     {
@@ -11698,7 +11698,7 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_global_policy_round_trips_and_denies_send",
-      "community": 305,
+      "community": 10,
       "norm_label": "global_policy_round_trips_and_denies_send()"
     },
     {
@@ -11708,7 +11708,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "crates_openspine_schemas_tests_fixtures_every_fixture_file_is_covered_by_a_test",
-      "community": 305,
+      "community": 10,
       "norm_label": "every_fixture_file_is_covered_by_a_test()"
     },
     {
@@ -11928,7 +11928,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant",
-      "community": 12,
+      "community": 94,
       "norm_label": "main_assistant.rs"
     },
     {
@@ -11938,7 +11938,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_run",
-      "community": 12,
+      "community": 94,
       "norm_label": "run()"
     },
     {
@@ -11948,7 +11948,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_rs_result",
-      "community": 12,
+      "community": 94,
       "norm_label": "result"
     },
     {
@@ -11958,7 +11958,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_send_reply",
-      "community": 12,
+      "community": 94,
       "norm_label": "send_reply()"
     },
     {
@@ -11968,7 +11968,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_cmd_status",
-      "community": 12,
+      "community": 94,
       "norm_label": "cmd_status()"
     },
     {
@@ -11978,7 +11978,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_cmd_setup",
-      "community": 12,
+      "community": 94,
       "norm_label": "cmd_setup()"
     },
     {
@@ -11988,7 +11988,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_cmd_propose",
-      "community": 12,
+      "community": 94,
       "norm_label": "cmd_propose()"
     },
     {
@@ -11998,7 +11998,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_cmd_freeform",
-      "community": 12,
+      "community": 94,
       "norm_label": "cmd_freeform()"
     },
     {
@@ -12008,7 +12008,7 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_stub_note",
-      "community": 12,
+      "community": 94,
       "norm_label": "stub_note()"
     },
     {
@@ -12018,7 +12018,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_rs_option",
-      "community": 12,
+      "community": 94,
       "norm_label": "option"
     },
     {
@@ -12028,7 +12028,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_rs_value",
-      "community": 12,
+      "community": 94,
       "norm_label": "value"
     },
     {
@@ -12038,7 +12038,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_rs_string",
-      "community": 12,
+      "community": 94,
       "norm_label": "string"
     },
     {
@@ -12048,7 +12048,7 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_allow_result",
-      "community": 12,
+      "community": 94,
       "norm_label": "allow_result()"
     },
     {
@@ -12058,7 +12058,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "responsetemplate",
-      "community": 12,
+      "community": 94,
       "norm_label": "responsetemplate"
     },
     {
@@ -12068,7 +12068,7 @@
       "source_location": "L227",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_allow_reply",
-      "community": 12,
+      "community": 94,
       "norm_label": "allow_reply()"
     },
     {
@@ -12078,7 +12078,7 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_deny_response",
-      "community": 12,
+      "community": 94,
       "norm_label": "deny_response()"
     },
     {
@@ -12088,7 +12088,7 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_status_command_submits_correct_action_then_replies",
-      "community": 12,
+      "community": 94,
       "norm_label": "status_command_submits_correct_action_then_replies()"
     },
     {
@@ -12098,7 +12098,7 @@
       "source_location": "L281",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_freeform_calls_generate_then_replies_with_model_text",
-      "community": 12,
+      "community": 94,
       "norm_label": "freeform_calls_generate_then_replies_with_model_text()"
     },
     {
@@ -12108,7 +12108,7 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_deny_on_primary_action_exits_ok_no_reply_attempt",
-      "community": 12,
+      "community": 94,
       "norm_label": "deny_on_primary_action_exits_ok_no_reply_attempt()"
     },
     {
@@ -12118,7 +12118,7 @@
       "source_location": "L340",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_approval_required_on_primary_action_exits_ok_no_reply",
-      "community": 12,
+      "community": 94,
       "norm_label": "approval_required_on_primary_action_exits_ok_no_reply()"
     },
     {
@@ -12128,7 +12128,7 @@
       "source_location": "L364",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_propose_command_sends_correct_payload",
-      "community": 12,
+      "community": 94,
       "norm_label": "propose_command_sends_correct_payload()"
     },
     {
@@ -12138,7 +12138,7 @@
       "source_location": "L401",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_propose_without_body_replies_usage_and_calls_nothing",
-      "community": 12,
+      "community": 94,
       "norm_label": "propose_without_body_replies_usage_and_calls_nothing()"
     },
     {
@@ -12148,7 +12148,7 @@
       "source_location": "L436",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_agents_main_assistant_deny_on_model_generate_exits_ok",
-      "community": 12,
+      "community": 94,
       "norm_label": "deny_on_model_generate_exits_ok()"
     },
     {
@@ -12448,7 +12448,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main",
-      "community": 12,
+      "community": 297,
       "norm_label": "main.rs"
     },
     {
@@ -12458,7 +12458,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main_cli",
-      "community": 12,
+      "community": 297,
       "norm_label": "cli"
     },
     {
@@ -12468,7 +12468,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main_rs_string",
-      "community": 12,
+      "community": 297,
       "norm_label": "string"
     },
     {
@@ -12478,7 +12478,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main_main",
-      "community": 12,
+      "community": 297,
       "norm_label": "main()"
     },
     {
@@ -12488,7 +12488,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main_run",
-      "community": 12,
+      "community": 297,
       "norm_label": "run()"
     },
     {
@@ -12498,7 +12498,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_shell_src_main_rs_result",
-      "community": 12,
+      "community": 297,
       "norm_label": "result"
     },
     {
@@ -24884,6 +24884,336 @@
     {
       "label": "design.md",
       "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design",
+      "community": 283,
+      "norm_label": "design.md"
+    },
+    {
+      "label": "Design: Define grant chain and modes",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
+      "community": 283,
+      "norm_label": "design: define grant chain and modes"
+    },
+    {
+      "label": "Macaroons-simple chain (AD-101)",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "community": 283,
+      "norm_label": "macaroons-simple chain (ad-101)"
+    },
+    {
+      "label": "Immutable root authority + append-only caveats",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_immutable_root_authority_append_only_caveats",
+      "community": 283,
+      "norm_label": "immutable root authority + append-only caveats"
+    },
+    {
+      "label": "Chained HMAC construction",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L24",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_chained_hmac_construction",
+      "community": 283,
+      "norm_label": "chained hmac construction"
+    },
+    {
+      "label": "Gate decisions and shadow",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L45",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_gate_decisions_and_shadow",
+      "community": 283,
+      "norm_label": "gate decisions and shadow"
+    },
+    {
+      "label": "Out of scope",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L56",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_out_of_scope",
+      "community": 283,
+      "norm_label": "out of scope"
+    },
+    {
+      "label": "proposal.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal",
+      "community": 298,
+      "norm_label": "proposal.md"
+    },
+    {
+      "label": "Proposal: Define grant chain and modes",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "community": 298,
+      "norm_label": "proposal: define grant chain and modes"
+    },
+    {
+      "label": "Summary",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_summary",
+      "community": 298,
+      "norm_label": "summary"
+    },
+    {
+      "label": "What Changes",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_what_changes",
+      "community": 298,
+      "norm_label": "what changes"
+    },
+    {
+      "label": "Non-goals",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L22",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_non_goals",
+      "community": 298,
+      "norm_label": "non-goals"
+    },
+    {
+      "label": "Acceptance Criteria",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_acceptance_criteria",
+      "community": 298,
+      "norm_label": "acceptance criteria"
+    },
+    {
+      "label": "spec.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec",
+      "community": 293,
+      "norm_label": "spec.md"
+    },
+    {
+      "label": "Spec: Core runtime schemas",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
+      "community": 293,
+      "norm_label": "spec: core runtime schemas"
+    },
+    {
+      "label": "MODIFIED Requirements",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
+      "community": 293,
+      "norm_label": "modified requirements"
+    },
+    {
+      "label": "Requirement: Task grants MUST be explicit live authority objects",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "community": 293,
+      "norm_label": "requirement: task grants must be explicit live authority objects"
+    },
+    {
+      "label": "Scenario: Root grant defaults",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
+      "community": 293,
+      "norm_label": "scenario: root grant defaults"
+    },
+    {
+      "label": "Scenario: Sub-grant is the sole presented authority",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
+      "community": 293,
+      "norm_label": "scenario: sub-grant is the sole presented authority"
+    },
+    {
+      "label": "Scenario: Bound parameters are caveats",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L39",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
+      "community": 293,
+      "norm_label": "scenario: bound parameters are caveats"
+    },
+    {
+      "label": "spec.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec",
+      "community": 99,
+      "norm_label": "spec.md"
+    },
+    {
+      "label": "Spec: Gate action API",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
+      "community": 99,
+      "norm_label": "spec: gate action api"
+    },
+    {
+      "label": "ADDED Requirements",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
+      "community": 99,
+      "norm_label": "added requirements"
+    },
+    {
+      "label": "Requirement: Gate MUST verify authenticated grant caveat chains offline",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "community": 99,
+      "norm_label": "requirement: gate must verify authenticated grant caveat chains offline"
+    },
+    {
+      "label": "Scenario: Valid sealed root allow",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L22",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
+      "community": 99,
+      "norm_label": "scenario: valid sealed root allow"
+    },
+    {
+      "label": "Scenario: Tampered or reordered caveats are rejected",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L28",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
+      "community": 99,
+      "norm_label": "scenario: tampered or reordered caveats are rejected"
+    },
+    {
+      "label": "Scenario: Action outside an action_allowlist caveat is not granted",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
+      "community": 99,
+      "norm_label": "scenario: action outside an action_allowlist caveat is not granted"
+    },
+    {
+      "label": "Requirement: Shadow-mode grants MUST return a non-executable decision",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L44",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "community": 99,
+      "norm_label": "requirement: shadow-mode grants must return a non-executable decision"
+    },
+    {
+      "label": "Scenario: Shadow allow becomes effect_suppressed",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L52",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
+      "community": 99,
+      "norm_label": "scenario: shadow allow becomes effect_suppressed"
+    },
+    {
+      "label": "Scenario: Shadow deny remains deny",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L59",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
+      "community": 99,
+      "norm_label": "scenario: shadow deny remains deny"
+    },
+    {
+      "label": "Scenario: Dispatch does not execute on effect_suppressed",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L65",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
+      "community": 99,
+      "norm_label": "scenario: dispatch does not execute on effect_suppressed"
+    },
+    {
+      "label": "tasks.md",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/tasks.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_tasks",
+      "community": 300,
+      "norm_label": "tasks.md"
+    },
+    {
+      "label": "Tasks: Define grant chain and modes",
+      "file_type": "document",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/tasks.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_tasks_tasks_define_grant_chain_and_modes",
+      "community": 300,
+      "norm_label": "tasks: define grant chain and modes"
+    },
+    {
+      "label": "design.md",
+      "file_type": "document",
       "source_file": "openspec/changes/archive/2026-07-16-harden-gate-trusted-paths/design.md",
       "source_location": "L1",
       "_origin": "ast",
@@ -25852,336 +26182,6 @@
       "norm_label": "9. validation"
     },
     {
-      "label": "design.md",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design",
-      "community": 297,
-      "norm_label": "design.md"
-    },
-    {
-      "label": "Design: Define grant chain and modes",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
-      "community": 297,
-      "norm_label": "design: define grant chain and modes"
-    },
-    {
-      "label": "Macaroons-simple chain (AD-101)",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "community": 297,
-      "norm_label": "macaroons-simple chain (ad-101)"
-    },
-    {
-      "label": "Immutable root authority + append-only caveats",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L10",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_immutable_root_authority_append_only_caveats",
-      "community": 297,
-      "norm_label": "immutable root authority + append-only caveats"
-    },
-    {
-      "label": "Chained HMAC construction",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L24",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_chained_hmac_construction",
-      "community": 297,
-      "norm_label": "chained hmac construction"
-    },
-    {
-      "label": "Gate decisions and shadow",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L45",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_gate_decisions_and_shadow",
-      "community": 297,
-      "norm_label": "gate decisions and shadow"
-    },
-    {
-      "label": "Out of scope",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L56",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_design_out_of_scope",
-      "community": 297,
-      "norm_label": "out of scope"
-    },
-    {
-      "label": "proposal.md",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal",
-      "community": 293,
-      "norm_label": "proposal.md"
-    },
-    {
-      "label": "Proposal: Define grant chain and modes",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "community": 293,
-      "norm_label": "proposal: define grant chain and modes"
-    },
-    {
-      "label": "Summary",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal_summary",
-      "community": 293,
-      "norm_label": "summary"
-    },
-    {
-      "label": "What Changes",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L10",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal_what_changes",
-      "community": 293,
-      "norm_label": "what changes"
-    },
-    {
-      "label": "Non-goals",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal_non_goals",
-      "community": 293,
-      "norm_label": "non-goals"
-    },
-    {
-      "label": "Acceptance Criteria",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L26",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_proposal_acceptance_criteria",
-      "community": 293,
-      "norm_label": "acceptance criteria"
-    },
-    {
-      "label": "spec.md",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec",
-      "community": 294,
-      "norm_label": "spec.md"
-    },
-    {
-      "label": "Spec: Core runtime schemas",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
-      "community": 294,
-      "norm_label": "spec: core runtime schemas"
-    },
-    {
-      "label": "MODIFIED Requirements",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
-      "community": 294,
-      "norm_label": "modified requirements"
-    },
-    {
-      "label": "Requirement: Task grants MUST be explicit live authority objects",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
-      "community": 294,
-      "norm_label": "requirement: task grants must be explicit live authority objects"
-    },
-    {
-      "label": "Scenario: Root grant defaults",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L25",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
-      "community": 294,
-      "norm_label": "scenario: root grant defaults"
-    },
-    {
-      "label": "Scenario: Sub-grant is the sole presented authority",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L32",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
-      "community": 294,
-      "norm_label": "scenario: sub-grant is the sole presented authority"
-    },
-    {
-      "label": "Scenario: Bound parameters are caveats",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L39",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
-      "community": 294,
-      "norm_label": "scenario: bound parameters are caveats"
-    },
-    {
-      "label": "spec.md",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec",
-      "community": 283,
-      "norm_label": "spec.md"
-    },
-    {
-      "label": "Spec: Gate action API",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
-      "community": 283,
-      "norm_label": "spec: gate action api"
-    },
-    {
-      "label": "ADDED Requirements",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L3",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
-      "community": 283,
-      "norm_label": "added requirements"
-    },
-    {
-      "label": "Requirement: Gate MUST verify authenticated grant caveat chains offline",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L5",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
-      "community": 283,
-      "norm_label": "requirement: gate must verify authenticated grant caveat chains offline"
-    },
-    {
-      "label": "Scenario: Valid sealed root allow",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L22",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
-      "community": 283,
-      "norm_label": "scenario: valid sealed root allow"
-    },
-    {
-      "label": "Scenario: Tampered or reordered caveats are rejected",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L28",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
-      "community": 283,
-      "norm_label": "scenario: tampered or reordered caveats are rejected"
-    },
-    {
-      "label": "Scenario: Action outside an action_allowlist caveat is not granted",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L35",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
-      "community": 283,
-      "norm_label": "scenario: action outside an action_allowlist caveat is not granted"
-    },
-    {
-      "label": "Requirement: Shadow-mode grants MUST return a non-executable decision",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L44",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
-      "community": 283,
-      "norm_label": "requirement: shadow-mode grants must return a non-executable decision"
-    },
-    {
-      "label": "Scenario: Shadow allow becomes effect_suppressed",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L52",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
-      "community": 283,
-      "norm_label": "scenario: shadow allow becomes effect_suppressed"
-    },
-    {
-      "label": "Scenario: Shadow deny remains deny",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L59",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
-      "community": 283,
-      "norm_label": "scenario: shadow deny remains deny"
-    },
-    {
-      "label": "Scenario: Dispatch does not execute on effect_suppressed",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L65",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
-      "community": 283,
-      "norm_label": "scenario: dispatch does not execute on effect_suppressed"
-    },
-    {
-      "label": "tasks.md",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/tasks.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_tasks",
-      "community": 300,
-      "norm_label": "tasks.md"
-    },
-    {
-      "label": "Tasks: Define grant chain and modes",
-      "file_type": "document",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/tasks.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "openspec_changes_define_grant_chain_and_modes_tasks_tasks_define_grant_chain_and_modes",
-      "community": 300,
-      "norm_label": "tasks: define grant chain and modes"
-    },
-    {
       "label": "conventions.md",
       "file_type": "document",
       "source_file": "openspec/conventions.md",
@@ -26508,7 +26508,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_overlay_key_model",
-      "community": 92,
+      "community": 299,
       "norm_label": "overlay & key model"
     },
     {
@@ -26518,7 +26518,7 @@
       "source_location": "L289",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_overlay_model",
-      "community": 92,
+      "community": 299,
       "norm_label": "implement-overlay-model"
     },
     {
@@ -26528,7 +26528,7 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_counterparty_key_model",
-      "community": 92,
+      "community": 299,
       "norm_label": "implement-counterparty-key-model"
     },
     {
@@ -26538,7 +26538,7 @@
       "source_location": "L315",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_overlay_export_restore",
-      "community": 92,
+      "community": 299,
       "norm_label": "implement-overlay-export-restore"
     },
     {
@@ -26618,7 +26618,7 @@
       "source_location": "L411",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_delegation_containment",
-      "community": 315,
+      "community": 92,
       "norm_label": "delegation & containment"
     },
     {
@@ -26628,7 +26628,7 @@
       "source_location": "L413",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_briefcase_packing",
-      "community": 315,
+      "community": 92,
       "norm_label": "implement-briefcase-packing"
     },
     {
@@ -26638,7 +26638,7 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_worker_runtime",
-      "community": 315,
+      "community": 92,
       "norm_label": "implement-worker-runtime"
     },
     {
@@ -26648,7 +26648,7 @@
       "source_location": "L443",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_worker_supervision",
-      "community": 315,
+      "community": 92,
       "norm_label": "implement-worker-supervision"
     },
     {
@@ -26658,7 +26658,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "openspec_openspine_change_sequence_implement_escalation_and_refusal",
-      "community": 315,
+      "community": 92,
       "norm_label": "implement-escalation-and-refusal"
     },
     {
@@ -27472,10 +27472,40 @@
       "norm_label": "requirement: task grants must be explicit live authority objects"
     },
     {
+      "label": "Scenario: Root grant defaults",
+      "file_type": "document",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L94",
+      "_origin": "ast",
+      "id": "openspec_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
+      "community": 32,
+      "norm_label": "scenario: root grant defaults"
+    },
+    {
+      "label": "Scenario: Sub-grant is the sole presented authority",
+      "file_type": "document",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L101",
+      "_origin": "ast",
+      "id": "openspec_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
+      "community": 32,
+      "norm_label": "scenario: sub-grant is the sole presented authority"
+    },
+    {
+      "label": "Scenario: Bound parameters are caveats",
+      "file_type": "document",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L108",
+      "_origin": "ast",
+      "id": "openspec_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
+      "community": 32,
+      "norm_label": "scenario: bound parameters are caveats"
+    },
+    {
       "label": "Scenario: Email reply drafter starts",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L80",
+      "source_location": "L115",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_email_reply_drafter_starts",
       "community": 32,
@@ -27485,7 +27515,7 @@
       "label": "Requirement: Action requests and gate decisions MUST be typed",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L87",
+      "source_location": "L122",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_requirement_action_requests_and_gate_decisions_must_be_typed",
       "community": 32,
@@ -27495,7 +27525,7 @@
       "label": "Scenario: Agent requests email thread read",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L93",
+      "source_location": "L128",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_agent_requests_email_thread_read",
       "community": 32,
@@ -27505,7 +27535,7 @@
       "label": "Requirement: Approval records MUST bind reviewed payloads and targets",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L100",
+      "source_location": "L135",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_requirement_approval_records_must_bind_reviewed_payloads_and_targets",
       "community": 32,
@@ -27515,7 +27545,7 @@
       "label": "Scenario: Draft body changes after approval",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L106",
+      "source_location": "L141",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_draft_body_changes_after_approval",
       "community": 32,
@@ -27525,7 +27555,7 @@
       "label": "Requirement: Audit schemas MUST reference private payloads by encrypted or hash refs",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L112",
+      "source_location": "L147",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_requirement_audit_schemas_must_reference_private_payloads_by_encrypted_or_hash_refs",
       "community": 32,
@@ -27535,7 +27565,7 @@
       "label": "Scenario: Model request includes private email content",
       "file_type": "document",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L118",
+      "source_location": "L153",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_model_request_includes_private_email_content",
       "community": 32,
@@ -28140,6 +28170,86 @@
       "id": "openspec_specs_gate_action_api_spec_scenario_consumption_stays_at_dispatch",
       "community": 42,
       "norm_label": "scenario: consumption stays at dispatch"
+    },
+    {
+      "label": "Requirement: Gate MUST verify authenticated grant caveat chains offline",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L233",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "community": 42,
+      "norm_label": "requirement: gate must verify authenticated grant caveat chains offline"
+    },
+    {
+      "label": "Scenario: Valid sealed root allow",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L250",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
+      "community": 42,
+      "norm_label": "scenario: valid sealed root allow"
+    },
+    {
+      "label": "Scenario: Tampered or reordered caveats are rejected",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L256",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
+      "community": 42,
+      "norm_label": "scenario: tampered or reordered caveats are rejected"
+    },
+    {
+      "label": "Scenario: Action outside an action_allowlist caveat is not granted",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L263",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
+      "community": 42,
+      "norm_label": "scenario: action outside an action_allowlist caveat is not granted"
+    },
+    {
+      "label": "Requirement: Shadow-mode grants MUST return a non-executable decision",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L272",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "community": 42,
+      "norm_label": "requirement: shadow-mode grants must return a non-executable decision"
+    },
+    {
+      "label": "Scenario: Shadow allow becomes effect_suppressed",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L280",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
+      "community": 42,
+      "norm_label": "scenario: shadow allow becomes effect_suppressed"
+    },
+    {
+      "label": "Scenario: Shadow deny remains deny",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L287",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
+      "community": 42,
+      "norm_label": "scenario: shadow deny remains deny"
+    },
+    {
+      "label": "Scenario: Dispatch does not execute on effect_suppressed",
+      "file_type": "document",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L293",
+      "_origin": "ast",
+      "id": "openspec_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
+      "community": 42,
+      "norm_label": "scenario: dispatch does not execute on effect_suppressed"
     },
     {
       "label": "spec.md",
@@ -79405,6 +79515,286 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_chained_hmac_construction",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L45",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_gate_decisions_and_shadow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_immutable_root_authority_append_only_caveats",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/design.md",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_design_out_of_scope",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_acceptance_criteria",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_non_goals",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_summary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/proposal.md",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_proposal_what_changes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L39",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L44",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L52",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/specs/gate-action-api/spec.md",
+      "source_location": "L59",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/changes/archive/2026-07-16-define-grant-chain-and-modes/tasks.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_tasks",
+      "target": "openspec_changes_archive_2026_07_16_define_grant_chain_and_modes_tasks_tasks_define_grant_chain_and_modes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "openspec/changes/archive/2026-07-16-harden-gate-trusted-paths/design.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -80310,286 +80700,6 @@
       "weight": 1.0,
       "source": "openspec_changes_archive_2026_07_16_harden_gate_trusted_paths_tasks_tasks_harden_gate_trusted_paths",
       "target": "openspec_changes_archive_2026_07_16_harden_gate_trusted_paths_tasks_9_validation",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design_design_define_grant_chain_and_modes",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L24",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_chained_hmac_construction",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L45",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_gate_decisions_and_shadow",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L10",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_immutable_root_authority_append_only_caveats",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/design.md",
-      "source_location": "L56",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_design_macaroons_simple_chain_ad_101",
-      "target": "openspec_changes_define_grant_chain_and_modes_design_out_of_scope",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_proposal",
-      "target": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L26",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "target": "openspec_changes_define_grant_chain_and_modes_proposal_acceptance_criteria",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L22",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "target": "openspec_changes_define_grant_chain_and_modes_proposal_non_goals",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "target": "openspec_changes_define_grant_chain_and_modes_proposal_summary",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/proposal.md",
-      "source_location": "L10",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_proposal_proposal_define_grant_chain_and_modes",
-      "target": "openspec_changes_define_grant_chain_and_modes_proposal_what_changes",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_spec_core_runtime_schemas",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_modified_requirements",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L39",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L25",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/core-runtime-schemas/spec.md",
-      "source_location": "L32",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L3",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_spec_gate_action_api",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L5",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L44",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_added_requirements",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L35",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L28",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L22",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L65",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L52",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/specs/gate-action-api/spec.md",
-      "source_location": "L59",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
-      "target": "openspec_changes_define_grant_chain_and_modes_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "openspec/changes/define-grant-chain-and-modes/tasks.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "source": "openspec_changes_define_grant_chain_and_modes_tasks",
-      "target": "openspec_changes_define_grant_chain_and_modes_tasks_tasks_define_grant_chain_and_modes",
       "confidence_score": 1.0
     },
     {
@@ -81716,7 +81826,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L87",
+      "source_location": "L122",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirements",
       "target": "openspec_specs_core_runtime_schemas_spec_requirement_action_requests_and_gate_decisions_must_be_typed",
@@ -81726,7 +81836,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L100",
+      "source_location": "L135",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirements",
       "target": "openspec_specs_core_runtime_schemas_spec_requirement_approval_records_must_bind_reviewed_payloads_and_targets",
@@ -81736,7 +81846,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L112",
+      "source_location": "L147",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirements",
       "target": "openspec_specs_core_runtime_schemas_spec_requirement_audit_schemas_must_reference_private_payloads_by_encrypted_or_hash_refs",
@@ -81856,7 +81966,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L80",
+      "source_location": "L108",
+      "weight": 1.0,
+      "source": "openspec_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_specs_core_runtime_schemas_spec_scenario_bound_parameters_are_caveats",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L115",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
       "target": "openspec_specs_core_runtime_schemas_spec_scenario_email_reply_drafter_starts",
@@ -81866,7 +81986,27 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L93",
+      "source_location": "L94",
+      "weight": 1.0,
+      "source": "openspec_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_specs_core_runtime_schemas_spec_scenario_root_grant_defaults",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L101",
+      "weight": 1.0,
+      "source": "openspec_specs_core_runtime_schemas_spec_requirement_task_grants_must_be_explicit_live_authority_objects",
+      "target": "openspec_specs_core_runtime_schemas_spec_scenario_sub_grant_is_the_sole_presented_authority",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/core-runtime-schemas/spec.md",
+      "source_location": "L128",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirement_action_requests_and_gate_decisions_must_be_typed",
       "target": "openspec_specs_core_runtime_schemas_spec_scenario_agent_requests_email_thread_read",
@@ -81876,7 +82016,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L106",
+      "source_location": "L141",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirement_approval_records_must_bind_reviewed_payloads_and_targets",
       "target": "openspec_specs_core_runtime_schemas_spec_scenario_draft_body_changes_after_approval",
@@ -81886,7 +82026,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/core-runtime-schemas/spec.md",
-      "source_location": "L118",
+      "source_location": "L153",
       "weight": 1.0,
       "source": "openspec_specs_core_runtime_schemas_spec_requirement_audit_schemas_must_reference_private_payloads_by_encrypted_or_hash_refs",
       "target": "openspec_specs_core_runtime_schemas_spec_scenario_model_request_includes_private_email_content",
@@ -82236,6 +82376,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L233",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirements",
+      "target": "openspec_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
       "source_location": "L99",
       "weight": 1.0,
       "source": "openspec_specs_gate_action_api_spec_requirements",
@@ -82270,6 +82420,16 @@
       "weight": 1.0,
       "source": "openspec_specs_gate_action_api_spec_requirements",
       "target": "openspec_specs_gate_action_api_spec_requirement_selection_token_validation_must_occur_inside_gate_for_token_requiring_actions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L272",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirements",
+      "target": "openspec_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
       "confidence_score": 1.0
     },
     {
@@ -82470,6 +82630,66 @@
       "weight": 1.0,
       "source": "openspec_specs_gate_action_api_spec_requirement_selection_token_validation_must_occur_inside_gate_for_token_requiring_actions",
       "target": "openspec_specs_gate_action_api_spec_scenario_gate_validates_a_bound_live_unexpired_token",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L263",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_specs_gate_action_api_spec_scenario_action_outside_an_action_allowlist_caveat_is_not_granted",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L256",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_specs_gate_action_api_spec_scenario_tampered_or_reordered_caveats_are_rejected",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L250",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_gate_must_verify_authenticated_grant_caveat_chains_offline",
+      "target": "openspec_specs_gate_action_api_spec_scenario_valid_sealed_root_allow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L293",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_specs_gate_action_api_spec_scenario_dispatch_does_not_execute_on_effect_suppressed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L280",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_specs_gate_action_api_spec_scenario_shadow_allow_becomes_effect_suppressed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "openspec/specs/gate-action-api/spec.md",
+      "source_location": "L287",
+      "weight": 1.0,
+      "source": "openspec_specs_gate_action_api_spec_requirement_shadow_mode_grants_must_return_a_non_executable_decision",
+      "target": "openspec_specs_gate_action_api_spec_scenario_shadow_deny_remains_deny",
       "confidence_score": 1.0
     },
     {
@@ -83964,5 +84184,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "81396ee5e8e1d9bea8a94dff29a29328ff7d3aad"
+  "built_at_commit": "f4f12dd09a567747a9b2a791cd294c41f9992398"
 }
