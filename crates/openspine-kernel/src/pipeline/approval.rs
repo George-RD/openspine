@@ -174,6 +174,15 @@ pub(super) async fn handle_draft_approval_callback(
         &state.connectors,
         now,
     );
+    state.store.append_audit(
+        "action.gated",
+        Some(&request.action),
+        Some(&outcome.decision),
+        None,
+        Some(grant.id),
+        &[],
+        std::slice::from_ref(payload_ref),
+    )?;
     match outcome.decision {
         GateDecision::Allow => {
             let handler = resolve_post_approval_handler(&request.action);

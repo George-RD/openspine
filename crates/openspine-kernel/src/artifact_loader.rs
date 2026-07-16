@@ -7,15 +7,15 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::model_gateway::PromptTemplate;
 use openspine_schemas::agent::AgentManifest;
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::ids::ArtifactId;
+use openspine_schemas::model_swap::{GoldenSet, ModelSwapManifest};
 use openspine_schemas::pack::CapabilityPack;
 use openspine_schemas::policy::Policy;
 use openspine_schemas::route::Route;
 use openspine_schemas::workflow::WorkflowManifest;
-
-use crate::model_gateway::PromptTemplate;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ArtifactLoadError {
@@ -30,6 +30,12 @@ pub enum ArtifactLoadError {
         path: std::path::PathBuf,
         #[source]
         source: serde_yaml::Error,
+    },
+    #[error("invalid {kind} artifact {id}: {reason}")]
+    Invalid {
+        kind: String,
+        id: String,
+        reason: String,
     },
     #[error("artifact collision: {kind} id={id} v{version} appears more than once (check fixtures and the data/artifacts.d overlay)")]
     Collision {
@@ -51,6 +57,8 @@ pub struct ArtifactRegistry {
     pub packs: HashMap<ArtifactId, CapabilityPack>,
     pub policies: HashMap<ArtifactId, Policy>,
     pub templates: HashMap<String, PromptTemplate>,
+    pub golden_sets: HashMap<String, GoldenSet>,
+    pub model_swaps: HashMap<ArtifactId, ModelSwapManifest>,
 }
 
 fn load_yaml_dir<T, F>(dir: &Path, mut on_each: F) -> Result<(), ArtifactLoadError>
@@ -140,6 +148,45 @@ pub fn load_registry_into(
         registry.templates.insert(t.id.clone(), t);
         Ok(())
     })?;
+    load_yaml_dir(&dir.join("golden_sets"), |g: GoldenSet| {
+        g.validate().map_err(|err| ArtifactLoadError::Invalid {
+            kind: "golden_set".to_string(),
+            id: g.id.clone(),
+            reason: err.to_string(),
+        })?;
+        let id = g.id.clone();
+        if registry.golden_sets.insert(id.clone(), g).is_some() {
+            return Err(ArtifactLoadError::Collision {
+                kind: "golden_set".to_string(),
+                id,
+                version: 1,
+            });
+        }
+        Ok(())
+    })?;
+    load_yaml_dir(&dir.join("model_swaps"), |m: ModelSwapManifest| {
+        if !m.identity_valid() {
+            return Err(ArtifactLoadError::Invalid {
+                kind: "model_swap".to_string(),
+                id: m.id.clone(),
+                reason: "id must equal role name".to_string(),
+            });
+        }
+        if let Some(existing) = registry.model_swaps.get(&m.id) {
+            if existing.version == m.version {
+                return Err(ArtifactLoadError::Collision {
+                    kind: "model_swap".to_string(),
+                    id: m.id.clone(),
+                    version: m.version,
+                });
+            }
+            if existing.version > m.version {
+                return Ok(());
+            }
+        }
+        registry.model_swaps.insert(m.id.clone(), m);
+        Ok(())
+    })?;
     Ok(())
 }
 
@@ -209,12 +256,16 @@ impl Versioned for PromptTemplate {
     }
 }
 
+impl Versioned for ModelSwapManifest {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
+
 /// A declarative artifact parsed from a proposal's YAML, tagged by kind.
-/// Only `route | agent | workflow | pack | policy` are proposable — prompt
-/// templates are excluded (a template changes the model's instruction
-/// surface; letting chat propose one is an injection-escalation channel).
-/// Shared by `artifact.propose` (validate + extract id/version) and
-/// `artifact.activate` (re-parse, flip to active, persist).
+/// `route | agent | workflow | pack | policy | model_swap` are proposable;
+/// prompt templates and golden sets remain fixture-only because they define
+/// the instruction/evaluation surface.
 #[derive(Debug)]
 pub enum ParsedProposal {
     Route(Route),
@@ -222,6 +273,7 @@ pub enum ParsedProposal {
     Workflow(WorkflowManifest),
     Pack(CapabilityPack),
     Policy(Policy),
+    ModelSwap(ModelSwapManifest),
 }
 
 impl ParsedProposal {
@@ -232,6 +284,7 @@ impl ParsedProposal {
             ParsedProposal::Workflow(_) => "workflow",
             ParsedProposal::Pack(_) => "pack",
             ParsedProposal::Policy(_) => "policy",
+            ParsedProposal::ModelSwap(_) => "model_swap",
         }
     }
 
@@ -242,6 +295,7 @@ impl ParsedProposal {
             ParsedProposal::Workflow(w) => &w.id,
             ParsedProposal::Pack(p) => &p.id,
             ParsedProposal::Policy(p) => &p.id,
+            ParsedProposal::ModelSwap(m) => &m.id,
         }
     }
 
@@ -252,6 +306,7 @@ impl ParsedProposal {
             ParsedProposal::Workflow(w) => w.version,
             ParsedProposal::Pack(p) => p.version,
             ParsedProposal::Policy(p) => p.version,
+            ParsedProposal::ModelSwap(m) => m.version,
         }
     }
 
@@ -262,9 +317,9 @@ impl ParsedProposal {
             ParsedProposal::Workflow(w) => w.lifecycle_state,
             ParsedProposal::Pack(p) => p.lifecycle_state,
             ParsedProposal::Policy(p) => p.lifecycle_state,
+            ParsedProposal::ModelSwap(m) => m.lifecycle_state,
         }
     }
-
     /// Overlay subdirectory name matching the loader's per-kind layout
     /// (5d writes `<overlay>/<subdir>/<id>-v<version>.yaml`). Derived from
     /// the kind table — the single source of truth for per-kind layout.
@@ -283,6 +338,7 @@ impl ParsedProposal {
             ParsedProposal::Workflow(w) => w.lifecycle_state = active,
             ParsedProposal::Pack(p) => p.lifecycle_state = active,
             ParsedProposal::Policy(p) => p.lifecycle_state = active,
+            ParsedProposal::ModelSwap(m) => m.lifecycle_state = active,
         }
     }
 
@@ -293,6 +349,7 @@ impl ParsedProposal {
             ParsedProposal::Agent(a) => serde_yaml::to_string(a),
             ParsedProposal::Workflow(w) => serde_yaml::to_string(w),
             ParsedProposal::Pack(p) => serde_yaml::to_string(p),
+            ParsedProposal::ModelSwap(m) => serde_yaml::to_string(m),
             ParsedProposal::Policy(p) => serde_yaml::to_string(p),
         }
     }
@@ -314,16 +371,17 @@ impl ParsedProposal {
             ParsedProposal::Policy(p) => {
                 registry.policies.insert(p.id.clone(), p);
             }
+            ParsedProposal::ModelSwap(m) => {
+                registry.model_swaps.insert(m.id.clone(), m);
+            }
         }
     }
 }
 
-/// Single source of truth for the five proposable artifact kinds (PRD §13/5c,
-/// D-048). Each entry pairs a kind's name and overlay subdirectory with the
-/// behavior that previously lived in three parallel match-arms (`PROPOSABLE_KINDS`,
-/// `parse_proposal`'s match, and the propose dup-check): parsing from proposal
-/// YAML and checking for an existing `(id, version)` in the live registry.
-/// Prompt templates are deliberately absent — a chat may never propose one.
+/// Single source of truth for the six proposable artifact kinds (PRD §13/5c,
+/// D-048, AD-152). Each entry pairs a kind's name and overlay subdirectory
+/// with parsing and duplicate-check behavior. Prompt templates and golden
+/// sets are deliberately fixture-only.
 pub struct ArtifactKindSpec {
     pub name: &'static str,
     pub overlay_subdir: &'static str,
@@ -331,10 +389,10 @@ pub struct ArtifactKindSpec {
     pub duplicate_exists: fn(&ArtifactRegistry, &str, u32) -> bool,
 }
 
-/// The five proposable kinds, in a fixed order. This table is the only
-/// declaration of what `artifact.propose` accepts; the kind guard, the parser,
-/// and the duplicate-check all derive from it.
-pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 5] = &[
+/// The six proposable kinds, in a fixed order. This table is the only
+/// declaration of what `artifact.propose` accepts; the kind guard, parser,
+/// and duplicate-check all derive from it.
+pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 6] = &[
     ArtifactKindSpec {
         name: "route",
         overlay_subdir: "routes",
@@ -385,6 +443,17 @@ pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 5] = &[
                 .policies
                 .get(id)
                 .is_some_and(|p| p.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "model_swap",
+        overlay_subdir: "model_swaps",
+        parse: |yaml| Ok(ParsedProposal::ModelSwap(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .model_swaps
+                .get(id)
+                .is_some_and(|m| m.version == version)
         },
     },
 ];

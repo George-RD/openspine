@@ -358,3 +358,32 @@ async fn approval_required_action_stops_before_dispatch() {
 
     handle.abort();
 }
+
+#[tokio::test]
+async fn model_swap_propose_reaches_http_gate_and_audits_failure() {
+    let state = test_state();
+    let store = state.store.clone();
+    let grant = handle_owner_update(&state, &owner_update("propose a model swap"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    let (addr, handle) = start_server(state).await;
+    let response = post_action(
+        addr,
+        &grant.task_token,
+        "artifact.propose",
+        Some(json!({
+            "kind": "model_swap",
+            "yaml": "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\n",
+        })),
+    )
+    .await;
+    assert_eq!(response.status(), 400);
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("action.dispatch_failed")
+            .unwrap(),
+        1
+    );
+    handle.abort();
+}

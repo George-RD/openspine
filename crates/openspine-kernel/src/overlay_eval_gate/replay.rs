@@ -21,6 +21,10 @@ pub enum ReplayDenial {
     Store(#[from] StoreError),
     #[error("proposal is not in proposed lifecycle state")]
     InvalidLifecycle,
+    #[error("model swap is missing kernel-verified golden-set results")]
+    MissingGoldenSetResults,
+    #[error("model swap has fewer than three passing standard golden-set cases")]
+    StandardCoverageFailed,
 }
 
 /// Replay the proposal against the captured owner-control corpus. The
@@ -33,6 +37,39 @@ pub(super) fn evaluate(
 ) -> Result<ReplayPassed, ReplayDenial> {
     if proposal.lifecycle_state() != Lifecycle::Proposed {
         return Err(ReplayDenial::InvalidLifecycle);
+    }
+    if let ParsedProposal::ModelSwap(swap) = proposal {
+        let result = swap
+            .golden_set_result
+            .as_ref()
+            .ok_or(ReplayDenial::MissingGoldenSetResults)?;
+        let standard = result
+            .cases
+            .iter()
+            .filter(|case| {
+                matches!(
+                    case.kind,
+                    openspine_schemas::model_swap::GoldenSetCaseKind::Standard
+                )
+            })
+            .collect::<Vec<_>>();
+        if standard.iter().filter(|case| case.passed).count() < 3 {
+            return Err(ReplayDenial::StandardCoverageFailed);
+        }
+        let evidence = json!({
+            "corpus": "golden-set",
+            "golden_set_id": result.golden_set_id,
+            "golden_set_digest": result.golden_set_digest,
+            "standard_cases": standard.len(),
+            "standard_passed": standard.iter().filter(|case| case.passed).count(),
+            "artifact_digest": digest.as_str(),
+        });
+        return Ok(ReplayPassed {
+            verdict: "pass",
+            fitness: Some(1.0),
+            evidence_json: evidence.to_string(),
+            artifact_digest: digest.as_str().to_string(),
+        });
     }
     let owner_turns = store.count_owner_control_conversation_turns()?;
     if owner_turns == 0 {

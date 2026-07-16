@@ -236,11 +236,20 @@ pub(super) async fn post_model_generate(
         }
         None => build_prompt(&template, conversation, body.max_tokens),
     };
-    let text = state
-        .provider
-        .generate(&prompt)
-        .await
+    let active_provider_id = state
+        .active_model_providers
+        .read()
+        .get(&openspine_schemas::model_swap::ModelRole::Base)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("no active base model provider"))
         .map_err(internal_error)?;
+    let provider = state
+        .provider_pool
+        .get(&active_provider_id)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("active provider {active_provider_id} is unavailable"))
+        .map_err(internal_error)?;
+    let text = provider.generate(&prompt).await.map_err(internal_error)?;
 
     let assistant_ref = state
         .artifacts

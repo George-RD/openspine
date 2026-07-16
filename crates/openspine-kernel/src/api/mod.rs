@@ -39,6 +39,10 @@ mod artifact_propose_tests;
 
 #[cfg(test)]
 mod artifact_activation_tests;
+#[cfg(test)]
+mod model_swap_fault_tests;
+#[cfg(test)]
+mod model_swap_http_tests;
 
 use std::sync::Arc;
 

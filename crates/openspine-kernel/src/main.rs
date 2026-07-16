@@ -17,6 +17,8 @@ mod escalation;
 mod gmail;
 mod identity;
 mod model_gateway;
+mod model_swap;
+mod model_swap_recovery;
 mod overlay_eval_gate;
 mod pipeline;
 mod sandbox;
@@ -28,7 +30,10 @@ mod test_support;
 
 #[cfg(test)]
 mod kernel_tests;
+#[cfg(test)]
+mod model_swap_recovery_tests;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -113,12 +118,10 @@ async fn main() -> anyhow::Result<()> {
     }
     let mut registry = artifact_loader::load_registry(&cfg.lyra_dir)
         .with_context(|| format!("loading artifact registry from {}", cfg.lyra_dir.display()))?;
-    // 5a: the `data/artifacts.d` overlay holds artifacts activated via
-    // `artifact.propose` approvals, so they survive restart. Same per-kind
-    // subdir layout as the fixtures; a missing dir is an empty overlay. A
-    // `(kind, id, version)` already in the fixtures fails startup rather
-    // than silently shadowing it.
+    // Overlay files are committed after their proposal row becomes Active;
+    // reconcile the crash window before merging them into the registry.
     let overlay_dir = cfg.data_dir.join("artifacts.d");
+    model_swap_recovery::reconcile_model_swap_overlay(&store, &artifacts, &overlay_dir)?;
     artifact_loader::load_registry_into(&mut registry, &overlay_dir)
         .with_context(|| format!("loading artifact overlay from {}", overlay_dir.display()))?;
 
@@ -140,13 +143,154 @@ async fn main() -> anyhow::Result<()> {
             run_as_uid: 10001,
         }),
     };
-
-    let provider_config = cfg
+    let provider_config_digests: HashMap<String, openspine_schemas::digest::Digest> = cfg
+        .providers
+        .iter()
+        .map(|provider| {
+            (
+                provider.id.clone(),
+                config::provider_config_digest(provider),
+            )
+        })
+        .collect();
+    let mut provider_pool = HashMap::new();
+    for provider_config in &cfg.providers {
+        let provider_key = config::provider_api_key(provider_config)?;
+        let provider = model_gateway::ProviderClient::from_config(provider_config, provider_key);
+        if provider_pool
+            .insert(provider_config.id.clone(), provider)
+            .is_some()
+        {
+            anyhow::bail!("duplicate provider id {}", provider_config.id);
+        }
+    }
+    let default_provider_id = cfg
         .providers
         .first()
+        .map(|provider| provider.id.clone())
         .ok_or_else(|| anyhow::anyhow!("openspine.yaml must configure at least one provider"))?;
-    let provider_key = config::provider_api_key(provider_config)?;
-    let provider = model_gateway::ProviderClient::from_config(provider_config, provider_key);
+    let mut active_model_providers = HashMap::from([
+        (
+            openspine_schemas::model_swap::ModelRole::Base,
+            default_provider_id.clone(),
+        ),
+        (
+            openspine_schemas::model_swap::ModelRole::Matcher,
+            default_provider_id.clone(),
+        ),
+        (
+            openspine_schemas::model_swap::ModelRole::Miner,
+            default_provider_id,
+        ),
+    ]);
+    for (id, version) in store.active_model_swap_ids()? {
+        let Some(swap) = registry.model_swaps.get(&id) else {
+            anyhow::bail!(
+                "active model swap {id} v{version} has no matching active overlay; refusing startup"
+            );
+        };
+        if swap.version != version
+            || swap.lifecycle_state != openspine_schemas::artifact::Lifecycle::Active
+        {
+            anyhow::bail!("active model swap {id} v{version} is not active in the loaded overlay");
+        }
+    }
+    for swap in registry.model_swaps.values() {
+        if swap.lifecycle_state == openspine_schemas::artifact::Lifecycle::Active {
+            let (provenance_state, provenance_digest) = store
+                .find_proposed_artifact("model_swap", &swap.id, swap.version)
+                .with_context(|| {
+                    format!("checking ceremony provenance for active swap {}", swap.id)
+                })?
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "active model swap {} has no persisted ceremony provenance",
+                        swap.id
+                    )
+                })?;
+            if provenance_state != openspine_schemas::artifact::Lifecycle::Active {
+                anyhow::bail!(
+                    "active model swap {} lacks an Active proposed-artifact provenance row",
+                    swap.id
+                );
+            }
+            let verdicts =
+                store.eval_verdicts_for_artifact("model_swap", &swap.id, swap.version)?;
+            let has_replay = verdicts.iter().any(|v| {
+                v.evaluator
+                    .as_deref()
+                    .is_some_and(|e| e.starts_with("overlay-eval-gate/replay@"))
+                    && v.artifact_digest == provenance_digest
+                    && v.verdict == "pass"
+            });
+            let has_judge = verdicts.iter().any(|v| {
+                v.evaluator
+                    .as_deref()
+                    .is_some_and(|e| e.starts_with("overlay-eval-gate/risk-judge@"))
+                    && v.artifact_digest == provenance_digest
+                    && v.verdict == "pass"
+            });
+            if !has_replay || !has_judge {
+                anyhow::bail!(
+                    "active model swap {} has incomplete digest-bound AD-142 provenance",
+                    swap.id
+                );
+            }
+            let reviewed_bytes = artifacts.get(&openspine_schemas::artifact::ArtifactRef {
+                digest: openspine_schemas::digest::Digest::parse(&provenance_digest)?,
+                schema_version: 1,
+            })?;
+            let reviewed = match artifact_loader::parse_proposal(
+                "model_swap",
+                std::str::from_utf8(&reviewed_bytes)?,
+            )? {
+                artifact_loader::ParsedProposal::ModelSwap(manifest) => manifest,
+                _ => anyhow::bail!("provenance row for {} is not a model_swap", swap.id),
+            };
+            let mut loaded_normalized = swap.clone();
+            loaded_normalized.lifecycle_state = openspine_schemas::artifact::Lifecycle::Proposed;
+            let mut reviewed_normalized = reviewed;
+            reviewed_normalized.lifecycle_state = openspine_schemas::artifact::Lifecycle::Proposed;
+            if loaded_normalized != reviewed_normalized {
+                anyhow::bail!(
+                    "active model swap {} differs from its reviewed ceremony manifest",
+                    swap.id
+                );
+            }
+            let golden_set = registry
+                .golden_sets
+                .get(&swap.golden_set_id)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "active model swap {} references missing golden set {}",
+                        swap.id,
+                        swap.golden_set_id
+                    )
+                })?;
+            if !golden_set.roles.contains(&swap.role) {
+                anyhow::bail!(
+                    "active model swap {} golden set is not authorized for role {:?}",
+                    swap.id,
+                    swap.role
+                );
+            }
+            let provider_digest = provider_config_digests
+                .get(&swap.target_provider_id)
+                .ok_or_else(|| anyhow::anyhow!("missing provider digest"))?;
+            model_swap::verify_activation_binding(swap, golden_set, provider_digest)
+                .with_context(|| format!("validating active model swap {}", swap.id))?;
+            if !provider_pool.contains_key(&swap.target_provider_id) {
+                anyhow::bail!(
+                    "active model swap {} v{} for role {:?} references missing provider {}; restore it or activate another approved swap",
+                    swap.id,
+                    swap.version,
+                    swap.role,
+                    swap.target_provider_id
+                );
+            }
+            active_model_providers.insert(swap.role, swap.target_provider_id.clone());
+        }
+    }
 
     let telegram = telegram::TelegramConnector::new(bot_token);
 
@@ -172,6 +316,7 @@ async fn main() -> anyhow::Result<()> {
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail)?,
         owner_user_id: cfg.owner.telegram_user_id,
+        provider_config_digests,
         owner_principal_id: owner_principal.id,
         owner_identity_id: owner_principal.identity_id,
         kernel_endpoint: cfg
@@ -181,7 +326,8 @@ async fn main() -> anyhow::Result<()> {
             .unwrap_or_else(|| format!("http://{}", cfg.kernel.bind_addr)),
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
         action_handlers: ActionHandlerRegistry::default_registrations(),
-        provider,
+        provider_pool,
+        active_model_providers: parking_lot::RwLock::new(active_model_providers),
         started_at: Instant::now(),
         overlay_dir,
     });

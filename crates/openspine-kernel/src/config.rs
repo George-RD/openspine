@@ -8,7 +8,9 @@
 
 use std::path::{Path, PathBuf};
 
+use openspine_schemas::digest::{digest_of, Digest};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 /// Which containment driver spawns the per-task shell (D-025/O-003).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,6 +90,23 @@ pub struct ProviderConfig {
     /// cycle, so the operator names one explicitly in `openspine.yaml`.
     pub model: String,
     pub auth: ProviderAuth,
+}
+
+/// Digest of the non-secret provider configuration a model-swap evidence
+/// run evaluated. The auth mode/env name is intentionally excluded: key
+/// material never participates in approval identity, while provider id,
+/// kind, normalized endpoint, and model do.
+pub fn provider_config_digest(provider: &ProviderConfig) -> Digest {
+    let default_base = match provider.kind {
+        ProviderKind::Anthropic => "https://api.anthropic.com",
+        ProviderKind::OpenaiCompat => "https://api.openai.com",
+    };
+    digest_of(&json!({
+        "provider_id": provider.id,
+        "kind": provider.kind,
+        "base_url": provider.base_url.as_deref().unwrap_or(default_base),
+        "model": provider.model,
+    }))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -50,6 +50,7 @@ use crate::connectors::ConnectorRegistry;
 use crate::sandbox::Sandbox;
 use crate::store::Store;
 use crate::telegram::{self, VerifiedUpdate};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use approval::handle_draft_approval_callback;
@@ -75,10 +76,15 @@ pub struct AppState {
     pub kernel_endpoint: String,
     /// D-025 / PRD §16 escape hatch. See [`sandbox::refuses_external_communication_without_containment`].
     pub unsafe_allow_uncontained_private_data: bool,
-    /// The single configured model provider (build plan 4c: "one provider
-    /// call", not real multi-provider routing — that is
-    /// `implement-model-gateway`'s deferred scope).
-    pub provider: crate::model_gateway::ProviderClient,
+    /// Provider clients are resolved once at startup from the operator's
+    /// configured pool; runtime proposals can only switch the active role
+    /// to one of these pre-vetted clients (AD-152, no silent swaps).
+    pub provider_pool: HashMap<String, crate::model_gateway::ProviderClient>,
+    /// Active provider id per governed model role. The map is kernel-owned
+    /// and changes only in post-approval model-swap activation.
+    pub active_model_providers:
+        parking_lot::RwLock<HashMap<openspine_schemas::model_swap::ModelRole, String>>,
+    pub provider_config_digests: HashMap<String, openspine_schemas::digest::Digest>,
     /// Backs `GET /v1/status`'s `uptime_seconds`.
     pub started_at: std::time::Instant,
     /// `data/artifacts.d` overlay dir (5a/5d): approved `artifact.propose`

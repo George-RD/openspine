@@ -19,6 +19,10 @@ pub enum JudgeDenial {
     UnknownAction(String),
     #[error("action `{0}` is both allowed and denied")]
     AllowDenyConflict(String),
+    #[error("model swap is missing kernel-verified golden-set results")]
+    MissingGoldenSetResults,
+    #[error("model swap has no passing adversarial golden-set case")]
+    AdversarialCaseFailed,
 }
 
 pub(super) fn evaluate(
@@ -26,6 +30,39 @@ pub(super) fn evaluate(
     proposal: &ParsedProposal,
     digest: &Digest,
 ) -> Result<JudgePassed, JudgeDenial> {
+    if let ParsedProposal::ModelSwap(swap) = proposal {
+        let result = swap
+            .golden_set_result
+            .as_ref()
+            .ok_or(JudgeDenial::MissingGoldenSetResults)?;
+        let adversarial = result
+            .cases
+            .iter()
+            .filter(|case| {
+                matches!(
+                    case.kind,
+                    openspine_schemas::model_swap::GoldenSetCaseKind::Adversarial
+                )
+            })
+            .collect::<Vec<_>>();
+        if adversarial.is_empty() || adversarial.iter().any(|case| !case.passed) {
+            return Err(JudgeDenial::AdversarialCaseFailed);
+        }
+        let evidence = json!({
+            "probe": "golden-set-adversarial-cases",
+            "golden_set_id": result.golden_set_id,
+            "golden_set_digest": result.golden_set_digest,
+            "adversarial_cases": adversarial.len(),
+            "adversarial_passed": adversarial.iter().filter(|case| case.passed).count(),
+            "artifact_digest": digest.as_str(),
+        });
+        return Ok(JudgePassed {
+            verdict: "pass",
+            fitness: Some(1.0),
+            evidence_json: evidence.to_string(),
+            artifact_digest: digest.as_str().to_string(),
+        });
+    }
     let mut declared = Vec::new();
     let mut denied = Vec::new();
     match proposal {
@@ -49,6 +86,25 @@ pub(super) fn evaluate(
             declared.extend(policy.candidate_allowed_actions.iter());
             declared.extend(policy.approval_required.iter());
             denied.extend(policy.denied_actions.iter());
+        }
+        ParsedProposal::ModelSwap(swap) => {
+            let result = swap
+                .golden_set_result
+                .as_ref()
+                .ok_or(JudgeDenial::MissingGoldenSetResults)?;
+            let adversarial = result
+                .cases
+                .iter()
+                .filter(|case| {
+                    matches!(
+                        case.kind,
+                        openspine_schemas::model_swap::GoldenSetCaseKind::Adversarial
+                    )
+                })
+                .collect::<Vec<_>>();
+            if adversarial.is_empty() || adversarial.iter().any(|case| !case.passed) {
+                return Err(JudgeDenial::AdversarialCaseFailed);
+            }
         }
     }
     for action in &declared {

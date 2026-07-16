@@ -71,10 +71,14 @@ pub(crate) use replay::ReplayDenial;
 /// approval button for it.
 #[derive(Debug, thiserror::Error)]
 pub enum GateDenial {
+    #[error("model swaps require the verified golden-set runner")]
+    ModelSwapRequiresVerifiedRunner,
     #[error("offline replay failed: {0}")]
     Replay(#[from] ReplayDenial),
     #[error("risk-judge pass failed: {0}")]
     Judge(#[from] JudgeDenial),
+    #[error("approval summary exceeds the bounded safety limit")]
+    ApprovalSummaryTooLong,
 }
 
 /// Unforgeable proof the offline replay evaluator ran to completion and
@@ -147,6 +151,9 @@ pub fn run_gate(
     proposal: &ParsedProposal,
     artifact_digest: &Digest,
 ) -> Result<GateEvidence, GateDenial> {
+    if matches!(proposal, ParsedProposal::ModelSwap(_)) {
+        return Err(GateDenial::ModelSwapRequiresVerifiedRunner);
+    }
     let replay = replay::evaluate(store, proposal, artifact_digest)?;
     let judge = judge::evaluate(catalog, proposal, artifact_digest)?;
     let summary = format!(
@@ -156,6 +163,62 @@ pub fn run_gate(
         judge.verdict(),
         judge.evidence_json(),
     );
+    Ok(GateEvidence {
+        replay,
+        judge,
+        summary,
+    })
+}
+/// Run the model-swap branch after `model_swap::enrich` has executed the
+/// trusted golden set. Keeping this separate from [`run_gate`] prevents a
+/// caller from treating deserialized `passed` booleans as generic replay
+/// proof; the dispatcher reaches this function only after enrichment.
+pub(crate) fn run_model_swap_gate(
+    store: &Store,
+    catalog: &ActionCatalog,
+    proposal: &ParsedProposal,
+    artifact_digest: &Digest,
+) -> Result<GateEvidence, GateDenial> {
+    if !matches!(proposal, ParsedProposal::ModelSwap(_)) {
+        return Err(GateDenial::ModelSwapRequiresVerifiedRunner);
+    }
+    let replay = replay::evaluate(store, proposal, artifact_digest)?;
+    let judge = judge::evaluate(catalog, proposal, artifact_digest)?;
+    let summary = if let ParsedProposal::ModelSwap(manifest) = proposal {
+        let observed_cases: Vec<_> = manifest
+            .golden_set_result
+            .as_ref()
+            .map(|result| {
+                result
+                    .cases
+                    .iter()
+                    .map(|case| {
+                        serde_json::json!({
+                            "case_id": case.case_id,
+                            "kind": case.kind,
+                            "passed": case.passed,
+                            "observed_excerpt": case.observed_excerpt.chars().take(120).collect::<String>(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        format!(
+            "AD-152 model-swap golden-set gate — role: {} target_provider_id: {}; observed_cases: {}; replay: {} ({}); risk judge: {} ({})",
+            manifest.role.as_str(),
+            manifest.target_provider_id,
+            serde_json::to_string(&observed_cases).unwrap_or_default(),
+            replay.verdict(),
+            replay.evidence_json(),
+            judge.verdict(),
+            judge.evidence_json(),
+        )
+    } else {
+        unreachable!("model-swap gate checked the proposal kind above")
+    };
+    if summary.encode_utf16().count() > 3_500 {
+        return Err(GateDenial::ApprovalSummaryTooLong);
+    }
     Ok(GateEvidence {
         replay,
         judge,
