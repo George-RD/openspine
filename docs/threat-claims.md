@@ -36,6 +36,9 @@ exist in the workspace.
  | CLAIM-23 | Selection-token validation (bound grant, missing/expired/foreign/wrong-type) is a `gate()` decision property, not a dispatch-site check | `test: token_requiring_action_denied_for_foreign_grant` |
  | CLAIM-24 | The kernel re-derives the payload digest at approval-effect time and denies the effect if the stored payload was mutated since approval; no shell-supplied digest is trusted | `test: payload_mutated_since_approval_is_denied_and_creates_no_draft` |
  | CLAIM-25 | `answerCallbackQuery` is a control-plane ack with no security effect and is classified as a non-effect path (no `gate()` authority) | `test: answer_callback_query_is_a_control_plane_ack_with_no_security_effect` |
+| CLAIM-26 | Authenticated Macaroons-simple grant chains reject authority, identity, selection-token, caveat-order, and lineage tampering | `test: id_parent_and_action_list_tamper_fail` `test: selection_token_tamper_invalidates_mac` `test: caveat_reorder_or_remove_invalidates_mac` `test: identity_field_tamper_invalidates_mac` |
+| CLAIM-27 | Shadow grants are represented as a non-executable gate decision and do not run effects | `test: shadow_allow_is_non_executable_effect_suppressed` `test: shadow_grant_effect_suppressed_skips_effect_handler` |
+| CLAIM-28 | AD-036 bound-parameter caveats cannot conflict or be widened across a chain | `test: bound_parameter_conflict_is_caveat_widening` |
 
 ## Notes
 

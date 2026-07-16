@@ -82,6 +82,10 @@ impl GateContext for Store {
             }
         }
     }
+
+    fn grant_hmac_key(&self) -> Option<Vec<u8>> {
+        crate::grant_hmac_key()
+    }
 }
 
 pub fn router(state: Arc<AppState>) -> Router {

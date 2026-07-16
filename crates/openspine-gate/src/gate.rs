@@ -33,6 +33,12 @@ pub trait GateContext {
     /// `gate()` body — declared now so the trait boundary is stable before
     /// Step 5 wires selection-token validation into connector dispatch.
     fn find_selection_token(&self, id: Ulid) -> Option<SelectionToken>;
+
+    /// Kernel-owned HMAC verification key. `None` fails closed — every
+    /// grant presented to `gate()` MUST carry a verified chain tip.
+    fn grant_hmac_key(&self) -> Option<Vec<u8>> {
+        None
+    }
 }
 
 /// Where an action request originates from (D-055.3).
@@ -93,8 +99,17 @@ pub fn gate(
     catalog: &ActionCatalog,
     now: Timestamp,
 ) -> GateOutcome {
+    let mut decision = resolve(grant, req, origin, ctx, catalog, now);
+    if grant.mode == openspine_schemas::grant::GrantMode::Shadow
+        && matches!(
+            decision,
+            GateDecision::Allow | GateDecision::ApprovalRequired { .. }
+        )
+    {
+        decision = GateDecision::EffectSuppressed;
+    }
     GateOutcome {
-        decision: resolve(grant, req, origin, ctx, catalog, now),
+        decision,
         audit: AuditMeta {
             action: req.action.clone(),
             task_grant_id: grant.id,
@@ -106,6 +121,20 @@ pub fn gate(
     }
 }
 
+fn chain_valid(grant: &TaskGrant, ctx: &dyn GateContext) -> bool {
+    // Spec: every TaskGrant MUST carry an authenticated chain. Empty tip,
+    // missing key, structural mismatch, or unsupported caveats all fail closed.
+    if grant.caveat_mac.is_empty() {
+        return false;
+    }
+    let Some(key) = ctx.grant_hmac_key() else {
+        return false;
+    };
+    grant.verify_mac(&key)
+        && openspine_schemas::grant_chain::chain_structurally_valid(grant)
+        && !openspine_schemas::grant_chain::has_unsupported_caveats(grant)
+}
+
 fn resolve(
     grant: &TaskGrant,
     req: &ActionRequest,
@@ -114,6 +143,13 @@ fn resolve(
     catalog: &ActionCatalog,
     now: Timestamp,
 ) -> GateDecision {
+    // D-004: authority/MAC failures classify as CaveatWidening even when the
+    // grant is also expired — chain integrity is checked before expiry.
+    if !chain_valid(grant, ctx) || !openspine_schemas::grant_chain::bindings_valid(grant) {
+        return GateDecision::Deny {
+            reason: DenialReason::CaveatWidening,
+        };
+    }
     if grant.is_expired(now) {
         return GateDecision::Deny {
             reason: DenialReason::GrantExpired,
@@ -162,11 +198,11 @@ fn resolve(
         }
     }
 
-    if grant.approval_required_actions.contains(&req.action) {
+    if grant.effectively_approval_required(&req.action) {
         return resolve_approval_required(req, ctx, now);
     }
 
-    if grant.allowed_actions.contains(&req.action) {
+    if grant.effectively_allows(&req.action) {
         return GateDecision::Allow;
     }
 

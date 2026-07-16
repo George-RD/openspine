@@ -114,7 +114,7 @@ pub(crate) fn mint_grant_with_selection_token(
     };
     state.store.insert_selection_token(&token).unwrap();
 
-    let grant = TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -140,7 +140,13 @@ pub(crate) fn mint_grant_with_selection_token(
             max_runtime_seconds: 120,
         },
         task_token: Ulid::new().to_string(),
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
     };
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let pending_ref = state.artifacts.put(b"test pending".as_slice()).unwrap();
     state
         .store
@@ -248,8 +254,12 @@ async fn email_read_selected_thread_rejects_foreign_grant() {
 
     let mut foreign_grant = grant.clone();
     foreign_grant.id = Ulid::new();
+    foreign_grant.root_grant_id = foreign_grant.id;
+    foreign_grant.parent_grant_id = None;
     foreign_grant.task_token = Ulid::new().to_string();
     foreign_grant.selection_tokens = vec![];
+    // Re-seal so chain_valid passes; denial must come from the unbound token.
+    foreign_grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let pending_ref = state.artifacts.put(b"foreign pending".as_slice()).unwrap();
     state
         .store

@@ -321,6 +321,11 @@ pub fn compose_authority(
             max_runtime_seconds,
         },
         task_token: mint_task_token(),
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
     };
 
     AuthorityOutcome::Granted(Box::new(grant))

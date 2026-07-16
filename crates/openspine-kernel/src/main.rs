@@ -35,6 +35,22 @@ use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
 use clap::Parser;
 
+/// Kernel-owned grant-chain verification key. Production requires explicit
+/// secret intake; tests use a deterministic fixture key only under cfg(test).
+pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
+    #[cfg(test)]
+    {
+        Some(b"openspine-test-grant-hmac-key-v1".to_vec())
+    }
+    #[cfg(not(test))]
+    {
+        std::env::var("OPENSPINE_GRANT_HMAC_KEY")
+            .ok()
+            .filter(|key| !key.is_empty())
+            .map(|key| key.into_bytes())
+    }
+}
+
 /// The kernel binary's own CLI — distinct from `openspine-shell`'s (which
 /// takes `--kernel`/`--task`, never a config path: the shell never reads
 /// `openspine.yaml`, only `KERNEL_ENDPOINT`/`TASK_TOKEN`, see

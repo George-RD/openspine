@@ -168,8 +168,12 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
         requested_at: now,
         schema_version: 1,
     };
+    let Some(notify_grant) = kernel_notify_grant() else {
+        tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
+        return;
+    };
     let outcome = gate(
-        &kernel_notify_grant(),
+        &notify_grant,
         &request,
         ActionOrigin::Kernel,
         &state.store,
@@ -211,15 +215,14 @@ async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
     }
 }
 
-/// A minimal, synthetically-composed grant used solely to give `gate()` a
-/// context for a kernel-originated owner notification (D-055.2).
-/// `owner.notify` is the only trusted kernel-origin action, so `gate()` with
-/// `ActionOrigin::Kernel` auto-allows it and denies anything else; the
-/// synthetic grant's fields are never inspected for a trusted kernel-origin
-/// action, so their values are inert here.
-fn kernel_notify_grant() -> TaskGrant {
+/// Synthetic grant for kernel-origin `owner.notify` (D-055.2). `gate()` with
+/// `ActionOrigin::Kernel` auto-allows only the trusted-origin set. Returns
+/// `None` when the HMAC key is unavailable — callers must skip the effect
+/// (fail-closed), not present an unsealed grant to `gate()`.
+fn kernel_notify_grant() -> Option<TaskGrant> {
+    let key = crate::grant_hmac_key()?;
     let now = Timestamp::now();
-    TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -245,7 +248,14 @@ fn kernel_notify_grant() -> TaskGrant {
             max_runtime_seconds: 0,
         },
         task_token: String::new(),
-    }
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+    };
+    grant.seal_root(&key);
+    Some(grant)
 }
 
 /// Long-poll Telegram forever, dispatching every verified owner update

@@ -60,6 +60,9 @@ async fn send_reply(client: &KernelClient, text: &str) -> Result<()> {
         GateDecision::ApprovalRequired { ref approval_type } => {
             eprintln!("[openspine-shell] WARN: telegram reply needs approval: {approval_type}");
         }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: telegram reply effect suppressed");
+        }
     }
     Ok(())
 }
@@ -87,6 +90,10 @@ async fn cmd_status(client: &KernelClient) -> Result<()> {
             );
             Ok(())
         }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: status effect suppressed");
+            Ok(())
+        }
     }
 }
 
@@ -107,6 +114,10 @@ async fn cmd_setup(client: &KernelClient) -> Result<()> {
             eprintln!(
                 "[openspine-shell] WARN: setup.workflow.start requires approval: {approval_type}"
             );
+            Ok(())
+        }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: setup workflow effect suppressed");
             Ok(())
         }
     }
@@ -147,6 +158,10 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
             );
             Ok(())
         }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: artifact proposal effect suppressed");
+            Ok(())
+        }
     }
 }
 
@@ -169,6 +184,10 @@ async fn cmd_freeform(client: &KernelClient, message: &str) -> Result<()> {
         }
         GateDecision::ApprovalRequired { ref approval_type } => {
             eprintln!("[openspine-shell] WARN: model.generate requires approval: {approval_type}");
+            Ok(())
+        }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: model.generate effect suppressed");
             Ok(())
         }
     }
