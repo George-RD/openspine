@@ -3,14 +3,12 @@
 ## Purpose
 
 Define explicit, versioned schemas for every core OpenSpine runtime object — event envelope, identity, route, task grant, action request, gate decision, approval, artifact, audit — before runtime implementation relies on them, so identity, routing, and authority stay structurally separated from the start.
-
 ## Requirements
-
 ### Requirement: OpenSpine core runtime objects MUST have explicit schemas
 
 OpenSpine core runtime objects MUST have explicit schemas before runtime implementation relies on them.
 
-Core runtime objects MUST include event envelope, identity resolution, route artifact, agent manifest, workflow manifest, capability pack, authority composition input/output, task grant, action request, gate decision, approval record, selection token, model request, audit event, and artifact reference.
+Core runtime objects MUST include event envelope, identity resolution, route artifact, agent manifest, workflow manifest, capability pack, authority composition input/output, task grant, action request, gate decision, approval record, selection token, model request, audit event, artifact reference, and principal.
 
 #### Scenario: Runtime object is added
 
@@ -31,9 +29,11 @@ Then it MUST include source, connector, event type, verified source, verificatio
 
 ### Requirement: Identity schemas MUST NOT grant runtime authority
 
-Identity records MUST store entity knowledge only.
+Identity and Principal records MUST store entity knowledge only.
 
-Identity records MUST NOT directly attach live capability packs, active routes, live tool access, or task grants.
+Identity and Principal records MUST NOT directly attach live capability packs, active routes, live tool access, or task grants.
+
+Identity resolution MUST return an optional principal_id that is Some only for the owner in v1.
 
 #### Scenario: Known owner identity exists
 
@@ -156,3 +156,4 @@ Given a model request includes private email context
 When audit is written
 Then raw private content MUST NOT be written directly into the audit event.
 And the audit event MUST reference protected artifact refs and hashes.
+
