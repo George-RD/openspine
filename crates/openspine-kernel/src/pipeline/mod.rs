@@ -39,9 +39,7 @@ use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionCatalog, ActionId, ActionRequest, GateDecision};
 use openspine_schemas::artifact::Lifecycle;
-use openspine_schemas::event::{ChannelTrust, EventEnvelope};
 use openspine_schemas::grant::{GrantLimits, TaskGrant};
-use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType};
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use ulid::Ulid;
 
@@ -70,6 +68,8 @@ pub struct AppState {
     pub action_handlers: ActionHandlerRegistry,
     pub connectors: ConnectorRegistry,
     pub owner_user_id: i64,
+    pub owner_principal_id: Ulid,
+    pub owner_identity_id: Ulid,
     /// e.g. `http://127.0.0.1:7777` — passed to the shell as `KERNEL_ENDPOINT`.
     pub kernel_endpoint: String,
     /// D-025 / PRD §16 escape hatch. See [`sandbox::refuses_external_communication_without_containment`].
@@ -106,32 +106,6 @@ fn empty_session_policy() -> SessionPolicy {
 /// grant of authority itself (D-006) — but by the time this runs, the
 /// Telegram connector has already verified sender id + private chat, so
 /// confidence is 1.0 and `source_verified` is `true` unconditionally.
-///
-/// `channel_trust` is caller-supplied, not hardcoded (D-038): both
-/// pipelines share the identical underlying signal (a Telegram sender-id and
-/// private-chat match — Phase 1/2 has no separate "device" attestation), but
-/// the PRD's own route fixtures require a *stronger* trust tier for the
-/// external-communication-triggering selection flow (`owner_device`,
-/// `owner_email_selected_thread.yaml`) than for ordinary owner-control chat
-/// (`verified_owner_channel`, `owner_telegram_main_assistant.yaml`) — see
-/// D-038 for why this is a real distinction here, not an inconsistency to
-/// paper over.
-fn resolve_owner_identity(
-    envelope: &EventEnvelope,
-    channel_trust: ChannelTrust,
-) -> IdentityResolution {
-    IdentityResolution {
-        event_id: envelope.id,
-        matched_identity_id: None,
-        confidence: 1.0,
-        matched_identifier_type: MatchedIdentifierType::TelegramUserId,
-        channel_trust,
-        source_verified: true,
-        authority_warning: None,
-        schema_version: 1,
-    }
-}
-
 /// Best-effort owner notification for a pipeline failure the owner can
 /// actually act on (a `/draft` failure, a post-approval draft-creation
 /// failure) — distinct from a security denial (route/authority reject
@@ -318,12 +292,18 @@ pub async fn handle_owner_update(
     state: &AppState,
     update: &telegram::TelegramUpdate,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let (chat_id, text) = match telegram::verify_update(update, state.owner_user_id) {
-        VerifiedUpdate::OwnerMessage { chat_id, text } => (chat_id, text),
+    let (chat_id, text, owner_verified) = match telegram::verify_update(update, state.owner_user_id)
+    {
+        VerifiedUpdate::OwnerMessage {
+            chat_id,
+            text,
+            context,
+        } => (chat_id, text, Some(context)),
         VerifiedUpdate::OwnerCallback {
             chat_id,
             callback_query_id,
             data,
+            context: _,
         } => {
             if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
                 handle_draft_approval_callback(
@@ -364,6 +344,25 @@ pub async fn handle_owner_update(
             return Ok(None);
         }
     };
+    if let Some((channel_user_id, relationship_str)) = telegram::parse_bind_command(&text) {
+        let proof = owner_verified.as_ref().unwrap();
+        match crate::identity::handle_owner_bind(
+            &state.store,
+            state.owner_principal_id,
+            state.owner_identity_id,
+            proof,
+            channel_user_id,
+            relationship_str,
+        ) {
+            Ok(msg) => {
+                notify_owner_best_effort(state, chat_id, &msg).await;
+            }
+            Err(msg) => {
+                notify_owner_best_effort(state, chat_id, &msg).await;
+            }
+        }
+        return Ok(None);
+    }
 
     // D-036 / design.md: the `/draft <thread_id>` command is the entire
     // trust boundary for "did the owner select this thread" — it is
@@ -380,6 +379,7 @@ pub async fn handle_owner_update(
         chat_id,
         text,
         thread_id,
+        owner_verified,
     };
     run_pipeline(state, spec, &inputs, Timestamp::now(), &mut Vec::new()).await
 }

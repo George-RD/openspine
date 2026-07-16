@@ -31,8 +31,11 @@ pub(crate) mod fixtures {
         // 5a/5d: a per-test overlay dir so activation tests can assert the
         // on-disk overlay file without touching the real fixture tree.
         let overlay_dir = tempfile::tempdir().unwrap().keep();
+        let store = Store::open_in_memory().unwrap();
+        let owner_principal = store.bootstrap_owner_principal(42, "George").unwrap();
+
         AppState {
-            store: Store::open_in_memory().unwrap(),
+            store,
             artifacts: ArtifactStore::open(artifacts_dir, key).unwrap(),
             registry: parking_lot::RwLock::new(registry),
             action_catalog: crate::action_catalog::canonical_catalog(),
@@ -40,6 +43,8 @@ pub(crate) mod fixtures {
             connectors: ConnectorRegistry::new(telegram, gmail),
             action_handlers: ActionHandlerRegistry::default_registrations(),
             owner_user_id: 42,
+            owner_principal_id: owner_principal.id,
+            owner_identity_id: owner_principal.identity_id,
             kernel_endpoint: "http://127.0.0.1:0".to_string(),
             unsafe_allow_uncontained_private_data: false,
             provider: ProviderClient::from_config(

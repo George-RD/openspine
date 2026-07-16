@@ -190,6 +190,7 @@ mod tests {
         IdentityResolution {
             event_id: Ulid::new(),
             matched_identity_id: Some(Ulid::new()),
+            principal_id: Some(Ulid::new()),
             confidence: 1.0,
             matched_identifier_type:
                 openspine_schemas::identity::MatchedIdentifierType::TelegramUserId,

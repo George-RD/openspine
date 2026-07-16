@@ -83,11 +83,28 @@ fn project_update(update: &teloxide::types::Update) -> TelegramUpdate {
     }
 }
 
+/// A token proving owner verification. Can only be constructed inside `telegram.rs`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VerifiedOwnerContext {
+    _private: (),
+}
+
+#[cfg(test)]
+impl VerifiedOwnerContext {
+    pub(crate) fn test_new() -> Self {
+        Self { _private: () }
+    }
+}
+
 /// Outcome of verifying one update against the configured owner id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerifiedUpdate {
     /// A text message from the configured owner, in their private chat.
-    OwnerMessage { chat_id: i64, text: String },
+    OwnerMessage {
+        chat_id: i64,
+        text: String,
+        context: VerifiedOwnerContext,
+    },
     /// A tap on an inline keyboard button from the configured owner, in
     /// their private chat (D-039) — same verification guarantee as
     /// `OwnerMessage`, just a different input shape.
@@ -95,6 +112,7 @@ pub enum VerifiedUpdate {
         chat_id: i64,
         callback_query_id: String,
         data: String,
+        context: VerifiedOwnerContext,
     },
     /// Anything else — non-owner sender, no sender, a non-text/callback
     /// update, or (even from the owner) a non-private chat. Audited and
@@ -121,6 +139,7 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
                 chat_id: update.chat_id,
                 callback_query_id: cb.id.clone(),
                 data: data.clone(),
+                context: VerifiedOwnerContext { _private: () },
             },
             (Some(_), Some(_)) => VerifiedUpdate::Ignored {
                 reason: "unknown_telegram_user",
@@ -142,6 +161,7 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
         (Some(uid), Some(text)) if uid == owner_user_id => VerifiedUpdate::OwnerMessage {
             chat_id: update.chat_id,
             text: text.clone(),
+            context: VerifiedOwnerContext { _private: () },
         },
         (Some(_), Some(_)) => VerifiedUpdate::Ignored {
             reason: "unknown_telegram_user",
@@ -197,6 +217,19 @@ pub fn parse_draft_command(text: &str) -> Option<&str> {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
     valid.then_some(id)
+}
+
+pub fn parse_bind_command(text: &str) -> Option<(&str, &str)> {
+    let rest = text.trim().strip_prefix("/bind")?;
+    // Require a whitespace boundary right after the literal `/bind` token
+    let rest = rest.strip_prefix(' ')?;
+    let mut parts = rest.split_whitespace();
+    let channel_user_id = parts.next()?;
+    let relationship = parts.next()?;
+    if parts.next().is_some() {
+        return None; // too many arguments
+    }
+    Some((channel_user_id, relationship))
 }
 
 /// Build the PRD §4.1/§4.2A `telegram.owner.message` envelope for a

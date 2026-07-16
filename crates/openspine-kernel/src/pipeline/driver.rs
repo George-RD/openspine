@@ -1,20 +1,7 @@
-//! The single typed pipeline driver plus the two compiled-in lane
-//! specifications.
-//! Every prior hardcoded event flow is now one [`LaneSpec`] interpreted by
-//! [`run_pipeline`]: the owner-control lane and the selected-thread email
-//! preview lane. The nine-stage sequence is declared once as
-//! [`PipelineStage::SEQUENCE`]; the driver executes its synchronous prefix
-//! ([`PipelineStage::SYNC_PREFIX`]) in that fixed order, so the enum is the
-//! executable stage plan, not documentation. The per-lane stage behavior
-//! lives in [`super::lanes`] as plain hook functions the driver invokes
-//! through the `LaneSpec` fn-pointer record.
+//! The single typed pipeline driver and lane specifications.
 //!
-//! This module MUST NOT import or call `gate()`. Gate is a distributed
-//! runtime stage that executes at the shell's action/model dispatch surfaces
-//! and the approval callback (see `api/actions.rs`, `api/generate.rs`,
-//! `pipeline/approval.rs` and design.md) — never inside this driver's
-//! synchronous prefix. `SYNC_PREFIX` deliberately stops at `Run` and does not
-//! contain `Gate`; the unit tests pin that placement.
+//! Exposes `run_pipeline` which executes the synchronous prefix of stages.
+//! MUST NOT import or call `gate()`.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -24,14 +11,13 @@ use openspine_authority::{compose_authority, resolve_route, AuthorityInput, Auth
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::event::{ChannelTrust, EventEnvelope, Lane};
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::identity::RelationshipKind;
 use openspine_schemas::route::RouteResolution;
 
 use super::lanes::{
     email_build_envelope, email_grant_binding, email_preflight, email_route_guard,
     owner_build_envelope, owner_grant_binding, owner_preflight, owner_route_guard,
 };
-use super::{empty_session_policy, notify_owner_best_effort, resolve_owner_identity, AppState};
+use super::{empty_session_policy, notify_owner_best_effort, AppState};
 
 /// The nine pipeline stages, declared once. `Gate` and `Audit` name the whole
 /// pipeline honestly (gate is a distributed runtime stage; audit is woven
@@ -95,11 +81,10 @@ pub struct EventInputs {
     pub chat_id: i64,
     pub text: String,
     pub thread_id: Option<String>,
+    pub owner_verified: Option<crate::telegram::VerifiedOwnerContext>,
 }
 
-/// A preflight verification failure. The driver maps each variant onto the
-/// exact audit event + owner notification the prior flow emitted — no
-/// `event.received` is ever emitted on these paths.
+/// A preflight verification failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreflightFailure {
     GmailNotConfigured,
@@ -108,9 +93,7 @@ pub enum PreflightFailure {
     GmailError { err: String },
 }
 
-/// Async preflight adapter: lane verification that runs in the `Verify`
-/// stage before the event envelope is built. Returns `Err` to short-circuit
-/// the pipeline with a [`PreflightFailure`].
+/// Async preflight adapter hook.
 pub type PreflightFn =
     for<'a> fn(
         &'a AppState,
@@ -119,8 +102,7 @@ pub type PreflightFn =
         Timestamp,
     ) -> Pin<Box<dyn Future<Output = Result<(), PreflightFailure>> + Send + 'a>>;
 
-/// Builds the verified event envelope (and its `raw_ref`) after preflight
-/// succeeds. Sync: it only stores an artifact and constructs the envelope.
+/// Builds the event envelope.
 pub type BuildEnvelopeFn =
     fn(&AppState, &EventInputs, Timestamp) -> anyhow::Result<(EventEnvelope, ArtifactRef)>;
 
@@ -224,14 +206,24 @@ pub async fn run_pipeline(
     )?;
 
     // Identify stage.
+    // Identify stage.
     trace.push(PipelineStage::Identify);
-    let identity = resolve_owner_identity(&envelope, spec.channel_trust);
+    let resolver = crate::identity::IdentityResolver::new(
+        &state.store,
+        state.owner_principal_id,
+        state.owner_identity_id,
+    );
+    let (identity, relationship) = resolver.resolve(
+        envelope.id,
+        spec.channel_trust,
+        envelope.actor_hint.channel_user_id.as_deref(),
+        inputs.owner_verified.as_ref(),
+    )?;
 
     // Route stage.
     trace.push(PipelineStage::Route);
     let routes = state.registry.read().routes.clone();
-    let route_resolution =
-        resolve_route(&envelope, &identity, Some(RelationshipKind::Owner), &routes);
+    let route_resolution = resolve_route(&envelope, &identity, relationship, &routes);
     let route_id = match route_resolution {
         RouteResolution::Success { route_id } => route_id,
         RouteResolution::Denied { reason } => {
@@ -306,7 +298,9 @@ pub async fn run_pipeline(
 
     // Compose stage.
     trace.push(PipelineStage::Compose);
-    let user = state.owner_user_id.to_string();
+    let principal_id = identity
+        .principal_id
+        .ok_or_else(|| anyhow::anyhow!("no principal resolved for owner event"))?;
     let session = empty_session_policy();
     let input = AuthorityInput {
         event: &envelope,
@@ -317,7 +311,7 @@ pub async fn run_pipeline(
         workflow: &workflow,
         pack: &pack,
         session: &session,
-        user: &user,
+        principal_id,
         purpose: spec.purpose,
     };
     let mut grant = match compose_authority(&input, &state.action_catalog, now) {

@@ -18,13 +18,14 @@ fn update(sender: Option<i64>, text: Option<&str>) -> TelegramUpdate {
 #[test]
 fn configured_owner_text_message_is_verified() {
     let result = verify_update(&update(Some(42), Some("hello")), 42);
-    assert_eq!(
+    assert!(matches!(
         result,
         VerifiedUpdate::OwnerMessage {
             chat_id: 555,
-            text: "hello".to_string()
-        }
-    );
+            text,
+            ..
+        } if text == "hello"
+    ));
 }
 
 #[test]

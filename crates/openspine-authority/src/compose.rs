@@ -47,11 +47,8 @@ pub struct AuthorityInput<'a> {
     pub workflow: &'a WorkflowManifest,
     pub pack: &'a CapabilityPack,
     pub session: &'a SessionPolicy,
-    /// The user id the resulting task grant is issued to (PRD §12's `user`
-    /// field). Not derivable from the other inputs alone — `IdentityResolution`
-    /// carries a `matched_identity_id: Ulid`, but the grant's `user` is a
-    /// stable user-facing id the kernel already knows.
-    pub user: &'a str,
+    /// The principal id the resulting task grant is issued to (AD-146).
+    pub principal_id: Ulid,
     /// The specific task purpose (PRD §12's `purpose`, e.g.
     /// `draft_reply_for_selected_email_thread`) — distinct from
     /// `workflow.purpose`, which is a general description of what the
@@ -293,7 +290,7 @@ pub fn compose_authority(
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: input.user.to_string(),
+        user: input.principal_id.to_string(),
         purpose: input.purpose.to_string(),
         issued_by: "kernel".to_string(),
         issued_at,

@@ -89,6 +89,7 @@ pub fn owner_identity() -> IdentityResolution {
     IdentityResolution {
         event_id: Ulid::new(),
         matched_identity_id: Some(Ulid::new()),
+        principal_id: Some(Ulid::new()),
         confidence: 1.0,
         matched_identifier_type: MatchedIdentifierType::TelegramUserId,
         channel_trust: ChannelTrust::VerifiedOwnerChannel,
@@ -426,7 +427,7 @@ pub fn owner_control_input<'a>(
         workflow,
         pack,
         session,
-        user: "owner",
+        principal_id: ulid::Ulid::new(),
         purpose: "owner_control_conversation",
     }
 }
