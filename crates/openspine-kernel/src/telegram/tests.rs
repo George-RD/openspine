@@ -175,3 +175,17 @@ async fn answer_callback_query_is_a_control_plane_ack_with_no_security_effect() 
     // control-plane ack. `wiremock` panics on an unmet `.expect(1)` at
     // drop, so the assertion is enforced by the mock's lifetime.
 }
+
+#[test]
+fn plan_approval_callback_requires_exact_prefix_and_ulid() {
+    let id = ulid::Ulid::new();
+    assert_eq!(
+        parse_approve_plan_callback(&format!("approve_plan:{id}")),
+        Some(id)
+    );
+    assert_eq!(
+        parse_approve_plan_callback("approve_draft:01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+        None
+    );
+    assert_eq!(parse_approve_plan_callback("approve_plan:not-a-ulid"), None);
+}

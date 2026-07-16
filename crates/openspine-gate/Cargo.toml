@@ -13,3 +13,6 @@ all = "warn"
 openspine-schemas = { path = "../openspine-schemas" }
 jiff.workspace = true
 ulid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

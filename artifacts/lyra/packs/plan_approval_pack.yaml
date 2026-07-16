@@ -1,0 +1,27 @@
+# Candidate authority profile for plan proposal and approval.
+# D-016: this pack is not live authority until a route references it.
+id: plan_approval_pack
+schema_version: 1
+lifecycle_state: active
+applies_to:
+  event_type: telegram.owner.message
+  relationship: owner
+  channel_trust: verified_owner_channel
+  verified_source: true
+  lane: owner_control
+candidate_allowed_actions:
+  - openspine.status.read
+  - plan.propose
+approval_required:
+  - plan.execute
+denied_actions:
+  - email.send
+  - network.raw_egress
+  - filesystem.host_read
+  - filesystem.host_write
+  - vault.secret_read
+constraints:
+  data_classification_max: private
+  external_visibility_max: owner_channel_reply
+  recovery_required: revert_or_compensate
+  max_runtime_seconds: 120

@@ -100,6 +100,20 @@ fn owner_control_pack_round_trips() {
 }
 
 #[test]
+fn plan_approval_pack_round_trips_and_declares_plan_actions() {
+    let pack: CapabilityPack =
+        serde_yaml::from_str(&read("packs/plan_approval_pack.yaml")).unwrap();
+    assert_eq!(pack.id, "plan_approval_pack");
+    assert!(pack
+        .candidate_allowed_actions
+        .iter()
+        .any(|action| action.as_str() == "plan.propose"));
+    assert!(pack
+        .approval_required
+        .iter()
+        .any(|action| action.as_str() == "plan.execute"));
+}
+#[test]
 fn workflow_manifests_round_trip() {
     let w: WorkflowManifest =
         serde_yaml::from_str(&read("workflows/owner_control_conversation.yaml")).unwrap();
@@ -130,5 +144,9 @@ fn every_fixture_file_is_covered_by_a_test() {
             found.push(entry.unwrap().path());
         }
     }
-    assert_eq!(found.len(), 9, "expected 9 fixture files, found {found:?}");
+    assert_eq!(
+        found.len(),
+        10,
+        "expected 10 fixture files, found {found:?}"
+    );
 }

@@ -82,8 +82,8 @@ pub(crate) fn request_for(action: &str) -> ActionRequest {
 }
 
 #[derive(Default)]
-struct MockContext {
-    approvals: HashMap<Ulid, ApprovalRecord>,
+pub(crate) struct MockContext {
+    pub(crate) approvals: HashMap<Ulid, ApprovalRecord>,
 }
 
 impl GateContext for MockContext {
@@ -99,7 +99,11 @@ impl GateContext for MockContext {
     }
 }
 
-fn approval_for(req: &ActionRequest, decision: ApprovalDecision, ttl_secs: i64) -> ApprovalRecord {
+pub(crate) fn approval_for(
+    req: &ActionRequest,
+    decision: ApprovalDecision,
+    ttl_secs: i64,
+) -> ApprovalRecord {
     let now = Timestamp::now();
     ApprovalRecord {
         id: Ulid::new(),

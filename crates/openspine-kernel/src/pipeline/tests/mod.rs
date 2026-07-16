@@ -4,6 +4,7 @@ use crate::test_support::fixtures::*;
 mod approval;
 mod driver;
 mod effect_paths;
+mod plan;
 
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {

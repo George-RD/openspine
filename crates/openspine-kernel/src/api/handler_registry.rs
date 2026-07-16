@@ -21,6 +21,7 @@ use super::actions::{
     TelegramReplyPayload,
 };
 use super::artifact_propose::dispatch_artifact_propose;
+use super::plan::dispatch_plan_preview;
 
 /// The boxed future every handler returns. Must be `Send` because dispatch
 /// runs on the axum request task.
@@ -54,6 +55,7 @@ impl ActionHandlerRegistry {
         );
         map.insert("lyra.ui.preview", handle_lyra_preview as ActionHandler);
         map.insert("artifact.propose", handle_artifact_propose as ActionHandler);
+        map.insert("plan.propose", handle_plan_propose as ActionHandler);
         map.insert(
             "workflow.invoke:approved",
             handle_workflow_invoke as ActionHandler,
@@ -133,6 +135,23 @@ fn handle_lyra_preview<'a>(
             )
         })?;
         dispatch_lyra_preview(state, grant, bound_chat_id, &preview).await
+    })
+}
+fn handle_plan_propose<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    bound_chat_id: i64,
+    payload: Option<&'a Value>,
+) -> HandlerFuture<'a> {
+    Box::pin(async move {
+        let p = payload.ok_or_else(|| {
+            DispatchError::BadRequest("plan.propose requires a Plan payload".to_string())
+        })?;
+        let plan: openspine_schemas::plan::Plan =
+            serde_json::from_value(p.clone()).map_err(|_| {
+                DispatchError::BadRequest("plan.propose payload is not a valid Plan".to_string())
+            })?;
+        dispatch_plan_preview(state, grant, bound_chat_id, &plan).await
     })
 }
 

@@ -336,6 +336,8 @@ fn resolve_approval_required(
 }
 
 #[cfg(test)]
+mod plan_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod token_tests;

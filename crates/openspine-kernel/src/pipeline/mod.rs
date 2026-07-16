@@ -29,6 +29,7 @@ mod approval;
 mod artifact_activation;
 mod driver;
 mod lanes;
+mod plan_approval;
 mod post_approval;
 mod selection;
 #[cfg(test)]
@@ -53,6 +54,7 @@ use std::path::PathBuf;
 
 use approval::handle_draft_approval_callback;
 use driver::{email_preview_lane, owner_control_lane, run_pipeline, EventInputs};
+use plan_approval::handle_plan_approval_callback;
 
 /// Everything the pipeline needs to turn one Telegram update into an
 /// audited, sandboxed task. Built once at kernel startup and shared
@@ -308,6 +310,14 @@ pub async fn handle_owner_update(
         } => {
             if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
                 handle_draft_approval_callback(
+                    state,
+                    chat_id,
+                    &callback_query_id,
+                    action_request_id,
+                )
+                .await?;
+            } else if let Some(action_request_id) = telegram::parse_approve_plan_callback(&data) {
+                handle_plan_approval_callback(
                     state,
                     chat_id,
                     &callback_query_id,

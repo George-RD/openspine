@@ -205,11 +205,10 @@ pub(super) async fn handle_draft_approval_callback(
 /// fresh from a live Gmail fetch (D-042) and — critically — re-checks it
 /// against the digest bound at proposal time (D-041) before ever calling
 /// [`crate::gmail::GmailConnector::create_draft`]: the thread may have
-/// received a new message between proposal and approval, which would
-/// silently change who "the newest non-owner sender" is. Content
-/// addressing already guarantees the payload (`subject`/`body`) can't have
-/// changed; the target is not content-addressed, so this is the one place
-/// a "approved draft A, but thread now points at draft B" mismatch could
+/// received a new message between proposal and approval, which would silently
+/// change who "the newest non-owner sender" is. Content addressing already
+/// guarantees the payload (`subject`/`body`) can't have changed; the target
+/// is not content-addressed, so this is the one place a "approved draft A,"
 /// slip through undetected without an explicit re-check (spec.md's
 /// "Recipient changes after approval" scenario).
 pub(super) async fn create_approved_draft(
