@@ -1,14 +1,16 @@
 //! SQLite storage audit log chaining and verification (PRD §18, D-012).
 //!
 //! Separated from `store/mod.rs` to keep that file under the 500-line gate.
+//! AD-105: per-aggregate sequence assignment lives here so the ledger *is*
+//! the event bus — no parallel store.
 
 use super::{genesis_digest, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
-use openspine_schemas::audit::AuditEvent;
+use openspine_schemas::audit::{default_aggregate_id, AuditEvent, AuditKind};
 use openspine_schemas::digest::{canonical_json, digest_from_hash, digest_matches_hash, Digest};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use sha2::{Digest as _, Sha256};
 use ulid::Ulid;
 
@@ -20,18 +22,20 @@ impl Store {
     pub fn verify_audit_chain(&self) -> Result<bool, StoreError> {
         let conn = self.conn.lock();
         let mut stmt =
-            conn.prepare("SELECT prev_hash, hash, meta_json FROM audit_log ORDER BY seq ASC")?;
+            conn.prepare("SELECT prev_hash, hash, meta_json, aggregate_id, aggregate_seq FROM audit_log ORDER BY seq ASC")?;
         let rows = stmt.query_map([], |row| {
             let prev_hash: String = row.get(0)?;
             let hash: String = row.get(1)?;
             let meta_json: String = row.get(2)?;
-            Ok((prev_hash, hash, meta_json))
+            let aggregate_id: String = row.get(3)?;
+            let aggregate_seq: i64 = row.get(4)?;
+            Ok((prev_hash, hash, meta_json, aggregate_id, aggregate_seq))
         })?;
 
         let mut expected_prev = genesis_digest().as_str().to_string();
         let mut hasher = Sha256::new();
         for row in rows {
-            let (prev_hash, hash, meta_json) = row?;
+            let (prev_hash, hash, meta_json, aggregate_id, aggregate_seq) = row?;
             if prev_hash != expected_prev {
                 return Ok(false);
             }
@@ -39,6 +43,21 @@ impl Store {
             hasher.update(meta_json.as_bytes());
             let result = hasher.finalize_reset();
             if !digest_matches_hash(&hash, &result.into()) {
+                return Ok(false);
+            }
+            let meta: serde_json::Value = match serde_json::from_str(&meta_json) {
+                Ok(v) => v,
+                Err(_) => return Ok(false),
+            };
+            let meta_aggregate = meta
+                .get("aggregate_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("system");
+            let meta_seq = meta
+                .get("aggregate_seq")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            if meta_aggregate != aggregate_id || meta_seq != aggregate_seq {
                 return Ok(false);
             }
             expected_prev = hash;
@@ -51,6 +70,11 @@ impl Store {
     /// `ts` are folded into the hashed pre-image (not just stored
     /// alongside it) so neither can be silently rewritten without breaking
     /// [`Self::verify_audit_chain`].
+    ///
+    /// AD-105: also assigns `aggregate_id` (default policy) and the next
+    /// per-aggregate `aggregate_seq` under the same connection lock as the
+    /// insert. The row is durable before this call returns — that is the
+    /// ledger-before-consume guarantee.
     #[allow(clippy::too_many_arguments)]
     pub fn append_audit(
         &self,
@@ -62,9 +86,10 @@ impl Store {
         target_refs: &[ArtifactRef],
         payload_refs: &[ArtifactRef],
     ) -> Result<AuditEvent, StoreError> {
-        let conn = self.conn.lock();
-        Self::append_audit_conn(
-            &conn,
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let event = Self::append_audit_conn(
+            &tx,
             kind,
             action,
             decision,
@@ -72,7 +97,9 @@ impl Store {
             task_grant_id,
             target_refs,
             payload_refs,
-        )
+        )?;
+        tx.commit()?;
+        Ok(event)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -90,16 +117,28 @@ impl Store {
 
         let id = Ulid::new();
         let ts = Timestamp::now();
+        let audit_kind =
+            AuditKind::new(kind).map_err(|e| StoreError::BadAuditKind(e.to_string()))?;
+        let aggregate_id = match task_grant_id {
+            Some(gid) => format!("task_grant:{gid}"),
+            None => default_aggregate_id(),
+        };
+        let aggregate_seq = Self::next_aggregate_seq(conn, &aggregate_id)?;
+        let aggregate_seq_i64 =
+            i64::try_from(aggregate_seq).map_err(|_| StoreError::NumericRange)?;
+
         let meta = serde_json::json!({
             "id": id.to_string(),
             "ts": ts.to_string(),
-            "kind": kind,
+            "kind": audit_kind.as_str(),
             "action": action,
             "decision": decision,
             "reason": reason,
             "task_grant_id": task_grant_id.map(|u| u.to_string()),
             "target_refs": target_refs,
             "payload_refs": payload_refs,
+            "aggregate_id": aggregate_id,
+            "aggregate_seq": aggregate_seq,
         });
         let canonical = canonical_json(&meta);
 
@@ -112,31 +151,50 @@ impl Store {
             id,
             schema_version: 1,
             ts,
-            kind: kind.to_string(),
+            kind: audit_kind,
             action: action.cloned(),
             decision: decision.cloned(),
             reason: reason.map(str::to_string),
             task_grant_id,
             target_refs: target_refs.to_vec(),
             payload_refs: payload_refs.to_vec(),
+            aggregate_id: aggregate_id.clone(),
+            aggregate_seq,
             prev_hash,
             hash,
         };
 
         conn.execute(
-            "INSERT INTO audit_log (id, ts, kind, prev_hash, hash, meta_json, event_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO audit_log (id, ts, kind, prev_hash, hash, meta_json, event_json, aggregate_id, aggregate_seq) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 event.id.to_string(),
                 event.ts.to_string(),
-                event.kind,
+                event.kind.as_str(),
                 event.prev_hash.as_str(),
                 event.hash.as_str(),
                 canonical,
                 serde_json::to_string(&event)?,
+                aggregate_id,
+                aggregate_seq_i64,
             ],
         )?;
 
         Ok(event)
+    }
+
+    /// Next positive sequence for `aggregate_id` (1-based). Called under the
+    /// caller's connection lock so max+insert cannot race.
+    fn next_aggregate_seq(conn: &Connection, aggregate_id: &str) -> Result<u64, StoreError> {
+        // MAX always returns a row; NULL when the aggregate has no prior rows.
+        let max: Option<i64> = conn.query_row(
+            "SELECT MAX(aggregate_seq) FROM audit_log WHERE aggregate_id = ?1",
+            params![aggregate_id],
+            |row| row.get(0),
+        )?;
+        let current = max.unwrap_or(0);
+        let current = u64::try_from(current).map_err(|_| StoreError::NumericRange)?;
+        current.checked_add(1).ok_or(StoreError::NumericRange)
     }
 
     fn last_hash(conn: &Connection) -> Result<Digest, StoreError> {

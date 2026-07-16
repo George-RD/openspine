@@ -51,7 +51,19 @@ CREATE TABLE IF NOT EXISTS audit_log (
     prev_hash TEXT NOT NULL,
     hash TEXT NOT NULL,
     meta_json TEXT NOT NULL,
-    event_json TEXT NOT NULL
+    event_json TEXT NOT NULL,
+    -- AD-105: per-aggregate bus coordinates (default for brand-new DBs).
+    -- Index is created in migrations AFTER add-column for legacy DBs, so
+    -- SCHEMA_SQL never references columns an existing table may lack.
+    aggregate_id TEXT NOT NULL DEFAULT 'system',
+    aggregate_seq INTEGER NOT NULL DEFAULT 0
+);
+-- consumer_checkpoints also created in migrations for legacy DBs; listed
+-- here so brand-new files get the table even if migrations are skipped in tests.
+CREATE TABLE IF NOT EXISTS consumer_checkpoints (
+    consumer_id TEXT PRIMARY KEY,
+    last_acked_global_seq INTEGER NOT NULL DEFAULT 0,
+    checkpoint_json TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS approvals (
     id TEXT PRIMARY KEY,
@@ -131,6 +143,16 @@ pub enum StoreError {
     InconsistentLineage(String),
     #[error("timestamp out of representable range: {0}")]
     TimestampRange(String),
+    #[error("invalid audit kind: {0}")]
+    BadAuditKind(String),
+    #[error("bad audit ledger metadata: {0}")]
+    BadLedgerMeta(String),
+    #[error("consumer checkpoint filter mismatch for {0}")]
+    CheckpointFilterMismatch(String),
+    #[error("consumer checkpoint regression for {0}")]
+    CheckpointRegression(String),
+    #[error("numeric ledger value out of SQLite range")]
+    NumericRange,
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -366,6 +388,7 @@ mod budget_support_tests;
 pub(crate) mod eval_verdict_store;
 #[cfg(test)]
 mod eval_verdict_store_tests;
+pub(crate) mod event_bus;
 mod gate_support;
 mod identity;
 #[cfg(test)]
