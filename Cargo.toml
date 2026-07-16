@@ -13,6 +13,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 serde_yaml = "0.9.34"
 sha2 = "0.11.0"
+hmac-sha256 = "1.1.14"
 ulid = { version = "1.2.1", features = ["serde"] }
 jiff = { version = "0.2.31", features = ["serde"] }
 thiserror = "2.0.18"

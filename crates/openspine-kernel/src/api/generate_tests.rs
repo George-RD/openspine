@@ -86,7 +86,7 @@ fn state_with_mock_provider(server_uri: &str) -> AppState {
 
 fn email_reply_drafter_grant(task_token: &str) -> TaskGrant {
     let issued_at = Timestamp::now();
-    TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -112,12 +112,21 @@ fn email_reply_drafter_grant(task_token: &str) -> TaskGrant {
             max_runtime_seconds: 120,
         },
         task_token: task_token.to_string(),
-    }
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+    };
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    grant
 }
 
 fn unknown_agent_grant(task_token: &str) -> TaskGrant {
     let mut grant = email_reply_drafter_grant(task_token);
     grant.agent_id = "unknown_agent".to_string();
+    // agent_id is root-authority-bound; re-seal after mutation.
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     grant
 }
 
@@ -125,6 +134,8 @@ fn grant_with_limits(task_token: &str, max_model_calls: u32, max_artifacts: u32)
     let mut grant = email_reply_drafter_grant(task_token);
     grant.limits.max_model_calls = max_model_calls;
     grant.limits.max_artifacts = max_artifacts;
+    // limits are root-authority-bound; re-seal after mutation.
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     grant
 }
 

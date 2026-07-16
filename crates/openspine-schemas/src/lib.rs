@@ -17,6 +17,7 @@ pub mod audit;
 pub mod digest;
 pub mod event;
 pub mod grant;
+pub mod grant_chain;
 pub mod identity;
 pub mod ids;
 pub mod model;

@@ -82,6 +82,10 @@ async fn read_selected_thread(
             );
             Ok(None)
         }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: email.read_thread effect suppressed");
+            Ok(None)
+        }
     }
 }
 
@@ -153,6 +157,10 @@ async fn draft_reply(client: &KernelClient, untrusted_context: &str) -> Result<O
             eprintln!("[openspine-shell] WARN: model.generate denied: {reason:?}");
             Ok(None)
         }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: model.generate effect suppressed");
+            Ok(None)
+        }
         GateDecision::ApprovalRequired { ref approval_type } => {
             eprintln!("[openspine-shell] WARN: model.generate requires approval: {approval_type}");
             Ok(None)
@@ -183,6 +191,9 @@ async fn preview_draft(
         }
         GateDecision::ApprovalRequired { ref approval_type } => {
             eprintln!("[openspine-shell] WARN: lyra.ui.preview requires approval: {approval_type}");
+        }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: lyra.ui.preview effect suppressed");
         }
     }
     Ok(())

@@ -5,6 +5,7 @@ use openspine_schemas::artifact::{ArtifactRef, Lifecycle};
 use openspine_schemas::digest::Digest;
 use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::GrantLimits;
+use openspine_schemas::grant::GrantMode;
 
 use super::token_tests::test_catalog;
 use super::*;
@@ -19,7 +20,7 @@ pub(crate) fn grant_with(
     denied: &[&str],
 ) -> TaskGrant {
     let issued_at = Timestamp::now();
-    TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -48,7 +49,14 @@ pub(crate) fn grant_with(
             max_runtime_seconds: 120,
         },
         task_token: "a".repeat(64),
-    }
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+    };
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    grant
 }
 
 pub(crate) fn request_for(action: &str) -> ActionRequest {
@@ -83,6 +91,9 @@ impl GateContext for MockContext {
 
     fn find_selection_token(&self, _id: Ulid) -> Option<SelectionToken> {
         None
+    }
+    fn grant_hmac_key(&self) -> Option<Vec<u8>> {
+        Some(b"openspine-test-grant-hmac-key-v1".to_vec())
     }
 }
 
@@ -393,4 +404,83 @@ fn denial_audit_metadata_still_carries_refs() {
     );
     assert!(matches!(outcome.decision, GateDecision::Deny { .. }));
     assert_eq!(outcome.audit.payload_refs.len(), 1);
+}
+
+#[test]
+fn shadow_allow_is_non_executable_effect_suppressed() {
+    let mut grant = grant_with(&["openspine.status.read"], &[], &[]);
+    grant.mode = GrantMode::Shadow;
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    let req = request_for("openspine.status.read");
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &MockContext::default(),
+        &test_catalog(),
+        Timestamp::now(),
+    );
+    assert_eq!(outcome.decision, GateDecision::EffectSuppressed);
+}
+
+#[test]
+fn shadow_deny_remains_deny() {
+    let mut grant = grant_with(&[], &[], &[]);
+    grant.mode = GrantMode::Shadow;
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    let outcome = gate(
+        &grant,
+        &request_for("openspine.status.read"),
+        ActionOrigin::Shell,
+        &MockContext::default(),
+        &test_catalog(),
+        Timestamp::now(),
+    );
+    assert!(matches!(outcome.decision, GateDecision::Deny { .. }));
+}
+
+#[test]
+fn bound_parameter_conflict_is_caveat_widening() {
+    // Valid MAC over a chain that contains conflicting AD-036 bindings, so
+    // the failure comes from bindings_valid — not a short-circuit MAC miss.
+    let key = b"openspine-test-grant-hmac-key-v1";
+    let mut grant = grant_with(&["openspine.status.read"], &[], &[]);
+    grant.chain = vec![openspine_schemas::grant::GrantChainStep {
+        grant_id: grant.id,
+        parent_grant_id: None,
+        mode: GrantMode::Live,
+        selection_tokens: grant.selection_tokens.clone(),
+        added_caveats: vec![
+            openspine_schemas::grant::GrantCaveat::BoundParameter {
+                name: "recipient".into(),
+                value: "a@example.com".into(),
+            },
+            openspine_schemas::grant::GrantCaveat::BoundParameter {
+                name: "recipient".into(),
+                value: "b@example.com".into(),
+            },
+        ],
+    }];
+    grant.root_grant_id = grant.id;
+    let root = openspine_schemas::grant_chain::RootAuthority::from_grant(&grant);
+    grant.caveat_mac = openspine_schemas::grant_chain::compute_mac_hex(key, &root, &grant.chain);
+    assert!(
+        grant.verify_mac(key),
+        "precondition: MAC must be valid so bindings_valid is the deny path"
+    );
+    assert!(!openspine_schemas::grant_chain::bindings_valid(&grant));
+    let outcome = gate(
+        &grant,
+        &request_for("openspine.status.read"),
+        ActionOrigin::Shell,
+        &MockContext::default(),
+        &test_catalog(),
+        Timestamp::now(),
+    );
+    assert_eq!(
+        outcome.decision,
+        GateDecision::Deny {
+            reason: DenialReason::CaveatWidening
+        }
+    );
 }

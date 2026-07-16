@@ -150,17 +150,19 @@ pub enum DenialReason {
     ChannelBindingViolation,
     LimitExceeded,
     UnknownAction,
+    CaveatWidening,
 }
 
-/// The typed outcome of mediating one action request (design.md's
-/// `gate_decision`). Precedence: explicit deny > approval-required > allow >
-/// unspecified deny (PRD §8.3).
+/// The typed outcome of mediating one action request.
+/// `EffectSuppressed` is deliberately non-executable: dispatch paths match
+/// only `Allow` and therefore cannot accidentally run shadow effects.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum GateDecision {
     Allow,
     Deny { reason: DenialReason },
     ApprovalRequired { approval_type: String },
+    EffectSuppressed,
 }
 
 /// A typed request to perform one effectful action, submitted to `gate()`.

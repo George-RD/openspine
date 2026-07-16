@@ -25,7 +25,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 /// exercise end-to-end.
 pub(crate) fn approval_fixture_grant() -> TaskGrant {
     let issued_at = Timestamp::now();
-    TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -51,7 +51,14 @@ pub(crate) fn approval_fixture_grant() -> TaskGrant {
             max_runtime_seconds: 120,
         },
         task_token: "a".repeat(64),
-    }
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+    };
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    grant
 }
 
 /// A pending `email.create_draft` request bound to `grant_id`, targeting

@@ -1,6 +1,5 @@
 //! The single typed pipeline driver plus the two compiled-in lane
 //! specifications.
-//!
 //! Every prior hardcoded event flow is now one [`LaneSpec`] interpreted by
 //! [`run_pipeline`]: the owner-control lane and the selected-thread email
 //! preview lane. The nine-stage sequence is declared once as
@@ -364,6 +363,19 @@ pub async fn run_pipeline(
     // Grant stage — lane binding, then persist the grant and audit it.
     trace.push(PipelineStage::Grant);
     let pending_ref = (spec.grant_binding)(state, &mut grant, inputs, &raw_ref, now)?;
+    let Some(key) = crate::grant_hmac_key() else {
+        state.store.append_audit(
+            "authority.denied",
+            None,
+            None,
+            Some("grant HMAC key is not configured"),
+            None,
+            &[],
+            &[],
+        )?;
+        return Ok(None);
+    };
+    grant.seal_root(&key);
     state
         .store
         .insert_task_grant(&grant, &pending_ref, inputs.chat_id)?;

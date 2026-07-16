@@ -267,3 +267,78 @@ async fn test_path_8_answer_callback_query_bypasses_gate_and_audit() {
         TelegramConnector::with_api_url("test-token".to_string(), tg.uri().parse().unwrap());
     connector.answer_callback_query("cb-123").await;
 }
+
+// Path 9: shadow-mode grant → EffectSuppressed; dispatch must not invoke the
+// effect handler. Uses an effectful action with a mock that must see zero calls.
+#[tokio::test]
+async fn shadow_grant_effect_suppressed_skips_effect_handler() {
+    let tg = MockServer::start().await;
+    let token = "test-token";
+    Mock::given(method("POST"))
+        .and(path(format!("/bot{}/SendMessage", token)))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 1,
+                "date": 0,
+                "chat": {"id": 555, "type": "private"},
+                "text": "sent"
+            }
+        })))
+        .expect(0)
+        .mount(&tg)
+        .await;
+
+    let connector = TelegramConnector::with_api_url(token.to_string(), tg.uri().parse().unwrap());
+    let state = test_state_with_telegram(connector);
+
+    let mut grant = crate::pipeline::tests::approval::approval_fixture_grant();
+    grant.mode = openspine_schemas::grant::GrantMode::Shadow;
+    grant.allowed_actions = vec![ActionId::new("telegram.reply:owner_channel")];
+    grant.approval_required_actions = vec![];
+    grant.output_channels = vec!["telegram.owner.reply".to_string()];
+    // root_authority fields changed; re-seal after mode + allowlist mutation.
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    let pending_ref = state.artifacts.put(b"shadow pending".as_slice()).unwrap();
+    state
+        .store
+        .insert_task_grant(&grant, &pending_ref, 555)
+        .unwrap();
+
+    let store = state.store.clone();
+    let (addr, handle) = crate::api::tests::start_server(state).await;
+
+    let resp = crate::api::tests::post_action(
+        addr,
+        &grant.task_token,
+        "telegram.reply:owner_channel",
+        Some(json!({"text": "should not send under shadow"})),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["decision"]["outcome"], "effect_suppressed");
+    assert!(
+        body.get("result").is_none() || body["result"].is_null(),
+        "effect handler must not run under EffectSuppressed: {body}"
+    );
+
+    // Observable: zero Telegram SendMessage calls.
+    let requests = tg.received_requests().await.unwrap();
+    assert_eq!(
+        requests.len(),
+        0,
+        "shadow EffectSuppressed must not invoke the telegram effect"
+    );
+
+    let events = store.all_audit_event_jsons().unwrap();
+    let gated = events
+        .iter()
+        .map(|s| parse_audit_event(s))
+        .find(|v| v["kind"] == "action.gated")
+        .expect("expected action.gated audit");
+    assert_eq!(gated["action"], "telegram.reply:owner_channel");
+    assert_eq!(gated["decision"]["outcome"], "effect_suppressed");
+
+    handle.abort();
+}

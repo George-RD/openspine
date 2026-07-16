@@ -21,11 +21,17 @@ impl GateContext for MockContext {
     fn find_selection_token(&self, id: Ulid) -> Option<SelectionToken> {
         self.tokens.get(&id).cloned()
     }
+
+    fn grant_hmac_key(&self) -> Option<Vec<u8>> {
+        Some(b"openspine-test-grant-hmac-key-v1".to_vec())
+    }
 }
 
 fn grant_with_token(allowed: &[&str], token_id: Ulid) -> TaskGrant {
     let mut grant = grant_with(allowed, &[], &[]);
     grant.selection_tokens.push(token_id);
+    // selection_tokens are MAC-bound; re-seal after binding.
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     grant
 }
 
@@ -170,6 +176,8 @@ fn token_requiring_action_denied_for_foreign_grant() {
     let other_id = Ulid::new();
     let mut grant = grant_with(&["email.read_thread:selected_no_attachments"], &[], &[]);
     grant.selection_tokens.push(other_id);
+    // selection_tokens are MAC-bound; re-seal after binding the foreign token.
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let req = request_for_token("email.read_thread:selected_no_attachments", token_id);
     let mut ctx = MockContext::default();
     ctx.tokens.insert(
@@ -392,5 +400,27 @@ fn gate_denies_stale_granted_but_catalog_unknown_id() {
         ),
         "expected UnknownAction for a stale-granted out-of-catalog id, got {:?}",
         outcome.decision
+    );
+}
+#[test]
+fn expired_invalid_mac_is_caveat_widening_not_grant_expired() {
+    // D-004: chain integrity is classified before expiry. An expired grant
+    // with a broken MAC must surface CaveatWidening, not GrantExpired.
+    let mut grant = grant_with(&["openspine.status.read"], &[], &[]);
+    grant.expires_at = Timestamp::now() - std::time::Duration::from_secs(60);
+    grant.caveat_mac = "00".repeat(32);
+    let outcome = gate(
+        &grant,
+        &request_for("openspine.status.read"),
+        ActionOrigin::Shell,
+        &MockContext::default(),
+        &test_catalog(),
+        Timestamp::now(),
+    );
+    assert_eq!(
+        outcome.decision,
+        GateDecision::Deny {
+            reason: DenialReason::CaveatWidening
+        }
     );
 }

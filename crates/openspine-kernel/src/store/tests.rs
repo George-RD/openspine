@@ -10,7 +10,7 @@ use openspine_schemas::selection::{
 
 pub(super) fn sample_grant(task_token: &str) -> TaskGrant {
     let issued_at = Timestamp::now();
-    TaskGrant {
+    let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
@@ -36,7 +36,14 @@ pub(super) fn sample_grant(task_token: &str) -> TaskGrant {
             max_runtime_seconds: 120,
         },
         task_token: task_token.to_string(),
-    }
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+    };
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    grant
 }
 
 fn sample_approval(action_request_id: Ulid) -> ApprovalRecord {
