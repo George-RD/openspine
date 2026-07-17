@@ -778,5 +778,14 @@
   "776": "audit_support.rs",
   "777": "Duration",
   "778": "pack.rs",
-  "779": "email_grant_binding"
+  "779": "email_grant_binding",
+  "780": "GmailConnector",
+  "781": "Option",
+  "782": "PathBuf",
+  "783": "TelegramConnector",
+  "784": "Option",
+  "785": "String",
+  "786": "Timestamp",
+  "787": "Ulid",
+  "788": "Vec"
 }

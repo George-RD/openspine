@@ -1719,19 +1719,14 @@
     "ast_hash": "0f27eb90c346de7f7be9742deb21b6f2",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784245767.6607385,
-    "ast_hash": "85874084b37834c8b4eb7dfe7c8b5939",
-    "semantic_hash": ""
-  },
   "openspec/changes/implement-secret-intake/design.md": {
     "mtime": 1784246290.7350242,
     "ast_hash": "676b137fafa830ad3dccec974138e0b1",
     "semantic_hash": ""
   },
   "openspec/changes/implement-secret-intake/proposal.md": {
-    "mtime": 1784246290.7354598,
-    "ast_hash": "18bc665e6ac3ed02a56269cb75b731c7",
+    "mtime": 1784247026.7929316,
+    "ast_hash": "2cf98fe3510e993fa85a91f4f895d78b",
     "semantic_hash": ""
   },
   "openspec/changes/implement-secret-intake/specs/secret-intake/spec.md": {
