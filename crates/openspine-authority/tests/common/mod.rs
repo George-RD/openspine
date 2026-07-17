@@ -268,6 +268,9 @@ pub fn owner_control_conversation_workflow() -> WorkflowManifest {
         ],
         approval_required: vec![],
         denied_actions: vec![],
+        initial_state: None,
+        states: vec![],
+        transitions: vec![],
     }
 }
 
@@ -288,6 +291,9 @@ pub fn selected_thread_email_reply_draft_workflow() -> WorkflowManifest {
         ],
         approval_required: vec![ActionId::new("email.create_draft")],
         denied_actions: vec![],
+        initial_state: None,
+        states: vec![],
+        transitions: vec![],
     }
 }
 

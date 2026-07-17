@@ -28,6 +28,7 @@ mod spend;
 mod store;
 mod telegram;
 mod workflow;
+pub mod workflow_state_machine;
 
 #[cfg(test)]
 mod test_support;
@@ -374,6 +375,7 @@ async fn main() -> anyhow::Result<()> {
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
         action_handlers: ActionHandlerRegistry::default_registrations(),
         provider_pool,
+        gateway_tier_map: crate::model_gateway::GatewayTierMap::new(),
         active_model_providers: parking_lot::RwLock::new(active_model_providers),
         started_at: Instant::now(),
         spend_cap: cfg.spend_cap,

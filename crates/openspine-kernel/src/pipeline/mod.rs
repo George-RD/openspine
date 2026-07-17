@@ -109,6 +109,7 @@ pub struct AppState {
     /// configured pool; runtime proposals can only switch the active role
     /// to one of these pre-vetted clients (AD-152, no silent swaps).
     pub provider_pool: HashMap<String, crate::model_gateway::ProviderClient>,
+    pub gateway_tier_map: crate::model_gateway::GatewayTierMap,
     /// Active provider id per governed model role. The map is kernel-owned
     /// and changes only in post-approval model-swap activation.
     pub active_model_providers:

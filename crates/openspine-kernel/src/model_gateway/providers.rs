@@ -211,7 +211,10 @@ async fn generate_openai_compat(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model_gateway::GatewayTierMap;
     use crate::model_gateway::PromptMessage;
+    use openspine_schemas::workflow::ReasoningTier;
+    use std::collections::HashMap;
     use wiremock::matchers::{header, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -223,6 +226,7 @@ mod tests {
                 content: "hello".to_string(),
             }],
             max_tokens: 100,
+            reasoning_tier: openspine_schemas::workflow::ReasoningTier::Standard,
         }
     }
 
@@ -310,5 +314,50 @@ mod tests {
         };
         let err = client.generate(&prompt()).await.unwrap_err();
         assert!(matches!(err, GatewayError::MissingContent(_)));
+    }
+    #[tokio::test]
+    async fn declared_high_tier_selects_high_provider_endpoint() {
+        let standard_server = MockServer::start().await;
+        let high_server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "content": [{"type": "text", "text": "high reply"}]
+            })))
+            .mount(&high_server)
+            .await;
+        let mut pool = HashMap::new();
+        pool.insert(
+            "standard-provider".to_string(),
+            ProviderClient::Anthropic {
+                client: http_client(),
+                api_key: "test-key".to_string(),
+                base_url: standard_server.uri(),
+                model: "standard-model".to_string(),
+            },
+        );
+        pool.insert(
+            "high-provider".to_string(),
+            ProviderClient::Anthropic {
+                client: http_client(),
+                api_key: "test-key".to_string(),
+                base_url: high_server.uri(),
+                model: "high-model".to_string(),
+            },
+        );
+        let map = GatewayTierMap::new().with_route(ReasoningTier::High, "high-provider");
+        let provider = map
+            .resolve(ReasoningTier::High, "standard-provider", &pool)
+            .expect("high tier route must resolve");
+        let response = provider
+            .generate(&ResolvedPrompt {
+                reasoning_tier: ReasoningTier::High,
+                ..prompt()
+            })
+            .await
+            .unwrap();
+        assert_eq!(response, "high reply");
+        assert_eq!(high_server.received_requests().await.unwrap().len(), 1);
+        assert_eq!(standard_server.received_requests().await.unwrap().len(), 0);
     }
 }

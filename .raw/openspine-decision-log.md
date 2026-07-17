@@ -98,6 +98,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-084 | Task slices are deterministic category-ordered bounded projections; hysteresis scoring is deferred | Accepted |
 | D-085 | Briefcase task classes derive deterministically from the dispatch lane pending canon ratification | Accepted |
 | D-086 | Selected-thread email preflight is a bounded pre-gate metadata snapshot carrying only the recipient into packing | Accepted |
+| D-087 | Workflow state machines are declarative with Store-backed digest-bound approval authorization | Accepted |
+| D-088 | A workflow transition writes exactly one advancing durable step with edge-bound approval semantics | Accepted |
+| D-089 | Reasoning-tier routing stores only explicit overrides and resolves the active provider per call | Accepted |
+| D-090 | Workflow manifests are digest-bound at run start; production driving is deferred to worker-runtime/seed-workflows | Accepted |
 
 ---
 
@@ -2116,6 +2120,87 @@ A kernel-side thread-metadata cache removes the need for live pre-gate reads.
 ---
 
 
+# D-087 — Workflow state machines are declarative with digest-bound approval authorization
+
+## Decision
+
+Declarative workflow state machines use exact state/transition ids and typed replay outcomes; approval-required states guard departure, and authorization is Store-backed and D-011 digest-bound before a new ledger step is appended.
+
+## Rationale
+
+AD-044/AD-046: workflows carry deterministic shape and approval semantics; binding authorization to the digest keeps the single-enforcement boundary (D-011) intact through the state machine.
+
+## Consequences
+
+A departure from an approval state cannot be forged by transition-name collision or replayed against a mutated definition; approvals target exact reviewed content.
+
+## Would change if
+
+Approval semantics move into a dedicated approval-workflow artifact kind.
+
+---
+
+# D-088 — A workflow transition writes exactly one advancing durable step
+
+## Decision
+
+A workflow transition writes exactly one advancing durable step. Approval-state entry stores its transition and approval binding atomically; approval-state departure binds the exact edge and request id, preventing crash-Pending replay against another edge. Historical replay trusts the immutable digest-bound completed step rather than a later mutable approval expiry.
+
+## Rationale
+
+Extends D-073 replay semantics to state machines: one step per transition keeps replay unambiguous, and edge-bound bindings close the crash window where a Pending row could resume down a different edge.
+
+## Consequences
+
+Crash recovery is deterministic per edge; expiring an approval after the fact cannot rewrite recorded history.
+
+## Would change if
+
+The ledger gains multi-step transactional transitions with equivalent replay determinism.
+
+---
+
+# D-089 — Reasoning-tier routing resolves the active provider per call
+
+## Decision
+
+Static reasoning-tier routing stores only explicit tier-provider overrides and resolves the current active provider at each call, preventing approved model swaps from leaving fallback routing stale.
+
+## Rationale
+
+AD-122/n=1 leaves the tier map empty by default; materializing providers into routes would silently pin pre-swap models past a D-061..D-063 ceremony.
+
+## Consequences
+
+A model swap takes effect everywhere immediately; tier overrides remain a reviewable, explicit exception list.
+
+## Would change if
+
+Tier routing becomes population-managed by the LOD-trader knapsack (AD-122 full design).
+
+---
+
+# D-090 — Workflow manifests are digest-bound at run start; production driving is deferred
+
+## Decision
+
+The complete serialized workflow manifest is digest-bound at run start and verified on resume; any definition drift fails closed. Production workflow driving and tier threading are owned by the future `worker-runtime` and `seed-workflows` changes; this slice intentionally ships the tested kernel substrate without a production execution engine.
+
+## Rationale
+
+Runs must replay against exactly the definition they started under; shipping the substrate without a driver keeps the change reviewable and avoids a second execution path before worker-runtime lands.
+
+## Consequences
+
+Definition edits mid-run surface as fail-closed drift, not silent behavior change; the deferral is explicit and tracked by the sequence, not implied.
+
+## Would change if
+
+worker-runtime lands and assumes the driving contract, or a migration ceremony for in-flight runs across definition versions is ratified.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -2176,4 +2261,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition and one-transaction commit-before-publication), D-079 (fixed-point overlay compatibility over typed Route/Workflow edges, typed epoch revalidation, base-wins collisions, highest-only monotonic version cutover), D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), and D-081 (upstream nomination requires explicit depersonalized opt-in), settled while implementing `implement-overlay-model`. |
 | 2026-07-17 | Added D-082 (transactionally idempotent task-board timer consumption with permanent AckSkip + blocked audit), D-083 (atomic grant/handoff/audit dispatch with receipt-keyed fail-closed recovery), and D-084 (deterministic bounded task slices; hysteresis deferred), settled while implementing `implement-task-board`. |
 | 2026-07-17 | Added D-085 (lane-derived briefcase task classes pending canon ratification) and D-086 (bounded pre-gate email metadata snapshot carrying only the recipient), settled while implementing `implement-briefcase-packing`. |
+| 2026-07-17 | Added D-087 (declarative state machines with digest-bound approval authorization), D-088 (exactly-one advancing step with edge-bound approval semantics), D-089 (per-call active-provider tier resolution), and D-090 (digest-bound manifests at run start; production driving deferred to worker-runtime/seed-workflows), settled while implementing `implement-workflow-state-machines`. |
 

@@ -80,6 +80,7 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::digest::{canonical_json, Digest};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::workflow::ApprovalSemantics;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
@@ -108,6 +109,14 @@ impl workflow_inline_sealed::Sealed for ArtifactRef {}
 impl WorkflowInlinePayload for ArtifactRef {}
 impl workflow_inline_sealed::Sealed for TimerSpec {}
 impl WorkflowInlinePayload for TimerSpec {}
+impl workflow_inline_sealed::Sealed for TransitionOutcome {}
+impl WorkflowInlinePayload for TransitionOutcome {}
+impl workflow_inline_sealed::Sealed for Digest {}
+impl WorkflowInlinePayload for Digest {}
+impl workflow_inline_sealed::Sealed for EntryBindingInputs {}
+impl WorkflowInlinePayload for EntryBindingInputs {}
+impl workflow_inline_sealed::Sealed for GatedDepartureInputs {}
+impl WorkflowInlinePayload for GatedDepartureInputs {}
 
 #[derive(Debug, thiserror::Error)]
 pub enum WorkflowError {
@@ -149,6 +158,46 @@ pub(crate) struct ApprovalStepInputs {
     pub action: String,
     pub target_digest: Digest,
     pub payload_digest: Digest,
+}
+/// Non-secret input digest bound for a plain state-machine transition step.
+/// Only carries state ids (D-012: no plaintext).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TransitionStepInputs {
+    pub from: String,
+    pub to: String,
+}
+
+/// Non-secret digest-bound approval binding persisted atomically with an
+/// entry into an approval-semantic state (D-011/D-012). Carries only ids and
+/// digests; never plaintext content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct EntryBindingInputs {
+    pub target_state: String,
+    pub request_id: String,
+    pub action: String,
+    pub payload_digest: Digest,
+    pub target_digest: Digest,
+}
+
+/// Crash-safe entry transition input: binds the source edge plus the
+/// approval binding so recovery cannot complete a different edge.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct EntryTransitionInputs {
+    pub from: String,
+    pub binding: EntryBindingInputs,
+}
+/// Non-secret input for an approval-gated departure step. Binds the exact
+/// edge (from/to), the entry-bound request id, and the D-011 action and
+/// digests so a crashed-Pending departure cannot resume against a different
+/// edge or approval (D-012: ids and digests only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GatedDepartureInputs {
+    pub from: String,
+    pub to: String,
+    pub request_id: String,
+    pub action: String,
+    pub payload_digest: Digest,
+    pub target_digest: Digest,
 }
 /// Gate-bound input digest for typed workflow dispatch. The concrete action
 /// is selected by the adapter and the existing handler registry binds it to
@@ -206,6 +255,11 @@ enum StepRecord {
 enum Outcome {
     Ok(serde_json::Value),
     Err(String),
+}
+/// Closed, non-secret result of an approval-gated state transition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub(crate) struct TransitionOutcome {
+    pub target: String,
 }
 
 /// One logical step reconstructed by stable step ID, not physical adjacency.
@@ -299,13 +353,14 @@ impl<'a> WorkflowCtx<'a> {
             }
         }
         let steps = Self::pair_steps(&rows)?;
+        let cursor = 0;
         Ok(Self {
             store,
             run_id,
             definition_id,
             definition_version,
             steps,
-            cursor: 0,
+            cursor,
         })
     }
 
@@ -383,7 +438,192 @@ impl<'a> WorkflowCtx<'a> {
         steps.sort_by_key(|entry| entry.pending_seq);
         Ok(steps)
     }
+    /// Borrow the underlying store (state-machine authorization reads the
+    /// digest-bound request/approval rows directly).
+    pub(crate) fn store(&self) -> &Store {
+        self.store
+    }
 
+    /// Recover the approval binding persisted when the run entered
+    pub(crate) fn entry_binding_for_state(
+        &self,
+        state: &str,
+    ) -> Result<Option<EntryBindingInputs>, WorkflowError> {
+        for entry in self.steps.iter().rev() {
+            if entry.kind != Self::ENTRY_BINDING_STEP_KIND || entry.completed.is_none() {
+                continue;
+            }
+            let Some(Outcome::Ok(value)) = entry.completed.as_ref() else {
+                continue;
+            };
+            let binding = serde_json::from_value::<EntryBindingInputs>(value.clone())
+                .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?;
+            if binding.target_state == state {
+                return Ok(Some(binding));
+            }
+        }
+        Ok(None)
+    }
+
+    /// Last completed declarative transition target across reserved state
+    /// machine kinds. Malformed completed outcomes fail closed.
+    pub(crate) fn last_completed_transition_target(&self) -> Result<Option<String>, WorkflowError> {
+        for entry in self.steps.iter().rev() {
+            if entry.completed.is_none()
+                || !(entry.kind == Self::TRANSITION_STEP_KIND
+                    || entry.kind == Self::APPROVAL_STEP_KIND
+                    || entry.kind == Self::ENTRY_BINDING_STEP_KIND)
+            {
+                continue;
+            }
+            let Some(Outcome::Ok(value)) = entry.completed.as_ref() else {
+                continue;
+            };
+            let target = match entry.kind.as_str() {
+                Self::ENTRY_BINDING_STEP_KIND => {
+                    serde_json::from_value::<EntryBindingInputs>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?
+                        .target_state
+                }
+                _ => {
+                    serde_json::from_value::<TransitionOutcome>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?
+                        .target
+                }
+            };
+            return Ok(Some(target));
+        }
+        Ok(None)
+    }
+
+    /// Validate every completed declarative record against the manifest and
+    /// current Store-backed approval binding before state reconstruction.
+    pub(crate) fn validate_state_machine_replay(
+        &self,
+        manifest: &openspine_schemas::workflow::WorkflowManifest,
+    ) -> Result<(), WorkflowError> {
+        let mut current = manifest.initial_state.clone().ok_or_else(|| {
+            WorkflowError::Step("declarative workflow has no initial state".into())
+        })?;
+        let mut current_binding: Option<EntryBindingInputs> = None;
+        for entry in &self.steps {
+            let Some(Outcome::Ok(value)) = entry.completed.as_ref() else {
+                continue;
+            };
+            match entry.kind.as_str() {
+                Self::DEFINITION_STEP_KIND => {
+                    serde_json::from_value::<Digest>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?;
+                }
+                Self::TRANSITION_STEP_KIND => {
+                    let outcome = serde_json::from_value::<TransitionOutcome>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let source = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == current)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let target = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == outcome.target)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    if source.approval == ApprovalSemantics::Required
+                        || target.approval == ApprovalSemantics::Required
+                        || !manifest
+                            .transitions
+                            .iter()
+                            .any(|edge| edge.from == current && edge.to == outcome.target)
+                    {
+                        return Err(WorkflowError::Divergence {
+                            ordinal: entry.pending_seq,
+                            expected: current,
+                            actual: outcome.target,
+                        });
+                    }
+                    current = outcome.target;
+                    current_binding = None;
+                }
+                Self::ENTRY_BINDING_STEP_KIND => {
+                    let binding = serde_json::from_value::<EntryBindingInputs>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let source = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == current)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let target = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == binding.target_state)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    if source.approval == ApprovalSemantics::Required
+                        || target.approval != ApprovalSemantics::Required
+                        || !manifest
+                            .transitions
+                            .iter()
+                            .any(|edge| edge.from == current && edge.to == binding.target_state)
+                    {
+                        return Err(WorkflowError::Divergence {
+                            ordinal: entry.pending_seq,
+                            expected: current,
+                            actual: binding.target_state,
+                        });
+                    }
+                    current = binding.target_state.clone();
+                    current_binding = Some(binding);
+                }
+                Self::APPROVAL_STEP_KIND => {
+                    let outcome = serde_json::from_value::<TransitionOutcome>(value.clone())
+                        .map_err(|_| WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let source = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == current)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let target = manifest
+                        .states
+                        .iter()
+                        .find(|state| state.id == outcome.target)
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    if source.approval != ApprovalSemantics::Required
+                        || target.approval == ApprovalSemantics::Required
+                        || !manifest
+                            .transitions
+                            .iter()
+                            .any(|edge| edge.from == current && edge.to == outcome.target)
+                    {
+                        return Err(WorkflowError::Divergence {
+                            ordinal: entry.pending_seq,
+                            expected: current,
+                            actual: outcome.target,
+                        });
+                    }
+                    let binding = current_binding
+                        .take()
+                        .ok_or(WorkflowError::MalformedRecord(entry.pending_seq))?;
+                    let expected_digest = digest_inputs(&GatedDepartureInputs {
+                        from: current.clone(),
+                        to: outcome.target.clone(),
+                        request_id: binding.request_id.clone(),
+                        action: binding.action.clone(),
+                        payload_digest: binding.payload_digest.clone(),
+                        target_digest: binding.target_digest.clone(),
+                    })?;
+                    if entry.input_digest != expected_digest {
+                        return Err(WorkflowError::Divergence {
+                            ordinal: entry.pending_seq,
+                            expected: entry.input_digest.clone(),
+                            actual: expected_digest,
+                        });
+                    }
+                    current = outcome.target;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
     fn decode_record(event: &AuditEvent) -> Result<StepRecord, WorkflowError> {
         let payload = event
             .payload_json
@@ -392,17 +632,37 @@ impl<'a> WorkflowCtx<'a> {
         serde_json::from_str(payload)
             .map_err(|_| WorkflowError::MalformedRecord(event.aggregate_seq))
     }
+    /// Advance the cursor for a wrapper that has reconstructed its state
+    /// independently. Ordinary callers must replay from cursor zero.
+    pub(crate) fn resume_after_completed_steps(&mut self) {
+        self.cursor = self
+            .steps
+            .iter()
+            .position(|entry| entry.completed.is_none())
+            .unwrap_or(self.steps.len());
+    }
 
     /// Check whether the step at the current cursor position has already
     /// been durably completed. Never executes anything. On a genuinely
     /// fresh step, durably appends the `Pending` outbox intent BEFORE
     /// returning — the caller's subsequent work is covered by that intent
     /// record regardless of whether `complete_step` ever runs.
-    /// Ledger kind reserved for approval-bound steps. The generic
-    /// [`Self::begin_step`] rejects this kind so approvals cannot be recorded
-    /// through the untyped path; only [`Self::begin_approval_step`] (which
-    /// requires concrete target/payload digests) may use it.
+    /// Legacy approval kind retained for archived generic workflow callers.
+    /// It is deliberately not a declarative state-machine transition kind.
+    const LEGACY_APPROVAL_STEP_KIND: &'static str = "workflow.approval_legacy";
+    /// Private kind used only by the state-machine departure adapter.
     const APPROVAL_STEP_KIND: &'static str = "workflow.approval";
+    /// Reserved kind for declarative state-machine transitions (findings of
+    /// `implement-workflow-state-machines`): only
+    /// [`Self::begin_transition_step`] may emit it.
+    pub(crate) const TRANSITION_STEP_KIND: &'static str = "workflow.transition";
+    /// Reserved kind for a crash-safe entry into an approval-semantic state
+    /// that simultaneously binds the approval request, action, and digests
+    /// (D-011). Only [`Self::begin_entry_binding_step`] may emit it.
+    pub(crate) const ENTRY_BINDING_STEP_KIND: &'static str = "workflow.entry_binding";
+    /// Reserved kind recording the immutable manifest digest a run is bound
+    /// to. Only [`Self::begin_definition_step`] may emit it.
+    pub(crate) const DEFINITION_STEP_KIND: &'static str = "workflow.definition";
     /// Closed, non-sensitive outcome code persisted when a gated step's
     /// effect fails. Never carries provider internals or plaintext content.
     const GATED_STEP_FAILED: &'static str = "workflow.gated_step_failed";
@@ -426,16 +686,92 @@ impl<'a> WorkflowCtx<'a> {
     where
         T: WorkflowInlinePayload,
     {
-        if kind == Self::APPROVAL_STEP_KIND {
-            return Err(WorkflowError::Step(
-                "approval-kind steps require the typed adapter".to_string(),
-            ));
+        if Self::is_reserved_kind(kind) {
+            return Err(WorkflowError::Step(format!(
+                "the workflow kind {kind} is reserved for a typed adapter"
+            )));
         }
         self.begin_step_raw::<T>(kind, inputs)
     }
 
-    /// Typed approval-kind adapter (D-011): binds the step to the concrete
-    /// action plus its required target and payload digests. Both digests are
+    /// Typed approval-gated departure adapter (D-011): binds the exact
+    /// departure edge, the entry-bound request id, and the digest-bound
+    /// action/payload/target so a crashed-Pending departure cannot resume
+    /// against a different edge or approval.
+    fn begin_gated_departure_step(
+        &mut self,
+        inputs: &GatedDepartureInputs,
+    ) -> Result<StepState<TransitionOutcome>, WorkflowError> {
+        self.begin_step_raw::<TransitionOutcome>(Self::APPROVAL_STEP_KIND, inputs)
+    }
+
+    /// Authorize and append a declarative departure as one kernel-owned
+    /// boundary. Callers cannot manufacture the reserved approval record
+    /// without a currently valid Store-backed D-011 approval.
+    pub(crate) fn begin_authorized_gated_departure_step(
+        &mut self,
+        from: &str,
+        target: &str,
+        binding: &EntryBindingInputs,
+    ) -> Result<StepState<TransitionOutcome>, WorkflowError> {
+        let request_id = binding
+            .request_id
+            .parse::<ulid::Ulid>()
+            .map_err(|_| WorkflowError::Step("malformed approval request id".to_string()))?;
+        if binding.target_state != from {
+            return Err(WorkflowError::Step(
+                "approval binding source does not match departure source".to_string(),
+            ));
+        }
+        let request = self
+            .store
+            .find_action_request(request_id)?
+            .ok_or_else(|| WorkflowError::Step("approval request is missing".to_string()))?;
+        if request.action.as_str() != binding.action {
+            return Err(WorkflowError::Step(
+                "approval request action does not match binding".to_string(),
+            ));
+        }
+        let approval = self
+            .store
+            .find_approval_for_request(request_id)?
+            .ok_or_else(|| WorkflowError::Step("approval record is missing".to_string()))?;
+        let request_payload = request
+            .payload_ref
+            .as_ref()
+            .map(|reference| reference.digest.clone())
+            .ok_or_else(|| WorkflowError::Step("approval payload digest is missing".to_string()))?;
+        let request_target = request
+            .target_digest
+            .clone()
+            .ok_or_else(|| WorkflowError::Step("approval target digest is missing".to_string()))?;
+        if request_payload != binding.payload_digest || request_target != binding.target_digest {
+            return Err(WorkflowError::Step(
+                "approval request digests do not match binding".to_string(),
+            ));
+        }
+        if !approval.matches(
+            &binding.payload_digest,
+            &binding.target_digest,
+            Timestamp::now(),
+        ) {
+            return Err(WorkflowError::Step(
+                "approval record does not match binding".to_string(),
+            ));
+        }
+        let inputs = GatedDepartureInputs {
+            from: from.to_string(),
+            to: target.to_string(),
+            request_id: binding.request_id.clone(),
+            action: binding.action.clone(),
+            payload_digest: binding.payload_digest.clone(),
+            target_digest: binding.target_digest.clone(),
+        };
+        self.begin_gated_departure_step(&inputs)
+    }
+
+    /// Legacy typed approval adapter. It uses a non-state-machine kind so
+    /// generic callers cannot manufacture a declarative departure record.
     pub(crate) fn begin_approval_step<T: WorkflowInlinePayload>(
         &mut self,
         action: &str,
@@ -447,8 +783,56 @@ impl<'a> WorkflowCtx<'a> {
             target_digest,
             payload_digest,
         };
-        self.begin_step_raw::<T>(Self::APPROVAL_STEP_KIND, &inputs)
+        self.begin_step_raw::<T>(Self::LEGACY_APPROVAL_STEP_KIND, &inputs)
     }
+    fn is_reserved_kind(kind: &str) -> bool {
+        matches!(
+            kind,
+            Self::LEGACY_APPROVAL_STEP_KIND
+                | Self::APPROVAL_STEP_KIND
+                | Self::TRANSITION_STEP_KIND
+                | Self::ENTRY_BINDING_STEP_KIND
+                | Self::DEFINITION_STEP_KIND
+        )
+    }
+
+    /// Typed state-machine transition adapter. Binds the source and target
+    /// state ids into the step input digest so a crashed-Pending transition
+    /// cannot resume against a different edge.
+    pub(crate) fn begin_transition_step(
+        &mut self,
+        from: &str,
+        to: &str,
+    ) -> Result<StepState<TransitionOutcome>, WorkflowError> {
+        let inputs = TransitionStepInputs {
+            from: from.to_string(),
+            to: to.to_string(),
+        };
+        self.begin_step_raw::<TransitionOutcome>(Self::TRANSITION_STEP_KIND, &inputs)
+    }
+    /// binding (request id, action, payload/target digests). Departure may
+    /// only proceed against the exact binding persisted here.
+    pub(crate) fn begin_entry_binding_step(
+        &mut self,
+        from: &str,
+        binding: &EntryBindingInputs,
+    ) -> Result<StepState<EntryBindingInputs>, WorkflowError> {
+        let inputs = EntryTransitionInputs {
+            from: from.to_string(),
+            binding: binding.clone(),
+        };
+        self.begin_step_raw::<EntryBindingInputs>(Self::ENTRY_BINDING_STEP_KIND, &inputs)
+    }
+
+    /// Typed run-definition adapter: binds the run to an immutable manifest
+    /// digest recorded once at run start and verified on resumption.
+    pub(crate) fn begin_definition_step<T: WorkflowInlinePayload>(
+        &mut self,
+        manifest_digest: &Digest,
+    ) -> Result<StepState<T>, WorkflowError> {
+        self.begin_step_raw::<T>(Self::DEFINITION_STEP_KIND, manifest_digest)
+    }
+
     fn begin_step_raw<T: Serialize + DeserializeOwned>(
         &mut self,
         kind: &str,

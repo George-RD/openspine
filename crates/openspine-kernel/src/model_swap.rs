@@ -94,6 +94,7 @@ async fn run_case(
             content: case.prompt.clone(),
         }],
         max_tokens: GOLDEN_SET_MAX_TOKENS,
+        reasoning_tier: openspine_schemas::workflow::ReasoningTier::Standard,
     };
     let output = counted_model_generate(state, SpendLane::NonImmediate, provider, &prompt)
         .await

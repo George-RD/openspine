@@ -14,6 +14,30 @@ steps:
   - compose authority into a task grant
   - run main_assistant_agent inside the contained shell
   - "reply to the owner via telegram.reply:owner_channel"
+initial_state: received
+states:
+  - id: received
+    steps:
+      - id: verify_owner
+        kind: deterministic
+        reasoning_tier: low
+  - id: composed
+    steps:
+      - id: compose_reply
+        kind: agentic
+        reasoning_tier: standard
+  - id: replied
+    steps:
+      - id: send_reply
+        kind: deterministic
+        reasoning_tier: low
+transitions:
+  - from: received
+    to: composed
+    event: routed
+  - from: composed
+    to: replied
+    event: ready
 candidate_allowed_actions:
   - openspine.status.read
   - "telegram.reply:owner_channel"
