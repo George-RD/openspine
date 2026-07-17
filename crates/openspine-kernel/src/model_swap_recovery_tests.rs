@@ -59,19 +59,66 @@ fn persist_active_provenance(store: &Store, artifacts: &ArtifactStore, reviewed:
         })
         .unwrap();
     store
-        .set_proposed_artifact_state(id, Lifecycle::Proposed, Lifecycle::Validated)
+        .force_proposed_artifact_state_for_test(id, Lifecycle::Active)
         .unwrap();
+}
+
+fn persist_proposal_state(
+    store: &Store,
+    artifacts: &ArtifactStore,
+    reviewed: &str,
+    version: u32,
+    state: Lifecycle,
+) {
+    let reviewed_ref = artifacts.put(reviewed.as_bytes()).unwrap();
+    let id = Ulid::new();
     store
-        .force_proposed_artifact_state_for_test(id, Lifecycle::Approved)
-        .unwrap();
-    store
-        .activate_with_audit(
+        .insert_proposed_artifact(&ProposedArtifact {
             id,
-            &openspine_schemas::action::ActionId::new("artifact.activate"),
-            grant_id,
-            &reviewed_ref,
-        )
+            kind: "model_swap".to_string(),
+            artifact_id: "base".to_string(),
+            version,
+            state: Lifecycle::Proposed,
+            yaml_digest: reviewed_ref.digest.as_str().to_string(),
+            task_grant_id: Ulid::new(),
+            action_request_id: None,
+            proposed_at: jiff::Timestamp::now(),
+            lineage: None,
+        })
         .unwrap();
+    store
+        .force_proposed_artifact_state_for_test(id, state)
+        .unwrap();
+}
+
+#[test]
+fn mixed_model_swap_recovery_keeps_active_version_and_merge_preserves_it() {
+    let (store, artifacts, model_swaps, reviewed) = fixture();
+    persist_active_provenance(&store, &artifacts, &reviewed);
+    let v2 = swap_yaml_version("provider-b", Lifecycle::Approved, 2);
+    persist_proposal_state(&store, &artifacts, &v2, 2, Lifecycle::Approved);
+    std::fs::write(
+        model_swaps.join("base-v1.yaml"),
+        swap_yaml("provider-a", Lifecycle::Active),
+    )
+    .unwrap();
+    let v2_path = model_swaps.join("base-v2.yaml");
+    std::fs::write(&v2_path, &v2).unwrap();
+
+    super::model_swap_recovery::reconcile_model_swap_overlay(
+        &store,
+        &artifacts,
+        model_swaps.parent().unwrap(),
+    )
+    .unwrap();
+    assert!(!v2_path.exists());
+
+    let mut overlay = crate::artifact_loader::ArtifactRegistry::default();
+    crate::artifact_loader::load_registry_into(&mut overlay, model_swaps.parent().unwrap())
+        .unwrap();
+    let mut merged = crate::artifact_loader::ArtifactRegistry::default();
+    crate::artifact_loader::merge_registry(&mut merged, overlay);
+    assert_eq!(merged.model_swaps["base"].version, 1);
 }
 
 fn write_pending_version(model_swaps: &Path, yaml: &str, version: u32) -> std::path::PathBuf {

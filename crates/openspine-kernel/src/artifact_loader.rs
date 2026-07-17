@@ -1,10 +1,11 @@
+// openspine:allow-large-module reason: Unified six-kind artifact loader and identity/source validation must remain one audit boundary.
 //! Load and validate every `artifacts/**/*.yaml` fixture at startup (build
 //! plan 4a). Only `lifecycle_state: active` artifacts join routing — that
 //! constraint already lives in `resolve_route`/`compose_authority`
 //! (Step 2/3), so this loader just parses everything into typed registries
 //! without pre-filtering; loading itself is what gets audited here.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use crate::model_gateway::PromptTemplate;
@@ -17,6 +18,17 @@ use openspine_schemas::policy::Policy;
 use openspine_schemas::route::Route;
 use openspine_schemas::workflow::WorkflowManifest;
 
+#[path = "artifact_loader_impl.rs"]
+mod artifact_loader_impl;
+/// Project a logical artifact identity into a filesystem-safe, deterministic name.
+/// The manifest keeps the exact logical id; only this boundary uses the digest.
+pub fn overlay_filename(artifact_id: &str, version: u32) -> String {
+    let digest = openspine_schemas::digest::digest_of(&serde_json::json!({
+        "artifact_id": artifact_id,
+        "version": version,
+    }));
+    format!("{}-v{}.yaml", digest, version)
+}
 #[derive(Debug, thiserror::Error)]
 pub enum ArtifactLoadError {
     #[error("failed to read {path}: {source}")]
@@ -38,6 +50,7 @@ pub enum ArtifactLoadError {
         reason: String,
     },
     #[error("artifact collision: {kind} id={id} v{version} appears more than once (check fixtures and the data/artifacts.d overlay)")]
+    #[allow(dead_code)]
     Collision {
         kind: String,
         id: String,
@@ -49,7 +62,7 @@ pub enum ArtifactLoadError {
 /// where the schema has one. `routes` stays a `Vec` (many routes share no
 /// natural single-id lookup pattern in the pipeline — resolution always
 /// scans the whole active set, per `openspine_authority::resolve_route`).
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ArtifactRegistry {
     pub routes: Vec<Route>,
     pub agents: HashMap<ArtifactId, AgentManifest>,
@@ -59,12 +72,146 @@ pub struct ArtifactRegistry {
     pub templates: HashMap<String, PromptTemplate>,
     pub golden_sets: HashMap<String, GoldenSet>,
     pub model_swaps: HashMap<ArtifactId, ModelSwapManifest>,
+    /// Raw source bytes + path retained for every loaded artifact so legacy
+    /// migration and digest-bound reconfirmation never assume a canonical
+    /// `{id}-v{version}.yaml` filename (AD-070). Keyed by (kind, id, version).
+    pub sources: HashMap<(String, String, u32), ArtifactSource>,
+}
+
+/// The actual on-disk source of a loaded artifact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactSource {
+    pub path: std::path::PathBuf,
+    pub bytes: Vec<u8>,
+}
+
+/// Rehydrate one already-validated loader source into the typed registry.
+pub fn rehydrate_source(
+    registry: &mut ArtifactRegistry,
+    kind: &str,
+    source: &ArtifactSource,
+) -> anyhow::Result<()> {
+    let yaml = std::str::from_utf8(&source.bytes)?;
+    let parsed = parse_proposal(kind, yaml)?;
+    if parsed.kind() != kind {
+        anyhow::bail!(
+            "source kind mismatch: expected {kind}, got {}",
+            parsed.kind()
+        );
+    }
+    parsed.insert_into(registry)?;
+    Ok(())
+}
+
+/// Return the namespace identity pairs represented by a registry snapshot.
+pub fn artifact_identity_pairs(registry: &ArtifactRegistry) -> HashSet<(String, String)> {
+    let mut pairs = HashSet::new();
+    pairs.extend(
+        registry
+            .routes
+            .iter()
+            .map(|a| ("route".into(), a.id.clone())),
+    );
+    pairs.extend(
+        registry
+            .agents
+            .keys()
+            .map(|id| ("agent".into(), id.clone())),
+    );
+    pairs.extend(
+        registry
+            .workflows
+            .keys()
+            .map(|id| ("workflow".into(), id.clone())),
+    );
+    pairs.extend(
+        registry
+            .model_swaps
+            .keys()
+            .map(|id| ("model_swap".into(), id.clone())),
+    );
+    pairs.extend(registry.packs.keys().map(|id| ("pack".into(), id.clone())));
+    pairs.extend(
+        registry
+            .policies
+            .keys()
+            .map(|id| ("policy".into(), id.clone())),
+    );
+    pairs.extend(
+        registry
+            .templates
+            .keys()
+            .map(|id| ("template".into(), id.clone())),
+    );
+    pairs
+}
+
+pub fn exclude_identity_pairs(
+    registry: &mut ArtifactRegistry,
+    excluded: &HashSet<(String, String)>,
+) {
+    registry
+        .routes
+        .retain(|a| !excluded.contains(&("route".into(), a.id.clone())));
+    registry
+        .agents
+        .retain(|id, _| !excluded.contains(&("agent".into(), id.clone())));
+    registry
+        .workflows
+        .retain(|id, _| !excluded.contains(&("workflow".into(), id.clone())));
+    registry
+        .packs
+        .retain(|id, _| !excluded.contains(&("pack".into(), id.clone())));
+    registry
+        .policies
+        .retain(|id, _| !excluded.contains(&("policy".into(), id.clone())));
+    registry
+        .templates
+        .retain(|id, _| !excluded.contains(&("template".into(), id.clone())));
+    registry
+        .model_swaps
+        .retain(|id, _| !excluded.contains(&("model_swap".into(), id.clone())));
+}
+pub fn artifact_version(registry: &ArtifactRegistry, kind: &str, id: &str) -> Option<u32> {
+    match kind {
+        "route" => registry
+            .routes
+            .iter()
+            .find(|a| a.id == id)
+            .map(|a| a.version),
+        "agent" => registry.agents.get(id).map(|a| a.version),
+        "workflow" => registry.workflows.get(id).map(|a| a.version),
+        "pack" => registry.packs.get(id).map(|a| a.version),
+        "policy" => registry.policies.get(id).map(|a| a.version),
+        "template" => registry.templates.get(id).map(|a| a.version),
+        "model_swap" => registry.model_swaps.get(id).map(|a| a.version),
+        _ => None,
+    }
+}
+
+/// Merge an overlay registry into a base registry (5a/5d: approved overlay
+/// artifacts survive restart). Every field is merged; an overlay route
+/// replaces any prior route of the same id (highest version wins, matching
+/// the loader's cutover) so base and overlay versions never coexist and the
+/// live registry equals the restart registry (AD-070).
+pub fn merge_registry(dst: &mut ArtifactRegistry, src: ArtifactRegistry) {
+    for route in src.routes {
+        dst.routes.retain(|a| a.id != route.id);
+        dst.routes.push(route);
+    }
+    dst.agents.extend(src.agents);
+    dst.workflows.extend(src.workflows);
+    dst.packs.extend(src.packs);
+    dst.policies.extend(src.policies);
+    dst.templates.extend(src.templates);
+    dst.model_swaps.extend(src.model_swaps);
+    dst.sources.extend(src.sources);
 }
 
 fn load_yaml_dir<T, F>(dir: &Path, mut on_each: F) -> Result<(), ArtifactLoadError>
 where
     T: serde::de::DeserializeOwned,
-    F: FnMut(T) -> Result<(), ArtifactLoadError>,
+    F: FnMut(&Path, Vec<u8>, T) -> Result<(), ArtifactLoadError>,
 {
     if !dir.is_dir() {
         return Ok(());
@@ -84,15 +231,16 @@ where
     entries.sort();
 
     for path in entries {
-        let text = std::fs::read_to_string(&path).map_err(|source| ArtifactLoadError::Read {
+        let bytes = std::fs::read(&path).map_err(|source| ArtifactLoadError::Read {
             path: path.clone(),
             source,
         })?;
-        let value: T = serde_yaml::from_str(&text).map_err(|source| ArtifactLoadError::Parse {
-            path: path.clone(),
-            source,
-        })?;
-        on_each(value)?;
+        let value: T =
+            serde_yaml::from_slice(&bytes).map_err(|source| ArtifactLoadError::Parse {
+                path: path.clone(),
+                source,
+            })?;
+        on_each(&path, bytes, value)?;
     }
     Ok(())
 }
@@ -118,105 +266,69 @@ pub fn load_registry_into(
     registry: &mut ArtifactRegistry,
     dir: &Path,
 ) -> Result<(), ArtifactLoadError> {
-    load_yaml_dir(&dir.join("routes"), |r: Route| {
-        collide_route(&registry.routes, &r)?;
-        registry.routes.push(r);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("agents"), |a: AgentManifest| {
-        collide_keyed(registry.agents.get(&a.id), "agent", &a.id, a.version)?;
-        registry.agents.insert(a.id.clone(), a);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("workflows"), |w: WorkflowManifest| {
-        collide_keyed(registry.workflows.get(&w.id), "workflow", &w.id, w.version)?;
-        registry.workflows.insert(w.id.clone(), w);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("packs"), |p: CapabilityPack| {
-        collide_keyed(registry.packs.get(&p.id), "pack", &p.id, p.version)?;
-        registry.packs.insert(p.id.clone(), p);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("policies"), |p: Policy| {
-        collide_keyed(registry.policies.get(&p.id), "policy", &p.id, p.version)?;
-        registry.policies.insert(p.id.clone(), p);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("templates"), |t: PromptTemplate| {
-        collide_keyed(registry.templates.get(&t.id), "template", &t.id, t.version)?;
-        registry.templates.insert(t.id.clone(), t);
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("golden_sets"), |g: GoldenSet| {
-        g.validate().map_err(|err| ArtifactLoadError::Invalid {
-            kind: "golden_set".to_string(),
-            id: g.id.clone(),
-            reason: err.to_string(),
-        })?;
-        let id = g.id.clone();
-        if registry.golden_sets.insert(id.clone(), g).is_some() {
-            return Err(ArtifactLoadError::Collision {
+    artifact_loader_impl::load_registry_into(registry, dir)?;
+    load_yaml_dir(
+        &dir.join("golden_sets"),
+        |path: &Path, bytes: Vec<u8>, g: GoldenSet| {
+            g.validate().map_err(|err| ArtifactLoadError::Invalid {
                 kind: "golden_set".to_string(),
-                id,
-                version: 1,
-            });
-        }
-        Ok(())
-    })?;
-    load_yaml_dir(&dir.join("model_swaps"), |m: ModelSwapManifest| {
-        if !m.identity_valid() {
-            return Err(ArtifactLoadError::Invalid {
-                kind: "model_swap".to_string(),
-                id: m.id.clone(),
-                reason: "id must equal role name".to_string(),
-            });
-        }
-        if let Some(existing) = registry.model_swaps.get(&m.id) {
-            if existing.version == m.version {
+                id: g.id.clone(),
+                reason: err.to_string(),
+            })?;
+            let id = g.id.clone();
+            if registry.golden_sets.contains_key(&id) {
                 return Err(ArtifactLoadError::Collision {
-                    kind: "model_swap".to_string(),
-                    id: m.id.clone(),
-                    version: m.version,
+                    kind: "golden_set".to_string(),
+                    id,
+                    version: 1,
                 });
             }
-            if existing.version > m.version {
-                return Ok(());
+            registry.golden_sets.insert(id.clone(), g);
+            registry.sources.insert(
+                ("golden_set".into(), id, 1),
+                ArtifactSource {
+                    path: path.to_path_buf(),
+                    bytes,
+                },
+            );
+            Ok(())
+        },
+    )?;
+    load_yaml_dir(
+        &dir.join("model_swaps"),
+        |path: &Path, bytes: Vec<u8>, m: ModelSwapManifest| {
+            if !m.identity_valid() {
+                return Err(ArtifactLoadError::Invalid {
+                    kind: "model_swap".to_string(),
+                    id: m.id.clone(),
+                    reason: "id must equal role name".to_string(),
+                });
             }
-        }
-        registry.model_swaps.insert(m.id.clone(), m);
-        Ok(())
-    })?;
-    Ok(())
-}
-
-fn collide_route(existing: &[Route], candidate: &Route) -> Result<(), ArtifactLoadError> {
-    if existing
-        .iter()
-        .any(|e| e.id == candidate.id && e.version == candidate.version)
-    {
-        return Err(ArtifactLoadError::Collision {
-            kind: "route".into(),
-            id: candidate.id.clone(),
-            version: candidate.version,
-        });
-    }
-    Ok(())
-}
-
-fn collide_keyed<T: Versioned>(
-    existing: Option<&T>,
-    kind: &str,
-    id: &str,
-    version: u32,
-) -> Result<(), ArtifactLoadError> {
-    if existing.is_some_and(|e| e.version() == version) {
-        return Err(ArtifactLoadError::Collision {
-            kind: kind.into(),
-            id: id.into(),
-            version,
-        });
-    }
+            if let Some(existing) = registry.model_swaps.get(&m.id) {
+                if existing.version == m.version {
+                    return Err(ArtifactLoadError::Collision {
+                        kind: "model_swap".to_string(),
+                        id: m.id.clone(),
+                        version: m.version,
+                    });
+                }
+                if existing.version > m.version {
+                    return Ok(());
+                }
+            }
+            let id = m.id.clone();
+            let version = m.version;
+            registry.model_swaps.insert(id.clone(), m);
+            registry.sources.insert(
+                ("model_swap".into(), id, version),
+                ArtifactSource {
+                    path: path.to_path_buf(),
+                    bytes,
+                },
+            );
+            Ok(())
+        },
+    )?;
     Ok(())
 }
 
@@ -261,7 +373,6 @@ impl Versioned for ModelSwapManifest {
         self.version
     }
 }
-
 /// A declarative artifact parsed from a proposal's YAML, tagged by kind.
 /// `route | agent | workflow | pack | policy | model_swap` are proposable;
 /// prompt templates and golden sets remain fixture-only because they define
@@ -354,28 +465,77 @@ impl ParsedProposal {
         }
     }
 
-    /// Insert into a live registry (5d): routes push (resolution scans the
-    /// whole set), keyed kinds insert by id.
-    pub fn insert_into(self, registry: &mut ArtifactRegistry) {
+    /// Insert into a live registry (5d). For every kind this atomically
+    /// replaces the prior version of the same identity so the live registry
+    /// mirrors restart loading (only the highest active version of an id is
+    /// ever effective — AD-070 version-state cutover).
+    ///
+    /// Returns `Ok(Some(replaced_version))` when an older version was
+    /// superseded, `Ok(None)` for a fresh insert, and `Err` for an exact
+    /// duplicate (same id+version already active) or a lower version than
+    /// the currently-active one (rejected — monotonic versions only).
+    pub fn insert_into(self, registry: &mut ArtifactRegistry) -> anyhow::Result<Option<u32>> {
         match self {
-            ParsedProposal::Route(r) => registry.routes.push(r),
-            ParsedProposal::Agent(a) => {
-                registry.agents.insert(a.id.clone(), a);
-            }
-            ParsedProposal::Workflow(w) => {
-                registry.workflows.insert(w.id.clone(), w);
-            }
-            ParsedProposal::Pack(p) => {
-                registry.packs.insert(p.id.clone(), p);
-            }
-            ParsedProposal::Policy(p) => {
-                registry.policies.insert(p.id.clone(), p);
+            ParsedProposal::Route(r) => {
+                if let Some(existing) = registry.routes.iter().find(|e| e.id == r.id) {
+                    if existing.version == r.version {
+                        anyhow::bail!("exact duplicate route {} v{}", r.id, r.version);
+                    }
+                    if existing.version > r.version {
+                        anyhow::bail!(
+                            "lower version route {} v{} rejected; active is v{}",
+                            r.id,
+                            r.version,
+                            existing.version
+                        );
+                    }
+                    let old = existing.version;
+                    registry.routes.retain(|e| e.id != r.id);
+                    registry.routes.push(r);
+                    return Ok(Some(old));
+                }
+                registry.routes.push(r);
+                Ok(None)
             }
             ParsedProposal::ModelSwap(m) => {
-                registry.model_swaps.insert(m.id.clone(), m);
+                replace_keyed(&mut registry.model_swaps, m.id.clone(), m)
             }
+            ParsedProposal::Agent(a) => replace_keyed(&mut registry.agents, a.id.clone(), a),
+            ParsedProposal::Workflow(w) => replace_keyed(&mut registry.workflows, w.id.clone(), w),
+            ParsedProposal::Pack(p) => replace_keyed(&mut registry.packs, p.id.clone(), p),
+            ParsedProposal::Policy(p) => replace_keyed(&mut registry.policies, p.id.clone(), p),
         }
     }
+}
+
+/// Read-only access to the content `version` of a versioned declarative
+pub(super) trait Identified {
+    fn id(&self) -> &str;
+}
+
+fn replace_keyed<T: Versioned>(
+    map: &mut HashMap<String, T>,
+    id: String,
+    artifact: T,
+) -> anyhow::Result<Option<u32>> {
+    if let Some(existing) = map.get(&id) {
+        if existing.version() == artifact.version() {
+            anyhow::bail!("exact duplicate {} v{}", id, artifact.version());
+        }
+        if existing.version() > artifact.version() {
+            anyhow::bail!(
+                "lower version {} v{} rejected; active is v{}",
+                id,
+                artifact.version(),
+                existing.version()
+            );
+        }
+        let old = existing.version();
+        map.insert(id, artifact);
+        return Ok(Some(old));
+    }
+    map.insert(id, artifact);
+    Ok(None)
 }
 
 /// Single source of truth for the six proposable artifact kinds (PRD §13/5c,
@@ -461,6 +621,15 @@ pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 6] = &[
 /// Look up a kind spec by name in the single source of truth.
 pub fn find_kind_spec(name: &str) -> Option<&'static ArtifactKindSpec> {
     ARTIFACT_KIND_SPECS.iter().find(|spec| spec.name == name)
+}
+/// Overlay directory for every loaded kind, including non-proposable prompt
+/// templates encountered during legacy migration.
+pub fn overlay_subdir_for_kind(kind: &str) -> Option<&'static str> {
+    if kind == "template" {
+        Some("templates")
+    } else {
+        find_kind_spec(kind).map(|spec| spec.overlay_subdir)
+    }
 }
 
 /// Whether `kind` is one of the five proposable kinds (templates excluded).

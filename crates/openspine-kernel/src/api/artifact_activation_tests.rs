@@ -114,10 +114,14 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
         assert_eq!(activated.lifecycle_state, Lifecycle::Active);
     }
 
-    let overlay_path = state
-        .overlay_dir
-        .join("routes")
-        .join("newly_proposed_route-v1.yaml");
+    let overlay_path =
+        state
+            .overlay_dir
+            .join("routes")
+            .join(crate::artifact_loader::overlay_filename(
+                "newly_proposed_route",
+                1,
+            ));
     let overlay_text = std::fs::read_to_string(&overlay_path)
         .expect("an activated artifact must be persisted to the on-disk overlay");
     assert!(overlay_text.contains("lifecycle_state: active"));

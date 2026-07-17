@@ -130,6 +130,18 @@ impl Store {
         Ok(json.map(|j| serde_json::from_str(&j)).transpose()?)
     }
 
+    pub fn is_action_request_used(&self, id: Ulid) -> Result<bool, StoreError> {
+        let conn = self.conn.lock();
+        let used: Option<i64> = conn
+            .query_row(
+                "SELECT used FROM action_requests WHERE id = ?1",
+                params![id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(used == Some(1))
+    }
+
     /// Atomically consume a pending [`ActionRequest`] before dispatching
     /// its approval (D-044): `UPDATE ... WHERE used = 0` in one locked
     /// statement, mirroring [`Self::try_consume_selection_token`]'s

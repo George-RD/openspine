@@ -168,7 +168,7 @@ fn detail_dead_letter_completion_is_fenced_against_duplicate_receipt() {
         .record_notify_failure_with_digest(555, "ref", grant, "wiremock", &[], Some(&detail))
         .expect("record");
     let claimed = store
-        .claim_due_dead_letter(jiff::Timestamp::now())
+        .claim_due_dead_letter(jiff::Timestamp::now() + std::time::Duration::from_secs(1))
         .expect("claim")
         .expect("due");
     let token = claimed.claim_token.clone().unwrap();

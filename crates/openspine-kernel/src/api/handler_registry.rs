@@ -20,6 +20,7 @@ use super::actions::{
     dispatch_lyra_preview, dispatch_read_selected_thread, DispatchError, PreviewPayload,
     TelegramReplyPayload,
 };
+use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::plan::dispatch_plan_preview;
 
@@ -56,6 +57,10 @@ impl ActionHandlerRegistry {
         map.insert("lyra.ui.preview", handle_lyra_preview as ActionHandler);
         map.insert("artifact.propose", handle_artifact_propose as ActionHandler);
         map.insert("plan.propose", handle_plan_propose as ActionHandler);
+        map.insert(
+            "artifact.nominate_upstream",
+            handle_artifact_nominate as ActionHandler,
+        );
         map.insert(
             "workflow.invoke:approved",
             handle_workflow_invoke as ActionHandler,
@@ -180,6 +185,20 @@ fn handle_artifact_propose<'a>(
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_artifact_propose(
+        state,
+        grant,
+        bound_chat_id,
+        payload,
+    ))
+}
+
+fn handle_artifact_nominate<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    bound_chat_id: i64,
+    payload: Option<&'a Value>,
+) -> HandlerFuture<'a> {
+    Box::pin(dispatch_artifact_nominate(
         state,
         grant,
         bound_chat_id,

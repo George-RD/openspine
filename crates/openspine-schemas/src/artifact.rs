@@ -24,6 +24,14 @@ pub fn default_version() -> u32 {
     1
 }
 
+/// AD-070 base/overlay namespacing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactNamespace {
+    Base,
+    Overlay,
+}
+
 /// Artifact lifecycle state (PRD §13.1).
 ///
 /// `proposed → validated → review_required → approved → active → quarantined | retired`.
@@ -57,6 +65,7 @@ pub fn can_transition(from: Lifecycle, to: Lifecycle) -> bool {
             | (Validated, ReviewRequired)
             | (ReviewRequired, Approved)
             | (Approved, Active)
+            | (Active, Approved)
             | (Active, Quarantined)
             | (Active, Retired)
     )
