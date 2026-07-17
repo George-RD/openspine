@@ -107,6 +107,18 @@ pub(crate) mod fixtures {
         )
     }
 
+    /// Build a state wired to both a Gmail connector and a caller-supplied
+    /// Telegram connector (typically one backed by a `wiremock` `MockServer`
+    /// so `answer_callback_query` / `send_reply` can be intercepted). Needed
+    /// now that `answer_callback_query` is a typed real connector boundary
+    /// whose acknowledgement must be exercised against a mock endpoint.
+    pub(crate) fn test_state_with_gmail_and_telegram(
+        gmail: GmailConnector,
+        telegram: TelegramConnector,
+    ) -> AppState {
+        build_state(telegram, Some(gmail))
+    }
+
     pub(crate) fn owner_update(text: &str) -> TelegramUpdate {
         TelegramUpdate {
             update_id: 1,

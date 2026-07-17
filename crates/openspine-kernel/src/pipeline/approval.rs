@@ -41,11 +41,26 @@ pub(super) async fn handle_draft_approval_callback(
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
-    state
+    let answer_result = state
         .connectors
         .telegram()
         .answer_callback_query(callback_query_id)
         .await;
+    // A callback ack is pure control-plane bookkeeping (it only stops the
+    // tapper's spinner). It must never abort the approval it accompanies, so
+    // its telemetry is recorded best-effort and the approval proceeds
+    // regardless (PI parent note / FsReviewSec P1: a failed ack must not
+    // prevent an approval from completing, and must not be swallowed
+    // silently either).
+    crate::failure_surfacing::record_callback_ack(
+        state,
+        answer_result.is_ok(),
+        answer_result
+            .as_ref()
+            .err()
+            .map(|e| e.to_string())
+            .as_deref(),
+    );
 
     let Some(request) = state.store.find_action_request(action_request_id)? else {
         state.store.append_audit(
@@ -277,33 +292,41 @@ pub(super) async fn create_approved_draft(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(
+        crate::failure_surfacing::batch_failure(
             state,
-            chat_id,
-            "Approved, but Gmail isn't configured anymore — couldn't create the draft.",
-        )
-        .await;
+            crate::failure_surfacing::FailureClass::Connector,
+            "gmail connector unavailable during approval",
+            "gmail connector unavailable during approval",
+        )?;
         return Ok(());
     };
 
-    let thread = match gmail.fetch_thread(&thread_id).await {
+    let thread_result = gmail.fetch_thread(&thread_id).await;
+    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+        &state.store,
+        "gmail",
+        thread_result.is_ok(),
+    ) {
+        tracing::error!(error = %counter_err, "failed to persist Gmail fetch counter");
+    }
+    let thread = match thread_result {
         Ok(thread) => thread,
         Err(err) => {
             state.store.append_audit(
                 "draft.creation_failed",
                 Some(&request.action),
                 None,
-                Some(&err.to_string()),
+                None,
                 Some(grant.id),
                 &[],
                 &[],
             )?;
-            notify_owner_best_effort(
+            crate::failure_surfacing::batch_failure(
                 state,
-                chat_id,
-                "Approved, but couldn't reach Gmail to create the draft — try /draft again.",
-            )
-            .await;
+                crate::failure_surfacing::FailureClass::Connector,
+                "gmail thread fetch failed during approval",
+                &err.to_string(),
+            )?;
             return Ok(());
         }
     };
@@ -360,13 +383,16 @@ pub(super) async fn create_approved_draft(
         return Ok(());
     }
 
-    match gmail.create_draft(&thread_id, &target, subject, body).await {
+    let draft_result = gmail.create_draft(&thread_id, &target, subject, body).await;
+    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+        &state.store,
+        "gmail",
+        draft_result.is_ok(),
+    ) {
+        tracing::error!(error = %counter_err, "failed to persist Gmail create counter");
+    }
+    match draft_result {
         Ok(draft_id) => {
-            // Best-effort: a completed Gmail draft must still be audited
-            // and the owner still told it succeeded even if persisting
-            // the draft-id ref fails — losing that ref is far cheaper
-            // than losing the audit record of a real provider-side
-            // mutation that already happened.
             let draft_id_refs = match state.artifacts.put(draft_id.as_bytes()) {
                 Ok(r) => vec![r],
                 Err(err) => {
@@ -400,17 +426,17 @@ pub(super) async fn create_approved_draft(
                 "draft.creation_failed",
                 Some(&request.action),
                 None,
-                Some(&err.to_string()),
+                None,
                 Some(grant.id),
                 &[target_ref],
                 std::slice::from_ref(payload_ref),
             )?;
-            notify_owner_best_effort(
+            crate::failure_surfacing::batch_failure(
                 state,
-                chat_id,
-                "Approved, but Gmail rejected the draft — try /draft again.",
-            )
-            .await;
+                crate::failure_surfacing::FailureClass::Connector,
+                "gmail create draft failed during approval",
+                &err.to_string(),
+            )?;
         }
     }
     Ok(())

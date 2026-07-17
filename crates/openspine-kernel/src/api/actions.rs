@@ -1,26 +1,22 @@
-//! `POST /v1/actions` — the only way the shell may cause an external
-//! effect (build plan 4a/4b/4d).
-
-use std::sync::Arc;
-
+use super::proposal::propose_draft_creation;
+use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
+use super::{authenticate, internal_error};
+use crate::failure_surfacing::{batch_failure, FailureClass};
+use crate::pipeline::AppState;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
-use openspine_schemas::digest::{canonical_json, digest_of};
+use openspine_schemas::digest::canonical_json;
 use openspine_schemas::escalation::{surface_denial, EscalationEvent};
-use openspine_schemas::event::{TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::str::FromStr;
+use std::sync::Arc;
 use ulid::Ulid;
-
-use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
-use super::{authenticate, internal_error};
-use crate::pipeline::AppState;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,38 +29,23 @@ pub(super) struct ActionRequestBody {
     payload: Option<Value>,
 }
 
-/// The wire-contract-mandated shape of `telegram.reply:owner_channel`'s
-/// payload. `deny_unknown_fields` matters here beyond style: the reply
-/// always targets the grant's `bound_chat_id` (channel binding by
-/// construction — the contract defines no field to override it), and this
-/// makes that guarantee enforced rather than merely assumed. A shell that
-/// tried to smuggle e.g. `"chat_id"` in here gets a hard parse failure
-/// instead of the field being silently dropped by default serde behavior.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct TelegramReplyPayload {
     pub(super) text: String,
 }
 
-/// `email.read_thread:selected_no_attachments`'s payload (build plan Step
-/// 5): the shell names which of *its own grant's* selection tokens to
-/// consume — it can never mint or alter one (PRD §15), only spend a token
-/// the kernel already bound to it (see `GET /v1/task`'s `selection_tokens`).
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ReadThreadPayload {
     selection_token_id: String,
 }
 
-/// `lyra.ui.preview`'s payload (build plan Step 5): a draft summary shown
-/// to the owner. Distinct action id from `telegram.reply:owner_channel`
-/// (which `email_reply_drafter` is denied) — the kernel, not the agent,
-/// controls exactly what a preview dispatch does.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct PreviewPayload {
-    subject: String,
-    body: String,
+    pub(super) subject: String,
+    pub(super) body: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -184,39 +165,55 @@ pub(super) async fn post_actions(
             result: Some(result),
         })),
         Err(err) => {
-            let (status, message) = match &err {
-                DispatchError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-                DispatchError::Internal(cause) => {
+            let digest_class = match &err {
+                DispatchError::Resource(_) => FailureClass::Resource,
+                DispatchError::Connector(_) => FailureClass::Connector,
+                DispatchError::BadRequest(_) => FailureClass::Connector,
+            };
+            let (status, http_message, digest_summary) = match &err {
+                DispatchError::BadRequest(msg) => {
+                    (StatusCode::BAD_REQUEST, msg.clone(), msg.clone())
+                }
+                DispatchError::Connector(cause) | DispatchError::Resource(cause) => {
                     tracing::error!(error = %cause, "action dispatch failed");
                     (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         "internal_error".to_string(),
+                        format!("{action}: {cause}"),
                     )
                 }
             };
-            let _ = state.store.append_audit(
-                "action.dispatch_failed",
-                Some(&action),
-                None,
-                Some(&message),
-                Some(grant.id),
-                &[],
-                &[],
-            );
-            Err((status, Json(json!({"error": message}))))
+            state
+                .store
+                .append_audit(
+                    "action.dispatch_failed",
+                    Some(&action),
+                    None,
+                    None,
+                    Some(grant.id),
+                    &[],
+                    &[],
+                )
+                .map_err(internal_error)?;
+            if !matches!(err, DispatchError::BadRequest(_)) {
+                batch_failure(
+                    &state,
+                    digest_class,
+                    &format!("{action} dispatch failed"),
+                    &digest_summary,
+                )
+                .map_err(internal_error)?;
+            }
+            Err((status, Json(json!({"error": http_message}))))
         }
     }
 }
 
-/// Distinguishes a shell contract violation (bad request shape — its own
-/// mistake, `400`) from a genuine kernel/infrastructure failure (`500`).
-/// Both are audited via `action.dispatch_failed` either way (see
-/// [`post_actions`]) so "why didn't Lyra reply" stays answerable from
-/// `audit_log` alone even when the dispatch itself failed.
 #[derive(Debug)]
 pub(crate) enum DispatchError {
     BadRequest(String),
-    Internal(anyhow::Error),
+    Connector(anyhow::Error),
+    Resource(anyhow::Error),
 }
 
 /// Run the effect of one `gate()`-allowed action. Only reached after
@@ -260,12 +257,18 @@ async fn dispatch_allowed_action(
 /// to the *full* `preview.body`, so if the message shown to the owner had
 /// to be cut short, no approval may be proposed for it at all — the owner
 /// must never be able to tap Approve on content they were not shown in
-/// full. If proposing fails for any other reason (no Gmail connector, no
-/// selection token on this grant, the thread no longer resolves, no
-/// non-owner correspondent found, artifact budget exhausted), the preview
-/// is still shown — the owner sees the draft but the message carries no
-/// approval button, an honest reflection of "propose failed" rather than a
-/// silently-broken button.
+/// full.
+///
+/// A `Resource`-class `ProposalError` is fatal: it is returned as a typed
+/// `DispatchError::Resource` and the outer `post_actions` layer audits and
+/// batches it exactly once (`post_actions` already does this for every
+/// returned `Resource`/`Connector` error, so this arm must not batch a
+/// Resource error itself or it would be double-counted). A `Connector`-class
+/// error returns `Ok(sent:true)` (an honest "propose failed, no approval
+/// button" rather than a broken button), so it is batched here — and only
+/// once the durable digest write succeeds does the preview get shown; if
+/// that write fails it escalates to a typed `Resource` error (PI parent
+/// note: a Resource failure must never be reported as a successful preview).
 pub(super) async fn dispatch_lyra_preview(
     state: &AppState,
     grant: &TaskGrant,
@@ -277,129 +280,124 @@ pub(super) async fn dispatch_lyra_preview(
         preview.subject, preview.body
     );
     let text = truncate_for_telegram(&full);
-    let was_truncated = text != full;
-
-    if was_truncated {
-        let _ = state.store.append_audit(
-            "draft.proposal_failed",
-            Some(&ActionId::new("email.create_draft")),
-            None,
-            Some("preview_truncated"),
-            Some(grant.id),
-            &[],
-            &[],
-        );
+    if text != full {
         state
-            .connectors
-            .telegram()
-            .send_reply(bound_chat_id, &truncate_with_notice(&full))
-            .await
-            .map_err(DispatchError::Internal)?;
-        return Ok(json!({"sent": true}));
-    }
-
-    match propose_draft_creation(state, grant, preview).await {
-        Ok(action_request_id) => {
-            state
-                .connectors
-                .telegram()
-                .send_reply_with_approval_button(bound_chat_id, &text, action_request_id)
-                .await
-                .map_err(DispatchError::Internal)?;
-        }
-        Err(reason) => {
-            let _ = state.store.append_audit(
+            .store
+            .append_audit(
                 "draft.proposal_failed",
                 Some(&ActionId::new("email.create_draft")),
                 None,
-                Some(reason),
+                Some("preview_truncated"),
                 Some(grant.id),
                 &[],
                 &[],
-            );
+            )
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        let send_result = state
+            .connectors
+            .telegram()
+            .send_reply(bound_chat_id, &truncate_with_notice(&full))
+            .await;
+        if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+            &state.store,
+            "telegram",
+            send_result.is_ok(),
+        ) {
+            tracing::error!(error = %counter_err, "failed to persist Telegram counter");
+            if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                state,
+                crate::failure_surfacing::FailureClass::Resource,
+                "Telegram counter persistence failed",
+                "Telegram counter persistence failed",
+            ) {
+                tracing::error!(error = %surface_err, "counter failure surface append failed");
+            }
+        }
+        send_result.map_err(DispatchError::Connector)?;
+        return Ok(json!({"sent": true}));
+    }
+    match propose_draft_creation(state, grant, preview).await {
+        Ok(action_request_id) => {
+            let send_result = state
+                .connectors
+                .telegram()
+                .send_reply_with_approval_button(bound_chat_id, &text, action_request_id)
+                .await;
+            if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+                &state.store,
+                "telegram",
+                send_result.is_ok(),
+            ) {
+                tracing::error!(error = %counter_err, "failed to persist Telegram counter");
+                if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                    state,
+                    crate::failure_surfacing::FailureClass::Resource,
+                    "Telegram counter persistence failed",
+                    "Telegram counter persistence failed",
+                ) {
+                    tracing::error!(error = %surface_err, "counter failure surface append failed");
+                }
+            }
+            send_result.map_err(DispatchError::Connector)?;
+        }
+        Err(err) => {
+            // Resource-class propose failures are fatal. Return the typed
+            // error and let the outer `post_actions` layer audit + batch it
+            // exactly once — do NOT batch here, or the failure is counted
+            // twice (this is the `gmail_failure_surface_record_failed` trap
+            // the parent required us to remove).
+            if err.failure_class() == FailureClass::Resource {
+                return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            }
+            // Connector-class propose failures return `Ok(sent:true)`, so the
+            // outer layer never sees an error to batch. Surface them durably
+            // here, and only continue to show the preview once the digest
+            // write succeeds. If the write fails, escalate to a typed
+            // Resource error (the outer layer batches that store failure).
+            batch_failure(
+                state,
+                FailureClass::Connector,
+                "lyra.ui.preview proposal failed",
+                &err.to_string(),
+            )
+            .map_err(|surface_err| DispatchError::Resource(anyhow::Error::new(surface_err)))?;
             state
+                .store
+                .append_audit(
+                    "draft.proposal_failed",
+                    Some(&ActionId::new("email.create_draft")),
+                    None,
+                    None,
+                    Some(grant.id),
+                    &[],
+                    &[],
+                )
+                .map_err(|e| DispatchError::Resource(anyhow::Error::new(e)))?;
+            let send_result = state
                 .connectors
                 .telegram()
                 .send_reply(bound_chat_id, &text)
-                .await
-                .map_err(DispatchError::Internal)?;
+                .await;
+            if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+                &state.store,
+                "telegram",
+                send_result.is_ok(),
+            ) {
+                tracing::error!(error = %counter_err, "failed to persist Telegram counter");
+                if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                    state,
+                    crate::failure_surfacing::FailureClass::Resource,
+                    "Telegram counter persistence failed",
+                    "Telegram counter persistence failed",
+                ) {
+                    tracing::error!(error = %surface_err, "counter failure surface append failed");
+                }
+            }
+            send_result.map_err(DispatchError::Connector)?;
+            return Ok(json!({"sent": true}));
         }
     }
     Ok(json!({"sent": true}))
-}
-
-/// D-043: derive the target (D-042, never trusting anything from the
-/// shell for it), store the payload artifact, and persist the pending
-/// `email.create_draft` [`ActionRequest`] (D-040/D-041) that a later
-/// `callback_query` approval (D-044) will be bound to.
-async fn propose_draft_creation(
-    state: &AppState,
-    grant: &TaskGrant,
-    preview: &PreviewPayload,
-) -> Result<Ulid, &'static str> {
-    let gmail = state.connectors.gmail().ok_or("no_gmail_connector")?;
-    let token_id = grant
-        .selection_tokens
-        .first()
-        .copied()
-        .ok_or("no_selection_token_on_grant")?;
-    let token = state
-        .store
-        .find_selection_token(token_id)
-        .map_err(|_| "selection_token_lookup_failed")?
-        .ok_or("selection_token_not_found")?;
-    let thread = gmail
-        .fetch_thread(&token.target_id)
-        .await
-        .map_err(|_| "gmail_thread_fetch_failed")?;
-    let target = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
-        .ok_or("no_non_owner_recipient_found")?;
-
-    // D-046: the draft-proposal payload is a shell-initiated artifact put
-    // — counts against `max_artifacts` the same way `model.generate`'s
-    // payload snapshot does.
-    if !state
-        .store
-        .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
-        .map_err(|_| "artifact_budget_check_failed")?
-    {
-        return Err("artifact_budget_exhausted");
-    }
-    let payload_bytes =
-        canonical_json(&json!({ "subject": preview.subject, "body": preview.body }));
-    let payload_ref = state
-        .artifacts
-        .put(payload_bytes.as_bytes())
-        .map_err(|_| "artifact_store_failed")?;
-    // D-041: recipients as a list, not a bare string — so a future
-    // reply-all/Cc addition widens this shape without changing what the
-    // field name itself means to an already-approved digest.
-    let target_digest = digest_of(&json!({
-        "thread_id": token.target_id,
-        "connector": "gmail_primary",
-        "account_role": "owner_mailbox",
-        "recipients": [target.recipient],
-    }));
-
-    let request = ActionRequest {
-        id: Ulid::new(),
-        task_grant_id: grant.id,
-        action: ActionId::new("email.create_draft"),
-        target_ref: Some(TargetRef {
-            kind: TargetRefKind::EmailThread,
-            id: Some(token.target_id.clone()),
-        }),
-        payload_ref: Some(payload_ref),
-        target_digest: Some(target_digest),
-        selection_token_id: None,
-        requested_at: Timestamp::now(),
-        schema_version: 1,
-    };
-    state
-        .store
-        .insert_action_request(&request)
-        .map_err(|_| "action_request_persist_failed")?;
-    Ok(request.id)
 }
 
 /// `email.read_thread:selected_no_attachments`'s real implementation
@@ -437,7 +435,7 @@ pub(super) async fn dispatch_read_selected_thread(
     let token = state
         .store
         .find_selection_token(token_id)
-        .map_err(|err| DispatchError::Internal(err.into()))?
+        .map_err(|err| DispatchError::Resource(err.into()))?
         .ok_or_else(|| DispatchError::BadRequest("unknown selection token".to_string()))?;
 
     // Atomic single-use consume, post-allow (D-050 / D-055.3). A failed
@@ -445,7 +443,7 @@ pub(super) async fn dispatch_read_selected_thread(
     let consumed = state
         .store
         .try_consume_selection_token(token_id)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     if !consumed {
         return Err(DispatchError::BadRequest(
             "selection token has already been used".to_string(),
@@ -453,14 +451,18 @@ pub(super) async fn dispatch_read_selected_thread(
     }
 
     let gmail = state.connectors.gmail().ok_or_else(|| {
-        DispatchError::Internal(anyhow::anyhow!(
+        DispatchError::Connector(anyhow::anyhow!(
             "selection token exists but no gmail connector is configured"
         ))
     })?;
-    let thread = gmail
-        .fetch_thread(&token.target_id)
-        .await
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+    let thread_result = gmail.fetch_thread(&token.target_id).await;
+    crate::failure_surfacing::record_connector_outcome(
+        &state.store,
+        "gmail",
+        thread_result.is_ok(),
+    )
+    .map_err(|err| DispatchError::Resource(err.into()))?;
+    let thread = thread_result.map_err(|err| DispatchError::Connector(err.into()))?;
 
     Ok(json!({
         "thread_id": thread.thread_id,

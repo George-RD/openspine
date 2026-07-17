@@ -145,7 +145,9 @@ async fn artifact_propose_rejects_malformed_yaml() {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("failed to parse"), "unexpected message: {msg}")
         }
-        DispatchError::Internal(_) => panic!("malformed YAML must be a BadRequest, not Internal"),
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+            panic!("malformed YAML must be a BadRequest, not infrastructure failure")
+        }
     }
     assert!(!state
         .store
@@ -174,7 +176,9 @@ async fn artifact_propose_rejects_unknown_kind() {
             msg.contains("route|agent|workflow|pack|policy"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Internal(_) => panic!("unknown kind must be a BadRequest, not Internal"),
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+            panic!("unknown kind must be a BadRequest, not infrastructure failure")
+        }
     }
 }
 
@@ -204,7 +208,9 @@ async fn artifact_propose_rejects_template_kind() {
             msg.contains("route|agent|workflow|pack|policy"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Internal(_) => panic!("template kind must be a BadRequest, not Internal"),
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+            panic!("template kind must be a BadRequest, not infrastructure failure")
+        }
     }
     assert!(!state
         .store
@@ -252,7 +258,7 @@ async fn artifact_propose_rejects_duplicate_id_version() {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("already exists"), "unexpected message: {msg}")
         }
-        DispatchError::Internal(_) => {
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
             panic!("a pending-duplicate proposal must be a BadRequest, not Internal")
         }
     }
@@ -278,7 +284,7 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
             msg.contains("lifecycle_state must be proposed"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Internal(_) => {
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
             panic!("a pre-activation attempt must be a BadRequest, not Internal")
         }
     }

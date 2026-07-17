@@ -58,6 +58,12 @@ impl ArtifactStore {
     fn blob_path(&self, digest_hex: &str) -> PathBuf {
         self.root.join(digest_hex)
     }
+    /// Test-only: the on-disk path for `artifact_ref`'s encrypted blob, so
+    /// tests can corrupt or remove it to exercise missing/corrupt reads.
+    #[cfg(test)]
+    pub(crate) fn blob_path_for_test(&self, artifact_ref: &ArtifactRef) -> PathBuf {
+        self.blob_path(Self::digest_hex(&artifact_ref.digest))
+    }
 
     fn digest_hex(digest: &openspine_schemas::digest::Digest) -> &str {
         digest

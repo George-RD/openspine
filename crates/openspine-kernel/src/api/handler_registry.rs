@@ -99,12 +99,27 @@ fn handle_telegram_reply<'a>(
                     .to_string(),
             )
         })?;
-        state
+        let send_result = state
             .connectors
             .telegram()
             .send_reply(bound_chat_id, &reply.text)
-            .await
-            .map_err(DispatchError::Internal)?;
+            .await;
+        if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+            &state.store,
+            "telegram",
+            send_result.is_ok(),
+        ) {
+            tracing::error!(error = %counter_err, "failed to persist Telegram counter");
+            if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                state,
+                crate::failure_surfacing::FailureClass::Resource,
+                "Telegram counter persistence failed",
+                "Telegram counter persistence failed",
+            ) {
+                tracing::error!(error = %surface_err, "counter failure surface append failed");
+            }
+        }
+        send_result.map_err(DispatchError::Connector)?;
         Ok(json!({"sent": true}))
     })
 }

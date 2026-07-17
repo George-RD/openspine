@@ -171,7 +171,7 @@ async fn answer_callback_query_is_a_control_plane_ack_with_no_security_effect() 
         .await;
     let connector =
         TelegramConnector::with_api_url("test-token".to_string(), tg.uri().parse().unwrap());
-    connector.answer_callback_query("cb-xyz").await;
+    let _ = connector.answer_callback_query("cb-xyz").await;
     // Reaching here means `answer_callback_query` fired exactly one
     // `answerCallbackQuery` POST carrying the callback id — a pure
     // control-plane ack. `wiremock` panics on an unmet `.expect(1)` at

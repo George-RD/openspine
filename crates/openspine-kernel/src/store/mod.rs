@@ -23,6 +23,7 @@ use std::path::Path;
 #[cfg(test)]
 use std::sync::atomic::AtomicBool;
 
+use crate::artifact_store::ArtifactStoreError;
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
@@ -164,6 +165,10 @@ pub enum StoreError {
     TaskGrantNotFound(Ulid),
     #[error("mandatory owner notification failed: {0}")]
     OwnerNotificationFailed(String),
+    #[error("failure-routing invariant violation: {0}")]
+    FailureRouting(String),
+    #[error("artifact store error during failure surfacing: {0}")]
+    ArtifactStore(#[source] ArtifactStoreError),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -514,16 +519,21 @@ mod audit_support;
 mod budget_support;
 #[cfg(test)]
 mod budget_support_tests;
+mod digest_store;
 pub(crate) mod eval_verdict_store;
 #[cfg(test)]
 mod eval_verdict_store_tests;
 pub(crate) mod event_bus;
+mod failure_surfacing;
+pub(crate) mod failure_surfacing_types;
 mod gate_support;
 mod identity;
 #[cfg(test)]
 mod identity_tests;
 #[cfg(test)]
 mod lineage_tests;
+#[cfg(test)]
+mod migration_tests;
 mod migrations;
 pub(crate) mod proposed_artifacts;
 #[cfg(test)]

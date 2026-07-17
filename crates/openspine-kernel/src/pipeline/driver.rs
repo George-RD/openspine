@@ -1,8 +1,3 @@
-//! The single typed pipeline driver and lane specifications.
-//!
-//! Exposes `run_pipeline` which executes the synchronous prefix of stages.
-//! MUST NOT import or call `gate()`.
-
 use std::future::Future;
 use std::pin::Pin;
 
@@ -19,9 +14,6 @@ use super::lanes::{
 };
 use super::{empty_session_policy, notify_owner_best_effort, AppState};
 
-/// The nine pipeline stages, declared once. `Gate` and `Audit` name the whole
-/// pipeline honestly (gate is a distributed runtime stage; audit is woven
-/// through every stage) but are not part of the driver's synchronous prefix.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PipelineStage {
     Event,
@@ -64,19 +56,12 @@ impl PipelineStage {
         Self::SEQUENCE[6],
     ];
 }
-/// Invariant tying the two declared sequences together: `SYNC_PREFIX` is
-/// `SEQUENCE` truncated before the two distributed-runtime stages (`Gate`,
-/// `Audit`), which therefore remain in the full sequence but never in the
-/// driver's prefix.
 const _: () = {
     assert!(matches!(PipelineStage::SEQUENCE[7], PipelineStage::Gate));
     assert!(matches!(PipelineStage::SEQUENCE[8], PipelineStage::Audit));
     assert!(PipelineStage::SYNC_PREFIX.len() + 2 == PipelineStage::SEQUENCE.len());
 };
 
-/// The parsed, lane-agnostic intake the driver consumes. Lane selection has
-/// already happened (the `/draft <id>` command detected) by the time this
-/// reaches the driver; `thread_id` is `Some` only for the email-preview lane.
 pub struct EventInputs {
     pub chat_id: i64,
     pub text: String,
@@ -84,7 +69,6 @@ pub struct EventInputs {
     pub owner_verified: Option<crate::telegram::VerifiedOwnerContext>,
 }
 
-/// A preflight verification failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreflightFailure {
     GmailNotConfigured,
@@ -93,7 +77,6 @@ pub enum PreflightFailure {
     GmailError { err: String },
 }
 
-/// Async preflight adapter hook.
 pub type PreflightFn =
     for<'a> fn(
         &'a AppState,
@@ -102,17 +85,11 @@ pub type PreflightFn =
         Timestamp,
     ) -> Pin<Box<dyn Future<Output = Result<(), PreflightFailure>> + Send + 'a>>;
 
-/// Builds the event envelope.
 pub type BuildEnvelopeFn =
     fn(&AppState, &EventInputs, Timestamp) -> anyhow::Result<(EventEnvelope, ArtifactRef)>;
 
-/// Lane-driven containment guard, invoked in the `Route` stage. Returns
-/// `Ok(true)` when the lane is refused (audit already emitted) so the driver
-/// can exit; `Ok(false)` means the lane may proceed.
 pub type RouteGuardFn = fn(&AppState, &EventEnvelope, Lane) -> anyhow::Result<bool>;
 
-/// Grant-binding adapter: mints/binds any lane-specific selection token and
-/// returns the pending task input ref persisted with the grant.
 pub type GrantBindingFn = fn(
     &AppState,
     &mut TaskGrant,
@@ -121,11 +98,6 @@ pub type GrantBindingFn = fn(
     Timestamp,
 ) -> anyhow::Result<ArtifactRef>;
 
-/// Compiled-in data record capturing everything that diverges between the
-/// two event flows. A lane carries no sequencing capability — the driver
-/// owns the order via [`PipelineStage::SYNC_PREFIX`]; per-lane "absence of
-/// stage work" (e.g. the owner-control lane's no-op preflight) is expressed
-/// as a no-op input to that stage, never a skipped stage.
 #[derive(Clone, Copy)]
 pub struct LaneSpec {
     pub lane: Lane,
@@ -137,7 +109,6 @@ pub struct LaneSpec {
     pub grant_binding: GrantBindingFn,
 }
 
-/// The verified-owner Telegram conversation lane.
 pub fn owner_control_lane() -> LaneSpec {
     LaneSpec {
         lane: Lane::OwnerControl,
@@ -150,7 +121,6 @@ pub fn owner_control_lane() -> LaneSpec {
     }
 }
 
-/// The `/draft <thread_id>` selected-thread email reply draft lane.
 pub fn email_preview_lane() -> LaneSpec {
     LaneSpec {
         lane: Lane::ExternalCommunication,
@@ -163,14 +133,6 @@ pub fn email_preview_lane() -> LaneSpec {
     }
 }
 
-/// Run one verified owner event through the pipeline's synchronous prefix,
-/// interpreting `spec` as lane data. Returns `Ok(None)` for every outcome the
-/// pipeline itself decides on; `Ok(Some(grant))` once authority has been
-/// composed and persisted regardless of whether the shell spawn succeeds; and
-/// `Err` only for a genuine infrastructure failure.
-///
-/// `trace` receives the stages as they execute and must equal
-/// [`PipelineStage::SYNC_PREFIX`] on the happy path for both lanes.
 pub async fn run_pipeline(
     state: &AppState,
     spec: LaneSpec,
@@ -326,30 +288,54 @@ pub async fn run_pipeline(
                 &[],
                 &[],
             )?;
+            crate::failure_surfacing::notify_immediate_failure(
+                state,
+                inputs.chat_id,
+                crate::failure_surfacing::FailureClass::Authority,
+                &format!("Authority denied: {reason}"),
+            )
+            .await?;
             return Ok(None);
         }
         AuthorityOutcome::UnknownActionId { id, source } => {
+            let summary = format!("Unknown action id {id} in {source}");
             state.store.append_audit(
                 "authority.unknown_action_id",
                 None,
                 None,
-                Some(&format!("unknown action id {id} in {source}")),
+                Some(&summary),
                 None,
                 &[],
                 &[],
             )?;
+            crate::failure_surfacing::notify_immediate_failure(
+                state,
+                inputs.chat_id,
+                crate::failure_surfacing::FailureClass::Authority,
+                &summary,
+            )
+            .await?;
             return Ok(None);
         }
         AuthorityOutcome::Ambiguous { .. } => {
+            let summary =
+                "compose_authority returned Ambiguous, which it is not expected to produce";
             state.store.append_audit(
                 "authority.ambiguous",
                 None,
                 None,
-                Some("compose_authority returned Ambiguous, which it is not expected to produce"),
+                Some(summary),
                 None,
                 &[],
                 &[],
             )?;
+            crate::failure_surfacing::notify_immediate_failure(
+                state,
+                inputs.chat_id,
+                crate::failure_surfacing::FailureClass::Escalation,
+                summary,
+            )
+            .await?;
             return Ok(None);
         }
     };
@@ -407,10 +393,16 @@ pub async fn run_pipeline(
                 "task.shell_failed",
                 None,
                 None,
-                Some(&err.to_string()),
+                None,
                 Some(grant.id),
                 &[],
                 &[],
+            )?;
+            crate::failure_surfacing::batch_failure(
+                state,
+                crate::failure_surfacing::FailureClass::Resource,
+                "shell task failed",
+                &format!("shell task failed: {err}"),
             )?;
         }
     }
@@ -473,21 +465,15 @@ async fn emit_preflight_failure(
             .await;
         }
         PreflightFailure::GmailError { err } => {
-            state.store.append_audit(
-                "selection.gmail_error",
-                None,
-                None,
-                Some(&err),
-                None,
-                &[],
-                &[],
-            )?;
-            notify_owner_best_effort(
+            state
+                .store
+                .append_audit("selection.gmail_error", None, None, None, None, &[], &[])?;
+            crate::failure_surfacing::batch_failure(
                 state,
-                chat_id,
-                "Couldn't reach Gmail just now — try again shortly.",
-            )
-            .await;
+                crate::failure_surfacing::FailureClass::Connector,
+                "gmail connector error",
+                &format!("gmail: {err}"),
+            )?;
         }
     }
     Ok(())

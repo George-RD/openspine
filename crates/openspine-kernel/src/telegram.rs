@@ -242,6 +242,29 @@ pub fn parse_bind_command(text: &str) -> Option<(&str, &str)> {
     Some((channel_user_id, relationship))
 }
 
+/// Recognize the owner-only digest retrieval command.
+pub fn parse_digest_command(text: &str) -> bool {
+    text.trim() == "/digest"
+}
+
+pub fn parse_digest_detail_command(text: &str) -> Option<(Ulid, usize)> {
+    let arg = parse_digest_namespace(text)?;
+    let mut parts = arg.split_whitespace();
+    let id = Ulid::from_string(parts.next()?).ok()?;
+    let page = match parts.next() {
+        None => 1,
+        Some(token) => token.parse::<usize>().ok()?,
+    };
+    (page > 0 && parts.next().is_none()).then_some((id, page))
+}
+
+/// Recognize the digest command namespace, including malformed arguments.
+pub fn parse_digest_namespace(text: &str) -> Option<&str> {
+    let trimmed = text.trim();
+    let rest = trimmed.strip_prefix("/digest")?;
+    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then_some(rest.trim())
+}
+
 /// Build the PRD §4.1/§4.2A `telegram.owner.message` envelope for a
 /// verified owner message. `raw_event_ref` must already point at the raw
 /// message text encrypted in the artifact store — this function never
@@ -457,21 +480,13 @@ impl TelegramConnector {
         Ok(())
     }
 
-    /// Stop the tapping client's loading spinner (D-039). Best-effort:
-    /// the approval decision itself is already recorded by the time this
-    /// is called, so a failure here is logged, never propagated — the
-    /// owner's tap has already done its job regardless of whether
-    /// Telegram's own UI acknowledgment succeeds.
-    pub async fn answer_callback_query(&self, callback_query_id: &str) {
-        let Ok(bot) = self.current_bot().await else {
-            return;
-        };
-        if let Err(err) = bot
+    /// Stop the tapping client's loading spinner (D-039).
+    pub async fn answer_callback_query(&self, callback_query_id: &str) -> anyhow::Result<()> {
+        self.current_bot()
+            .await?
             .answer_callback_query(CallbackQueryId(callback_query_id.to_string()))
-            .await
-        {
-            tracing::warn!(error = %err, "failed to answer Telegram callback query");
-        }
+            .await?;
+        Ok(())
     }
 }
 

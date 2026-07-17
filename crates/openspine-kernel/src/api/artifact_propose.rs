@@ -119,7 +119,7 @@ pub(super) async fn dispatch_artifact_propose(
     let exists_in_proposals = state
         .store
         .proposed_artifact_exists(&kind, &artifact_id, version)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     if exists_in_registry || exists_in_proposals {
         return Err(DispatchError::BadRequest(
             "artifact id/version already exists; bump version".to_string(),
@@ -176,7 +176,7 @@ pub(super) async fn dispatch_artifact_propose(
         if !state
             .store
             .try_count_model_calls(grant.id, count, grant.limits.max_model_calls)
-            .map_err(|err| DispatchError::Internal(err.into()))?
+            .map_err(|err| DispatchError::Resource(err.into()))?
         {
             return Err(DispatchError::BadRequest(
                 "model-swap golden-set run exceeds this task's model-call budget".to_string(),
@@ -196,7 +196,7 @@ pub(super) async fn dispatch_artifact_propose(
     let effective_yaml = if matches!(parsed, ParsedProposal::ModelSwap(_)) {
         parsed
             .to_yaml()
-            .map_err(|err| DispatchError::Internal(err.into()))?
+            .map_err(|err| DispatchError::Resource(err.into()))?
     } else {
         req.yaml.clone()
     };
@@ -230,7 +230,7 @@ pub(super) async fn dispatch_artifact_propose(
     if !state
         .store
         .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
-        .map_err(|err| DispatchError::Internal(err.into()))?
+        .map_err(|err| DispatchError::Resource(err.into()))?
     {
         return Err(DispatchError::BadRequest(
             "artifact.propose budget exhausted for this task".to_string(),
@@ -242,7 +242,7 @@ pub(super) async fn dispatch_artifact_propose(
     let yaml_ref = state
         .artifacts
         .put(effective_yaml.as_bytes())
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     let proposal_id = Ulid::new();
     // Pre-generated so the row links to the approval request in one insert
     // (no separate setter), matching propose_draft_creation's atomicity.
@@ -264,11 +264,11 @@ pub(super) async fn dispatch_artifact_propose(
             // Some(root) — never leave None (None = unknown legacy only).
             lineage: Some(ArtifactLineage::root()),
         })
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     state
         .store
         .set_proposed_artifact_state(proposal_id, Lifecycle::Proposed, Lifecycle::Validated)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     state
         .store
         .append_audit(
@@ -280,7 +280,7 @@ pub(super) async fn dispatch_artifact_propose(
             &[],
             std::slice::from_ref(&yaml_ref),
         )
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
 
     // 7. Atomically persist both digest-bound eval verdicts and advance
     //    validated → review_required. Only after this succeeds is the
@@ -289,7 +289,7 @@ pub(super) async fn dispatch_artifact_propose(
     state
         .store
         .promote_authority_bearing_proposal(proposal_id, eval.replay, eval.judge)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     let target_digest = digest_of(&json!({
         "kind": kind,
         "artifact_id": artifact_id,
@@ -309,18 +309,33 @@ pub(super) async fn dispatch_artifact_propose(
     state
         .store
         .insert_action_request(&request)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     let summary = format!(
         "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
         eval.summary,
         digest = yaml_ref.digest
     );
-    state
+    let send_result = state
         .connectors
         .telegram()
         .send_reply_with_approval_button(bound_chat_id, &summary, action_request_id)
-        .await
-        .map_err(DispatchError::Internal)?;
+        .await;
+    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
+        &state.store,
+        "telegram",
+        send_result.is_ok(),
+    ) {
+        tracing::error!(error = %counter_err, "failed to persist Telegram counter");
+        if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+            state,
+            crate::failure_surfacing::FailureClass::Resource,
+            "Telegram counter persistence failed",
+            "Telegram counter persistence failed",
+        ) {
+            tracing::error!(error = %surface_err, "counter failure surface append failed");
+        }
+    }
+    send_result.map_err(DispatchError::Connector)?;
     Ok(json!({
         "proposed": true,
         "action_request_id": action_request_id.to_string(),

@@ -154,7 +154,12 @@ pub(super) fn email_preflight<'a>(
             .thread_id
             .as_deref()
             .expect("email-preview lane always carries a thread id");
-        match gmail.thread_exists(thread_id).await {
+        let result = gmail.thread_exists(thread_id).await;
+        crate::failure_surfacing::record_connector_outcome(&state.store, "gmail", result.is_ok())
+            .map_err(|err| PreflightFailure::GmailError {
+            err: format!("recording Gmail outcome failed: {err}"),
+        })?;
+        match result {
             Ok(true) => Ok(()),
             Ok(false) => Err(PreflightFailure::ThreadNotFound {
                 thread_id: thread_id.to_string(),

@@ -79,6 +79,11 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-065 | Provider API-key vault migration belongs to the foundation-amendment lane | Accepted |
 | D-066 | Paired Gmail credentials stage until atomic validated promotion | Accepted |
 | D-067 | Telegram poll offsets are namespaced by bot identity and legacy state migrates once | Accepted |
+| D-068 | Authenticated API bad requests surface directly without duplicate owner notification | Accepted |
+| D-069 | Kernel connector counters are the minimal observability surface until a metrics contract exists | Accepted |
+| D-070 | Retryable owner notifications reference encrypted artifacts; persistence failure stays plaintext-free | Accepted |
+| D-071 | External owner delivery is delivery-unknown across the send-to-receipt crash window | Accepted |
+| D-072 | `/digest <ULID> [page]` is a secure lossless pagination substrate; presentation remains deferred | Accepted |
 
 ---
 
@@ -1712,6 +1717,106 @@ Telegram supplies a stronger server-side consumer identity and cursor primitive 
 
 ---
 
+# D-068 — Authenticated API bad requests are not duplicated through owner notification
+
+## Decision
+
+API bad-request failures are surfaced directly to the authenticated caller and are not duplicated through `owner.notify`; connector and resource failures remain digest-batched.
+
+## Rationale
+
+The authenticated API response is already the immediate owner-visible failure surface. Sending the same failure again creates noise without improving durability.
+
+## Consequences
+
+Bad requests remain typed and synchronous. Failures outside that direct response boundary still enter the immediate or digest failure lanes.
+
+## Would change if
+
+An API client cannot reliably surface authenticated error responses to the owner.
+
+---
+
+# D-069 — Kernel connector counters are the minimal observability surface
+
+## Decision
+
+Kernel-persisted connector success/failure counters remain the minimal observability surface until an approved metrics contract exists.
+
+## Rationale
+
+AD-138 requires truthful operational visibility but does not require an external metrics stack. Durable local counters satisfy the current self-hosted boundary without adding infrastructure.
+
+## Consequences
+
+Connector operations update SQLite counters. Counter-persistence failures are surfaced as resource failures and never erase the primary notification audit or retry record.
+
+## Would change if
+
+The day-two operations change ratifies an external metrics/export contract.
+
+---
+
+# D-070 — Retryable owner notifications use encrypted artifact references
+
+## Decision
+
+Retryable owner-notification records MUST reference encrypted artifacts. If artifact persistence fails, the kernel records a plaintext-free audit and digest record rather than creating a blank-body retry.
+
+## Rationale
+
+Persisting notification plaintext in SQLite violates D-012; inserting an empty retry body falsely promises recoverability.
+
+## Consequences
+
+Dead-letter retries are decryptable only through the artifact store. Artifact-store failure remains visible without leaking detail or creating an undeliverable retry.
+
+## Would change if
+
+The retry store itself becomes an encrypted payload store with equivalent reference and erasure guarantees.
+
+---
+
+# D-071 — External owner delivery may be delivery-unknown after a crash
+
+## Decision
+
+External owner delivery is delivery-unknown after a crash between provider send and durable receipt commit; recovery MAY resend. The runtime does not claim exactly-once delivery without connector idempotency support.
+
+## Rationale
+
+SQLite and Telegram cannot share one atomic transaction. Preferring retryability over silent loss necessarily permits duplicates in this crash window.
+
+## Consequences
+
+Receipt completion is transactional and claim-token conditioned. A committed receipt prevents retry; an uncommitted receipt remains eligible and truthfully delivery-unknown.
+
+## Would change if
+
+The connector provides an idempotency key with durable exactly-once semantics.
+
+---
+
+# D-072 — Digest detail retrieval is a secure lossless pagination substrate
+
+## Decision
+
+`/digest <ULID> [page]` provides deterministic, lossless UTF-8 pagination over encrypted detail references with stable item identity and page N/M. AD-082 personality, fold wording, and presentation style remain deferred to personality-seed work.
+
+## Rationale
+
+The kernel must make every retained failure byte retrievable without owning the future assistant presentation layer or exceeding Telegram's message bound.
+
+## Consequences
+
+Only the authenticated owner can retrieve detail. Successful page delivery records detail-specific receipts. Unavailable pages remain unresolved and truthfully audited; failed deliveries remain retryable until proven delivery.
+
+## Would change if
+
+A ratified presentation layer supplies an equivalent bounded retrieval contract without weakening losslessness or owner authentication.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1766,4 +1871,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-16 | Added D-060 (the AD-142 overlay eval gate ships a deterministic first-cut evaluator — owner-history availability gate + structural probes — with verdicts in the D-056 eval store; the full OQ-17 holdout replay and AD-111 prover-verifier protocol remain owner-reserved), settled while implementing `implement-overlay-eval-gate`. |
 | 2026-07-16 | Added D-061 (bounded deterministic first-cut model-swap golden sets with grant-bounded timeout and consumed attempt budget), D-062 (symmetric Active proposal ↔ exact overlay provenance required at startup), and D-063 (serialized staged model-swap activation with transactional lifecycle/audit and digest-bound crash recovery), settled while implementing `implement-model-swap-ceremony`. |
 | 2026-07-16 | Added D-064 (one-way connector-secret migration into the encrypted kernel vault with call-time resolution), D-065 (provider API-key migration owned by the foundation-amendment lane), D-066 (paired Gmail credentials stage until atomic validated promotion), and D-067 (Telegram offsets namespaced by bot identity with one-time legacy migration), settled while implementing `implement-secret-intake`. |
+| 2026-07-17 | Added D-068 (direct authenticated API bad-request surfacing without duplicate owner notification), D-069 (kernel connector counters as the minimal observability surface), D-070 (encrypted artifact references for retryable owner notifications), D-071 (delivery-unknown send-to-receipt crash semantics), and D-072 (secure lossless `/digest` pagination substrate with presentation deferred), settled while implementing `implement-failure-surfacing-contract`. |
 

@@ -37,13 +37,18 @@ pub(crate) async fn dispatch_plan_preview(
                 &[],
                 &[],
             )
-            .map_err(|err| DispatchError::Internal(err.into()))?;
-        state
+            .map_err(|err| DispatchError::Resource(err.into()))?;
+        let send_result = state
             .connectors
             .telegram()
             .send_reply(bound_chat_id, &truncate_with_notice(&full))
-            .await
-            .map_err(DispatchError::Internal)?;
+            .await;
+        crate::failure_surfacing::record_connector_outcome_or_batch(
+            state,
+            "telegram",
+            send_result.is_ok(),
+        );
+        send_result.map_err(DispatchError::Connector)?;
         return Ok(json!({"sent": true, "approval_offered": false}));
     }
     // D-046/D-050: a shell-initiated artifact put draws from the same
@@ -51,18 +56,18 @@ pub(crate) async fn dispatch_plan_preview(
     if !state
         .store
         .try_count_artifact_put(grant.id, grant.limits.max_artifacts)
-        .map_err(|err| DispatchError::Internal(err.into()))?
+        .map_err(|err| DispatchError::Resource(err.into()))?
     {
         return Err(DispatchError::BadRequest(
             "plan.propose budget exhausted for this task".to_string(),
         ));
     }
     let plan_json =
-        serde_json::to_value(plan).map_err(|err| DispatchError::Internal(err.into()))?;
+        serde_json::to_value(plan).map_err(|err| DispatchError::Resource(err.into()))?;
     let payload_ref = state
         .artifacts
         .put(canonical_json(&plan_json).as_bytes())
-        .map_err(|err| DispatchError::Internal(err.into()))?;
+        .map_err(|err| DispatchError::Resource(err.into()))?;
     if payload_ref.digest != question.plan_digest {
         state
             .store
@@ -75,8 +80,8 @@ pub(crate) async fn dispatch_plan_preview(
                 &[],
                 &[],
             )
-            .map_err(|err| DispatchError::Internal(err.into()))?;
-        return Err(DispatchError::Internal(anyhow::anyhow!(
+            .map_err(|err| DispatchError::Resource(err.into()))?;
+        return Err(DispatchError::Resource(anyhow::anyhow!(
             "plan payload digest mismatch"
         )));
     }
@@ -94,12 +99,17 @@ pub(crate) async fn dispatch_plan_preview(
     state
         .store
         .insert_action_request(&request)
-        .map_err(|err| DispatchError::Internal(err.into()))?;
-    state
+        .map_err(|err| DispatchError::Resource(err.into()))?;
+    let send_result = state
         .connectors
         .telegram()
         .send_reply_with_plan_approval_button(bound_chat_id, &full, request.id)
-        .await
-        .map_err(DispatchError::Internal)?;
+        .await;
+    crate::failure_surfacing::record_connector_outcome_or_batch(
+        state,
+        "telegram",
+        send_result.is_ok(),
+    );
+    send_result.map_err(DispatchError::Connector)?;
     Ok(json!({"sent": true, "approval_offered": true}))
 }
