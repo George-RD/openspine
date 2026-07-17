@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::action::ActionId;
 use crate::artifact::Lifecycle;
 use crate::egress::EgressClass;
-use crate::event::{AccountRole, Connector, EventType, Lane};
+use crate::event::{AccountRole, Connector, EventEnvelope, EventType, Lane};
 use crate::identity::RelationshipKind;
 use crate::ids::ArtifactId;
 use crate::policy::Constraints;
@@ -24,6 +24,53 @@ pub struct AppliesTo {
     pub channel_trust: Option<crate::event::ChannelTrust>,
     pub verified_source: Option<bool>,
     pub lane: Option<Lane>,
+}
+impl AppliesTo {
+    /// True iff every constraint present on `self` matches the event.
+    /// An absent (`None`) constraint means "no requirement" and always passes.
+    /// Used to enforce pack suitability before composition (finding 8).
+    pub fn matches(
+        &self,
+        envelope: &EventEnvelope,
+        relationship: Option<RelationshipKind>,
+    ) -> bool {
+        if let Some(et) = &self.event_type {
+            if &envelope.event_type != et {
+                return false;
+            }
+        }
+        if let Some(c) = &self.connector {
+            if envelope.connector.as_ref() != Some(c) {
+                return false;
+            }
+        }
+        if let Some(ar) = &self.account_role {
+            if envelope.account_role.as_ref() != Some(ar) {
+                return false;
+            }
+        }
+        if let Some(r) = &self.relationship {
+            if relationship != Some(*r) {
+                return false;
+            }
+        }
+        if let Some(ct) = &self.channel_trust {
+            if &envelope.trust_context.channel_trust != ct {
+                return false;
+            }
+        }
+        if let Some(v) = &self.verified_source {
+            if &envelope.verified_source != v {
+                return false;
+            }
+        }
+        if let Some(l) = &self.lane {
+            if &envelope.lane != l {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 /// A capability pack artifact (PRD §11.1/§11.2/§11.3).

@@ -184,6 +184,22 @@ impl Store {
         let principal: Principal = serde_json::from_str(&json)?;
         Ok(principal)
     }
+    /// Existence-only principal check (finding 5). Returns `Ok(false)` when no
+    /// principal row matches (a permanent, non-retryable condition), and
+    /// `Err` only on a transient store failure — so the caller may safely
+    /// treat `Ok(false)` as "reject" while still retrying on `Err`.
+    #[allow(dead_code)]
+    pub fn principal_exists(&self, principal_id: Ulid) -> Result<bool, StoreError> {
+        let conn = self.conn.lock();
+        let exists: Option<i64> = conn
+            .query_row(
+                "SELECT 1 FROM principals WHERE id = ?1",
+                params![principal_id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(exists.is_some())
+    }
 
     /// Owner-asserted relationship binding ("my wife's number is this").
     /// Gated on an authenticated owner-principal context and audited atomically in the transaction.

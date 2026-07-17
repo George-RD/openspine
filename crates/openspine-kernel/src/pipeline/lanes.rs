@@ -207,3 +207,76 @@ pub(super) fn email_grant_binding(
         .put(format_pending_message(thread_id, token.id).as_bytes())?;
     Ok(pending_ref)
 }
+// ── Scheduled task-board lane hooks ────────────────────────────────────────
+
+pub(super) fn scheduled_build_envelope(
+    state: &AppState,
+    inputs: &EventInputs,
+    now: Timestamp,
+) -> anyhow::Result<(EventEnvelope, ArtifactRef)> {
+    let raw_ref = state.artifacts.put(inputs.text.as_bytes())?;
+    let event_type = inputs
+        .event_type_override
+        .unwrap_or(EventType::TimerDeadlineFired);
+    let envelope = EventEnvelope {
+        id: Ulid::new(),
+        source: Source::Timer,
+        connector: None,
+        account_role: Some(AccountRole::SystemAccount),
+        event_type,
+        received_at: now,
+        verified_source: false,
+        verification_method: VerificationMethod::None,
+        replay_protected: false,
+        replay_nonce: None,
+        channel_account: state.owner_user_id.to_string(),
+        raw_event_ref: raw_ref.clone(),
+        actor_hint: ActorHint::default(),
+        target_refs: vec![],
+        data_classification: DataClassification::Internal,
+        user_intent_hint: Some(inputs.text.clone()),
+        lane: Lane::ScheduledInternal,
+        trust_context: TrustContext {
+            channel_trust: ChannelTrust::Unknown,
+            interaction_mode: InteractionMode::Scheduled,
+        },
+        thread_id: None,
+        schema_version: 1,
+    };
+    Ok((envelope, raw_ref))
+}
+
+pub(super) fn scheduled_preflight<'a>(
+    _state: &'a AppState,
+    _inputs: &'a EventInputs,
+    _lane: Lane,
+    _now: Timestamp,
+) -> Pin<Box<dyn Future<Output = Result<(), PreflightFailure>> + Send + 'a>> {
+    Box::pin(async { Ok(()) })
+}
+
+pub(super) fn scheduled_route_guard(
+    _state: &AppState,
+    _envelope: &EventEnvelope,
+    _lane: Lane,
+) -> anyhow::Result<bool> {
+    Ok(false)
+}
+
+pub(super) fn scheduled_grant_binding(
+    state: &AppState,
+    _grant: &mut TaskGrant,
+    inputs: &EventInputs,
+    _raw_ref: &ArtifactRef,
+    now: Timestamp,
+) -> anyhow::Result<ArtifactRef> {
+    const MASTER_SLICE_CAP: usize = 10;
+    let task_id = inputs
+        .correlated_task_id
+        .ok_or_else(|| anyhow::anyhow!("scheduled grant binding missing correlated task id"))?;
+    let slice = state
+        .store
+        .master_slice_for_task(task_id, now, MASTER_SLICE_CAP)?;
+    let payload = serde_json::to_vec(&slice)?;
+    Ok(state.artifacts.put(&payload)?)
+}

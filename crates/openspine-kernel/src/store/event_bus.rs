@@ -58,9 +58,9 @@ pub enum ConsumerError {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PersistedConsumerState {
-    schema_version: u32,
-    checkpoint: ConsumerCheckpoint,
-    filter: EventSubscriptionFilter,
+    pub(crate) schema_version: u32,
+    pub(crate) checkpoint: ConsumerCheckpoint,
+    pub(crate) filter: EventSubscriptionFilter,
 }
 
 impl Store {

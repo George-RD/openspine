@@ -60,6 +60,12 @@ async fn owner_lane_executed_stage_trace_matches_sync_prefix() {
         text: "hello lyra".to_string(),
         thread_id: None,
         owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
     };
     let mut trace = Vec::new();
     let result = run_pipeline(
@@ -94,6 +100,12 @@ async fn email_lane_executed_stage_trace_matches_sync_prefix() {
         text: "/draft thread-1".to_string(),
         thread_id: Some("thread-1".to_string()),
         owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
     };
     let mut trace = Vec::new();
     let result = run_pipeline(
@@ -111,16 +123,18 @@ async fn email_lane_executed_stage_trace_matches_sync_prefix() {
 
 #[tokio::test]
 async fn owner_lane_without_verified_context_fails_closed_before_grant() {
-    // Absent VerifiedOwnerContext, the resolver never yields a principal_id
-    // (and never claims Owner relationship). The pipeline fails closed with
-    // no grant — either via route denial (Ok(None)) or composition error.
-    // The load-bearing contract is: no grant is persisted (AD-146).
     let state = test_state();
     let inputs = EventInputs {
         chat_id: 555,
         text: "hello lyra".to_string(),
         thread_id: None,
         owner_verified: None,
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
     };
     let mut trace = Vec::new();
     let result = run_pipeline(
@@ -186,6 +200,12 @@ async fn non_immediate_lane_breach_blocks_composition_and_notifies_owner() {
         text: "headless work".to_string(),
         thread_id: None,
         owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
     };
     let mut trace = Vec::new();
     let result = run_pipeline(&state, spec, &inputs, now, &mut trace)
