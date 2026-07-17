@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/generate.rs": {
-    "mtime": 1784292293.1364672,
-    "ast_hash": "2df732f979a43e136a2871a2146d91ce",
+    "mtime": 1784292690.935176,
+    "ast_hash": "e91a62d76ddc1f0993812c9b323a865d",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/generate_tests.rs": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784292253.3170645,
-    "ast_hash": "852f6f8b232136fed5cfeb5a75e70c25",
+    "mtime": 1784292989.5407214,
+    "ast_hash": "5ecfa5e502ac7ac510550c993892b845",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/briefcase_support.rs": {
-    "mtime": 1784292253.3560908,
-    "ast_hash": "ce10995e0d61fdc82f5357b518f89001",
+    "mtime": 1784292686.353016,
+    "ast_hash": "6215c24d97be7eff27902524a87769bd",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/briefcase_support_tests.rs": {
@@ -2257,11 +2257,6 @@
   "crates/openspine-kernel/src/workflow_state_machine_tests.rs": {
     "mtime": 1784292258.0864599,
     "ast_hash": "60aa1d4688956c7da37d1b6115429fe8",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784272951.6728244,
-    "ast_hash": "19fcac6773389df6f3faee9a7a719f1f",
     "semantic_hash": ""
   },
   "openspec/changes/implement-workflow-state-machines/design.md": {

@@ -1,12 +1,12 @@
 # Graph Report - implement-workflow-state-machines  (2026-07-17)
 
 ## Corpus Check
-- 431 files · ~316,600 words
+- 430 files · ~316,559 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5707 nodes · 7547 edges · 1184 communities (425 shown, 759 thin omitted)
-- Extraction: 87% EXTRACTED · 13% INFERRED · 0% AMBIGUOUS · INFERRED: 945 edges (avg confidence: 0.8)
+- 5720 nodes · 7622 edges · 1174 communities (427 shown, 747 thin omitted)
+- Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 945 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -1051,16 +1051,6 @@
 - Box
 - Result
 - Ulid
-- ArtifactRef
-- Briefcase
-- Connection
-- F
-- Option
-- R
-- Result
-- String
-- Ulid
-- Vec
 - Briefcase
 - Option
 - Result
@@ -1145,12 +1135,10 @@
 6. `AppState` - 44 edges
 7. `request_for()` - 33 edges
 8. `grant_with()` - 32 edges
-9. `WorkflowError` - 32 edges
-10. `test_catalog()` - 30 edges
+9. `StoreError` - 32 edges
+10. `WorkflowError` - 32 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `converge_owner_accepted_dependencies()` --calls--> `dependency_fingerprint_allows()`  [INFERRED]
-  crates/openspine-kernel/src/overlay_convergence.rs → crates/openspine-kernel/src/store/learned_artifacts.rs
 - `plan_proposal_budget_exhaustion_persists_no_request()` --calls--> `test_state()`  [INFERRED]
   crates/openspine-kernel/src/pipeline/tests/plan.rs → crates/openspine-kernel/src/test_support.rs
 - `task_rejects_unsupported_schema_version()` --calls--> `task()`  [INFERRED]
@@ -1159,15 +1147,17 @@
   crates/openspine-schemas/src/task.rs → crates/openspine-kernel/src/store/task_board_tests.rs
 - `task_round_trips_through_serde()` --calls--> `task()`  [INFERRED]
   crates/openspine-schemas/src/task.rs → crates/openspine-kernel/src/store/task_board_tests.rs
+- `run_pipeline()` --calls--> `compose_authority()`  [INFERRED]
+  crates/openspine-kernel/src/pipeline/driver.rs → crates/openspine-authority/src/compose.rs
 
 ## Import Cycles
 - 2-file cycle: `crates/openspine-kernel/src/model_gateway/mod.rs -> crates/openspine-kernel/src/model_gateway/providers.rs -> crates/openspine-kernel/src/model_gateway/mod.rs`
 
-## Communities (1184 total, 759 thin omitted)
+## Communities (1174 total, 747 thin omitted)
 
 ### Community 0 - "README.md"
-Cohesion: 0.08
-Nodes (43): canonical_json(), bindings_valid(), Caveat, caveat_bytes(), chain_structurally_valid(), ChainStep, compute_mac_hex(), compute_tip() (+35 more)
+Cohesion: 0.06
+Nodes (63): HandlerFuture, truncate_for_telegram(), truncate_with_notice(), canonical_json(), bindings_valid(), Caveat, caveat_bytes(), chain_structurally_valid() (+55 more)
 
 ### Community 1 - ".new"
 Cohesion: 0.06
@@ -1186,16 +1176,16 @@ Cohesion: 0.31
 Nodes (10): canonical_catalog_covers_all_fixture_action_ids(), kind_table_excludes_templates(), kind_table_round_trips_all_six_kinds(), loads_every_real_fixture_without_error(), malformed_fixture_fails_to_load(), missing_directory_is_not_an_error(), non_yaml_files_are_ignored(), repo_lyra_dir() (+2 more)
 
 ### Community 5 - "GmailConnector"
-Cohesion: 0.12
-Nodes (15): reinstate_artifact(), CompatibilityStatus, dependency_fingerprint_allows(), LearnedArtifact, nomination_name(), NominationStatus, parse_nomination(), parse_status() (+7 more)
+Cohesion: 0.07
+Nodes (49): apply_compatibility(), dangling_for_parsed(), ensure_reconfirm_request(), exclude_orphans(), find_orphans(), missing_provenance(), OrphanedArtifact, owner_accepted_newly_dangling() (+41 more)
 
 ### Community 6 - "artifact_loader.rs"
 Cohesion: 0.05
 Nodes (42): Purpose, Requirement: ActionCatalog MUST enumerate every trusted-path carve-out around gate(), Requirement: Approval-required decisions MUST not execute immediately, Requirement: Every effectful action MUST pass through gate(), Requirement: Gate decisions MUST be auditable, Requirement: Gate decisions MUST use task grant precedence, Requirement: Gate MUST verify authenticated grant caveat chains offline, Requirement: Grant limits MUST be enforced at runtime (+34 more)
 
 ### Community 7 - "config.rs"
-Cohesion: 0.14
-Nodes (34): handle_owner_update(), Result, owner_update(), test_state(), draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message(), draft_command_without_gmail_configured_is_a_no_op(), audit_payload_refs(), malformed_secret_command_is_reserved_from_normal_pipeline() (+26 more)
+Cohesion: 0.11
+Nodes (42): handle_owner_update(), Result, owner_update(), test_state(), draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message(), draft_command_for_a_missing_thread_mints_no_grant(), draft_command_for_a_real_thread_composes_a_bound_selection_grant(), draft_command_is_refused_without_the_unsafe_flag_under_process_driver() (+34 more)
 
 ### Community 8 - "mod.rs"
 Cohesion: 0.05
@@ -1214,20 +1204,24 @@ Cohesion: 0.15
 Nodes (22): counterparty_deferral_text_is_canonical(), grant_with_thread(), no_thread_id_resolves_to_master(), owner_escalation_message(), owner_message_carries_action_and_reason_code(), resolve_by_thread_id_returns_bound_grant(), resolve_grant_for_thread(), route_escalation() (+14 more)
 
 ### Community 12 - "client.rs"
-Cohesion: 0.16
-Nodes (30): test_state_with_telegram(), notify_owner_required(), notify_owner_required_errors_and_audits_on_send_failure(), notify_owner_required_succeeds_when_sent(), notify_owner_with_digest_records_success_counter(), notify_send_failure_records_attempt_failure_and_dead_letter(), parse_audit_event(), required_send_failure_keeps_dlq_when_counter_persistence_breaks() (+22 more)
+Cohesion: 0.14
+Nodes (28): a_failed_token_refresh_surfaces_as_an_error(), a_non_404_api_error_is_not_treated_as_missing(), connector(), fetch_thread_extracts_text_and_skips_attachments(), mount_token_endpoint(), rotated_vault_credentials_bypass_live_access_token_cache(), sample_thread_json(), the_access_token_is_cached_across_calls() (+20 more)
 
 ### Community 13 - "policy.rs"
 Cohesion: 0.53
 Nodes (5): plan_preview_records_telegram_success_counter(), plan_proposal_budget_exhaustion_persists_no_request(), plan_propose_approve_rederives_gate_and_resolves(), proposed_plan_fixture(), tampered_plan_artifact_is_refused_at_approval_callback()
 
 ### Community 14 - "actions.rs"
-Cohesion: 0.05
-Nodes (75): BuildEnvelopeFn, Future, GrantBindingFn, Output, Pin, PreflightFn, RouteGuardFn, Send (+67 more)
+Cohesion: 0.21
+Nodes (16): Future, Output, Pin, Send, emit_preflight_failure(), email_build_envelope(), email_preflight(), EventInputs (+8 more)
 
 ### Community 15 - "ADDED Requirements"
-Cohesion: 0.18
-Nodes (12): bounded_json_response(), CachedToken, extract_email_address(), GmailConnector, GmailError, GmailMessage, GmailThread, http_client() (+4 more)
+Cohesion: 0.14
+Nodes (17): bounded_json_response(), CachedToken, extract_email_address(), GmailConnector, GmailError, GmailFailureClass, GmailMessage, GmailThread (+9 more)
+
+### Community 16 - "Requirements"
+Cohesion: 0.29
+Nodes (22): digest_of_bytes(), highest_active_prunes_stale_loaded_lower_version(), learned_template_row(), missing_highest_blob_fails_closed_no_rollback(), on_disk_artifact_without_active_proposal_is_excluded(), orphan_active_yaml_without_db_row_is_quarantined(), overlay_template_yaml(), reconfirmed_legacy_template_stays_live_across_restart() (+14 more)
 
 ### Community 17 - "content.d.ts"
 Cohesion: 0.14
@@ -1282,16 +1276,16 @@ Cohesion: 0.08
 Nodes (24): Purpose, Requirement: Attachments MUST be denied in the preview slice, Requirement: Email content MUST be treated as untrusted data, Requirement: Email read MUST be selected-thread only, Requirement: Email workflow MUST require a trusted selected-thread token, Requirement: Model calls with private email context MUST use model gateway, Requirement: Preview output MUST be reviewable by the owner, Requirement: Preview slice MUST NOT send email (+16 more)
 
 ### Community 31 - "ADDED Requirements"
-Cohesion: 0.14
-Nodes (9): action_id_qualifier_is_part_of_identity(), action_id_serializes_as_bare_string(), ActionCatalog, ActionId, ActionRequest, DenialReason, EffectPath, EffectPathClass (+1 more)
+Cohesion: 0.08
+Nodes (30): approval_required_to_approval_required_transition_is_rejected(), ApprovalSemantics, declarative_machine_requires_initial_state(), duplicate_step_id_across_states_is_rejected(), EscalationPoint, mermaid_event_delimiters_are_rejected(), mermaid_id(), mermaid_ids_are_injective_and_empty_ids_are_rejected() (+22 more)
 
 ### Community 32 - "Requirements"
 Cohesion: 0.14
 Nodes (10): evaluate(), JudgeDenial, GateDenial, GateEvidence, JudgePassed, ReplayPassed, run_gate(), run_model_swap_gate() (+2 more)
 
 ### Community 35 - "sandbox.rs"
-Cohesion: 0.06
-Nodes (52): Ok, Sha256, CanonicalValue, CanonicalValue<'a>, Digest, digest_from_hash(), digest_of(), digest_of_bytes() (+44 more)
+Cohesion: 0.09
+Nodes (14): Ok, Sha256, CanonicalValue, CanonicalValue<'a>, Digest, digest_from_hash(), digest_of_bytes_hashes_raw_content_directly(), digest_of_is_a_pinned_golden_value() (+6 more)
 
 ### Community 38 - "ADDED Requirements"
 Cohesion: 0.19
@@ -1322,8 +1316,8 @@ Cohesion: 0.09
 Nodes (22): Purpose, Requirement: Connector secrets MUST be captured outside shell/model context, Requirement: Connectors MUST resolve credentials at call time, Requirement: Intake and rotation mode transitions MUST use normal gate authority, Requirement: Paired Gmail credentials MUST be staged and promoted atomically, Requirement: Pending captures MUST be bound and fail closed, Requirement: Secret intake outcomes MUST be metadata-only and auditable, Requirement: Secret values MUST be encrypted at rest and rotatable (+14 more)
 
 ### Community 45 - "digest.rs"
-Cohesion: 0.16
-Nodes (11): batch_failure(), encrypt_digest_detail(), FailureClass, notify_immediate_failure(), record_callback_ack(), record_connector_outcome(), record_connector_outcome_or_batch(), connector_counters_record_success_and_failure() (+3 more)
+Cohesion: 0.13
+Nodes (27): test_state_with_telegram(), batch_failure(), encrypt_digest_detail(), FailureClass, notify_immediate_failure(), record_callback_ack(), record_connector_outcome(), record_connector_outcome_or_batch() (+19 more)
 
 ### Community 46 - "Digest"
 Cohesion: 0.09
@@ -1342,20 +1336,20 @@ Cohesion: 0.09
 Nodes (21): ADDED Requirements, Requirement: Connector secrets MUST be captured outside shell/model context, Requirement: Connectors MUST resolve credentials at call time, Requirement: Intake and rotation mode transitions MUST use normal gate authority, Requirement: Paired Gmail credentials MUST be staged and promoted atomically, Requirement: Pending captures MUST be bound and fail closed, Requirement: Secret intake outcomes MUST be metadata-only and auditable, Requirement: Secret values MUST be encrypted at rest and rotatable (+13 more)
 
 ### Community 50 - "mod.rs"
-Cohesion: 0.10
-Nodes (5): digest_matches_hash(), genesis_digest(), Store, StoreError, Store
+Cohesion: 0.09
+Nodes (16): BriefcaseAudit, ensure_schema(), ArtifactRef, Briefcase, Connection, F, Option, R (+8 more)
 
 ### Community 51 - "ADDED Requirements"
-Cohesion: 0.14
-Nodes (18): a_failed_token_refresh_surfaces_as_an_error(), a_non_404_api_error_is_not_treated_as_missing(), connector(), fetch_thread_extracts_text_and_skips_attachments(), mount_token_endpoint(), rotated_vault_credentials_bypass_live_access_token_cache(), sample_thread_json(), the_access_token_is_cached_across_calls() (+10 more)
+Cohesion: 0.19
+Nodes (5): secret_introduction_and_rotation_are_decryptable(), SecretStore, SecretStoreError, seed_is_idempotent_and_slot_validation_is_strict(), truncated_or_corrupted_ciphertext_fails_closed()
 
 ### Community 53 - "Requirements"
-Cohesion: 0.16
-Nodes (25): seed_owner_history(), artifact_propose_persists_and_sends_approval_button(), artifact_propose_rejects_duplicate_id_version(), artifact_propose_rejects_malformed_yaml(), artifact_propose_rejects_non_proposed_lifecycle(), artifact_propose_rejects_template_kind(), artifact_propose_rejects_unknown_kind(), injected_activation_tx_failure_keeps_approved_old_state() (+17 more)
+Cohesion: 0.21
+Nodes (22): seed_owner_history(), digest_of(), artifact_propose_persists_and_sends_approval_button(), artifact_propose_rejects_duplicate_id_version(), injected_activation_tx_failure_keeps_approved_old_state(), activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay() (+14 more)
 
 ### Community 54 - "Requirements"
-Cohesion: 0.27
-Nodes (7): GoldenSetCase, GoldenSetCaseKind, GoldenSetCaseResult, GoldenSetRunResult, GoldenSetValidationError, ModelRole, ModelSwapManifest
+Cohesion: 0.28
+Nodes (18): RouteResolution, artifact_ref(), email_route(), exact_deny_route_wins_over_allow_route(), gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route(), higher_priority_route_wins_over_lower_priority(), matches(), no_matching_route_is_denied_not_ambiguous() (+10 more)
 
 ### Community 55 - "Requirements"
 Cohesion: 0.10
@@ -1366,8 +1360,8 @@ Cohesion: 0.10
 Nodes (20): failure-surfacing Specification, Purpose, Requirement: Artifact-backed dead letters, Requirement: Connector counters, Requirement: Delivery-unknown crash semantics, Requirement: Direct authenticated bad-request surfacing, Requirement: Durable effect receipts, Requirement: Failure taxonomy routing (+12 more)
 
 ### Community 57 - ".default"
-Cohesion: 0.31
-Nodes (10): ActionRequestBody, ActionResponseBody, dispatch_allowed_action(), dispatch_read_selected_thread(), DispatchError, FailureSurface, mediate_and_dispatch_action(), post_actions() (+2 more)
+Cohesion: 0.17
+Nodes (15): action_for(), arm(), CaptureOutcome, kind_prefix(), owner_grant(), parse_command(), Pending, rollback_secret() (+7 more)
 
 ### Community 58 - "Runtime schema groups"
 Cohesion: 0.10
@@ -1406,8 +1400,8 @@ Cohesion: 0.14
 Nodes (10): deserialize_schema_version(), provenance_round_trips_with_tag(), ref_of(), slice_round_trips_and_rejects_unknown_fields(), task_rejects_unsupported_schema_version(), task_requires_schema_version_and_rejects_unknown_fields(), task_round_trips_through_serde(), TaskTimerKind (+2 more)
 
 ### Community 67 - "identity.rs"
-Cohesion: 0.16
-Nodes (6): lifecycle_name(), lineage_from_json(), lineage_to_json(), parse_lifecycle(), ProposedArtifact, Store
+Cohesion: 0.18
+Nodes (16): BuildEnvelopeFn, GrantBindingFn, PreflightFn, RouteGuardFn, run_pipeline(), email_preview_lane(), LaneSpec, owner_control_lane() (+8 more)
 
 ### Community 68 - "properties"
 Cohesion: 0.12
@@ -1439,7 +1433,7 @@ Nodes (17): all_slice_categories_are_owner_scoped(), anchored_slice_includes_not
 
 ### Community 75 - "SKILL.md"
 Cohesion: 0.06
-Nodes (66): a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary(), build_prompt(), build_prompt_carries_system_preamble_and_conversation_through(), build_prompt_with_untrusted_context(), GatewayTierMap, PromptMessage, PromptRole, PromptTemplate (+58 more)
+Nodes (51): a_spoofed_closing_marker_in_the_content_does_not_escape_the_boundary(), build_prompt(), build_prompt_carries_system_preamble_and_conversation_through(), build_prompt_with_untrusted_context(), GatewayTierMap, PromptMessage, PromptRole, PromptTemplate (+43 more)
 
 ### Community 76 - "Tasks: Harden approval and budgets"
 Cohesion: 0.11
@@ -1458,8 +1452,8 @@ Cohesion: 0.19
 Nodes (4): ArtifactLineage, LineageParent, root_has_generation_zero_and_no_parents(), root_round_trips_through_json()
 
 ### Community 80 - "Ok"
-Cohesion: 0.27
-Nodes (16): bounded_excerpt(), bounded_excerpt_never_exceeds_byte_cap_at_utf8_boundary(), enrich(), golden_set_digest(), remaining_runtime(), remaining_runtime_respects_short_grant_and_rejects_expiry(), Digest, Duration (+8 more)
+Cohesion: 0.15
+Nodes (23): bounded_excerpt(), bounded_excerpt_never_exceeds_byte_cap_at_utf8_boundary(), enrich(), golden_set_digest(), remaining_runtime(), remaining_runtime_respects_short_grant_and_rejects_expiry(), Digest, Duration (+15 more)
 
 ### Community 81 - "Proposal: Define core runtime schemas"
 Cohesion: 0.16
@@ -1486,20 +1480,20 @@ Cohesion: 0.13
 Nodes (12): admission_below_cap_is_allowed_and_does_not_breach(), alert_fires_drains_and_rearms_on_new_day(), breach_is_recorded_exactly_once_per_day(), cap_i64(), concurrent_reservations_never_cross_cap(), connector_reserve_is_atomic_capped_and_day_scoped(), fresh_day_with_zero_cap_is_a_hard_denial(), inflight_alert_is_rearmed_for_crash_recovery() (+4 more)
 
 ### Community 87 - "Proposal: Implement Telegram owner control slice"
-Cohesion: 0.07
-Nodes (23): counterparty_resolves_identity_but_no_principal(), handle_owner_bind(), IdentityResolver, IdentityResolver<'a>, owner_verified_path_resolves_owner_principal_and_relationship(), unknown_resolves_to_relationship_unknown_confidence_0_and_no_write(), deny_unknown_fields_rejects_capability_pack_id(), EntityType (+15 more)
+Cohesion: 0.06
+Nodes (33): counterparty_resolves_identity_but_no_principal(), handle_owner_bind(), IdentityResolver, IdentityResolver<'a>, owner_verified_path_resolves_owner_principal_and_relationship(), unknown_resolves_to_relationship_unknown_confidence_0_and_no_write(), deny_unknown_fields_rejects_capability_pack_id(), EntityType (+25 more)
 
 ### Community 88 - "Proposal: Backfill implemented capability specs"
 Cohesion: 0.12
 Nodes (16): pipeline-driver Specification, Purpose, Requirement: Lane specifications MUST be compiled-in kernel data, Requirement: Per-flow variation MUST be lane data interpreted by one driver, Requirement: The audited event envelope MUST be emitted only after verification succeeds, Requirement: The driver MUST NOT invoke gate(), Requirement: The kernel pipeline MUST be a typed stage sequence the driver executes, Requirements (+8 more)
 
 ### Community 89 - "Proposal: Harden approval and budgets"
-Cohesion: 0.20
-Nodes (14): apply_compatibility(), dangling_for_parsed(), ensure_reconfirm_request(), exclude_orphans(), find_orphans(), missing_provenance(), OrphanedArtifact, owner_accepted_newly_dangling() (+6 more)
+Cohesion: 0.29
+Nodes (15): dispatch_task_timer_event(), authority_granted_audit_is_atomic_with_grant_persist(), deadline_timer_reaches_routed_granted_and_worker_gate(), fires_task_timer_and_reaches_worker_gate(), linked_fired_event_after_task_cancelled_ack_skips_without_grant(), linked_fired_event_after_task_done_ack_skips_without_grant(), recovery_refuses_receiptless_handed_off_redispatch(), ref_of() (+7 more)
 
 ### Community 90 - "Proposal: Implement artifact lifecycle slice"
-Cohesion: 0.35
-Nodes (16): accepted_digest_tamper_invalidates(), base_namespace_is_not_treated_as_learned(), dangling_learned_route_is_orphaned_and_excluded(), insert_agent(), insert_pack(), insert_route(), insert_workflow(), learned() (+8 more)
+Cohesion: 0.24
+Nodes (3): digest_matches_hash(), genesis_digest(), Store
 
 ### Community 91 - "Tasks: Implement artifact lifecycle slice"
 Cohesion: 0.26
@@ -1546,8 +1540,8 @@ Cohesion: 0.13
 Nodes (14): ADDED Requirements, lineage-and-eval-store Specification, Requirement: Artifacts MUST carry a generation/lineage model distinct from content version, Requirement: Eval-verdict vocabulary MUST remain open and fitness/evidence optional, Requirement: Eval verdicts MUST land in an indexed table, not the audit chain, Requirement: Unknown lineage MUST NOT be rewritten as root, Scenario: A row with no lineage loads as None, Scenario: An open-vocabulary verdict is accepted (+6 more)
 
 ### Community 102 - "ADDED Requirements"
-Cohesion: 0.21
-Nodes (19): test_state_with_gmail(), lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat(), lyra_ui_preview_truncates_long_body_to_utf16_limit(), truncated_preview_carries_no_approval_button_and_persists_no_action_request(), draft_command_for_a_missing_thread_mints_no_grant(), draft_command_for_a_real_thread_composes_a_bound_selection_grant(), draft_command_is_refused_without_the_unsafe_flag_under_process_driver(), draft_command_with_gmail_api_error_audits_no_event_received() (+11 more)
+Cohesion: 0.30
+Nodes (15): test_state_with_gmail(), lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat(), lyra_ui_preview_truncates_long_body_to_utf16_limit(), truncated_preview_carries_no_approval_button_and_persists_no_action_request(), email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_malformed_payload(), email_read_selected_thread_rejects_second_use() (+7 more)
 
 ### Community 103 - "ADDED Requirements"
 Cohesion: 0.13
@@ -1618,8 +1612,8 @@ Cohesion: 0.15
 Nodes (12): identity-store Specification, Purpose, Requirement: A Principal is a first-class, authority-free record and v1 enforces exactly one owner, Requirement: Identity binding MUST happen only via an audited, owner-approved path, Requirement: Identity resolution MUST be a read-only seam that never binds or mints principals, Requirements, Scenario: Binding attempt without owner context is rejected, Scenario: Idempotent bootstrap establishes exactly one owner (+4 more)
 
 ### Community 122 - "D-008 — Deterministic routing decides authority; agentic routing decides strategy"
-Cohesion: 0.24
-Nodes (8): truncate_for_telegram(), truncate_with_notice(), dispatch_lyra_preview(), guard_connector_dispatch(), PreviewPayload, dispatch_plan_preview(), ProposalError, propose_draft_creation()
+Cohesion: 0.22
+Nodes (7): grant(), GrantMode, legacy_missing_chain_defaults_but_fails_closed(), legacy_without_thread_id_defaults_to_none(), round_trip_and_mac(), TaskGrant, thread_id_round_trips_when_populated()
 
 ### Community 123 - "D-001 — Lyra is a runtime/substrate, not a single agent"
 Cohesion: 0.29
@@ -1663,11 +1657,11 @@ Nodes (11): ADDED Requirements, Requirement: A Principal is a first-class, autho
 
 ### Community 133 - "D-023 — OpenSpine is the substrate; Lyra is a product built on it"
 Cohesion: 0.15
-Nodes (12): Consequences, Consequences, D-025 — Rust/Tokio substrate: storage, audit chain, and secrets handling, D-071 — External owner delivery may be delivery-unknown after a crash, Decision, Decision, Decision Index, Lyra PRD Companion — Decisions Log (+4 more)
+Nodes (12): Consequences, Consequences, D-056 — Eval-store groundwork defers AD-111 evaluator policy: only the verdict-landing surface is settled, D-068 — Authenticated API bad requests are not duplicated through owner notification, Decision, Decision, Decision Index, Lyra PRD Companion — Decisions Log (+4 more)
 
 ### Community 134 - "D-024 — OpenSpec is the development/change-management layer, not the runtime"
-Cohesion: 0.28
-Nodes (12): admits_more_than_three_tiny_items(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item(), long_detail_is_bounded_in_summary_and_full_via_ref() (+4 more)
+Cohesion: 0.32
+Nodes (11): admits_more_than_three_tiny_items(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item(), oversized_single_item_is_bounded_and_delivered_by_reference() (+3 more)
 
 ### Community 135 - "D-026 — Shell containment via a `SandboxDriver` trait (Process dev-only / Docker)"
 Cohesion: 0.17
@@ -1738,12 +1732,12 @@ Cohesion: 0.17
 Nodes (12): Cli, commit_post_bind_clock(), grant_hmac_key(), main(), Option, PathBuf, Result, Store (+4 more)
 
 ### Community 154 - "D-047 — Task tokens are hashed at rest; expired grants are swept"
-Cohesion: 0.38
-Nodes (10): bind_email_identity(), email_counterparty_resolves_to_bound_identity_when_address_is_bound(), email_counterparty_stays_unresolved_when_address_is_unbound(), minimal_grant(), mint_topup_grant(), post_topup(), topup_granted_grant_mutates_briefcase_atomically(), topup_oversized_section_key_is_rejected_without_persistence() (+2 more)
+Cohesion: 0.25
+Nodes (8): Change Log, Consequences, D-090 — Workflow manifests are digest-bound at run start; production driving is deferred, Decision, Open Decision Questions — CLOSED (see linked decisions), Rationale, Research / Reference Backlog, Would change if
 
 ### Community 155 - "D-048 — `artifact.activate` is the single canonical activation action id; every runtime proposal requires uniform owner approval; prompt templates are excluded from proposable kinds"
-Cohesion: 0.33
-Nodes (10): HandlerFuture, handle_artifact_nominate(), handle_artifact_propose(), handle_lyra_preview(), handle_plan_propose(), handle_read_selected_thread(), handle_setup_workflow_start(), handle_status_read() (+2 more)
+Cohesion: 0.62
+Nodes (6): complete_task_and_wake(), dispatch_task_wake(), reattempt_handed_off(), recover_timer_dispatches(), run_task_deadline_consumer(), TimerDispatchOutcome
 
 ### Community 156 - "D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices"
 Cohesion: 0.51
@@ -1754,8 +1748,8 @@ Cohesion: 0.20
 Nodes (9): Check for context, Ending Discovery, Guardrails, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do, When a change exists (+1 more)
 
 ### Community 158 - "D-006 — Identity is not authority"
-Cohesion: 0.15
-Nodes (17): PostApprovalFuture, PostApprovalHandler, notify_owner_best_effort(), create_approved_draft(), handle_draft_approval_callback(), activate_approved_artifact(), finalize_nomination(), NominationAssertion (+9 more)
+Cohesion: 0.12
+Nodes (19): PostApprovalFuture, PostApprovalHandler, notify_owner_best_effort(), create_approved_draft(), handle_draft_approval_callback(), activate_approved_artifact(), finalize_nomination(), NominationAssertion (+11 more)
 
 ### Community 159 - "D-011 — Approval must be digest-bound"
 Cohesion: 0.36
@@ -1958,8 +1952,8 @@ Cohesion: 0.25
 Nodes (8): Docs, Every claim has a test, License, OpenSpine, Status, Try it in 5 minutes, What is this?, Why it's different
 
 ### Community 211 - "index.mdx"
-Cohesion: 0.29
-Nodes (6): Candidate decision text, Deviations, Gate results, Implementation Notes, Rebase hotspots, Summary
+Cohesion: 0.33
+Nodes (6): Agentic decisions, D-008 — Deterministic routing decides authority; agentic routing decides strategy, Decision, Deterministic decisions, Rationale, Would change if
 
 ### Community 213 - "apply.md"
 Cohesion: 0.29
@@ -1998,8 +1992,8 @@ Cohesion: 0.29
 Nodes (6): Design: Telegram owner control slice, Flow, Main assistant authority, Polling vs webhook, Secret intake, Verification
 
 ### Community 224 - "lib.rs"
-Cohesion: 0.25
-Nodes (8): Change Log, Consequences, D-086 — Selected-thread email preflight is a bounded pre-gate metadata snapshot, Decision, Open Decision Questions — CLOSED (see linked decisions), Rationale, Research / Reference Backlog, Would change if
+Cohesion: 0.33
+Nodes (6): Consequences, D-001 — Lyra is a runtime/substrate, not a single agent, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 242 - "lib.rs"
 Cohesion: 0.29
@@ -2098,8 +2092,8 @@ Cohesion: 0.29
 Nodes (7): define-grant-chain-and-modes, define-lineage-and-eval-store, harden-gate-trusted-paths, implement-identity-store-and-principal, Kernel foundation, refactor-kernel-registries, refactor-pipeline-driver
 
 ### Community 290 - "D-030 — Telegram carries the entire owner-control UX for phases 1–3"
-Cohesion: 0.52
-Nodes (6): accepted_dependency_fingerprint_migration_is_idempotent(), accepted_dependency_fingerprint_round_trips(), base_namespace_cannot_be_recorded_as_learned(), learned_artifact_round_trip_preserves_typed_provenance(), owner_accepted_is_durable_across_round_trip(), sample()
+Cohesion: 0.33
+Nodes (6): Consequences, D-039 — Draft-approval channel is a Telegram inline button (`callback_query`), not a text command, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 291 - "artifact_propose.rs"
 Cohesion: 0.33
@@ -2167,11 +2161,11 @@ Nodes (5): implement-nerve-subscribers, implement-persona-binding-and-headless-l
 
 ### Community 308 - "artifact_propose.rs"
 Cohesion: 0.33
-Nodes (6): Agentic decisions, D-008 — Deterministic routing decides authority; agentic routing decides strategy, Decision, Deterministic decisions, Rationale, Would change if
+Nodes (6): Consequences, D-042 — Reply recipient is kernel-derived, never shell-supplied: newest non-owner sender, matched against a configured mailbox address, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 309 - "effect_paths.rs"
 Cohesion: 0.33
-Nodes (6): Consequences, D-001 — Lyra is a runtime/substrate, not a single agent, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-002 — First usable UX should include an owner control channel, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 310 - "Overlay & key model"
 Cohesion: 0.70
@@ -2179,51 +2173,51 @@ Nodes (4): activate_overlay_yaml(), prune_non_highest_active(), remove_loaded_ve
 
 ### Community 311 - "retry_worker.rs"
 Cohesion: 0.33
-Nodes (6): Consequences, D-039 — Draft-approval channel is a Telegram inline button (`callback_query`), not a text command, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-003 — Gmail is a guarded workflow, not the whole product, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 312 - "D-014 — Bootstrap/setup secrets bypass shell/model context"
 Cohesion: 0.33
-Nodes (6): Consequences, D-042 — Reply recipient is kernel-derived, never shell-supplied: newest non-owner sender, matched against a configured mailbox address, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-004 — Every effectful action goes through `gate()`, Decision, Effectful actions include, Rationale, Would change if
 
 ### Community 313 - "editUrl"
 Cohesion: 0.33
-Nodes (6): Consequences, D-002 — First usable UX should include an owner control channel, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-005 — Private-data shell must be contained, Decision, Rationale, Required containment, Would change if
 
 ### Community 314 - "Proposal: Implement identity store and principal"
 Cohesion: 0.33
-Nodes (6): Consequences, D-003 — Gmail is a guarded workflow, not the whole product, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-009 — External content is data, not instruction, Decision, Examples, Rationale, Would change if
 
 ### Community 315 - "Tasks: Implement identity store and principal"
 Cohesion: 0.33
-Nodes (6): Consequences, D-004 — Every effectful action goes through `gate()`, Decision, Effectful actions include, Rationale, Would change if
+Nodes (6): Consequences, D-021 — Email domain is broader than Gmail, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 316 - "Option"
 Cohesion: 0.33
-Nodes (6): Consequences, D-005 — Private-data shell must be contained, Decision, Rationale, Required containment, Would change if
+Nodes (6): Consequences, D-022 — Agent-owned inbox is distinct from owner mailbox access, Decision, Distinction, Rationale, Would change if
 
 ### Community 317 - "Ulid"
 Cohesion: 0.33
-Nodes (6): Consequences, D-009 — External content is data, not instruction, Decision, Examples, Rationale, Would change if
+Nodes (6): Consequences, D-023 — OpenSpine is the substrate; Lyra is a product built on it, Decision, Positioning, Rationale, Would change if
 
 ### Community 318 - "Vec"
 Cohesion: 0.33
-Nodes (6): Consequences, D-021 — Email domain is broader than Gmail, Decision, Rationale, Trade-offs, Would change if
+Nodes (6): Consequences, D-024 — OpenSpec is the development/change-management layer, not the runtime, Decision, Mapping, Rationale, Would change if
 
 ### Community 319 - "HashMap"
 Cohesion: 0.33
-Nodes (6): Consequences, D-022 — Agent-owned inbox is distinct from owner mailbox access, Decision, Distinction, Rationale, Would change if
+Nodes (6): Consequences, D-026 — Shell containment via a `SandboxDriver` trait (Process dev-only / Docker), Decision, Rationale, Trade-offs, Would change if
 
 ### Community 320 - "benchmark.rs"
-Cohesion: 0.33
-Nodes (6): Consequences, D-023 — OpenSpine is the substrate; Lyra is a product built on it, Decision, Positioning, Rationale, Would change if
+Cohesion: 0.40
+Nodes (5): Consequences, D-035 — Kernel advertises a separate `advertise_endpoint` from its `bind_addr`; no Unix-domain-socket transport for `ProcessDriver`, Decision, Rationale, Would change if
 
 ### Community 321 - "Timestamp"
-Cohesion: 0.33
-Nodes (6): Consequences, D-024 — OpenSpec is the development/change-management layer, not the runtime, Decision, Mapping, Rationale, Would change if
+Cohesion: 0.40
+Nodes (5): Consequences, D-036 — Phase-2 thread selection is a kernel-recognized `/draft <thread_id>` command, not free-form NLU or a shell-supplied id, Decision, Rationale, Would change if
 
 ### Community 322 - "head"
-Cohesion: 0.33
-Nodes (6): Consequences, D-026 — Shell containment via a `SandboxDriver` trait (Process dev-only / Docker), Decision, Rationale, Trade-offs, Would change if
+Cohesion: 0.40
+Nodes (5): Consequences, D-037 — Gmail OAuth via a plain refresh-token POST (no `oauth2` crate); `base64` promoted from transitive to direct dependency, Decision, Rationale, Would change if
 
 ### Community 323 - "Vec"
 Cohesion: 0.40
@@ -2234,8 +2228,8 @@ Cohesion: 0.40
 Nodes (4): Safe rules for changing behavior, The bet, The problem, What OpenSpine does not do on purpose
 
 ### Community 325 - "Arc"
-Cohesion: 0.60
-Nodes (4): build_raw_reply_message(), extract_body_text(), header_value(), parse_thread()
+Cohesion: 0.40
+Nodes (5): Consequences, D-038 — `resolve_owner_identity`'s `channel_trust` is caller-supplied, not hardcoded, Decision, Rationale, Would change if
 
 ### Community 326 - "Error"
 Cohesion: 0.50
@@ -2279,243 +2273,243 @@ Nodes (3): canonical_catalog(), counterparty_classification_is_kernel_owned_and_
 
 ### Community 336 - "MockServer"
 Cohesion: 0.40
-Nodes (5): Consequences, D-035 — Kernel advertises a separate `advertise_endpoint` from its `bind_addr`; no Unix-domain-socket transport for `ProcessDriver`, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-040 — Pending (pre-approval) `ActionRequest`s are persisted in a new `action_requests` table, Decision, Rationale, Would change if
 
 ### Community 337 - "TelegramConnector"
 Cohesion: 0.40
-Nodes (5): Consequences, D-036 — Phase-2 thread selection is a kernel-recognized `/draft <thread_id>` command, not free-form NLU or a shell-supplied id, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-041 — `email.create_draft`'s digest composition: payload = `{subject, body}`, target = `{thread_id, connector, account_role, recipients}`, Decision, Rationale, Would change if
 
 ### Community 338 - "D-032 — Kernel↔shell transport is HTTP/JSON with a per-task bearer token"
 Cohesion: 0.40
-Nodes (5): Consequences, D-037 — Gmail OAuth via a plain refresh-token POST (no `oauth2` crate); `base64` promoted from transitive to direct dependency, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-043 — `lyra.ui.preview` is extended (not duplicated) to propose the exact reviewed draft and attach the approval button, Decision, Rationale, Would change if
 
 ### Community 340 - "D-033 — Action identifiers are exact-match dotted strings; unverified senders are audited and ignored"
 Cohesion: 0.40
-Nodes (5): Consequences, D-038 — `resolve_owner_identity`'s `channel_trust` is caller-supplied, not hardcoded, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-044 — Approved draft creation dispatches kernel-side; no new shell spawn, Decision, Rationale, Would change if
 
 ### Community 341 - "MockServer"
 Cohesion: 0.40
-Nodes (5): Consequences, D-040 — Pending (pre-approval) `ActionRequest`s are persisted in a new `action_requests` table, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-045 — WYSIWYS: a truncated preview refuses an approval button rather than splitting the message, Decision, Rationale, Would change if
 
 ### Community 342 - "Timestamp"
 Cohesion: 0.40
-Nodes (5): Consequences, D-041 — `email.create_draft`'s digest composition: payload = `{subject, body}`, target = `{thread_id, connector, account_role, recipients}`, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts, Decision, Rationale, Would change if
 
 ### Community 343 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-043 — `lyra.ui.preview` is extended (not duplicated) to propose the exact reviewed draft and attach the approval button, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-047 — Task tokens are hashed at rest; expired grants are swept, Decision, Rationale, Would change if
 
 ### Community 344 - "Arc"
 Cohesion: 0.40
-Nodes (5): Consequences, D-044 — Approved draft creation dispatches kernel-side; no new shell spawn, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-048 — `artifact.activate` is the single canonical activation action id; every runtime proposal requires uniform owner approval; prompt templates are excluded from proposable kinds, Decision, Rationale, Would change if
 
 ### Community 345 - "HeaderMap"
 Cohesion: 0.40
-Nodes (5): Consequences, D-045 — WYSIWYS: a truncated preview refuses an approval button rather than splitting the message, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices, Decision, Rationale, Would change if
 
 ### Community 346 - "D-030 — Telegram carries the entire owner-control UX for phases 1–3"
 Cohesion: 0.40
-Nodes (5): Consequences, D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-050 — `max_model_calls` is enforced with an atomic upsert, not a count-then-compare, Decision, Rationale, Would change if
 
 ### Community 347 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-047 — Task tokens are hashed at rest; expired grants are swept, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-051 — The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed, Decision, Rationale, Would change if
 
 ### Community 348 - "Result"
 Cohesion: 0.40
-Nodes (5): Consequences, D-048 — `artifact.activate` is the single canonical activation action id; every runtime proposal requires uniform owner approval; prompt templates are excluded from proposable kinds, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-052 — Archive applies deltas mechanically via `openspec archive --yes`; pre-seeded requirements are carried as MODIFIED; the `--skip-specs` hand-apply ceremony is retired, Decision, Rationale, Would change if
 
 ### Community 351 - "String"
 Cohesion: 0.40
-Nodes (5): Consequences, D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-053 — Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids fail fast at composition and gate, Decision, Rationale, Would change if
 
 ### Community 354 - "JoinHandle"
 Cohesion: 0.40
-Nodes (5): Consequences, D-050 — `max_model_calls` is enforced with an atomic upsert, not a count-then-compare, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-054 — Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in data records, Decision, Rationale, Would change if
 
 ### Community 355 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-051 — The agent-OS canon (AD-001..153) is decomposed into a dependency-edged change sequence; the stale later-changes placeholders are superseded or subsumed, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-055 — Gate trusted paths are hardened: carve-outs are enumerated catalog data; KernelOrigin is approval-exempt, audit-never-exempt; selection-token validation lives in pure gate() with dispatch-side consumption; digests are kernel-re-derived at approval-effect time, Decision, Rationale, Would change if
 
 ### Community 356 - "Response"
 Cohesion: 0.40
-Nodes (5): Consequences, D-052 — Archive applies deltas mechanically via `openspec archive --yes`; pre-seeded requirements are carried as MODIFIED; the `--skip-specs` hand-apply ceremony is retired, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-057 — Counterparty-facing actions are an explicit kernel catalog set, Decision, Rationale, Would change if
 
 ### Community 357 - "SocketAddr"
 Cohesion: 0.40
-Nodes (5): Consequences, D-053 — Kernel extension points are compiled-in registries; a curated canonical `ActionCatalog` makes unknown action ids fail fast at composition and gate, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-058 — Security escalations require result-returning owner delivery, Decision, Rationale, Would change if
 
 ### Community 358 - "HashMap"
 Cohesion: 0.40
-Nodes (5): Consequences, D-054 — Pipeline stages are a typed compiled-in sequence the driver executes; lanes are compiled-in data records, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-059 — Dormant thread bindings are MAC-authenticated before activation, Decision, Rationale, Would change if
 
 ### Community 359 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-055 — Gate trusted paths are hardened: carve-outs are enumerated catalog data; KernelOrigin is approval-exempt, audit-never-exempt; selection-token validation lives in pure gate() with dispatch-side consumption; digests are kernel-re-derived at approval-effect time, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-060 — The overlay eval gate's first-cut evaluator is deterministic; the full replay/judge protocol is owner-reserved, Decision, Rationale, Would change if
 
 ### Community 360 - "Self"
 Cohesion: 0.40
-Nodes (5): Consequences, D-056 — Eval-store groundwork defers AD-111 evaluator policy: only the verdict-landing surface is settled, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-061 — Model-swap golden sets use a bounded deterministic first cut, Decision, Rationale, Would change if
 
 ### Community 361 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-057 — Counterparty-facing actions are an explicit kernel catalog set, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-062 — Active model swaps require symmetric DB and overlay provenance, Decision, Rationale, Would change if
 
 ### Community 362 - "Arc"
 Cohesion: 0.40
-Nodes (5): Consequences, D-058 — Security escalations require result-returning owner delivery, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-063 — Model-swap activation uses a serialized staged recovery protocol, Decision, Rationale, Would change if
 
 ### Community 363 - "Display"
 Cohesion: 0.40
-Nodes (5): Consequences, D-059 — Dormant thread bindings are MAC-authenticated before activation, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-064 — Connector secrets migrate once into the kernel vault, Decision, Rationale, Would change if
 
 ### Community 364 - "HeaderMap"
 Cohesion: 0.40
-Nodes (5): Consequences, D-060 — The overlay eval gate's first-cut evaluator is deterministic; the full replay/judge protocol is owner-reserved, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-065 — Provider API-key vault migration belongs to foundation amendment, Decision, Rationale, Would change if
 
 ### Community 365 - "Json"
 Cohesion: 0.40
-Nodes (5): Consequences, D-061 — Model-swap golden sets use a bounded deterministic first cut, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-066 — Paired Gmail credentials stage until atomic validated promotion, Decision, Rationale, Would change if
 
 ### Community 366 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-062 — Active model swaps require symmetric DB and overlay provenance, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-067 — Telegram poll offsets are namespaced by bot identity, Decision, Rationale, Would change if
 
 ### Community 367 - "Result"
 Cohesion: 0.40
-Nodes (5): Consequences, D-063 — Model-swap activation uses a serialized staged recovery protocol, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-069 — Kernel connector counters are the minimal observability surface, Decision, Rationale, Would change if
 
 ### Community 368 - "State"
 Cohesion: 0.40
-Nodes (5): Consequences, D-064 — Connector secrets migrate once into the kernel vault, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-070 — Retryable owner notifications use encrypted artifact references, Decision, Rationale, Would change if
 
 ### Community 369 - "StatusCode"
 Cohesion: 0.40
-Nodes (5): Consequences, D-065 — Provider API-key vault migration belongs to foundation amendment, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-071 — External owner delivery may be delivery-unknown after a crash, Decision, Rationale, Would change if
 
 ### Community 370 - "Ulid"
 Cohesion: 0.40
-Nodes (5): Consequences, D-066 — Paired Gmail credentials stage until atomic validated promotion, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-072 — Digest detail retrieval is a secure lossless pagination substrate, Decision, Rationale, Would change if
 
 ### Community 371 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-067 — Telegram poll offsets are namespaced by bot identity, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-073 — Durable workflow steps persist intent before effect and replay recorded outcomes, Decision, Rationale, Would change if
 
 ### Community 372 - "Vec"
 Cohesion: 0.40
-Nodes (5): Consequences, D-068 — Authenticated API bad requests are not duplicated through owner notification, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-074 — Workflow timers fire at most once via trusted-clock atomic claims, Decision, Rationale, Would change if
 
 ### Community 373 - "Arc"
 Cohesion: 0.40
-Nodes (5): Consequences, D-069 — Kernel connector counters are the minimal observability surface, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-075 — The spend kill switch accounts globally but pauses only non-immediate lanes, Decision, Rationale, Would change if
 
 ### Community 378 - "HeaderMap"
-Cohesion: 0.14
-Nodes (16): ActionHandler, AppState, mint_reconfirm_grant(), Arc, Digest, HashMap, HashSet, Mutex (+8 more)
+Cohesion: 0.13
+Nodes (17): ActionHandler, AppState, mint_reconfirm_grant(), Arc, Digest, HashMap, HashSet, Mutex (+9 more)
 
 ### Community 379 - "Json"
 Cohesion: 0.40
-Nodes (5): Consequences, D-070 — Retryable owner notifications use encrypted artifact references, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-076 — Spend caps are required finite configuration, Decision, Rationale, Would change if
 
 ### Community 380 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-072 — Digest detail retrieval is a secure lossless pagination substrate, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-077 — Learned artifacts carry exchange provenance and reconfirmations record a durable anchor, Decision, Rationale, Would change if
 
 ### Community 385 - "Ulid"
 Cohesion: 0.40
-Nodes (5): Consequences, D-073 — Durable workflow steps persist intent before effect and replay recorded outcomes, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-078 — Owner reconfirmation is digest-bound with a durable owner-accepted disposition, Decision, Rationale, Would change if
 
 ### Community 386 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-074 — Workflow timers fire at most once via trusted-clock atomic claims, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-079 — Overlay compatibility converges to a fixed point and base wins identity collisions, Decision, Rationale, Would change if
 
 ### Community 387 - "JoinHandle"
 Cohesion: 0.40
-Nodes (5): Consequences, D-075 — The spend kill switch accounts globally but pauses only non-immediate lanes, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-080 — Legacy migration is discovery and quarantine only, Decision, Rationale, Would change if
 
 ### Community 388 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-076 — Spend caps are required finite configuration, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-081 — Upstream nomination is explicit depersonalized opt-in, Decision, Rationale, Would change if
 
 ### Community 389 - "Response"
 Cohesion: 0.40
-Nodes (5): Consequences, D-077 — Learned artifacts carry exchange provenance and reconfirmations record a durable anchor, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-082 — Task-board timer consumption is transactionally idempotent, Decision, Rationale, Would change if
 
 ### Community 390 - "SocketAddr"
 Cohesion: 0.40
-Nodes (5): Consequences, D-078 — Owner reconfirmation is digest-bound with a durable owner-accepted disposition, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-083 — Task dispatch is atomic with receipt-keyed fail-closed recovery, Decision, Rationale, Would change if
 
 ### Community 391 - "HashMap"
 Cohesion: 0.40
-Nodes (5): Consequences, D-079 — Overlay compatibility converges to a fixed point and base wins identity collisions, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-084 — Task slices are deterministic bounded projections, Decision, Rationale, Would change if
 
 ### Community 392 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-080 — Legacy migration is discovery and quarantine only, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-085 — Briefcase task classes derive deterministically from the dispatch lane, Decision, Rationale, Would change if
 
 ### Community 393 - "Self"
 Cohesion: 0.40
-Nodes (5): Consequences, D-081 — Upstream nomination is explicit depersonalized opt-in, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-086 — Selected-thread email preflight is a bounded pre-gate metadata snapshot, Decision, Rationale, Would change if
 
 ### Community 394 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-082 — Task-board timer consumption is transactionally idempotent, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-087 — Workflow state machines are declarative with digest-bound approval authorization, Decision, Rationale, Would change if
 
 ### Community 395 - "Arc"
 Cohesion: 0.40
-Nodes (5): Consequences, D-083 — Task dispatch is atomic with receipt-keyed fail-closed recovery, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-088 — A workflow transition writes exactly one advancing durable step, Decision, Rationale, Would change if
 
 ### Community 396 - "Display"
 Cohesion: 0.40
-Nodes (5): Consequences, D-084 — Task slices are deterministic bounded projections, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-089 — Reasoning-tier routing resolves the active provider per call, Decision, Rationale, Would change if
 
 ### Community 397 - "HeaderMap"
 Cohesion: 0.40
-Nodes (5): Consequences, D-085 — Briefcase task classes derive deterministically from the dispatch lane, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-006 — Identity is not authority, Decision, Rationale, Would change if
 
 ### Community 398 - "Json"
 Cohesion: 0.40
-Nodes (5): Consequences, D-006 — Identity is not authority, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-007 — Task grant is the final runtime authority, Decision, Rationale, Would change if
 
 ### Community 399 - "Option"
 Cohesion: 0.40
-Nodes (5): Consequences, D-007 — Task grant is the final runtime authority, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-011 — Approval must be digest-bound, Decision, Rationale, Would change if
 
 ### Community 400 - "Result"
 Cohesion: 0.40
-Nodes (5): Consequences, D-011 — Approval must be digest-bound, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-012 — Audit stores private payloads by encrypted/hash reference, Decision, Rationale, Would change if
 
 ### Community 401 - "State"
 Cohesion: 0.40
-Nodes (5): Consequences, D-012 — Audit stores private payloads by encrypted/hash reference, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-013 — Dynamic behavior easy; dynamic authority hard, Decision, Rationale, Would change if
 
 ### Community 402 - "StatusCode"
 Cohesion: 0.40
-Nodes (5): Consequences, D-013 — Dynamic behavior easy; dynamic authority hard, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-014 — Bootstrap/setup secrets bypass shell/model context, Decision, Rationale, Would change if
 
 ### Community 403 - "Ulid"
 Cohesion: 0.40
-Nodes (5): Consequences, D-014 — Bootstrap/setup secrets bypass shell/model context, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-015 — Phase 1 should avoid final email send, Decision, Rationale, Would change if
 
 ### Community 404 - "Value"
 Cohesion: 0.40
-Nodes (5): Consequences, D-015 — Phase 1 should avoid final email send, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-016 — Capability packs are candidate profiles, not live authority, Decision, Rationale, Would change if
 
 ### Community 405 - "D-016 — Capability packs are candidate profiles, not live authority"
 Cohesion: 0.40
-Nodes (5): Consequences, D-016 — Capability packs are candidate profiles, not live authority, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-017 — Personas grant no authority, Decision, Rationale, Would change if
 
 ### Community 406 - "D-017 — Personas grant no authority"
 Cohesion: 0.40
-Nodes (5): Consequences, D-017 — Personas grant no authority, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-018 — Routes are declarative artifacts, not kernel code, Decision, Rationale, Would change if
 
 ### Community 407 - "D-018 — Routes are declarative artifacts, not kernel code"
 Cohesion: 0.40
-Nodes (5): Consequences, D-018 — Routes are declarative artifacts, not kernel code, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-020 — Railway/Docker/VPS are deployment targets, not core architecture, Decision, Rationale, Would change if
 
 ### Community 408 - "Json"
 Cohesion: 0.40
-Nodes (5): Consequences, D-020 — Railway/Docker/VPS are deployment targets, not core architecture, Decision, Rationale, Would change if
+Nodes (5): Consequences, D-025 — Rust/Tokio substrate: storage, audit chain, and secrets handling, Decision, Rationale, Would change if
 
 ### Community 409 - "Result"
 Cohesion: 0.83
@@ -2609,19 +2603,23 @@ Nodes (3): exclude, extends, include
 Cohesion: 0.83
 Nodes (3): atomic_grant_and_briefcase_persists_both_on_success(), atomic_grant_and_briefcase_rolls_back_on_briefcase_failure(), minimal_briefcase()
 
+### Community 485 - "Box"
+Cohesion: 0.67
+Nodes (3): build_selection_token(), format_pending_message(), email_grant_binding()
+
 ## Knowledge Gaps
-- **1803 isolated node(s):** `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactNominatePayload`, `ArtifactProposePayload` (+1798 more)
+- **1813 isolated node(s):** `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactNominatePayload`, `ArtifactProposePayload` (+1808 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **759 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **747 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `HeaderMap` to `D-004 — Every effectful action goes through `gate()``, `properties`, `ADDED Requirements`, `config.rs`, `.put`, `SKILL.md`, `client.rs`, `Ok`, `content.d.ts`, `Proposal: Define core runtime schemas`, `ADDED Requirements`, `Proposal: Implement authority composition`, `Requirements`, `Requirements`, `D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts`, `Agent-OS change sequence (2026-07-07, AD canon)`, `AuditMeta`, `ADDED Requirements`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Why does `handle_owner_update()` connect `config.rs` to `README.md`, `.new`, `ADDED Requirements`, `client.rs`, `policy.rs`, `actions.rs`, `action.rs`, `Requirements`, `Q: Trace the full runtime call path for a single incoming Telegram message from an authorized owner, all the way through to a TaskGrant being persisted in the kernel's SQLite store. List the modules/files involved, in call order, and identify the 2-3 modules that are most structurally central to this flow.`, `HeaderMap`, `SKILL.md`, `D-006 — Identity is not authority`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `test_state()` connect `config.rs` to `ADDED Requirements`, `D-047 — Task tokens are hashed at rest; expired grants are swept`, `D-024 — OpenSpec is the development/change-management layer, not the runtime`, `client.rs`, `policy.rs`, `actions.rs`, `Proposal: Define core runtime schemas`, `action.rs`, `Requirements`, `HeaderMap`, `D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices`?**
+- **Why does `AppState` connect `HeaderMap` to `D-004 — Every effectful action goes through `gate()``, `properties`, `ADDED Requirements`, `config.rs`, `.put`, `SKILL.md`, `digest.rs`, `Ok`, `content.d.ts`, `Proposal: Define core runtime schemas`, `ADDED Requirements`, `Proposal: Implement authority composition`, `Requirements`, `D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts`, `Agent-OS change sequence (2026-07-07, AD canon)`, `AuditMeta`, `ADDED Requirements`?**
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `handle_owner_update()` connect `config.rs` to `.new`, `identity.rs`, `D-008 — Deterministic routing decides authority; agentic routing decides strategy`, `digest.rs`, `policy.rs`, `action.rs`, `Requirements`, `Q: Trace the full runtime call path for a single incoming Telegram message from an authorized owner, all the way through to a TaskGrant being persisted in the kernel's SQLite store. List the modules/files involved, in call order, and identify the 2-3 modules that are most structurally central to this flow.`, `HeaderMap`, `SKILL.md`, `D-006 — Identity is not authority`?**
+  _High betweenness centrality (0.016) - this node is a cross-community bridge._
+- **Why does `StoreError` connect `mod.rs` to `Proposal: Implement authority composition`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **Are the 69 inferred relationships involving `handle_owner_update()` (e.g. with `run_pipeline()` and `email_preview_lane()`) actually correct?**
   _`handle_owner_update()` has 69 INFERRED edges - model-reasoned connections that need verification._
