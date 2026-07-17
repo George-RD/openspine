@@ -62,6 +62,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   AD-139/AD-144)
 - `implement-overlay-model` (D-077..D-081; brief stays in place — later
   `Requires:` lines reference it)
+- `implement-task-board` (D-082..D-084)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
