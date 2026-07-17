@@ -181,7 +181,6 @@
   "179": "D-019 — Implement minimal slice first, not full agent OS",
   "180": "why-openspine.md",
   "181": "Q: Trace the full runtime call path for a single incoming Telegram message from an authorized owner, all the way through to a TaskGrant being persisted in the kernel's SQLite store. List the modules/files involved, in call order, and identify the 2-3 modules that are most structurally central to this flow.",
-  "182": "Blindspot pass",
   "183": "Brainstorm and prototypes",
   "184": "Change quiz",
   "185": "Implementation notes",
