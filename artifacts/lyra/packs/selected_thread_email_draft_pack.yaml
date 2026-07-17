@@ -16,6 +16,7 @@ candidate_allowed_actions:
   - "model.generate:approved_provider"
   - "artifact.write:task_scratch"
   - lyra.ui.preview
+  - briefcase.topup
 approval_required:
   - email.create_draft
 denied_actions:

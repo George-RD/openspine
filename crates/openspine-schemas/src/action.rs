@@ -53,10 +53,24 @@ impl From<&str> for ActionId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EffectPathClass {
+    /// A shell-initiated read performed after the authority `gate()` has
+    /// authorized it (e.g. `email.read_thread:selected_no_attachments`).
     GatedShell,
+    /// An effect the kernel performs only after a `gate()` decision allowed
+    /// it (e.g. creating an approved draft).
     PostGateApprovedEffect,
+    /// A kernel-originated effect mediated by the authority `gate()` itself
+    /// (e.g. `notify_owner_best_effort` routes through `gate()`).
     KernelOriginGated,
+    /// Internal maintenance with no external effect (e.g. sweeping expired
+    /// grants, answering a Telegram callback query).
     InternalMaintenanceNonEffect,
+    /// A read the kernel performs during the pre-grant Verify stage,
+    /// authorized by the verified-owner lane selection and the containment
+    /// guard — NOT by the authority `gate()`. Captured so D-055's
+    /// effect-path inventory is complete for every external read the kernel
+    /// makes (e.g. resolving an email thread's recipient before packing).
+    PreGateOwnerSelectedRead,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

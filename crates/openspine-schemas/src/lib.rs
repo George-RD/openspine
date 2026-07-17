@@ -14,6 +14,7 @@ pub mod agent;
 pub mod approval;
 pub mod artifact;
 pub mod audit;
+pub mod briefcase;
 pub mod digest;
 pub mod egress;
 pub mod escalation;

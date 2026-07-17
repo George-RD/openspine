@@ -96,6 +96,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-082 | Task-board timer consumption is transactionally idempotent; unknown owners and unmet dependencies are permanent AckSkip with blocked-attention audit | Accepted |
 | D-083 | Task dispatch commits grant, handoff, and authority audit in one transaction; recovery is receipt-keyed and fail-closed | Accepted |
 | D-084 | Task slices are deterministic category-ordered bounded projections; hysteresis scoring is deferred | Accepted |
+| D-085 | Briefcase task classes derive deterministically from the dispatch lane pending canon ratification | Accepted |
+| D-086 | Selected-thread email preflight is a bounded pre-gate metadata snapshot carrying only the recipient into packing | Accepted |
 
 ---
 
@@ -2073,6 +2075,47 @@ AD-123 hysteresis scoring is ratified into a concrete decision, replacing catego
 ---
 
 
+# D-085 — Briefcase task classes derive deterministically from the dispatch lane
+
+## Decision
+
+AD-031's task-class axis is derived from the current lane: owner-control maps to `Conversation`, selected-thread external communication to `DraftApproval`, and future effectful lanes to `Effectful`. This is a deterministic implementation of the canon's still-unspecified task-class input.
+
+## Rationale
+
+Briefcase packing is keyed by relationship x task class (AD-031); the lane is the only kernel-owned signal available today, and deriving from it keeps packing deterministic and reviewable rather than caller-asserted.
+
+## Consequences
+
+Task-class assignment cannot be spoofed by payload content; introducing a real task-class input later is a canon-level change, not a silent widening.
+
+## Would change if
+
+Canon ratifies an explicit task-class model (e.g. AD-123 scoring or a task-board-supplied class), replacing lane derivation.
+
+---
+
+# D-086 — Selected-thread email preflight is a bounded pre-gate metadata snapshot
+
+## Decision
+
+The selected-thread email lane performs one bounded `threads.get?format=minimal` response read, then at most 20 bounded `messages.get?format=metadata&metadataHeaders=From` reads during Verify, after owner selection and containment checks; it carries only the recipient address into Grant->Run packing. Full message-body reads remain post-gate effects.
+
+## Rationale
+
+Counterparty resolution needs sender identity before grant composition, but pre-gate reads must stay narrow (D-055 trusted-path classification); metadata-only headers bound both volume and sensitivity.
+
+## Consequences
+
+The pre-gate surface is auditable and capped; body content can never leak into packing or authority decisions.
+
+## Would change if
+
+A kernel-side thread-metadata cache removes the need for live pre-gate reads.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -2132,4 +2175,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-075 (the daily spend kill switch accounts for every model and connector call while breach pauses only non-immediate lanes; owner-control and control-plane operations stay live, counted, cap-exempt; notification-only reservation keeps breach alerts deliverable) and D-076 (spend caps are required finite configuration), settled while implementing `implement-spend-kill-switch`. |
 | 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition and one-transaction commit-before-publication), D-079 (fixed-point overlay compatibility over typed Route/Workflow edges, typed epoch revalidation, base-wins collisions, highest-only monotonic version cutover), D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), and D-081 (upstream nomination requires explicit depersonalized opt-in), settled while implementing `implement-overlay-model`. |
 | 2026-07-17 | Added D-082 (transactionally idempotent task-board timer consumption with permanent AckSkip + blocked audit), D-083 (atomic grant/handoff/audit dispatch with receipt-keyed fail-closed recovery), and D-084 (deterministic bounded task slices; hysteresis deferred), settled while implementing `implement-task-board`. |
+| 2026-07-17 | Added D-085 (lane-derived briefcase task classes pending canon ratification) and D-086 (bounded pre-gate email metadata snapshot carrying only the recipient), settled while implementing `implement-briefcase-packing`. |
 

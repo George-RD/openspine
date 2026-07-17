@@ -15,6 +15,9 @@
 //! uses; [`task`], [`actions`], and [`generate`] hold one endpoint each.
 
 pub(crate) mod actions;
+mod briefcase;
+#[cfg(test)]
+mod briefcase_tests;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
 mod artifact_nominate;
@@ -108,6 +111,11 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/v1/status", get(get_status))
         .route("/v1/task", get(task::get_task))
         .route("/v1/actions", post(actions::post_actions))
+        .route("/v1/briefcase", get(briefcase::get_briefcase))
+        .route(
+            "/v1/briefcase/{briefcase_id}/topup",
+            post(briefcase::post_topup),
+        )
         .route("/v1/model/generate", post(generate::post_model_generate))
         .with_state(state)
 }

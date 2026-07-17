@@ -1,4 +1,6 @@
 use super::*;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use serde_json::json;
 use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -82,7 +84,7 @@ async fn thread_exists_is_true_for_a_real_thread() {
         .await;
 
     let connector = connector(&token_server, &api_server);
-    assert!(connector.thread_exists("thread-1").await.unwrap());
+    assert!(connector.fetch_thread("thread-1").await.is_ok());
 }
 
 #[tokio::test]
@@ -97,7 +99,13 @@ async fn thread_exists_is_false_for_a_missing_thread() {
         .await;
 
     let connector = connector(&token_server, &api_server);
-    assert!(!connector.thread_exists("missing").await.unwrap());
+    assert!(matches!(
+        connector.fetch_thread("missing").await,
+        Err(GmailError {
+            class: GmailFailureClass::ThreadNotFound,
+            ..
+        })
+    ));
 }
 
 #[tokio::test]
@@ -113,7 +121,13 @@ async fn a_non_404_api_error_is_not_treated_as_missing() {
 
     let connector = connector(&token_server, &api_server);
     let err = connector.fetch_thread("thread-1").await.unwrap_err();
-    assert!(matches!(err, GmailError::Api { status: 500, .. }));
+    assert!(matches!(
+        err,
+        GmailError {
+            status: Some(500),
+            class: GmailFailureClass::Api
+        }
+    ));
 }
 
 #[tokio::test]
@@ -128,7 +142,13 @@ async fn a_failed_token_refresh_surfaces_as_an_error() {
 
     let connector = connector(&token_server, &api_server);
     let err = connector.fetch_thread("thread-1").await.unwrap_err();
-    assert!(matches!(err, GmailError::TokenRefresh { status: 401, .. }));
+    assert!(matches!(
+        err,
+        GmailError {
+            status: Some(401),
+            class: GmailFailureClass::TokenRefresh
+        }
+    ));
 }
 
 #[tokio::test]

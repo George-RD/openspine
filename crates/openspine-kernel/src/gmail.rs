@@ -17,12 +17,13 @@ mod credentials;
 
 use std::time::Duration;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine as _;
 use jiff::Timestamp;
 use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::Value;
+
+mod helpers;
+use helpers::{build_raw_reply_message, header_value, parse_thread};
 
 const DEFAULT_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const DEFAULT_API_BASE_URL: &str = "https://gmail.googleapis.com";
@@ -31,21 +32,81 @@ const GMAIL_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// enforces its own hard ceiling independent of any caller-supplied scope,
 /// so a forged/malformed scope can never widen what one fetch returns.
 const MAX_MESSAGES: usize = 20;
+/// Hard response bound for metadata-only preflight reads. A provider response
+/// exceeding this limit fails closed before deserialization.
+const MAX_METADATA_RESPONSE_BYTES: usize = 256 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ThreadRecipient {
+    Address(String),
+    ThreadNotFound,
+    Unavailable,
+}
 /// Refresh the cached access token this many seconds before Google's own
 /// `expires_in` would lapse, so a request never races an about-to-expire
 /// token across the wire.
 const TOKEN_REFRESH_SKEW_SECONDS: i64 = 60;
 
-#[derive(Debug, thiserror::Error)]
-pub enum GmailError {
-    #[error("gmail HTTP request failed: {0}")]
-    Http(#[from] reqwest::Error),
-    #[error("gmail token refresh failed: HTTP {status}: {body}")]
-    TokenRefresh { status: u16, body: String },
-    #[error("gmail API returned HTTP {status}: {body}")]
-    Api { status: u16, body: String },
-    #[error("gmail thread {0} not found")]
-    ThreadNotFound(String),
+/// Fixed failure class for Gmail connector errors. This is the stable label
+/// that is audited/persisted; the provider's response body is NEVER carried
+/// in the error (D-012: no sensitive/provider text persisted or displayed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum GmailFailureClass {
+    #[error("transport")]
+    Transport,
+    #[error("token_refresh")]
+    TokenRefresh,
+    #[error("api")]
+    Api,
+    #[error("malformed_response")]
+    MalformedResponse,
+    #[error("thread_not_found")]
+    ThreadNotFound,
+}
+
+/// A Gmail connector failure. Carries only an optional HTTP status and a
+/// fixed [`GmailFailureClass`] — never the provider response body, so it is
+/// safe to persist/display via `Display` (D-012).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("gmail {class} failure (status: {status:?})")]
+pub struct GmailError {
+    pub status: Option<u16>,
+    pub class: GmailFailureClass,
+}
+
+impl From<reqwest::Error> for GmailError {
+    fn from(_: reqwest::Error) -> Self {
+        GmailError {
+            status: None,
+            class: GmailFailureClass::Transport,
+        }
+    }
+}
+
+async fn bounded_json_response(mut resp: reqwest::Response) -> Result<Value, GmailError> {
+    if resp
+        .content_length()
+        .is_some_and(|length| length > MAX_METADATA_RESPONSE_BYTES as u64)
+    {
+        return Err(GmailError {
+            status: None,
+            class: GmailFailureClass::MalformedResponse,
+        });
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = resp.chunk().await? {
+        if body.len().saturating_add(chunk.len()) > MAX_METADATA_RESPONSE_BYTES {
+            return Err(GmailError {
+                status: None,
+                class: GmailFailureClass::MalformedResponse,
+            });
+        }
+        body.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&body).map_err(|_| GmailError {
+        status: None,
+        class: GmailFailureClass::MalformedResponse,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,34 +221,32 @@ impl GmailConnector {
             if let Some(secrets) = &self.secrets {
                 let (client_bytes, client_version) = secrets
                     .get_with_version(&self.client_secret_slot)
-                    .map_err(|_| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail client secret is not configured".to_string(),
+                    .map_err(|_| GmailError {
+                        status: Some(0),
+                        class: GmailFailureClass::TokenRefresh,
                     })?
-                    .ok_or_else(|| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail client secret is not configured".to_string(),
+                    .ok_or(GmailError {
+                        status: Some(0),
+                        class: GmailFailureClass::TokenRefresh,
                     })?;
                 let (refresh_bytes, refresh_version) = secrets
                     .get_with_version(&self.refresh_token_slot)
-                    .map_err(|_| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail refresh token is not configured".to_string(),
+                    .map_err(|_| GmailError {
+                        status: Some(0),
+                        class: GmailFailureClass::TokenRefresh,
                     })?
-                    .ok_or_else(|| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail refresh token is not configured".to_string(),
+                    .ok_or(GmailError {
+                        status: Some(0),
+                        class: GmailFailureClass::TokenRefresh,
                     })?;
-                let client_secret =
-                    String::from_utf8(client_bytes).map_err(|_| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail client secret is not configured".to_string(),
-                    })?;
-                let refresh_token =
-                    String::from_utf8(refresh_bytes).map_err(|_| GmailError::TokenRefresh {
-                        status: 0,
-                        body: "gmail refresh token is not configured".to_string(),
-                    })?;
+                let client_secret = String::from_utf8(client_bytes).map_err(|_| GmailError {
+                    status: Some(0),
+                    class: GmailFailureClass::TokenRefresh,
+                })?;
+                let refresh_token = String::from_utf8(refresh_bytes).map_err(|_| GmailError {
+                    status: Some(0),
+                    class: GmailFailureClass::TokenRefresh,
+                })?;
                 (
                     client_secret,
                     refresh_token,
@@ -223,10 +282,9 @@ impl GmailConnector {
             .await?;
         let status = resp.status();
         if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(GmailError::TokenRefresh {
-                status: status.as_u16(),
-                body,
+            return Err(GmailError {
+                status: Some(status.as_u16()),
+                class: GmailFailureClass::TokenRefresh,
             });
         }
         let parsed: TokenResponse = resp.json().await?;
@@ -254,46 +312,91 @@ impl GmailConnector {
         let resp = self.http.get(&url).bearer_auth(token).send().await?;
         let status = resp.status();
         if status == reqwest::StatusCode::NOT_FOUND {
-            return Err(GmailError::ThreadNotFound(thread_id.to_string()));
+            return Err(GmailError {
+                status: Some(404),
+                class: GmailFailureClass::ThreadNotFound,
+            });
         }
         if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(GmailError::Api {
-                status: status.as_u16(),
-                body,
+            return Err(GmailError {
+                status: Some(status.as_u16()),
+                class: GmailFailureClass::Api,
             });
         }
         let json: Value = resp.json().await?;
         Ok(parse_thread(thread_id, &json))
     }
 
-    /// Whether `thread_id` exists and is readable. The email-preview lane's
-    /// preflight (`pipeline::lanes::email_preflight`) validates this before
-    /// ever minting a [`openspine_schemas::selection::SelectionToken`] — the
-    /// kernel must never mint a selection token for a thread that turns out
-    /// not to exist. Uses `format=minimal` rather than [`Self::fetch_thread`]'s
-    /// `format=full` — this call only needs a 404-vs-200 answer, not the
-    /// thread's messages, so there is no reason to pay for (and parse) the
-    /// full payload.
-    pub async fn thread_exists(&self, thread_id: &str) -> Result<bool, GmailError> {
+    /// Narrow, pre-gate recipient snapshot: one bounded minimal thread
+    /// response followed by at most [`MAX_MESSAGES`] metadata-only reads.
+    pub async fn fetch_thread_recipient(
+        &self,
+        thread_id: &str,
+    ) -> Result<ThreadRecipient, GmailError> {
         let token = self.access_token().await?;
-        let url = format!(
+        let thread_url = format!(
             "{}/gmail/v1/users/me/threads/{thread_id}?format=minimal",
             self.api_base_url
         );
-        let resp = self.http.get(&url).bearer_auth(token).send().await?;
+        let resp = self
+            .http
+            .get(&thread_url)
+            .bearer_auth(token.clone())
+            .send()
+            .await?;
         let status = resp.status();
         if status == reqwest::StatusCode::NOT_FOUND {
-            return Ok(false);
+            return Ok(ThreadRecipient::ThreadNotFound);
         }
         if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(GmailError::Api {
-                status: status.as_u16(),
-                body,
+            return Err(GmailError {
+                status: Some(status.as_u16()),
+                class: GmailFailureClass::Api,
             });
         }
-        Ok(true)
+        let json = bounded_json_response(resp).await?;
+        let message_ids: Vec<String> = json
+            .get("messages")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .rev()
+            .take(MAX_MESSAGES)
+            .filter_map(|msg| msg.get("id").and_then(Value::as_str).map(str::to_owned))
+            .collect();
+        let owner = self.mailbox_address.trim().to_lowercase();
+        for msg_id in message_ids {
+            let msg_url = format!(
+                "{}/gmail/v1/users/me/messages/{msg_id}?format=metadata&metadataHeaders=From",
+                self.api_base_url
+            );
+            let msg_resp = self
+                .http
+                .get(&msg_url)
+                .bearer_auth(token.clone())
+                .send()
+                .await?;
+            let msg_status = msg_resp.status();
+            if !msg_status.is_success() {
+                return Err(GmailError {
+                    status: Some(msg_status.as_u16()),
+                    class: GmailFailureClass::Api,
+                });
+            }
+            let msg_json = bounded_json_response(msg_resp).await?;
+            let headers = msg_json
+                .get("payload")
+                .and_then(|p| p.get("headers"))
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            if let Some(addr) = extract_email_address(&header_value(&headers, "From")) {
+                if addr != owner {
+                    return Ok(ThreadRecipient::Address(addr));
+                }
+            }
+        }
+        Ok(ThreadRecipient::Unavailable)
     }
 
     /// Create a Gmail draft replying to `thread_id` (D-044 / PRD's
@@ -327,19 +430,18 @@ impl GmailConnector {
             .await?;
         let status = resp.status();
         if !status.is_success() {
-            let body = resp.text().await.unwrap_or_default();
-            return Err(GmailError::Api {
-                status: status.as_u16(),
-                body,
+            return Err(GmailError {
+                status: Some(status.as_u16()),
+                class: GmailFailureClass::Api,
             });
         }
         let json: Value = resp.json().await?;
         json["id"]
             .as_str()
             .map(|s| s.to_string())
-            .ok_or_else(|| GmailError::Api {
-                status: status.as_u16(),
-                body: "draft create response missing \"id\"".to_string(),
+            .ok_or_else(|| GmailError {
+                status: Some(status.as_u16()),
+                class: GmailFailureClass::MalformedResponse,
             })
     }
 }
@@ -383,100 +485,6 @@ fn extract_email_address(header: &str) -> Option<String> {
         .unwrap_or(header)
         .trim();
     candidate.contains('@').then(|| candidate.to_lowercase())
-}
-
-/// Build a base64url-encoded RFC 2822 message for Gmail's `raw` draft
-/// field. Minimal by design (PRD/Step 6 scope: single plain-text reply,
-/// no attachments, no Cc/Bcc) — sets `In-Reply-To`/`References` only when
-/// the original message's `Message-ID` was captured; omits them rather
-/// than fabricating a value when it wasn't (better a plainly-unthreaded
-/// draft than one carrying a made-up header).
-///
-/// `subject`/`body` are written byte-for-byte, never reformatted here
-/// (e.g. no "Re: " prefixing — the shell already composes the final
-/// subject before it is ever previewed): D-041's approval binds a digest
-/// over the exact reviewed payload, so what gets written to Gmail must
-/// match what the owner approved exactly, not a value this function
-/// silently touches up after the fact.
-///
-/// Headers are written as raw ASCII with no RFC 2047 encoding — a
-/// non-ASCII subject/recipient will produce a technically invalid header.
-/// Out of scope for this phase (English-language usage assumed); a future
-/// phase adding non-ASCII support must encode `Subject` per RFC 2047.
-fn build_raw_reply_message(
-    to: &str,
-    subject: &str,
-    body: &str,
-    in_reply_to: Option<&str>,
-) -> String {
-    let mut headers =
-        format!("To: {to}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n");
-    if let Some(id) = in_reply_to.filter(|s| !s.is_empty()) {
-        headers.push_str(&format!("In-Reply-To: {id}\r\nReferences: {id}\r\n"));
-    }
-    URL_SAFE_NO_PAD.encode(format!("{headers}\r\n{body}").as_bytes())
-}
-
-fn header_value(headers: &[Value], name: &str) -> String {
-    headers
-        .iter()
-        .find(|h| {
-            h["name"]
-                .as_str()
-                .is_some_and(|n| n.eq_ignore_ascii_case(name))
-        })
-        .and_then(|h| h["value"].as_str())
-        .unwrap_or_default()
-        .to_string()
-}
-
-/// Depth-first search for the first non-attachment `text/plain` part.
-/// Recurses through `parts` (multipart MIME) but skips any part carrying a
-/// non-empty `filename` entirely — an attachment's bytes are never even
-/// base64-decoded, let alone returned (PRD §21.1: "without attachments").
-fn extract_body_text(payload: &Value) -> String {
-    let filename = payload["filename"].as_str().unwrap_or("");
-    if !filename.is_empty() {
-        return String::new();
-    }
-    let mime_type = payload["mimeType"].as_str().unwrap_or("");
-    if mime_type == "text/plain" {
-        if let Some(data) = payload["body"]["data"].as_str() {
-            if let Ok(bytes) = URL_SAFE_NO_PAD.decode(data) {
-                return String::from_utf8_lossy(&bytes).into_owned();
-            }
-        }
-    }
-    if let Some(parts) = payload["parts"].as_array() {
-        for part in parts {
-            let text = extract_body_text(part);
-            if !text.is_empty() {
-                return text;
-            }
-        }
-    }
-    String::new()
-}
-
-fn parse_thread(thread_id: &str, json: &Value) -> GmailThread {
-    let messages = json["messages"].as_array().cloned().unwrap_or_default();
-    let mut out = Vec::new();
-    for msg in messages.into_iter().take(MAX_MESSAGES) {
-        let headers = msg["payload"]["headers"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        out.push(GmailMessage {
-            from: header_value(&headers, "From"),
-            subject: header_value(&headers, "Subject"),
-            body_text: extract_body_text(&msg["payload"]),
-            message_id: header_value(&headers, "Message-ID"),
-        });
-    }
-    GmailThread {
-        thread_id: thread_id.to_string(),
-        messages: out,
-    }
 }
 
 #[cfg(test)]
