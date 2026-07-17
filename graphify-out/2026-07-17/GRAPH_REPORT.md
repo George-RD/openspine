@@ -1,11 +1,11 @@
 # Graph Report - implement-day2-operations  (2026-07-17)
 
 ## Corpus Check
-- 368 files · ~269,015 words
+- 367 files · ~268,323 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4733 nodes · 6116 edges · 908 communities (365 shown, 543 thin omitted)
+- 4719 nodes · 6103 edges · 915 communities (371 shown, 544 thin omitted)
 - Extraction: 88% EXTRACTED · 12% INFERRED · 0% AMBIGUOUS · INFERRED: 746 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -863,6 +863,13 @@
 - Value
 - Result
 - String
+- route.rs
+- test_state_with_telegram
+- run_pipeline
+- main.rs
+- dispatch_polled_updates
+- pack.rs
+- ActionHandlerRegistry
 
 ## God Nodes (most connected - your core abstractions)
 1. `handle_owner_update()` - 68 edges
@@ -881,21 +888,21 @@
   crates/openspine-kernel/src/pipeline/tests/plan.rs → crates/openspine-kernel/src/test_support.rs
 - `run_pipeline()` --calls--> `compose_authority()`  [INFERRED]
   crates/openspine-kernel/src/pipeline/driver.rs → crates/openspine-authority/src/compose.rs
+- `run_pipeline()` --calls--> `resolve_route()`  [INFERRED]
+  crates/openspine-kernel/src/pipeline/driver.rs → crates/openspine-authority/src/route.rs
 - `bound_parameter_conflict_is_caveat_widening()` --calls--> `test_catalog()`  [INFERRED]
   crates/openspine-gate/src/gate/tests/extra_tests.rs → crates/openspine-authority/tests/common/mod.rs
 - `notify_owner_with_digest()` --calls--> `gate()`  [INFERRED]
   crates/openspine-kernel/src/pipeline/mod.rs → crates/openspine-gate/src/gate.rs
-- `no_egress_classifier_skips_check_for_unrated_actions()` --calls--> `gate()`  [INFERRED]
-  crates/openspine-kernel/src/connectors.rs → crates/openspine-gate/src/gate.rs
 
 ## Import Cycles
 - None detected.
 
-## Communities (908 total, 543 thin omitted)
+## Communities (915 total, 544 thin omitted)
 
 ### Community 0 - "README.md"
-Cohesion: 0.08
-Nodes (43): canonical_json(), bindings_valid(), Caveat, caveat_bytes(), chain_structurally_valid(), ChainStep, compute_mac_hex(), compute_tip() (+35 more)
+Cohesion: 0.12
+Nodes (35): canonical_json(), bindings_valid(), Caveat, caveat_bytes(), chain_structurally_valid(), ChainStep, compute_mac_hex(), compute_tip() (+27 more)
 
 ### Community 1 - ".new"
 Cohesion: 0.06
@@ -914,28 +921,28 @@ Cohesion: 0.06
 Nodes (31): canonical_catalog_covers_all_fixture_action_ids(), PromptTemplate, canonical_catalog(), counterparty_classification_is_kernel_owned_and_fails_closed(), test_catalog_effect_paths_are_fully_enumerated_and_classified(), AgentManifest, ArtifactKindSpec, ArtifactLoadError (+23 more)
 
 ### Community 5 - "GmailConnector"
-Cohesion: 0.07
-Nodes (40): BootClockCheck, Result, Transaction, Store, add_column_if_missing(), apply_ad_hoc_migrations(), apply_single_migration_for_test(), apply_single_migration_inner() (+32 more)
+Cohesion: 0.05
+Nodes (48): BootClockCheck, Result, Transaction, Store, add_column_if_missing(), apply_ad_hoc_migrations(), apply_single_migration_for_test(), apply_single_migration_inner() (+40 more)
 
 ### Community 6 - "artifact_loader.rs"
-Cohesion: 0.13
-Nodes (27): test_state_with_telegram(), batch_failure(), encrypt_digest_detail(), FailureClass, notify_immediate_failure(), record_callback_ack(), record_connector_outcome(), record_connector_outcome_or_batch() (+19 more)
+Cohesion: 0.16
+Nodes (11): batch_failure(), encrypt_digest_detail(), FailureClass, notify_immediate_failure(), record_callback_ack(), record_connector_outcome(), record_connector_outcome_or_batch(), connector_counters_record_success_and_failure() (+3 more)
 
 ### Community 7 - "config.rs"
-Cohesion: 0.11
-Nodes (44): handle_owner_update(), concurrent_owner_callbacks_are_serialized_by_handler(), audit_append_failure_fails_notification_before_connector_effect(), audit_readonly_failure_fails_notification_before_connector_effect(), disk_full_audit_append_aborts_before_connector_effect(), audit_payload_refs(), draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message(), draft_command_for_a_missing_thread_mints_no_grant() (+36 more)
+Cohesion: 0.13
+Nodes (38): handle_owner_update(), concurrent_owner_callbacks_are_serialized_by_handler(), audit_payload_refs(), draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message(), draft_command_for_a_missing_thread_mints_no_grant(), draft_command_for_a_real_thread_composes_a_bound_selection_grant(), draft_command_is_refused_without_the_unsafe_flag_under_process_driver(), draft_command_with_gmail_api_error_audits_no_event_received() (+30 more)
 
 ### Community 8 - "mod.rs"
-Cohesion: 0.13
-Nodes (28): notify_owner_required_errors_and_audits_on_send_failure(), notify_owner_required_succeeds_when_sent(), notify_owner_with_digest_records_success_counter(), notify_send_failure_records_attempt_failure_and_dead_letter(), parse_audit_event(), required_send_failure_keeps_dlq_when_counter_persistence_breaks(), Value, shadow_grant_effect_suppressed_skips_effect_handler() (+20 more)
+Cohesion: 0.12
+Nodes (31): audit_append_failure_fails_notification_before_connector_effect(), audit_readonly_failure_fails_notification_before_connector_effect(), disk_full_audit_append_aborts_before_connector_effect(), notify_owner_required_errors_and_audits_on_send_failure(), notify_owner_required_succeeds_when_sent(), notify_owner_with_digest_records_success_counter(), notify_send_failure_records_attempt_failure_and_dead_letter(), parse_audit_event() (+23 more)
 
 ### Community 9 - "telegram.rs"
 Cohesion: 0.10
 Nodes (37): get_task(), TaskLimitsBody, TaskViewBody, authenticate(), bearer_token(), internal_error(), router(), unauthorized() (+29 more)
 
 ### Community 10 - ".put"
-Cohesion: 0.05
-Nodes (61): BuildEnvelopeFn, empty_session_policy(), Future, GrantBindingFn, Output, Pin, PostApprovalFuture, PreflightFn (+53 more)
+Cohesion: 0.16
+Nodes (17): Future, Output, Pin, Send, build_selection_token(), format_pending_message(), RouteResolution, emit_preflight_failure() (+9 more)
 
 ### Community 11 - "ProposedArtifact"
 Cohesion: 0.15
@@ -946,8 +953,8 @@ Cohesion: 0.08
 Nodes (23): counterparty_resolves_identity_but_no_principal(), handle_owner_bind(), IdentityResolver, IdentityResolver<'a>, owner_verified_path_resolves_owner_principal_and_relationship(), unknown_resolves_to_relationship_unknown_confidence_0_and_no_write(), is_unique_constraint_store_error(), is_unique_constraint_violation() (+15 more)
 
 ### Community 13 - "policy.rs"
-Cohesion: 0.53
-Nodes (5): plan_preview_records_telegram_success_counter(), plan_proposal_budget_exhaustion_persists_no_request(), plan_propose_approve_rederives_gate_and_resolves(), proposed_plan_fixture(), tampered_plan_artifact_is_refused_at_approval_callback()
+Cohesion: 0.43
+Nodes (6): plan_preview_records_telegram_failure_counter_on_send_error(), plan_preview_records_telegram_success_counter(), plan_proposal_budget_exhaustion_persists_no_request(), plan_propose_approve_rederives_gate_and_resolves(), proposed_plan_fixture(), tampered_plan_artifact_is_refused_at_approval_callback()
 
 ### Community 14 - "actions.rs"
 Cohesion: 0.05
@@ -1002,12 +1009,12 @@ Cohesion: 0.05
 Nodes (51): HandlerFuture, truncate_for_telegram(), truncate_with_notice(), step(), digest_is_order_argument_and_schema_sensitive(), digest_matches_serialized_plan_payload(), Plan, PlanApprovalQuestion (+43 more)
 
 ### Community 28 - "Requirements"
-Cohesion: 0.13
-Nodes (17): EvalRow, Row, TryFrom, digest(), fractional_timestamp_orders_after_exact_second(), insert_and_query_by_artifact_returns_ordered_rows(), latest_eval_verdict_returns_newest_for_artifact(), query_by_verdict_filters_across_artifacts() (+9 more)
+Cohesion: 0.14
+Nodes (16): EvalRow, Row, digest(), fractional_timestamp_orders_after_exact_second(), insert_and_query_by_artifact_returns_ordered_rows(), latest_eval_verdict_returns_newest_for_artifact(), query_by_verdict_filters_across_artifacts(), verdict() (+8 more)
 
 ### Community 29 - "OpenSpine Agent-OS Design Log"
 Cohesion: 0.05
-Nodes (21): AsRef, ConsumerError, IdempotentConsumer, LedgerEntry, PersistedConsumerState, Store, AuditKind, AuditKindError (+13 more)
+Nodes (22): AsRef, TryFrom, ConsumerError, IdempotentConsumer, LedgerEntry, PersistedConsumerState, Store, AuditKind (+14 more)
 
 ### Community 30 - "ArtifactRef"
 Cohesion: 0.09
@@ -1042,8 +1049,8 @@ Cohesion: 0.09
 Nodes (21): ADDED Requirements, Requirement: Action requests and gate decisions MUST be typed, Requirement: Approval records MUST bind reviewed payloads and targets, Requirement: Audit schemas MUST reference private payloads by encrypted or hash refs, Requirement: Event envelopes MUST include source authenticity fields, Requirement: Identity schemas MUST NOT grant runtime authority, Requirement: OpenSpine core runtime objects MUST have explicit schemas, Requirement: Route resolution schemas MUST represent ambiguity (+13 more)
 
 ### Community 42 - "Requirements"
-Cohesion: 0.25
-Nodes (17): gmail_state_with_real_thread(), MockServer, test_state_with_gmail(), lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat(), lyra_ui_preview_truncates_long_body_to_utf16_limit(), truncated_preview_carries_no_approval_button_and_persists_no_action_request(), email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant() (+9 more)
+Cohesion: 0.30
+Nodes (15): test_state_with_gmail(), lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat(), lyra_ui_preview_truncates_long_body_to_utf16_limit(), truncated_preview_carries_no_approval_button_and_persists_no_action_request(), email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_malformed_payload(), email_read_selected_thread_rejects_second_use() (+7 more)
 
 ### Community 43 - "properties"
 Cohesion: 0.09
@@ -1086,8 +1093,8 @@ Cohesion: 0.11
 Nodes (18): ADDED Requirements, MODIFIED Requirements, Requirement: Approval audit MUST avoid plaintext private payloads, Requirement: Approval MUST bind only what the owner was shown, Requirement: Draft creation MUST require digest-bound approval, Requirement: The kernel MUST re-derive digests from artifact-store bytes at approval-effect time, Scenario: Approval is recorded, Scenario: Audit records the re-derived digest (+10 more)
 
 ### Community 53 - "Requirements"
-Cohesion: 0.36
-Nodes (11): seed_owner_history(), activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), model_swap_ceremony_switches_real_generate_provider(), mount_send_message_ok(), telegram_stub(), artifact_propose_persists_and_sends_approval_button() (+3 more)
+Cohesion: 0.23
+Nodes (15): seed_owner_history(), activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), model_swap_ceremony_switches_real_generate_provider(), mount_send_message_ok(), telegram_stub(), artifact_propose_persists_and_sends_approval_button() (+7 more)
 
 ### Community 54 - "Requirements"
 Cohesion: 0.11
@@ -1106,8 +1113,8 @@ Cohesion: 0.27
 Nodes (17): allow_reply(), allow_result(), approval_required_on_primary_action_exits_ok_no_reply(), cmd_freeform(), cmd_propose(), cmd_setup(), cmd_status(), deny_on_model_generate_exits_ok() (+9 more)
 
 ### Community 58 - "Runtime schema groups"
-Cohesion: 0.10
-Nodes (35): AppState, dispatch_polled_updates(), kernel_notify_grant(), notify_owner_best_effort(), notify_owner_required(), notify_owner_required_outcome(), notify_owner_with_digest(), NotifyOutcome (+27 more)
+Cohesion: 0.22
+Nodes (16): AppState, kernel_notify_grant(), notify_owner_required(), notify_owner_required_outcome(), notify_owner_with_digest(), NotifyOutcome, record_notify_skipped(), Arc (+8 more)
 
 ### Community 59 - "ADDED Requirements"
 Cohesion: 0.19
@@ -1146,16 +1153,16 @@ Cohesion: 0.12
 Nodes (15): ADDED Requirements, Durable workflow replay, Ratified decisions, Requirement: Failures are terminal and replayable, Requirement: Gated and approval identity is bound, Requirement: Private payloads do not leak, Requirement: Timers have atomic durable transitions, Requirement: Workflow steps replay by exact durable handle (+7 more)
 
 ### Community 68 - "properties"
-Cohesion: 0.06
-Nodes (29): ActionHandler, Cli, commit_post_bind_clock(), grant_hmac_key(), main(), Option, PathBuf, Result (+21 more)
+Cohesion: 0.12
+Nodes (15): I, Iterator, built_in_web_egress_endpoints(), conflicting_egress_rating_is_rejected_without_downgrade(), Connector, connector_registry_enumerates_configured_connectors(), ConnectorRegistry, EgressRegistrationError (+7 more)
 
 ### Community 69 - "tests.rs"
 Cohesion: 0.16
 Nodes (11): Sha256, Digest, digest_from_hash(), digest_of(), digest_of_bytes(), digest_of_bytes_hashes_raw_content_directly(), digest_of_is_a_pinned_golden_value(), digest_round_trips_through_serde() (+3 more)
 
 ### Community 70 - "Proposal: Define OpenSpine development process"
-Cohesion: 0.07
-Nodes (34): anthropic_client_parses_the_reply_text(), GatewayError, generate_anthropic(), generate_openai_compat(), http_client(), malformed_response_is_missing_content_not_a_panic(), messages_json(), openai_compat_client_parses_the_reply_text() (+26 more)
+Cohesion: 0.09
+Nodes (23): admit_spend(), breach_message(), counted_model_generate(), guard_connector(), guard_connector_for(), prior_day_recovery_message_is_truthful(), recover_pending_breach_alerts(), SpendLane (+15 more)
 
 ### Community 71 - "MODIFIED Requirements"
 Cohesion: 0.12
@@ -1218,8 +1225,8 @@ Cohesion: 0.13
 Nodes (14): Purpose, Requirement: Main assistant task grant MUST be narrow, Requirement: Owner Telegram messages MUST normalize into event envelopes, Requirement: Telegram owner messages MUST be source verified, Requirement: Telegram owner route MUST resolve deterministically, Requirement: Telegram reply MUST use the owner channel only, Requirements, Scenario: Agent attempts reply to different chat (+6 more)
 
 ### Community 86 - "Tasks: Implement selected-thread email preview slice"
-Cohesion: 0.14
-Nodes (13): 1. Architectural Details, 2. Deviations from Plan, 3. Verification & Gate Evidence, Audit I/O Failure Verification, Boot Clock-Regression Detection (AD-144), Cargo Clippy Gate, Cargo Format Gate, Cargo Test Suite (+5 more)
+Cohesion: 0.18
+Nodes (13): notify_owner_best_effort(), PostApprovalFuture, PostApprovalHandler, activate_approved_artifact(), handle_activate_artifact(), handle_create_approved_draft(), handle_resolve_approved_plan(), handle_unknown_approved_action() (+5 more)
 
 ### Community 87 - "Proposal: Implement Telegram owner control slice"
 Cohesion: 0.14
@@ -1318,8 +1325,8 @@ Cohesion: 0.17
 Nodes (11): egress-classes Specification, Purpose, Requirement: Capability packs MUST reference allowed egress classes, Requirement: The connector registry MUST type and protect egress endpoints, Requirement: The gate MUST enforce registry-rated egress classes, Requirements, Scenario: A conflicting registration cannot downgrade an endpoint, Scenario: Pack egress classes become live grant authority (+3 more)
 
 ### Community 112 - "Design: Gate action API"
-Cohesion: 0.32
-Nodes (11): admits_more_than_three_tiny_items(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item(), oversized_single_item_is_bounded_and_delivered_by_reference() (+3 more)
+Cohesion: 0.28
+Nodes (12): admits_more_than_three_tiny_items(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item(), long_detail_is_bounded_in_summary_and_full_via_ref() (+4 more)
 
 ### Community 113 - "Tasks: Implement gate action API"
 Cohesion: 0.17
@@ -1334,8 +1341,8 @@ Cohesion: 0.18
 Nodes (10): Check for context, Ending Discovery, Guardrails, Handling Different Entry Points, OpenSpec Awareness, The Stance, What You Don't Have To Do, What You Might Do (+2 more)
 
 ### Community 116 - "Requirement: Selection tokens MUST be single-use, expiring, and scope-fixed"
-Cohesion: 0.15
-Nodes (23): artifact_key_bytes(), artifact_key_round_trips_bytes(), Config, ConfigError, default_kernel_bind(), example_configs_parse_against_the_real_schema(), gmail_client_secret(), gmail_refresh_token() (+15 more)
+Cohesion: 0.10
+Nodes (35): anthropic_client_parses_the_reply_text(), GatewayError, generate_anthropic(), generate_openai_compat(), http_client(), malformed_response_is_missing_content_not_a_panic(), messages_json(), openai_compat_client_parses_the_reply_text() (+27 more)
 
 ### Community 117 - "D-063 — Model-swap activation uses a serialized staged recovery protocol"
 Cohesion: 0.18
@@ -2113,19 +2120,43 @@ Nodes (3): Claims, Claims vs exclusions, honestly, What the current phases do no
 Cohesion: 0.50
 Nodes (3): exclude, extends, include
 
+### Community 908 - "route.rs"
+Cohesion: 0.40
+Nodes (16): artifact_ref(), email_route(), exact_deny_route_wins_over_allow_route(), gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route(), higher_priority_route_wins_over_lower_priority(), matches(), no_matching_route_is_denied_not_ambiguous(), no_relationship_match_denies_the_route() (+8 more)
+
+### Community 909 - "test_state_with_telegram"
+Cohesion: 0.43
+Nodes (15): test_state_with_telegram(), digest_detail_corrupt_blob_surfaces_resource_without_leak(), digest_detail_immediate_success_outcome_audit_failure_is_delivery_unknown_and_no_retry(), digest_detail_missing_blob_surfaces_resource_without_leak(), digest_detail_not_found_is_truthful(), digest_detail_retry_emits_viewed_receipt_exactly_once(), digest_detail_viewed_audit_requires_delivery(), digest_detail_wrong_key_surfaces_resource_without_leak() (+7 more)
+
+### Community 910 - "run_pipeline"
+Cohesion: 0.20
+Nodes (12): BuildEnvelopeFn, GrantBindingFn, PreflightFn, RouteGuardFn, email_preview_lane(), LaneSpec, owner_control_lane(), run_pipeline() (+4 more)
+
+### Community 911 - "main.rs"
+Cohesion: 0.17
+Nodes (12): Cli, commit_post_bind_clock(), grant_hmac_key(), main(), Option, PathBuf, Result, Store (+4 more)
+
+### Community 912 - "dispatch_polled_updates"
+Cohesion: 0.26
+Nodes (12): dispatch_polled_updates(), poll_telegram_once_for_test(), Result, String, Vec, run_telegram_poll_loop(), dispatch_polled_updates_for_test(), initialize_telegram_bot_id() (+4 more)
+
+### Community 913 - "pack.rs"
+Cohesion: 0.24
+Nodes (9): empty_session_policy(), Constraints, Policy, SessionPolicy, allow_and_deny_lists_never_overlap_in_the_fixture(), AppliesTo, CapabilityPack, owner_control_basic_pack() (+1 more)
+
 ## Knowledge Gaps
-- **1641 isolated node(s):** `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactProposePayload`, `TokenResponse` (+1636 more)
+- **1631 isolated node(s):** `autoresearch.sh script`, `TelegramReplyPayload`, `ReadThreadPayload`, `ArtifactProposePayload`, `TokenResponse` (+1626 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **543 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **544 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `Runtime schema groups` to `handle_owner_update`, `properties`, `tests.rs`, `.default`, `Proposal: Define OpenSpine development process`, `Design: Authority composition`, `config.rs`, `.put`, `SKILL.md`, `OpenSpine`, `Requirements`, `artifact_loader.rs`, `Proposal: Define core runtime schemas`, `Requirements`, `ADDED Requirements`?**
+- **Why does `AppState` connect `Runtime schema groups` to `handle_owner_update`, `properties`, `tests.rs`, `.default`, `Design: Authority composition`, `config.rs`, `Requirements`, `OpenSpine`, `SKILL.md`, `test_state_with_telegram`, `main.rs`, `dispatch_polled_updates`, `Proposal: Define core runtime schemas`, `ActionHandlerRegistry`, `Requirement: Selection tokens MUST be single-use, expiring, and scope-fixed`, `Requirements`, `Tasks: Implement selected-thread email preview slice`, `ADDED Requirements`?**
   _High betweenness centrality (0.036) - this node is a cross-community bridge._
-- **Why does `handle_owner_update()` connect `config.rs` to `README.md`, `.new`, `artifact_loader.rs`, `.put`, `policy.rs`, `ADDED Requirements`, `Requirements`, `Runtime schema groups`?**
+- **Why does `handle_owner_update()` connect `config.rs` to `.new`, `GmailConnector`, `mod.rs`, `test_state_with_telegram`, `run_pipeline`, `policy.rs`, `dispatch_polled_updates`, `ADDED Requirements`, `Requirements`, `Tasks: Implement selected-thread email preview slice`, `Runtime schema groups`?**
   _High betweenness centrality (0.028) - this node is a cross-community bridge._
-- **Why does `run_pipeline()` connect `.put` to `StoreError`, `config.rs`?**
+- **Why does `run_pipeline()` connect `run_pipeline` to `config.rs`, `.put`, `route.rs`, `pack.rs`, `StoreError`?**
   _High betweenness centrality (0.020) - this node is a cross-community bridge._
 - **Are the 59 inferred relationships involving `handle_owner_update()` (e.g. with `handle_draft_approval_callback()` and `email_preview_lane()`) actually correct?**
   _`handle_owner_update()` has 59 INFERRED edges - model-reasoned connections that need verification._
