@@ -35,6 +35,8 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("plan.propose"),
         id("plan.execute"),
         id("setup.workflow.start"),
+        id("secret.intake"),
+        id("secret.rotate"),
         id("memory.read:owner_preferences_limited"),
         id("model.generate:approved_provider"),
         id("lyra.ui.preview"),
@@ -128,6 +130,10 @@ pub fn canonical_catalog() -> ActionCatalog {
             classification: EffectPathClass::PostGateApprovedEffect,
         },
         EffectPath {
+            name: "secret_intake::capture".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
             name: "sweep_expired_grants".to_string(),
             classification: EffectPathClass::InternalMaintenanceNonEffect,
         },
@@ -141,15 +147,14 @@ pub fn canonical_catalog() -> ActionCatalog {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
         let catalog = canonical_catalog();
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            13,
-            "Expected exactly 13 classified effect paths, got {:?}",
+            14,
+            "Expected exactly 14 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -171,6 +176,7 @@ mod tests {
         assert!(path_names.contains(&"apply_model_swap_activation"));
         assert!(path_names.contains(&"dispatch_plan_preview"));
         assert!(path_names.contains(&"resolve_approved_plan"));
+        assert!(path_names.contains(&"secret_intake::capture"));
         assert!(path_names.contains(&"sweep_expired_grants"));
         assert!(path_names.contains(&"answer_callback_query"));
     }

@@ -2,9 +2,14 @@ use super::*;
 use crate::test_support::fixtures::*;
 
 mod approval;
+mod bot_identity;
+mod bot_identity_support;
 mod driver;
 mod effect_paths;
+mod offset;
 mod plan;
+mod secret_intake_integration;
+mod token_rotation;
 
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
@@ -15,6 +20,23 @@ async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
     assert_eq!(state.store.count_task_grants().unwrap(), 0);
 }
 
+#[tokio::test]
+async fn malformed_secret_command_is_reserved_from_normal_pipeline() {
+    let state = test_state();
+    let update = owner_update("/secret intake gmail.refresh extra");
+    assert!(handle_owner_update(&state, &update)
+        .await
+        .unwrap()
+        .is_none());
+    assert_eq!(state.store.count_task_grants().unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("event.received")
+            .unwrap(),
+        0
+    );
+}
 #[tokio::test]
 async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat() {
     let state = test_state();

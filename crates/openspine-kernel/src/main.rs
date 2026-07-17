@@ -22,6 +22,8 @@ mod model_swap_recovery;
 mod overlay_eval_gate;
 mod pipeline;
 mod sandbox;
+mod secret_intake;
+mod secret_store;
 mod store;
 mod telegram;
 
@@ -89,12 +91,27 @@ async fn main() -> anyhow::Result<()> {
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
 
-    let bot_token = config::telegram_bot_token()?;
     let artifact_key = config::artifact_key_bytes()?;
 
     let artifacts =
         artifact_store::ArtifactStore::open(cfg.data_dir.join("artifacts"), artifact_key)
             .context("opening artifact store")?;
+    let secrets = Arc::new(
+        secret_store::SecretStore::open(cfg.data_dir.join("credentials"), artifact_key)
+            .context("opening secret store")?,
+    );
+    let bot_token = if let Some(value) = secrets
+        .get_string("telegram.bot_token")
+        .context("reading Telegram bot token from vault")?
+    {
+        value
+    } else {
+        let value = config::telegram_bot_token()?;
+        secrets
+            .seed_if_absent("telegram.bot_token", value.as_bytes())
+            .context("seeding Telegram bot token")?;
+        value
+    };
     let store =
         store::Store::open(&cfg.data_dir.join("kernel.db")).context("opening kernel store")?;
     // Bootstrap the owner principal at startup (idempotent, transactional, fail-closed)
@@ -292,16 +309,31 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let telegram = telegram::TelegramConnector::new(bot_token);
+    let telegram = telegram::TelegramConnector::new_with_store(
+        bot_token,
+        secrets.clone(),
+        "telegram.bot_token".to_string(),
+    );
 
     let gmail = match &cfg.gmail {
         Some(gmail_cfg) => {
-            let client_secret = config::gmail_client_secret(gmail_cfg)?;
-            let refresh_token = config::gmail_refresh_token(gmail_cfg)?;
-            Some(gmail::GmailConnector::new(
+            let client_secret_slot = "gmail.client_secret";
+            let refresh_token_slot = "gmail.refresh_token";
+            if !secrets.contains(client_secret_slot)? {
+                if let Ok(value) = config::gmail_client_secret(gmail_cfg) {
+                    secrets.seed_if_absent(client_secret_slot, value.as_bytes())?;
+                }
+            }
+            if !secrets.contains(refresh_token_slot)? {
+                if let Ok(value) = config::gmail_refresh_token(gmail_cfg) {
+                    secrets.seed_if_absent(refresh_token_slot, value.as_bytes())?;
+                }
+            }
+            Some(gmail::GmailConnector::new_with_store(
                 gmail_cfg.client_id.clone(),
-                client_secret,
-                refresh_token,
+                secrets.clone(),
+                client_secret_slot.to_string(),
+                refresh_token_slot.to_string(),
                 gmail_cfg.mailbox_address.clone(),
             ))
         }
@@ -312,6 +344,7 @@ async fn main() -> anyhow::Result<()> {
         store,
         artifacts,
         registry: parking_lot::RwLock::new(registry),
+        secrets: secrets.clone(),
         action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail)?,

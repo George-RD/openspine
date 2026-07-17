@@ -3,6 +3,8 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::event::{EventType, Lane, VerificationMethod};
 
 use super::*;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn update(sender: Option<i64>, text: Option<&str>) -> TelegramUpdate {
     TelegramUpdate {
@@ -188,4 +190,60 @@ fn plan_approval_callback_requires_exact_prefix_and_ulid() {
         None
     );
     assert_eq!(parse_approve_plan_callback("approve_plan:not-a-ulid"), None);
+}
+
+#[tokio::test]
+async fn rotated_vault_bot_token_is_used_without_restart() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = std::sync::Arc::new(
+        crate::secret_store::SecretStore::open(dir.path().join("credentials"), [4; 32])
+            .expect("open"),
+    );
+    store
+        .put("telegram.bot_token", b"old-token")
+        .expect("seed token");
+    let connector = TelegramConnector::new_with_store(
+        "old-token".to_string(),
+        store.clone(),
+        "telegram.bot_token".to_string(),
+    );
+    assert_eq!(
+        connector.current_token_for_test().await.expect("old token"),
+        "old-token"
+    );
+    store
+        .put("telegram.bot_token", b"new-token")
+        .expect("rotate token");
+    assert_eq!(
+        connector.current_token_for_test().await.expect("new token"),
+        "new-token"
+    );
+}
+
+#[tokio::test]
+async fn invalid_candidate_bot_token_is_rejected_without_replacing_live_bot() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/botcandidate/getMe"))
+        .respond_with(ResponseTemplate::new(401).set_body_string("invalid token"))
+        .mount(&server)
+        .await;
+    let connector = TelegramConnector::new("old-token".to_string());
+    let api_url: reqwest::Url = format!("{}/", server.uri()).parse().expect("url");
+    {
+        let mut state = connector.bot.lock();
+        state.api_url = Some(api_url.clone());
+        state.bot = state.bot.clone().set_api_url(api_url);
+    }
+    assert!(connector
+        .validate_candidate_token_id("candidate")
+        .await
+        .is_none());
+    assert_eq!(
+        connector
+            .current_token_for_test()
+            .await
+            .expect("live token"),
+        "old-token"
+    );
 }

@@ -18,6 +18,7 @@ pub(crate) mod fixtures {
     use crate::model_gateway::ProviderClient;
     use crate::pipeline::AppState;
     use crate::sandbox::{ProcessDriver, Sandbox};
+    use crate::secret_store::SecretStore;
     use crate::store::Store;
     use crate::telegram::{TelegramConnector, TelegramUpdate};
     use openspine_schemas::digest::Digest;
@@ -33,6 +34,9 @@ pub(crate) mod fixtures {
         // on-disk overlay file without touching the real fixture tree.
         let overlay_dir = tempfile::tempdir().unwrap().keep();
         let store = Store::open_in_memory().unwrap();
+        let secrets = std::sync::Arc::new(
+            SecretStore::open(tempfile::tempdir().unwrap().keep(), key).unwrap(),
+        );
         let owner_principal = store.bootstrap_owner_principal(42, "George").unwrap();
         let test_provider_config = ProviderConfig {
             id: "test-provider".to_string(),
@@ -50,6 +54,7 @@ pub(crate) mod fixtures {
             store,
             artifacts: ArtifactStore::open(artifacts_dir, key).unwrap(),
             registry: parking_lot::RwLock::new(registry),
+            secrets,
             action_catalog: crate::action_catalog::canonical_catalog(),
             sandbox: Sandbox::Process(ProcessDriver::default()),
             connectors: ConnectorRegistry::new(telegram, gmail)

@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: store lifecycle and transaction wiring share one schema boundary
 //! SQLite storage (build plan 4a): task grants, the hash-chained audit log,
 //! approvals, selection tokens, and per-task conversation history.
 //!
@@ -129,6 +130,8 @@ pub struct Store {
     conn: std::sync::Arc<Mutex<Connection>>,
     #[cfg(test)]
     activation_tx_failure: std::sync::Arc<AtomicBool>,
+    #[cfg(test)]
+    fault_init_tx: std::sync::Arc<std::sync::Mutex<bool>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -174,6 +177,8 @@ impl Store {
             conn: std::sync::Arc::new(Mutex::new(conn)),
             #[cfg(test)]
             activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
         })
     }
 
@@ -185,6 +190,8 @@ impl Store {
             conn: std::sync::Arc::new(Mutex::new(conn)),
             #[cfg(test)]
             activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
+            #[cfg(test)]
+            fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
         })
     }
     #[cfg(test)]
@@ -411,6 +418,96 @@ impl Store {
         )?;
         Ok(())
     }
+    pub fn delete_kv(&self, key: &str) -> Result<(), StoreError> {
+        let conn = self.conn.lock();
+        conn.execute("DELETE FROM kv_state WHERE key = ?1", params![key])?;
+        Ok(())
+    }
+    /// First-boot: persist `telegram.bot_id` and migrate the legacy un-namespaced
+    /// offset into `last_telegram_update_id.<bot_id>` in one transaction.
+    pub fn initialize_telegram_bot_id_and_migrate_offset(
+        &self,
+        bot_id: i64,
+    ) -> Result<(), StoreError> {
+        self.reconcile_telegram_bot_id_tx(bot_id, true)
+    }
+
+    /// Switch the persisted identity to `bot_id` into a FRESH namespace, never
+    /// inheriting a prior bot's offset — startup recovery when the vault token's
+    /// actual id differs from the persisted one (mid-rotation crash: vault on B,
+    /// SQLite on A; must not poll B under A's offset).
+    pub fn reconcile_telegram_bot_id_to_actual(&self, bot_id: i64) -> Result<(), StoreError> {
+        self.reconcile_telegram_bot_id_tx(bot_id, false)
+    }
+
+    /// Shared transactional body: set `telegram.bot_id`, optionally migrate the
+    /// legacy offset into the new namespace (first boot only — `migrate_legacy`
+    /// false means a changed identity starts fresh), and always clear any
+    /// un-namespaced legacy offset.
+    fn reconcile_telegram_bot_id_tx(
+        &self,
+        bot_id: i64,
+        migrate_legacy: bool,
+    ) -> Result<(), StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let namespaced_key = format!("last_telegram_update_id.{bot_id}");
+        tx.execute(
+            "INSERT INTO kv_state (key, value) VALUES ('telegram.bot_id', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![bot_id.to_string()],
+        )?;
+        if migrate_legacy {
+            let current: Option<String> = tx
+                .query_row(
+                    "SELECT value FROM kv_state WHERE key = ?1",
+                    params![namespaced_key],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if current.is_none() {
+                if let Some(legacy) = tx
+                    .query_row(
+                        "SELECT value FROM kv_state WHERE key = 'last_telegram_update_id'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .optional()?
+                {
+                    tx.execute(
+                        "INSERT INTO kv_state (key, value) VALUES (?1, ?2)",
+                        params![namespaced_key, legacy],
+                    )?;
+                }
+            }
+        } else {
+            // Changed identity: clear any stale `last_telegram_update_id.<bot_id>`
+            // (e.g. B→A→B) in the same tx so the real bot starts low, not under
+            // an old offset.
+            tx.execute(
+                "DELETE FROM kv_state WHERE key = ?1",
+                params![namespaced_key],
+            )?;
+        }
+        #[cfg(test)]
+        {
+            // Test-only fault: fire once, after the bot-id + (optional)
+            // namespaced legacy-offset writes have landed inside the
+            // transaction, so a rollback demonstrably discards those partial
+            // mutations. Consumed on fire so a retry re-attempts cleanly.
+            let mut guard = self.fault_init_tx.lock().expect("fault_init_tx poisoned");
+            if *guard {
+                *guard = false;
+                return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+            }
+        }
+        tx.execute(
+            "DELETE FROM kv_state WHERE key = 'last_telegram_update_id'",
+            [],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
 }
 
 mod audit_support;
@@ -429,5 +526,7 @@ mod identity_tests;
 mod lineage_tests;
 mod migrations;
 pub(crate) mod proposed_artifacts;
+#[cfg(test)]
+mod test_hooks;
 #[cfg(test)]
 mod tests;

@@ -146,6 +146,7 @@ pub enum TargetRefKind {
     Conversation,
     Project,
     Deployment,
+    SecretSlot,
     None,
 }
 
