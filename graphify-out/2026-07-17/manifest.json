@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784251729.6173494,
-    "ast_hash": "5ff4b00c1ac81d05f1dc7e132ae3a1c6",
+    "mtime": 1784251895.5189784,
+    "ast_hash": "d059826ce5f9eeae758be68346ad1852",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1797,11 +1797,6 @@
   "crates/openspine-kernel/src/store/migration_tests.rs": {
     "mtime": 1784247724.3997006,
     "ast_hash": "a598224504ba24c537379bfb1b6589eb",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784251742.365845,
-    "ast_hash": "a0d71464baf7d737e73dcf4acc815043",
     "semantic_hash": ""
   },
   "openspec/changes/implement-failure-surfacing-contract/design.md": {

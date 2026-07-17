@@ -53,6 +53,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   later `Requires:` lines reference it)
 - `implement-secret-intake` (D-064..D-067; brief stays in place — later
   `Requires:` lines reference it)
+- `implement-failure-surfacing-contract` (D-068..D-072; brief stays in place —
+  later `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
@@ -228,22 +230,27 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 
 #### implement-failure-surfacing-contract
 
-- **Canon:** AD-138 (contract); AD-137 (code-audited evidence).
+- **Canon:** AD-138 (contract); AD-137 (code-audited evidence); D-068..D-072.
 - **Requires:** none.
 - **Scope:** a failed audit append FAILS the action (no effect without a
   durable record); the owner-notification path records attempt then outcome —
   dead-letter queue with retry and a truthful `owner.notify_failed` event,
   never "notified" before the send; failure taxonomy routing —
   authority/escalation-class failures notify the owner immediately,
-  connector/resource-class failures batch into the owner digest — this brief
-  OWNS the minimal digest substrate (batched failure/report records plus an
-  owner-retrievable digest surface; presentation format is AD-082 *leaning*,
-  refined by implement-personality-seed); per-connector success/failure
-  counters as kernel tables (no external metrics stack).
+  connector/resource-class failures batch into the owner digest; authenticated
+  API bad requests surface directly without duplicate owner notification; this
+  brief OWNS the minimal digest substrate: encrypted stable detail references,
+  deterministic lossless UTF-8 pagination, detail-specific receipts, and
+  fail-closed unavailable-detail audit. External send remains delivery-unknown
+  across a crash before receipt commit and may retry. Presentation format is
+  AD-082 *leaning*, refined by implement-personality-seed. Per-connector
+  success/failure counters remain kernel tables (no external metrics stack).
 - **Done when:** the fire-and-forget audit-append pattern is gone; an injected
   audit-append failure fails the action under test; an injected notify failure
-  produces the truthful event sequence plus a dead-letter entry; a batched
-  connector-class failure appears in the owner-retrievable digest under test.
+  produces the truthful event sequence plus an encrypted-reference dead-letter
+  entry; a bad request produces no duplicate owner notification; a batched
+  connector failure is losslessly owner-retrievable across bounded pages; and
+  crash-before-receipt recovery remains fenced and truthfully delivery-unknown.
 
 #### implement-day2-operations
 
