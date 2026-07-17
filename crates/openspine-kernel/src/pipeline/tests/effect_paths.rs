@@ -1,3 +1,7 @@
+// openspine:allow-large-module reason: effect-path integration tests share one audited mock harness
+use crate::api::tests::{post_action, start_server};
+use crate::pipeline::handle_owner_update;
+use crate::test_support::fixtures::owner_update;
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use serde_json::json;
@@ -18,8 +22,8 @@ fn parse_audit_event(json_str: &str) -> serde_json::Value {
 async fn test_path_1_notify_owner_gated_and_audited() {
     let tg = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/sendMessage"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
         .mount(&tg)
         .await;
 
@@ -54,8 +58,8 @@ async fn test_path_1_notify_owner_gated_and_audited() {
 async fn test_path_2_create_draft_payload_mutated_audited() {
     let tg = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/sendMessage"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
         .mount(&tg)
         .await;
     let state = test_state_with_telegram(TelegramConnector::with_api_url(
@@ -265,7 +269,7 @@ async fn test_path_8_answer_callback_query_bypasses_gate_and_audit() {
 
     let connector =
         TelegramConnector::with_api_url("test-token".to_string(), tg.uri().parse().unwrap());
-    connector.answer_callback_query("cb-123").await;
+    let _ = connector.answer_callback_query("cb-123").await;
 }
 
 // Path 9: shadow-mode grant → EffectSuppressed; dispatch must not invoke the
@@ -341,4 +345,221 @@ async fn shadow_grant_effect_suppressed_skips_effect_handler() {
     assert_eq!(gated["decision"]["outcome"], "effect_suppressed");
 
     handle.abort();
+}
+
+#[tokio::test]
+async fn audit_append_failure_fails_notification_before_connector_effect() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+    let grant = handle_owner_update(&state, &owner_update("hello"))
+        .await
+        .unwrap()
+        .expect("owner update grants action access");
+    state
+        .store
+        .install_audit_append_failure_for_kind("action.dispatch_failed")
+        .unwrap();
+    let (addr, handle) = start_server(state).await;
+    let response = post_action(
+        addr,
+        &grant.task_token,
+        "telegram.reply:owner_channel",
+        Some(json!({"unexpected": true})),
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR
+    );
+    assert!(tg.received_requests().await.unwrap().is_empty());
+    handle.abort();
+}
+
+#[tokio::test]
+async fn notify_send_failure_records_attempt_failure_and_dead_letter() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+
+    let outcome = notify_owner_with_digest(&state, 555, "retry me", &[], None).await;
+    assert_eq!(outcome, NotifyOutcome::SendFailed);
+    let events = state.store.all_audit_event_jsons().unwrap();
+    let kinds: Vec<_> = events
+        .iter()
+        .map(|event| {
+            parse_audit_event(event)["kind"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        })
+        .collect();
+    let attempted = kinds
+        .iter()
+        .position(|kind| kind == "owner.notify_attempted")
+        .unwrap();
+    let failed = kinds
+        .iter()
+        .position(|kind| kind == "owner.notify_failed")
+        .unwrap();
+    assert!(attempted < failed);
+    assert!(!kinds.iter().any(|kind| kind == "owner.notified"));
+    let failed_event = events
+        .iter()
+        .map(|event| parse_audit_event(event))
+        .find(|event| event["kind"] == "owner.notify_failed")
+        .unwrap();
+    let failed_grant = Ulid::from_string(failed_event["task_grant_id"].as_str().unwrap()).unwrap();
+    let dead_letters = state.store.pending_dead_letters().unwrap();
+    assert_eq!(dead_letters.len(), 1);
+    assert_eq!(dead_letters[0].chat_id, 555);
+    assert_ne!(dead_letters[0].task_grant_id, Ulid::nil());
+    assert_eq!(dead_letters[0].task_grant_id, failed_grant);
+    assert!(!dead_letters[0].text_ref.is_empty());
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "failure")
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn notify_owner_required_succeeds_when_sent() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+    let result = notify_owner_required(&state, 555, "escalation message").await;
+    assert!(result.is_ok(), "required notify must succeed when Sent");
+    let events = state.store.all_audit_event_jsons().unwrap();
+    assert!(events
+        .iter()
+        .any(|e| parse_audit_event(e)["kind"] == "owner.notify_attempted"));
+    assert!(events
+        .iter()
+        .any(|e| parse_audit_event(e)["kind"] == "owner.notified"));
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "success")
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn notify_owner_required_errors_and_audits_on_send_failure() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+    let result = notify_owner_required(&state, 555, "escalation message").await;
+    assert!(
+        matches!(
+            result,
+            Err(crate::store::StoreError::OwnerNotificationFailed(_))
+        ),
+        "required notify must return OwnerNotificationFailed on SendFailed: {result:?}"
+    );
+    let events = state.store.all_audit_event_jsons().unwrap();
+    assert!(events
+        .iter()
+        .any(|e| parse_audit_event(e)["kind"] == "owner.notify_attempted"));
+    assert!(events
+        .iter()
+        .any(|e| parse_audit_event(e)["kind"] == "owner.notify_failed"));
+    assert!(!events
+        .iter()
+        .any(|e| parse_audit_event(e)["kind"] == "owner.notified"));
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "failure")
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn notify_owner_with_digest_records_success_counter() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+    let outcome = notify_owner_with_digest(&state, 555, "hi", &[], None).await;
+    assert_eq!(outcome, NotifyOutcome::Sent);
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "success")
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn required_send_failure_keeps_dlq_when_counter_persistence_breaks() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&tg)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        tg.uri().parse().unwrap(),
+    ));
+    state.store.break_connector_counters_for_test();
+    let result = notify_owner_required(&state, 555, "escalation message").await;
+    assert!(matches!(
+        result,
+        Err(crate::store::StoreError::OwnerNotificationFailed(_))
+    ));
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("owner.notify_failed")
+            .unwrap(),
+        1
+    );
+    assert_eq!(state.store.pending_dead_letters().unwrap().len(), 1);
+    assert_eq!(state.store.owner_digest_items().unwrap().len(), 1);
+    assert_eq!(
+        state.store.owner_digest_items().unwrap()[0].class,
+        "resource"
+    );
 }

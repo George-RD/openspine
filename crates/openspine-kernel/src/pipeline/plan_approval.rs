@@ -20,11 +20,20 @@ pub(super) async fn handle_plan_approval_callback(
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
-    state
+    let answer_result = state
         .connectors
         .telegram()
         .answer_callback_query(callback_query_id)
         .await;
+    crate::failure_surfacing::record_callback_ack(
+        state,
+        answer_result.is_ok(),
+        answer_result
+            .as_ref()
+            .err()
+            .map(|e| e.to_string())
+            .as_deref(),
+    );
     let Some(request) = state.store.find_action_request(action_request_id)? else {
         state.store.append_audit(
             "plan.approval_unknown_request",

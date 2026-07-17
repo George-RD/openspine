@@ -1,9 +1,3 @@
-//! D-039/D-043/D-044's draft-approval callback flow: double-tap
-//! idempotency, D-041/D-042's target re-verification, and the audit
-//! plaintext-leak guarantee. Split out of `tests/mod.rs` (which already
-//! covers the rest of the pipeline) purely to stay under the 500-line
-//! file-size gate; these three tests share one fixture below.
-
 use super::*;
 use crate::gmail::GmailConnector;
 use crate::telegram::TelegramConnector;
@@ -152,11 +146,6 @@ fn thread_with_sender(sender: &str) -> serde_json::Value {
 
 #[tokio::test]
 async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
-    // D-044: the "Approve" inline button stays live on the Telegram
-    // message forever (Telegram never removes inline keyboards, and
-    // `answerCallbackQuery` doesn't disable them) — a second tap, or
-    // Telegram redelivering the same `callback_query` update, must not
-    // mint a second `ApprovalRecord` or create a second Gmail draft.
     let token_server = MockServer::start().await;
     let api_server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -166,9 +155,6 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
         )
         .mount(&api_server)
         .await;
-    // Exactly one draft must ever be created, no matter how many times the
-    // approval callback fires for the same request — this is the entire
-    // assertion under test.
     Mock::given(method("POST"))
         .and(path("/gmail/v1/users/me/drafts"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "draft-1"})))
@@ -177,7 +163,19 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
         .await;
 
     let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let state = test_state_with_gmail(gmail);
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/AnswerCallbackQuery"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(&telegram_server)
+        .await;
+    let state = test_state_with_gmail_and_telegram(
+        gmail,
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ),
+    );
     let grant = approval_fixture_grant();
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
@@ -235,9 +233,6 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
             .unwrap(),
         1
     );
-
-    // The wiremock `.expect(1)` on the drafts endpoint above is verified
-    // on drop when `api_server` goes out of scope at the end of this test.
 }
 
 #[tokio::test]
@@ -267,7 +262,19 @@ async fn recipient_mutation_since_approval_is_denied_and_creates_no_draft() {
         .await;
 
     let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let state = test_state_with_gmail(gmail);
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/AnswerCallbackQuery"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(&telegram_server)
+        .await;
+    let state = test_state_with_gmail_and_telegram(
+        gmail,
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ),
+    );
     let grant = approval_fixture_grant();
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
@@ -337,7 +344,19 @@ async fn approval_audit_never_contains_the_plaintext_draft_body() {
         .await;
 
     let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let state = test_state_with_gmail(gmail);
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/AnswerCallbackQuery"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(&telegram_server)
+        .await;
+    let state = test_state_with_gmail_and_telegram(
+        gmail,
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ),
+    );
     let grant = approval_fixture_grant();
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
@@ -377,8 +396,8 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
     // mocked so the notification never touches the real network.
     let tg = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/sendMessage"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
         .mount(&tg)
         .await;
     let state = test_state_with_telegram(TelegramConnector::with_api_url(
@@ -427,16 +446,10 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
 
 #[tokio::test]
 async fn owner_notify_routes_through_gate_and_audits() {
-    // D-055.2: `notify_owner_best_effort` routes the kernel-originated
-    // `owner.notify` effect through `gate()` with `ActionOrigin::Kernel`.
-    // `owner.notify` is the only trusted kernel-origin action, so `gate()`
-    // allows it and the send is reached (audited as `owner.notified`). The
-    // Telegram endpoint is mocked so the best-effort send never touches the
-    // real network.
     let tg = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/sendMessage"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true, "result": {"message_id": 1, "date": 0, "chat": {"id": 555, "type": "private"}, "from": {"id": 1, "is_bot": true, "first_name": "bot"}, "text": "ok"}})))
         .mount(&tg)
         .await;
     let state = test_state_with_telegram(TelegramConnector::with_api_url(

@@ -14,6 +14,7 @@ mod benchmark;
 mod config;
 mod connectors;
 mod escalation;
+mod failure_surfacing;
 mod gmail;
 mod identity;
 mod model_gateway;
@@ -373,10 +374,12 @@ async fn main() -> anyhow::Result<()> {
     let http_server =
         axum::serve(listener, api::router(state.clone())).with_graceful_shutdown(shutdown_signal());
     let telegram_poll = pipeline::run_telegram_poll_loop(&state);
+    let retry_worker = failure_surfacing::retry_worker::run_retry_loop(&state);
 
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
+        res = retry_worker => res.context("dead-letter retry loop failed")?,
     }
 
     Ok(())

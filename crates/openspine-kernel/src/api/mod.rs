@@ -15,10 +15,13 @@
 //! uses; [`task`], [`actions`], and [`generate`] hold one endpoint each.
 
 mod actions;
+#[cfg(test)]
+pub(crate) use actions::DispatchError;
 mod artifact_propose;
 mod generate;
 pub(crate) mod handler_registry;
 pub(crate) mod plan;
+mod proposal;
 mod task;
 mod telegram_truncate;
 
@@ -133,7 +136,7 @@ pub(crate) async fn authenticate(
     headers: &HeaderMap,
 ) -> Result<(TaskGrant, ArtifactRef, i64), (StatusCode, Json<Value>)> {
     let Some(token) = bearer_token(headers) else {
-        let _ = state.store.append_audit(
+        if let Err(err) = state.store.append_audit(
             "auth.rejected",
             None,
             None,
@@ -141,7 +144,9 @@ pub(crate) async fn authenticate(
             None,
             &[],
             &[],
-        );
+        ) {
+            return Err(internal_error(err));
+        }
         return Err(unauthorized());
     };
 
@@ -150,7 +155,7 @@ pub(crate) async fn authenticate(
         .find_task_grant_by_token(token)
         .map_err(internal_error)?;
     let Some((grant, pending_ref, bound_chat_id)) = found else {
-        let _ = state.store.append_audit(
+        if let Err(err) = state.store.append_audit(
             "auth.rejected",
             None,
             None,
@@ -158,12 +163,14 @@ pub(crate) async fn authenticate(
             None,
             &[],
             &[],
-        );
+        ) {
+            return Err(internal_error(err));
+        }
         return Err(unauthorized());
     };
 
     if grant.is_expired(Timestamp::now()) {
-        let _ = state.store.append_audit(
+        if let Err(err) = state.store.append_audit(
             "auth.rejected",
             None,
             None,
@@ -171,7 +178,9 @@ pub(crate) async fn authenticate(
             Some(grant.id),
             &[],
             &[],
-        );
+        ) {
+            return Err(internal_error(err));
+        }
         return Err(unauthorized());
     }
 

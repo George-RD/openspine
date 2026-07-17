@@ -11,6 +11,12 @@ impl super::Store {
         let _ = conn.execute_batch("DROP TABLE audit_log");
     }
 
+    /// Drop connector counters so the next counter write fails.
+    pub(crate) fn break_connector_counters_for_test(&self) {
+        let conn = self.conn.lock();
+        let _ = conn.execute_batch("DROP TABLE connector_counters");
+    }
+
     /// Arm a one-shot fault so the next
     /// `initialize_telegram_bot_id_and_migrate_offset` fails its SQLite
     /// transaction (and rolls back atomically). Consumed on fire so a retry

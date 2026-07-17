@@ -25,9 +25,9 @@
 //! owner user id remains only the channel *authentication* signal for
 //! [`crate::telegram::verify_update`]; composition consumes the resolved
 //! `principal_id` (AD-146).
-
 mod approval;
 mod artifact_activation;
+mod digest_pagination;
 mod driver;
 mod lanes;
 mod offset;
@@ -57,7 +57,7 @@ use crate::artifact_store::ArtifactStore;
 use crate::connectors::ConnectorRegistry;
 use crate::sandbox::Sandbox;
 use crate::secret_store::SecretStore;
-use crate::store::Store;
+use crate::store::{failure_surfacing_types::DetailReceipt, Store};
 use crate::telegram::{self, VerifiedUpdate};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -141,13 +141,30 @@ fn empty_session_policy() -> SessionPolicy {
 /// trusted-path carve-out remains traceable. The audit append is itself
 /// best-effort: a failure here must never suppress the owner-facing reply it is
 /// only recording.
-pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NotifyOutcome {
+    Sent,
+    GateUnavailable,
+    GateAuditFailed,
+    GateDenied,
+    AttemptAuditFailed,
+    SendFailed,
+    DeadLetterPersistFailed,
+    OutcomeAuditFailed,
+}
+
+pub(crate) async fn notify_owner_with_digest(
+    state: &AppState,
+    chat_id: i64,
+    text: &str,
+    digest_item_ids: &[Ulid],
+    detail: Option<&DetailReceipt>,
+) -> NotifyOutcome {
     let now = Timestamp::now();
-    // `owner.notify` is a kernel-origin effect; bind the request to the
-    // synthetic grant that gate() will authorize and audit.
     let Some(notify_grant) = kernel_notify_grant() else {
+        record_notify_skipped(state, "notify grant unavailable (HMAC key unset)");
         tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
-        return;
+        return NotifyOutcome::GateUnavailable;
     };
     let request = ActionRequest {
         id: Ulid::new(),
@@ -178,18 +195,16 @@ pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, tex
         &[],
         &[],
     ) {
-        tracing::warn!(error = %err, "failed to audit a kernel-origin gate outcome");
+        tracing::error!(error = %err, "owner.notify gate audit failed; suppressing effect");
+        record_notify_skipped(state, &format!("gate audit append failed: {err}"));
+        return NotifyOutcome::GateAuditFailed;
     }
-
     let GateDecision::Allow = outcome.decision else {
-        tracing::warn!(
-            decision = ?outcome.decision,
-            "owner.notify was denied by gate(); not notifying the owner"
-        );
-        return;
+        tracing::warn!(decision = ?outcome.decision, "owner.notify denied by gate");
+        return NotifyOutcome::GateDenied;
     };
     if let Err(err) = state.store.append_audit(
-        "owner.notified",
+        "owner.notify_attempted",
         Some(&request.action),
         Some(&outcome.decision),
         None,
@@ -197,105 +212,140 @@ pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, tex
         &[],
         &[],
     ) {
-        tracing::warn!(error = %err, "failed to audit a best-effort owner notification");
+        tracing::error!(error = %err, "owner.notify attempt audit failed; suppressing effect");
+        record_notify_skipped(state, &format!("attempt audit append failed: {err}"));
+        return NotifyOutcome::AttemptAuditFailed;
     }
-    if let Err(err) = state.connectors.telegram().send_reply(chat_id, text).await {
-        tracing::warn!(error = %err, "failed to notify owner of a pipeline failure");
+    let send_result = state.connectors.telegram().send_reply(chat_id, text).await;
+    match send_result {
+        Ok(()) => {
+            let result = if digest_item_ids.is_empty() {
+                state
+                    .store
+                    .record_notify_success(outcome.audit.task_grant_id, detail)
+            } else {
+                state.store.record_notify_success_and_resolve(
+                    outcome.audit.task_grant_id,
+                    digest_item_ids,
+                    detail,
+                )
+            };
+            match result {
+                Ok(()) => NotifyOutcome::Sent,
+                Err(err) => {
+                    tracing::error!(error = %err, "owner notification succeeded but outcome audit failed");
+                    if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                        state,
+                        crate::failure_surfacing::FailureClass::Resource,
+                        "Telegram notification outcome persistence failed",
+                        &format!("Telegram notification outcome persistence failed: {err}"),
+                    ) {
+                        tracing::error!(error = %surface_err, "notification outcome failure surface append failed");
+                    }
+                    NotifyOutcome::OutcomeAuditFailed
+                }
+            }
+        }
+        Err(err) => {
+            // D-012: persist the owner-facing message as an encrypted
+            // artifact, not plaintext, so the DLQ row carries only its
+            let text_ref = match state.artifacts.put(text.as_bytes()) {
+                Ok(ref_) => ref_.digest.to_string(),
+                Err(put_err) => {
+                    let reason =
+                        format!("artifact persistence failed; notification send error: {err}");
+                    if let Err(digest_err) = crate::failure_surfacing::batch_failure(
+                        state,
+                        crate::failure_surfacing::FailureClass::Connector,
+                        "owner notification artifact persistence unavailable",
+                        &reason,
+                    ) {
+                        tracing::error!(error = %digest_err, reason = %reason, "could not batch dead-letter persistence failure");
+                    }
+                    if let Err(audit_err) = state.store.append_audit(
+                        "owner.dead_letter_persist_failed",
+                        Some(&ActionId::new("owner.notify")),
+                        None,
+                        None,
+                        Some(outcome.audit.task_grant_id),
+                        &[],
+                        &[],
+                    ) {
+                        tracing::error!(error = %audit_err, reason = %reason, "could not record dead-letter persistence failure");
+                    }
+                    tracing::error!(error = %put_err, reason = %reason, "could not encrypt dead-letter text; no retry enqueued");
+                    return NotifyOutcome::DeadLetterPersistFailed;
+                }
+            };
+            if let Err(record_err) = state.store.record_notify_failure_with_digest(
+                chat_id,
+                &text_ref,
+                outcome.audit.task_grant_id,
+                &err.to_string(),
+                digest_item_ids,
+                detail,
+            ) {
+                tracing::error!(error = %record_err, send_error = %err, "owner notification failure could not be durably recorded");
+                if let Err(surface_err) = crate::failure_surfacing::batch_failure(
+                    state,
+                    crate::failure_surfacing::FailureClass::Resource,
+                    "Telegram notification failure persistence failed",
+                    &format!("Telegram notification failure persistence failed: {record_err}"),
+                ) {
+                    tracing::error!(error = %surface_err, "notification failure surface append failed");
+                }
+                return NotifyOutcome::DeadLetterPersistFailed;
+            }
+            NotifyOutcome::SendFailed
+        }
     }
 }
 
-/// Mandatory owner delivery for security escalations. Unlike courtesy
-/// notifications, this path never converts a missing grant key, gate denial,
-/// or connector failure into success. Each failed branch records a truthful
-/// `owner.notify_failed` audit before returning the structured error.
+/// Mandatory owner delivery for security escalations. Routes through the
+/// same truthful [`notify_owner_with_digest`] helper as courtesy
+/// notifications, so required delivery also records the `owner.notify_attempted`
+/// audit, updates Telegram counters, persists an encrypted dead-letter on a
+/// send failure, and only counts `Sent` as success. Unlike the courtesy path,
+/// a missing grant key, gate denial, or any non-`Sent` outcome (including a
+/// durable but failed `SendFailed`) is returned as an error: required
+/// delivery must never be silently downgraded to success (the escalation
+/// path that calls this depends on the error to avoid recording a false
+/// `action.escalated`).
 pub(crate) async fn notify_owner_required(
     state: &AppState,
     chat_id: i64,
     text: &str,
 ) -> Result<(), crate::store::StoreError> {
-    let now = Timestamp::now();
-    let action = ActionId::new("owner.notify");
-    let Some(notify_grant) = kernel_notify_grant() else {
-        let reason = "grant_hmac_key_unavailable";
-        state.store.append_audit(
-            "owner.notify_failed",
-            Some(&action),
-            None,
-            Some(reason),
-            None,
-            &[],
-            &[],
-        )?;
-        return Err(crate::store::StoreError::OwnerNotificationFailed(
-            reason.to_string(),
-        ));
-    };
-    let request = ActionRequest {
-        id: Ulid::new(),
-        // Keep the request and synthetic authorization grant bound together.
-        task_grant_id: notify_grant.id,
-        action,
-        target_ref: None,
-        payload_ref: None,
-        target_digest: None,
-        selection_token_id: None,
-        requested_at: now,
-        schema_version: 1,
-    };
-    let outcome = gate(
-        &notify_grant,
-        &request,
-        ActionOrigin::Kernel,
-        &state.store,
-        &state.action_catalog,
-        &state.connectors,
-        now,
-    );
-    state.store.append_audit(
-        "action.gated",
-        Some(&request.action),
-        Some(&outcome.decision),
-        None,
-        Some(outcome.audit.task_grant_id),
-        &[],
-        &[],
-    )?;
-    if !matches!(&outcome.decision, GateDecision::Allow) {
-        let reason = format!("gate_denied:{:?}", outcome.decision);
-        state.store.append_audit(
-            "owner.notify_failed",
-            Some(&request.action),
-            Some(&outcome.decision),
-            Some(&reason),
-            Some(outcome.audit.task_grant_id),
-            &[],
-            &[],
-        )?;
-        return Err(crate::store::StoreError::OwnerNotificationFailed(reason));
+    let outcome = notify_owner_with_digest(state, chat_id, text, &[], None).await;
+    match outcome {
+        NotifyOutcome::Sent => Ok(()),
+        other => Err(crate::store::StoreError::OwnerNotificationFailed(format!(
+            "required owner notification did not reach Sent: {other:?}"
+        ))),
     }
-    if let Err(err) = state.connectors.telegram().send_reply(chat_id, text).await {
-        let reason = format!("connector_send_failed:{err}");
-        state.store.append_audit(
-            "owner.notify_failed",
-            Some(&request.action),
-            Some(&outcome.decision),
-            Some(&reason),
-            Some(outcome.audit.task_grant_id),
-            &[],
-            &[],
-        )?;
-        return Err(crate::store::StoreError::OwnerNotificationFailed(reason));
-    }
-    state.store.append_audit(
-        "owner.notified",
-        Some(&request.action),
-        Some(&outcome.decision),
+}
+
+/// Record a durable `owner.notify_skipped` row for any pre-send outcome that
+/// never reaches the connector (AD-138: no failed effect without a durable
+/// record AND an owner-visible surface). Best-effort: a broken store cannot
+/// be made durable by more store calls, so failures are only traced.
+fn record_notify_skipped(state: &AppState, reason: &str) {
+    if let Err(err) = state.store.append_audit(
+        "owner.notify_skipped",
+        Some(&ActionId::new("owner.notify")),
         None,
-        Some(outcome.audit.task_grant_id),
+        Some(reason),
+        None,
         &[],
         &[],
-    )?;
-    Ok(())
+    ) {
+        tracing::error!(error = %err, skip_reason = reason, "could not durably record owner.notify_skipped");
+    }
+}
+
+/// Compatibility wrapper for notifications with no digest batch metadata.
+pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
+    let _ = notify_owner_with_digest(state, chat_id, text, &[], None).await;
 }
 
 /// Synthetic grant for kernel-origin `owner.notify` (D-055.2). `gate()` with
@@ -359,8 +409,22 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
         let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
 
         let updates = match state.connectors.telegram().poll_once(last_update_id).await {
-            Ok(updates) => updates,
+            Ok(updates) => {
+                crate::failure_surfacing::record_connector_outcome(&state.store, "telegram", true)?;
+                updates
+            }
             Err(err) => {
+                crate::failure_surfacing::record_connector_outcome(
+                    &state.store,
+                    "telegram",
+                    false,
+                )?;
+                crate::failure_surfacing::batch_failure(
+                    state,
+                    crate::failure_surfacing::FailureClass::Connector,
+                    "telegram poll failed",
+                    &format!("telegram poll: {err}"),
+                )?;
                 tracing::warn!(error = %err, "telegram poll_once failed, backing off");
                 tokio::time::sleep(POLL_ERROR_BACKOFF).await;
                 continue;
@@ -455,11 +519,21 @@ pub async fn handle_owner_update(
                 )
                 .await?;
             } else {
-                state
+                let answer_result = state
                     .connectors
                     .telegram()
                     .answer_callback_query(&callback_query_id)
                     .await;
+                crate::failure_surfacing::record_callback_ack(
+                    state,
+                    answer_result.is_ok(),
+                    answer_result
+                        .as_ref()
+                        .err()
+                        .map(|e| e.to_string())
+                        .as_deref(),
+                );
+
                 state.store.append_audit(
                     "telegram.callback_unrecognized",
                     None,
@@ -549,23 +623,36 @@ pub async fn handle_owner_update(
         }
         return Ok(None);
     }
+
+    if let Some(args) = telegram::parse_digest_namespace(&text) {
+        if !args.is_empty() && telegram::parse_digest_detail_command(&text).is_none() {
+            notify_owner_best_effort(state, chat_id, "Usage: /digest or /digest <ULID> [page]")
+                .await;
+            return Ok(None);
+        }
+    }
     if let Some((channel_user_id, relationship_str)) = telegram::parse_bind_command(&text) {
-        let proof = owner_verified.as_ref().unwrap();
-        match crate::identity::handle_owner_bind(
+        let result = crate::identity::handle_owner_bind(
             &state.store,
             state.owner_principal_id,
             state.owner_identity_id,
-            proof,
+            owner_verified
+                .as_ref()
+                .expect("bind command requires verified owner"),
             channel_user_id,
             relationship_str,
-        ) {
-            Ok(msg) => {
-                notify_owner_best_effort(state, chat_id, &msg).await;
-            }
-            Err(msg) => {
-                notify_owner_best_effort(state, chat_id, &msg).await;
-            }
-        }
+        );
+        let message = result.unwrap_or_else(|err| err);
+        notify_owner_best_effort(state, chat_id, &message).await;
+        return Ok(None);
+    }
+
+    if let Some((id, page)) = telegram::parse_digest_detail_command(&text) {
+        digest_pagination::handle_detail_command(state, chat_id, id, page).await?;
+        return Ok(None);
+    }
+    if telegram::parse_digest_command(&text) {
+        digest_pagination::handle_command(state, chat_id).await?;
         return Ok(None);
     }
 

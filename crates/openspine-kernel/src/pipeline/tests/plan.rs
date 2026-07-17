@@ -1,4 +1,5 @@
 use super::*;
+use crate::api::DispatchError;
 use crate::telegram::TelegramConnector;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use serde_json::json;
@@ -159,4 +160,63 @@ async fn plan_proposal_budget_exhaustion_persists_no_request() {
     let result = crate::api::plan::dispatch_plan_preview(&state, &grant, 555, &plan).await;
     assert!(result.is_err());
     assert_eq!(state.store.count_action_requests().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn plan_preview_records_telegram_success_counter() {
+    let (state, _telegram_server, _request) = proposed_plan_fixture().await;
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "success")
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn plan_preview_records_telegram_failure_counter_on_send_error() {
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(500))
+        .mount(&telegram_server)
+        .await;
+    let telegram = TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        format!("{}/", telegram_server.uri()).parse().unwrap(),
+    );
+    let state = test_state_with_telegram(telegram);
+    {
+        let mut registry = state.registry.write();
+        registry
+            .routes
+            .iter_mut()
+            .find(|route| route.id == "owner_telegram_main_assistant")
+            .unwrap()
+            .capability_pack = Some("plan_approval_pack".to_string());
+    }
+    let grant = handle_owner_update(&state, &owner_update("plan proposal"))
+        .await
+        .unwrap()
+        .expect("production plan pack must compose a grant");
+    let plan = openspine_schemas::plan::Plan {
+        schema_version: 1,
+        steps: vec![openspine_schemas::plan::PlanStep {
+            action: ActionId::new("calendar.book"),
+            arguments: json!({"time": "14:00"}),
+            summary: "Book the meeting".to_string(),
+        }],
+    };
+    let result = crate::api::plan::dispatch_plan_preview(&state, &grant, 555, &plan).await;
+    assert!(
+        matches!(result, Err(DispatchError::Connector(_))),
+        "plan preview must classify Telegram send failure as Connector: {result:?}"
+    );
+    assert_eq!(
+        state
+            .store
+            .connector_counter("telegram", "failure")
+            .unwrap(),
+        1
+    );
 }

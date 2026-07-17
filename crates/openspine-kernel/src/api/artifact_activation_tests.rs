@@ -68,6 +68,11 @@ async fn mount_send_message_ok(server: &MockServer) {
         })))
         .mount(server)
         .await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/AnswerCallbackQuery"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(server)
+        .await;
 }
 
 #[tokio::test]
@@ -185,7 +190,7 @@ async fn activation_with_mutated_payload_is_denied() {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("already exists"), "unexpected message: {msg}")
         }
-        DispatchError::Internal(_) => panic!(
+        DispatchError::Resource(_) | DispatchError::Connector(_) => panic!(
             "a re-proposal of an already-active id/version must be a BadRequest, not Internal \
              — an Internal result here would mean the duplicate guard was bypassed and the \
              attempt instead hit the store's UNIQUE constraint"

@@ -1,9 +1,11 @@
 use super::*;
 use crate::test_support::fixtures::*;
 
-mod approval;
+pub(crate) mod approval;
 mod bot_identity;
 mod bot_identity_support;
+mod callback_ack;
+mod digest;
 mod driver;
 mod effect_paths;
 mod offset;

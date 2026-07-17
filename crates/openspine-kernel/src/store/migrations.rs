@@ -72,7 +72,60 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
             ON audit_log (aggregate_id, aggregate_seq)
             WHERE aggregate_seq > 0;",
     )?;
+    // AD-138: digest, notification dead-letter, and connector counter tables.
+    super::failure_surfacing_types::ensure_schema(conn)?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN claimed_until TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN task_grant_id TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN digest_item_ids TEXT NOT NULL DEFAULT ''",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN claim_token TEXT",
+    )?;
+    // implement-failure-surfacing-contract: preserve the audit contract across
+    // dead-letter retries of `/digest <ULID>` detail deliveries. Generic
+    // notifications leave these NULL; nullable => legacy rows unaffected.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN semantic_kind TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN detail_ref TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN page_index INTEGER",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN page_count INTEGER",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN availability_outcome TEXT",
+    )?;
     // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
+    // implement-failure-surfacing-contract: sensitive digest detail moves to
+    // the encrypted artifact store; SQLite keeps only a bounded non-sensitive
+    // summary + the artifact hash ref (reuses the `text_ref` DLQ convention).
+    // Idempotent: an existing table already has the column.
+    add_column_if_missing(conn, "ALTER TABLE digest_items ADD COLUMN text_ref TEXT")?;
+    // Legacy digest rows predate encrypted text refs. Fail closed by
+    // replacing their plaintext summary with a fixed class-derived label;
+    // never fabricate encryption for bytes whose provenance is unknown.
+    conn.execute(
+        "UPDATE digest_items SET summary = '[' || class || '] legacy failure detail unavailable' WHERE text_ref IS NULL",
+        [],
+    )?;
     super::proposed_artifacts::ensure_schema(conn)?;
     // `define-lineage-and-eval-store`: nullable lineage column on
     // proposed_artifacts (non-retrofittable set). No DEFAULT — legacy rows
