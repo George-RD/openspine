@@ -1,0 +1,44 @@
+# AD-153 minimal seed workflow set. OVERLAY artifact (see
+# owner_control_conversation_seed.yaml header). Seed for an agentic
+# research-and-brief loop: bounded web research, a concise brief composed for
+# the owner, and delivery to the owner channel. No approval-required state;
+# the kernel's existing egress classification (AD-151) gates the
+# counterparty-facing send, and the output here is owner-directed only.
+id: research_and_brief_seed
+schema_version: 1
+version: 1
+lifecycle_state: active
+purpose: Seed - research a bounded topic and deliver a concise brief to the owner.
+required_agent: main_assistant_agent
+required_capability_pack: owner_control_basic_pack
+initial_state: launched
+states:
+  - id: launched
+    steps:
+      - id: scope_request
+        kind: deterministic
+        reasoning_tier: low
+  - id: researched
+    steps:
+      - id: gather_sources
+        kind: agentic
+        reasoning_tier: high
+  - id: briefed
+    steps:
+      - id: compose_brief
+        kind: agentic
+        reasoning_tier: standard
+transitions:
+  - from: launched
+    to: researched
+    event: scoped
+  - from: researched
+    to: briefed
+    event: sources_gathered
+candidate_allowed_actions:
+  - "web.search"
+  - "web.forum_browse"
+  - "model.generate:approved_provider"
+  - "telegram.reply:owner_channel"
+approval_required: []
+denied_actions: []

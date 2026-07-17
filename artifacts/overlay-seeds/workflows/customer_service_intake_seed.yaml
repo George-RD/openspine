@@ -1,0 +1,68 @@
+# AD-153 minimal seed workflow set. OVERLAY artifact (see
+# owner_control_conversation_seed.yaml header). The deliberate stress test:
+# an inbound, counterparty-initiated customer email is classified, a bounded
+# reply is drafted, and the reply can only leave an approval-required state
+# via the digest-bound `email.create_draft` approval contract (D-087/D-088).
+# A runtime escalation point (`requires_owner_review`) carries the reason a
+# borderline inquiry must route to the owner rather than be auto-answered.
+# `required_agent`/`required_capability_pack` are forward-declared seeds: a
+# dedicated CS agent/pack is itself a future miner proposal (AD-153, everything
+# else arrives via miner proposals).
+id: customer_service_intake_seed
+schema_version: 1
+version: 1
+lifecycle_state: active
+purpose: Seed - classify an inbound customer email, draft a bounded reply, require owner approval before any draft is created.
+required_agent: customer_service_agent
+required_capability_pack: customer_service_intake_pack
+initial_state: received
+states:
+  - id: received
+    steps:
+      - id: accept_message
+        kind: deterministic
+        reasoning_tier: low
+  - id: classified
+    steps:
+      - id: classify_inquiry
+        kind: agentic
+        reasoning_tier: standard
+    escalation:
+      id: requires_owner_review
+      reason: Inquiry is ambiguous, high-risk, or outside the bounded auto-answer policy.
+  - id: drafted
+    steps:
+      - id: compose_reply
+        kind: agentic
+        reasoning_tier: high
+  - id: awaiting_approval
+    approval: required
+    approval_action: email.create_draft
+    steps:
+      - id: present_draft
+        kind: deterministic
+        reasoning_tier: low
+  - id: approved
+    steps: []
+transitions:
+  - from: received
+    to: classified
+    event: received
+  - from: classified
+    to: drafted
+    event: in_scope
+  - from: classified
+    to: awaiting_approval
+    event: owner_reviewed
+  - from: drafted
+    to: awaiting_approval
+    event: draft_ready
+  - from: awaiting_approval
+    to: approved
+    event: owner_approved
+candidate_allowed_actions:
+  - "email.read_thread:selected_no_attachments"
+  - "model.generate:approved_provider"
+approval_required:
+  - email.create_draft
+denied_actions: []

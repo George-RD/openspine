@@ -24,6 +24,7 @@ mod pipeline;
 mod sandbox;
 mod secret_intake;
 mod secret_store;
+mod seed_workflows;
 mod spend;
 mod store;
 mod telegram;
