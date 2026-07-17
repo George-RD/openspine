@@ -336,6 +336,71 @@ async fn telegram_reply_payload_rejects_chat_id_override() {
     handle.abort();
 }
 
+/// D-068 scopes bad-request digest suppression to the authenticated API's
+/// direct response boundary. A detached caller (durable workflow adapter)
+/// has no direct response surface, so the same bad request MUST enter the
+/// failure digest; the direct API caller MUST NOT duplicate it there.
+#[tokio::test]
+async fn bad_request_batches_for_detached_surface_only() {
+    use crate::api::actions::{mediate_and_dispatch_action, FailureSurface};
+    use openspine_schemas::action::ActionId;
+
+    let state = test_state();
+    let grant = handle_owner_update(&state, &owner_update("hello"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    let payload = json!({"text": "hello", "chat_id": 999});
+    let baseline = state
+        .store
+        .count_audit_events_of_kind("failure.digest_batched")
+        .unwrap();
+
+    let direct = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        ActionId::new("telegram.reply:owner_channel"),
+        crate::api::dispatch_tests::OWNER_CHAT_ID,
+        Some(&payload),
+        FailureSurface::DirectResponse,
+    )
+    .await;
+    assert!(matches!(
+        direct,
+        Err(crate::api::actions::DispatchError::BadRequest(_))
+    ));
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("failure.digest_batched")
+            .unwrap(),
+        baseline,
+        "direct API bad request must not be duplicated into the digest"
+    );
+
+    let detached = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        ActionId::new("telegram.reply:owner_channel"),
+        crate::api::dispatch_tests::OWNER_CHAT_ID,
+        Some(&payload),
+        FailureSurface::Detached,
+    )
+    .await;
+    assert!(matches!(
+        detached,
+        Err(crate::api::actions::DispatchError::BadRequest(_))
+    ));
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("failure.digest_batched")
+            .unwrap(),
+        baseline + 1,
+        "detached bad request must enter the failure digest"
+    );
+}
+
 #[tokio::test]
 async fn approval_required_action_stops_before_dispatch() {
     let state = test_state();

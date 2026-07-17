@@ -133,6 +133,8 @@ pub struct AuditEvent {
     /// new appends always assign `>= 1`.
     #[serde(default)]
     pub aggregate_seq: u64,
+    #[serde(default)]
+    pub payload_json: Option<String>,
     pub prev_hash: Digest,
     pub hash: Digest,
 }
@@ -164,6 +166,7 @@ mod tests {
             payload_refs: vec![],
             aggregate_id: "task_grant:test".to_string(),
             aggregate_seq: 1,
+            payload_json: Some(r#"{"value":42}"#.to_string()),
             prev_hash: genesis_hash(),
             hash: Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap(),
         };
@@ -194,6 +197,7 @@ mod tests {
         // Legacy rows: system aggregate + seq 0 sentinel.
         assert_eq!(event.aggregate_id, "system");
         assert_eq!(event.aggregate_seq, 0);
+        assert_eq!(event.payload_json, None);
     }
 
     #[test]

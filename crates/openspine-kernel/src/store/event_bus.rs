@@ -12,7 +12,7 @@
 use super::{Store, StoreError};
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::event_bus::{ConsumerCheckpoint, EventSubscriptionFilter};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashSet;
 use std::fmt;
 use ulid::Ulid;
@@ -80,6 +80,20 @@ impl Store {
         let after_global_seq_i64 =
             i64::try_from(after_global_seq).map_err(|_| StoreError::NumericRange)?;
         let conn = self.conn.lock();
+        Self::replay_audit_conn(&conn, filter, after_global_seq_i64)
+    }
+
+    /// Replay the audit ledger over an already-locked `Connection`, applying
+    /// the same row/event coordinate and consistency validation as
+    /// [`Self::replay_audit`]. Exposed so callers that already hold the lock
+    /// (e.g. an atomic verify+replay snapshot) reuse the exact same path.
+    // AD-105: substrate entry point; domain consumers land in later changes.
+    #[allow(dead_code)]
+    pub(crate) fn replay_audit_conn(
+        conn: &Connection,
+        filter: &EventSubscriptionFilter,
+        after_global_seq: i64,
+    ) -> Result<Vec<LedgerEntry>, StoreError> {
         let (sql, bind_agg): (&str, Option<&str>) = match filter.aggregate_id.as_deref() {
             Some(agg) => (
                 "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash FROM audit_log \
@@ -111,11 +125,11 @@ impl Store {
         };
         let rows: Vec<ReplayRow> = match bind_agg {
             Some(agg) => {
-                let mapped = stmt.query_map(params![after_global_seq_i64, agg], map_row)?;
+                let mapped = stmt.query_map(params![after_global_seq, agg], map_row)?;
                 mapped.collect::<Result<Vec<_>, _>>()?
             }
             None => {
-                let mapped = stmt.query_map(params![after_global_seq_i64], map_row)?;
+                let mapped = stmt.query_map(params![after_global_seq], map_row)?;
                 mapped.collect::<Result<Vec<_>, _>>()?
             }
         };
@@ -184,6 +198,7 @@ impl Store {
                 "payload_refs",
                 "aggregate_id",
                 "aggregate_seq",
+                "payload_json",
             ] {
                 let normalized = match field {
                     "aggregate_id" => meta
