@@ -1,6 +1,6 @@
+use super::authenticate;
 use super::proposal::propose_draft_creation;
 use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
-use super::{authenticate, internal_error};
 use crate::failure_surfacing::{batch_failure, FailureClass};
 use crate::pipeline::AppState;
 use axum::extract::State;
@@ -63,30 +63,61 @@ pub(super) async fn post_actions(
     Json(body): Json<ActionRequestBody>,
 ) -> Result<Json<ActionResponseBody>, (StatusCode, Json<Value>)> {
     let (grant, _pending_ref, bound_chat_id) = authenticate(&state, &headers).await?;
-    let now = Timestamp::now();
     let action = ActionId::new(body.action);
-
-    let payload_ref = match &body.payload {
-        Some(value) => {
-            let bytes = canonical_json(value).into_bytes();
-            Some(state.artifacts.put(&bytes).map_err(internal_error)?)
+    let (decision, counterparty_deferral, result) = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        action,
+        bound_chat_id,
+        body.payload.as_ref(),
+        FailureSurface::DirectResponse,
+    )
+    .await
+    .map_err(|err| match &err {
+        DispatchError::BadRequest(message) => {
+            (StatusCode::BAD_REQUEST, Json(json!({"error": message})))
         }
+        DispatchError::Connector(cause) | DispatchError::Resource(cause) => {
+            tracing::error!(error = %cause, "action dispatch failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "internal_error"})),
+            )
+        }
+    })?;
+    Ok(Json(ActionResponseBody {
+        decision,
+        counterparty_deferral,
+        result,
+    }))
+}
+
+/// Shared non-HTTP mediation boundary used by both HTTP actions and durable
+/// workflow adapters. It is the single path that builds the request, calls
+/// `gate()`, emits the gate/failure audit events, and dispatches the concrete
+/// handler selected by the action registry.
+pub(crate) async fn mediate_and_dispatch_action(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: ActionId,
+    bound_chat_id: i64,
+    payload: Option<&Value>,
+    surface: FailureSurface,
+) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
+    let now = Timestamp::now();
+    let payload_ref = match payload {
+        Some(value) => Some(
+            state
+                .artifacts
+                .put(canonical_json(value).as_bytes())
+                .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?,
+        ),
         None => None,
     };
-    // Surface any selection token the shell presented so the pure gate can
-    // validate its possession/binding/expiry (D-055.1). The dispatch layer
-    // no longer re-derives this — gate() is the single authority.
-    let selection_token_id = body
-        .payload
-        .as_ref()
-        .and_then(|v| v.get("selection_token_id"))
-        .and_then(|v| v.as_str())
-        .and_then(|s| Ulid::from_str(s).ok());
-
-    // Step 4 has no action that consumes a typed `target_ref`/`target_digest`
-    // (the wire contract carries `target` generically for a future action —
-    // Phase 2/3's connector dispatch — that actually needs one); translating
-    // it here would be a conversion with no real caller to verify it against.
+    let selection_token_id = payload
+        .and_then(|value| value.get("selection_token_id"))
+        .and_then(Value::as_str)
+        .and_then(|value| Ulid::from_str(value).ok());
     let request = ActionRequest {
         id: Ulid::new(),
         task_grant_id: grant.id,
@@ -98,9 +129,8 @@ pub(super) async fn post_actions(
         requested_at: now,
         schema_version: 1,
     };
-
     let outcome = gate(
-        &grant,
+        grant,
         &request,
         ActionOrigin::Shell,
         &state.store,
@@ -119,68 +149,41 @@ pub(super) async fn post_actions(
             &[],
             payload_ref.as_slice(),
         )
-        .map_err(internal_error)?;
+        .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
 
     let decision = outcome.decision;
     if !matches!(decision, GateDecision::Allow) {
         if state.action_catalog.is_counterparty_facing(&action) {
-            if let Some((deferral, notice)) = surface_denial(&grant, &action, &decision, None, now)
-            {
+            if let Some((deferral, notice)) = surface_denial(grant, &action, &decision, None, now) {
                 let event = EscalationEvent::from_denial(&notice);
                 // AD-133: route through the reusable kernel machinery. It
                 // resolves the persisted task's bound owner chat itself;
                 // the owner-only reason never returns to the worker.
-                crate::escalation::route_escalation(&state, &grant, &event)
+                crate::escalation::route_escalation(state, grant, &event)
                     .await
-                    .map_err(internal_error)?;
+                    .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
 
-                return Ok(Json(ActionResponseBody {
-                    decision,
-                    counterparty_deferral: Some(deferral.text.to_string()),
-                    result: None,
-                }));
+                return Ok((decision, Some(deferral.text.to_string()), None));
             }
         }
 
         // Non-counterparty denials retain the ordinary typed enum outcome.
-        return Ok(Json(ActionResponseBody {
-            decision,
-            counterparty_deferral: None,
-            result: None,
-        }));
+        return Ok((decision, None, None));
     }
 
-    match dispatch_allowed_action(
-        &state,
-        &grant,
-        &action,
-        bound_chat_id,
-        body.payload.as_ref(),
-    )
-    .await
-    {
-        Ok(result) => Ok(Json(ActionResponseBody {
-            decision: GateDecision::Allow,
-            counterparty_deferral: None,
-            result: Some(result),
-        })),
+    match dispatch_allowed_action(state, grant, &action, bound_chat_id, payload).await {
+        Ok(result) => Ok((GateDecision::Allow, None, Some(result))),
         Err(err) => {
             let digest_class = match &err {
                 DispatchError::Resource(_) => FailureClass::Resource,
                 DispatchError::Connector(_) => FailureClass::Connector,
                 DispatchError::BadRequest(_) => FailureClass::Connector,
             };
-            let (status, http_message, digest_summary) = match &err {
-                DispatchError::BadRequest(msg) => {
-                    (StatusCode::BAD_REQUEST, msg.clone(), msg.clone())
-                }
+            let digest_summary = match &err {
+                DispatchError::BadRequest(msg) => msg.clone(),
                 DispatchError::Connector(cause) | DispatchError::Resource(cause) => {
                     tracing::error!(error = %cause, "action dispatch failed");
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "internal_error".to_string(),
-                        format!("{action}: {cause}"),
-                    )
+                    format!("{action}: {cause}")
                 }
             };
             state
@@ -194,17 +197,19 @@ pub(super) async fn post_actions(
                     &[],
                     &[],
                 )
-                .map_err(internal_error)?;
-            if !matches!(err, DispatchError::BadRequest(_)) {
+                .map_err(|audit_err| DispatchError::Resource(anyhow::Error::new(audit_err)))?;
+            let suppress_batch = matches!(err, DispatchError::BadRequest(_))
+                && surface == FailureSurface::DirectResponse;
+            if !suppress_batch {
                 batch_failure(
-                    &state,
+                    state,
                     digest_class,
                     &format!("{action} dispatch failed"),
                     &digest_summary,
                 )
-                .map_err(internal_error)?;
+                .map_err(|batch_err| DispatchError::Resource(anyhow::Error::new(batch_err)))?;
             }
-            Err((status, Json(json!({"error": http_message}))))
+            Err(err)
         }
     }
 }
@@ -214,6 +219,17 @@ pub(crate) enum DispatchError {
     BadRequest(String),
     Connector(anyhow::Error),
     Resource(anyhow::Error),
+}
+
+/// How a mediation caller surfaces dispatch failures to the owner. D-068:
+/// an authenticated API caller receives bad requests directly in its typed
+/// response, so they are not duplicated into the failure digest. Detached
+/// callers (durable workflow adapters) have no direct response surface, so
+/// every failure class enters the failure lane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FailureSurface {
+    DirectResponse,
+    Detached,
 }
 
 /// Run the effect of one `gate()`-allowed action. Only reached after
@@ -226,7 +242,6 @@ pub(crate) enum DispatchError {
 /// `setup.workflow.start` remain specified stubs (`tasks.md`: "Do not
 /// implement real behavior for these — a stub response is the specified
 /// deliverable"). Any other allowed action (e.g.
-/// `memory.read:owner_preferences_limited`, which a capability pack can
 /// grant but no kernel-side subsystem yet exists for) falls through to the
 /// same honest stub shape rather than a 500 — an *authorized* action must
 /// never fail the request just because its kernel-side implementation

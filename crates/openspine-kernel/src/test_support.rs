@@ -27,13 +27,19 @@ pub(crate) mod fixtures {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
     }
     fn build_state(telegram: TelegramConnector, gmail: Option<GmailConnector>) -> AppState {
+        build_state_with_store(Store::open_in_memory().unwrap(), telegram, gmail)
+    }
+    fn build_state_with_store(
+        store: Store,
+        telegram: TelegramConnector,
+        gmail: Option<GmailConnector>,
+    ) -> AppState {
         let registry = crate::artifact_loader::load_registry(&repo_lyra_dir()).unwrap();
         let key = [7u8; 32];
         let artifacts_dir = tempfile::tempdir().unwrap().keep();
         // 5a/5d: a per-test overlay dir so activation tests can assert the
         // on-disk overlay file without touching the real fixture tree.
         let overlay_dir = tempfile::tempdir().unwrap().keep();
-        let store = Store::open_in_memory().unwrap();
         let secrets = std::sync::Arc::new(
             SecretStore::open(tempfile::tempdir().unwrap().keep(), key).unwrap(),
         );
@@ -139,5 +145,17 @@ pub(crate) mod fixtures {
             .store
             .append_conversation_message(grant.id, "user", &digest)
             .unwrap();
+    }
+
+    /// Build a real `AppState` over an explicit `Store`. Used by durable
+    /// workflow replay tests that must persist a ledger state, then reopen
+    /// the same store after a simulated crash/restart and re-run the
+    /// production path against it.
+    pub(crate) fn test_state_with_store(store: Store) -> AppState {
+        build_state_with_store(
+            store,
+            TelegramConnector::new("test-token".to_string()),
+            None,
+        )
     }
 }

@@ -84,6 +84,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-070 | Retryable owner notifications reference encrypted artifacts; persistence failure stays plaintext-free | Accepted |
 | D-071 | External owner delivery is delivery-unknown across the send-to-receipt crash window | Accepted |
 | D-072 | `/digest <ULID> [page]` is a secure lossless pagination substrate; presentation remains deferred | Accepted |
+| D-073 | Durable workflow steps persist intent before effect; recovery replays recorded outcomes and fails closed on receiptless pending effects | Accepted |
+| D-074 | Workflow timers are kernel-fired at most once via trusted-clock atomic claims | Accepted |
 
 ---
 
@@ -1817,6 +1819,47 @@ A ratified presentation layer supplies an equivalent bounded retrieval contract 
 
 ---
 
+# D-073 — Durable workflow steps persist intent before effect and replay recorded outcomes
+
+## Decision
+
+A workflow run records every outside-world step — time, randomness, model and connector calls, approvals, timers — as a ledger-backed intent before its effect executes, keyed by an exact stable step identity. Crash recovery rehydrates recorded outcomes and never re-runs a recorded effect. A `Pending` non-idempotent step with no durable receipt fails closed on recovery: the runtime refuses to re-dispatch absent provider idempotency, leaving retry an explicit caller obligation. Step payloads that persist inline are a sealed, closed, non-secret set.
+
+## Rationale
+
+SQLite and external connectors cannot share one atomic transaction, so exactly-once effects are unattainable; recording intent first and refusing receiptless re-dispatch prefers truthful loss-surfacing over silent duplication, and the sealed payload set keeps D-012 plaintext discipline structural.
+
+## Consequences
+
+Replay after a crash is deterministic against the persisted ledger under one read snapshot. A crash between dispatch and receipt leaves the step `Pending` and surfaced rather than silently re-run. Callers needing automatic retry must supply an idempotent effect path.
+
+## Would change if
+
+Connectors gain durable idempotency keys, allowing recovery to re-dispatch receiptless pending effects safely.
+
+---
+
+# D-074 — Workflow timers fire at most once via trusted-clock atomic claims
+
+## Decision
+
+Workflow timers are kernel-owned rows fired by the kernel timer driver at most once: firing performs an atomic claim (compare-and-set on the pending row keyed by exact timer identity) using the trusted kernel clock carried into both due-selection and the claim predicate; consumers only schedule and observe `workflow.timer_fired` ledger events.
+
+## Rationale
+
+AD-104's dark-window requirement needs a driver that cannot double-fire across crash/restart races, and caller-supplied timestamps must not be able to fire timers early.
+
+## Consequences
+
+A timer fires exactly once per claim even under concurrent drivers; a crash after claim but before handler effect surfaces through the ordinary step contract rather than a second fire. Timer effects are classified `InternalMaintenanceNonEffect` in the D-055 catalog and never pass the gate.
+
+## Would change if
+
+Timer handlers acquire effects requiring gated authority, which would move firing onto the granted action path.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1872,4 +1915,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-16 | Added D-061 (bounded deterministic first-cut model-swap golden sets with grant-bounded timeout and consumed attempt budget), D-062 (symmetric Active proposal ↔ exact overlay provenance required at startup), and D-063 (serialized staged model-swap activation with transactional lifecycle/audit and digest-bound crash recovery), settled while implementing `implement-model-swap-ceremony`. |
 | 2026-07-16 | Added D-064 (one-way connector-secret migration into the encrypted kernel vault with call-time resolution), D-065 (provider API-key migration owned by the foundation-amendment lane), D-066 (paired Gmail credentials stage until atomic validated promotion), and D-067 (Telegram offsets namespaced by bot identity with one-time legacy migration), settled while implementing `implement-secret-intake`. |
 | 2026-07-17 | Added D-068 (direct authenticated API bad-request surfacing without duplicate owner notification), D-069 (kernel connector counters as the minimal observability surface), D-070 (encrypted artifact references for retryable owner notifications), D-071 (delivery-unknown send-to-receipt crash semantics), and D-072 (secure lossless `/digest` pagination substrate with presentation deferred), settled while implementing `implement-failure-surfacing-contract`. |
+| 2026-07-17 | Added D-073 (durable workflow steps persist intent before effect, replay rehydrates recorded outcomes, receiptless pending non-idempotent steps fail closed with sealed inline payload set) and D-074 (kernel-owned workflow timers fire at most once via trusted-clock atomic claims), settled while implementing `implement-durable-workflow-replay`. |
 

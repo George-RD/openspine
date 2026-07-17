@@ -169,6 +169,10 @@ pub enum StoreError {
     FailureRouting(String),
     #[error("artifact store error during failure surfacing: {0}")]
     ArtifactStore(#[source] ArtifactStoreError),
+    #[error("audit ledger chain failed verification")]
+    LedgerCorrupted,
+    #[error("workflow timer unknown or never scheduled: {0}")]
+    WorkflowTimerUnknown(String),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -540,3 +544,4 @@ pub(crate) mod proposed_artifacts;
 mod test_hooks;
 #[cfg(test)]
 mod tests;
+pub(crate) mod workflow_timers;

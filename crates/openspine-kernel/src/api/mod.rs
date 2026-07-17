@@ -14,7 +14,7 @@
 //! this file holds routing + the shared auth/error helpers every endpoint
 //! uses; [`task`], [`actions`], and [`generate`] hold one endpoint each.
 
-mod actions;
+pub(crate) mod actions;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
 mod artifact_propose;

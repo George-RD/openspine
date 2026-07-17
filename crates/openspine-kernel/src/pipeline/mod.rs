@@ -42,6 +42,8 @@ mod post_approval;
 mod selection;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) use tests::approval_fixture_grant;
 
 use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};

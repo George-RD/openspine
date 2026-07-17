@@ -135,6 +135,26 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         "ALTER TABLE proposed_artifacts ADD COLUMN lineage_json TEXT",
     )?;
     // `define-lineage-and-eval-store`: eval-verdict/fitness store as its own
+    // `define-lineage-and-eval-store`: eval-verdict/fitness store as its own
     // indexed table (non-retrofittable set; AD-111 verdict landing).
-    super::eval_verdict_store::ensure_schema(conn)
+    super::eval_verdict_store::ensure_schema(conn)?;
+    super::workflow_timers::ensure_schema(conn)?;
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS workflow_step_registry (
+            run_id TEXT NOT NULL,
+            step_id TEXT NOT NULL,
+            pending_seq INTEGER NOT NULL,
+            receipt_seq INTEGER,
+            completed_seq INTEGER,
+            PRIMARY KEY(run_id, step_id)
+        );",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE workflow_step_registry ADD COLUMN receipt_seq INTEGER",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE workflow_step_registry ADD COLUMN completed_seq INTEGER",
+    )
 }

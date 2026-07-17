@@ -13,6 +13,8 @@ mod plan;
 mod secret_intake_integration;
 mod token_rotation;
 
+pub(crate) use approval::approval_fixture_grant;
+
 #[tokio::test]
 async fn non_owner_update_is_ignored_and_audited_without_a_grant() {
     let state = test_state();

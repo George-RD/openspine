@@ -27,6 +27,7 @@ mod secret_intake;
 mod secret_store;
 mod store;
 mod telegram;
+mod workflow;
 
 #[cfg(test)]
 mod test_support;
@@ -375,11 +376,17 @@ async fn main() -> anyhow::Result<()> {
         axum::serve(listener, api::router(state.clone())).with_graceful_shutdown(shutdown_signal());
     let telegram_poll = pipeline::run_telegram_poll_loop(&state);
     let retry_worker = failure_surfacing::retry_worker::run_retry_loop(&state);
+    // AD-104/AD-012: the kernel-owned dark-window timer driver. Consumers
+    // only schedule (`WorkflowCtx::schedule_timer`) and subscribe (poll or
+    // ledger replay of `workflow.timer_fired`); this loop is what actually
+    // fires due timers, sleeping until the earliest known deadline.
+    let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
 
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
         res = retry_worker => res.context("dead-letter retry loop failed")?,
+        () = timer_driver => unreachable!("run_timer_driver loops forever"),
     }
 
     Ok(())

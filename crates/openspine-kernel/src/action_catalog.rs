@@ -141,6 +141,10 @@ pub fn canonical_catalog() -> ActionCatalog {
             name: "answer_callback_query".to_string(),
             classification: EffectPathClass::InternalMaintenanceNonEffect,
         },
+        EffectPath {
+            name: "fire_due_workflow_timers".to_string(),
+            classification: EffectPathClass::InternalMaintenanceNonEffect,
+        },
     ])
 }
 
@@ -153,8 +157,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            14,
-            "Expected exactly 14 classified effect paths, got {:?}",
+            15,
+            "Expected exactly 15 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -170,6 +174,7 @@ mod tests {
         assert!(path_names.contains(&"create_approved_draft"));
         assert!(path_names.contains(&"activate_approved_artifact"));
         assert!(path_names.contains(&"dispatch_read_selected_thread"));
+        assert!(path_names.contains(&"fire_due_workflow_timers"));
         assert!(path_names.contains(&"dispatch_lyra_preview/propose_draft_creation"));
         assert!(path_names.contains(&"dispatch_artifact_propose"));
         assert!(path_names.contains(&"run_model_swap_golden_set"));
