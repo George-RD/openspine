@@ -1,9 +1,18 @@
-//! Ad-hoc, no-`PRAGMA user_version` migrations for schema changes made
-//! after a `data/kernel.db` may already exist on disk (see `store/mod.rs`'s
-//! module doc comment: `CREATE TABLE IF NOT EXISTS` in `SCHEMA_SQL` only
-//! ever helps a brand-new file). Split out of `store/mod.rs` to keep that
-//! file under the 500-line gate — mirrors the `budget_support`/
-//! `gate_support` split.
+//! Schema migrations. Two lanes (AD-139):
+//!
+//! 1. The additive ad-hoc lane ([`apply_ad_hoc_migrations`]): idempotent
+//!    `ALTER TABLE ... ADD COLUMN` / `CREATE TABLE IF NOT EXISTS` that runs on
+//!    every open for both fresh and pre-existing files. It never destroys
+//!    data, so a legacy `data/kernel.db` converges to the baseline schema
+//!    without any row being rewritten or dropped. Split out of `store/mod.rs`
+//!    to keep that file under the 500-line gate.
+//!
+//! 2. The versioned `PRAGMA user_version` lane
+//!    ([`apply_versioned_migrations`]): stamps the baseline once the ad-hoc
+//!    lane has converged the schema, then applies forward migrations — each
+//!    with a documented `down` path (see [`revert_versioned_migrations_for_test`]).
+//!    The first *destructive* (non-idempotent-additive) schema change migrates
+//!    off the ad-hoc lane onto a versioned entry, per AD-139's upgrade path.
 
 use rusqlite::Connection;
 
@@ -163,4 +172,138 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE workflow_step_registry ADD COLUMN completed_seq INTEGER",
     )
+}
+
+// ---- versioned PRAGMA user_version framework (AD-139) -------------------
+
+/// Schema version corresponding to the additive ad-hoc lane in
+/// [`apply_ad_hoc_migrations`]. A database whose `PRAGMA user_version` is
+/// below this is either a legacy file (created before this framework existed)
+/// or a brand-new file; in both cases the ad-hoc lane already converges its
+/// schema to this baseline, so we stamp it here without touching any row.
+pub(super) const BASELINE_USER_VERSION: i64 = 1;
+
+/// One forward schema migration. The SQL script `up` and the corresponding
+/// `PRAGMA user_version` stamp are executed and committed within a single
+/// SQLite transaction, guaranteeing versioned schema atomicity. The inverse
+/// `down` is held in the test-only [`VERSIONED_DOWNS`] map, keyed by version.
+pub(super) struct VersionedMigration {
+    pub version: i64,
+    pub up: &'static str,
+}
+
+/// Forward versioned migrations beyond [`BASELINE_USER_VERSION`].
+/// Entry v2 adds the `boot_meta` table that backs boot clock-regression
+/// detection ([`super::boot_clock`]); it is purely additive and reversible.
+pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[VersionedMigration {
+    version: 2,
+    up: "CREATE TABLE IF NOT EXISTS boot_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );",
+}];
+
+/// Inverse `down` SQL for each versioned migration (AD-139 downgrade path),
+/// test-only — production never reverts. Kept in lockstep with
+/// [`VERSIONED_MIGRATIONS`] by version.
+#[cfg(test)]
+const VERSIONED_DOWNS: &[(i64, &str)] = &[(2, "DROP TABLE IF EXISTS boot_meta;")];
+
+/// Latest reachable schema version: the ad-hoc baseline, or the highest
+/// versioned migration if any exist.
+pub(super) fn latest_user_version() -> i64 {
+    VERSIONED_MIGRATIONS
+        .iter()
+        .map(|m| m.version)
+        .max()
+        .unwrap_or(BASELINE_USER_VERSION)
+        .max(BASELINE_USER_VERSION)
+}
+
+fn read_user_version(conn: &Connection) -> Result<i64, StoreError> {
+    Ok(conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?)
+}
+
+fn set_user_version(conn: &Connection, version: i64) -> Result<(), StoreError> {
+    conn.execute_batch(&format!("PRAGMA user_version = {version}"))?;
+    Ok(())
+}
+
+/// Preserve legacy DBs verbatim, then advance the version stamp.
+///
+/// The ad-hoc lane runs first (unchanged from pre-AD-139 behavior) so a legacy
+/// on-disk DB converges to the baseline schema exactly as it always did — no
+/// row is rewritten or dropped. We then stamp [`BASELINE_USER_VERSION`] (a
+/// no-op once stamped) and apply every forward versioned migration in order,
+/// advancing `PRAGMA user_version` after each.
+fn apply_single_migration_inner(
+    conn: &mut Connection,
+    version: i64,
+    up_sql: &str,
+) -> Result<(), StoreError> {
+    let tx = conn.transaction()?;
+    tx.execute_batch(up_sql)?;
+    tx.execute_batch(&format!("PRAGMA user_version = {}", version))?;
+    tx.commit()?;
+    Ok(())
+}
+
+#[cfg(test)]
+pub(super) fn apply_single_migration_for_test(
+    conn: &mut Connection,
+    version: i64,
+    up_sql: &str,
+) -> Result<(), StoreError> {
+    apply_single_migration_inner(conn, version, up_sql)
+}
+
+/// Preserve legacy DBs verbatim, then advance the version stamp.
+///
+/// The ad-hoc lane runs first (unchanged from pre-AD-139 behavior) so a legacy
+/// on-disk DB converges to the baseline schema exactly as it always did — no
+/// row is rewritten or dropped. We then stamp [`BASELINE_USER_VERSION`] (a
+/// no-op once stamped) and apply every forward versioned migration in order,
+/// advancing `PRAGMA user_version` after each.
+pub(super) fn apply_versioned_migrations(conn: &mut Connection) -> Result<(), StoreError> {
+    let current = read_user_version(conn)?;
+    let latest = latest_user_version();
+    if current > latest {
+        return Err(StoreError::UnsupportedVersion { current, latest });
+    }
+    conn.execute_batch(super::SCHEMA_SQL)?;
+    apply_ad_hoc_migrations(conn)?;
+    if current < BASELINE_USER_VERSION {
+        set_user_version(conn, BASELINE_USER_VERSION)?;
+    }
+    let applied_from = current.max(BASELINE_USER_VERSION);
+    for m in VERSIONED_MIGRATIONS
+        .iter()
+        .filter(|m| m.version > applied_from)
+    {
+        apply_single_migration_inner(conn, m.version, m.up)?;
+    }
+    Ok(())
+}
+
+/// Test-only: revert every versioned migration above `target` in reverse
+/// order, applying each `down` and decrementing `PRAGMA user_version`. Proves
+/// the documented AD-139 downgrade path end-to-end. Never runs in production.
+#[cfg(test)]
+pub(super) fn revert_versioned_migrations_for_test(
+    conn: &mut Connection,
+    target: i64,
+) -> Result<(), StoreError> {
+    let target = target.max(BASELINE_USER_VERSION);
+    let current = read_user_version(conn)?;
+    for (version, down) in VERSIONED_DOWNS
+        .iter()
+        .filter(|(v, _)| *v > target && *v <= current)
+        .rev()
+    {
+        let tx = conn.transaction()?;
+        tx.execute_batch(down)?;
+        tx.execute_batch(&format!("PRAGMA user_version = {}", version - 1))?;
+        tx.commit()?;
+    }
+    Ok(())
 }

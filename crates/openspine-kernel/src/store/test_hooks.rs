@@ -40,4 +40,36 @@ impl super::Store {
             .expect("query kv scan");
         rows.map(|r| r.expect("row")).collect()
     }
+
+    /// Open a Store against an already-initialized DB file in READ-ONLY mode, so
+    /// the next write (e.g. `append_audit`) fails with a genuine IO/readonly
+    /// SQLite error — the disk-full/IO class (AD-139). The file MUST already have
+    /// the schema (open it normally first, then drop, then reopen read-only).
+    pub(crate) fn open_read_only_for_test(
+        path: &std::path::Path,
+    ) -> Result<super::Store, super::StoreError> {
+        use rusqlite::OpenFlags;
+        let conn = rusqlite::Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        Ok(super::Store {
+            conn: std::sync::Arc::new(parking_lot::Mutex::new(conn)),
+            #[cfg(test)]
+            activation_tx_failure: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            #[cfg(test)]
+            fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
+        })
+    }
+
+    /// Test-only access to the store's single shared connection. Used by
+    /// the literal disk-full (SQLITE_FULL) proof: it clamps
+    /// `PRAGMA max_page_count` on the real database file's connection and
+    /// saturates the audit ledger, so the production append path is driven
+    /// against a genuinely full database. The connection is an
+    /// `Arc<Mutex<Connection>>` shared by every `Store` clone, so
+    /// saturating it here is visible to the server's store too. The
+    /// closure must release the lock (return) before any store method that
+    /// re-locks, to avoid self-deadlock.
+    pub(crate) fn with_conn_for_test<R>(&self, f: impl FnOnce(&rusqlite::Connection) -> R) -> R {
+        let conn = self.conn.lock();
+        f(&conn)
+    }
 }

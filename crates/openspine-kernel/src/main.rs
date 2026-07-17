@@ -63,6 +63,34 @@ pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
             .map(|key| key.into_bytes())
     }
 }
+/// Sample the wall clock through `clock` and atomically commit that exact
+/// value as the boot high-water after confirming it did not regress against
+/// the pre-setup candidate. The helper is called only after listener bind.
+pub(crate) fn commit_post_bind_clock(
+    store: &store::Store,
+    pre_setup_ms: i64,
+    clock: impl Fn() -> i64,
+) -> anyhow::Result<()> {
+    let commit_now_ms = clock();
+    if commit_now_ms < pre_setup_ms.saturating_sub(60_000) {
+        anyhow::bail!(
+            "wall clock regressed during startup: post-bind now ({commit_now_ms} ms) is behind pre-setup candidate ({pre_setup_ms} ms)"
+        );
+    }
+    let commit_ms = pre_setup_ms.max(commit_now_ms);
+    match store
+        .commit_boot_clock(commit_ms)
+        .context("committing boot clock high-water")?
+    {
+        store::BootClockCheck::Ok { .. } => Ok(()),
+        store::BootClockCheck::Regressed {
+            high_water_ms,
+            now_ms,
+        } => anyhow::bail!(
+            "wall clock regressed during startup: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms)"
+        ),
+    }
+}
 
 /// The kernel binary's own CLI — distinct from `openspine-shell`'s (which
 /// takes `--kernel`/`--task`, never a config path: the shell never reads
@@ -117,6 +145,21 @@ async fn main() -> anyhow::Result<()> {
     };
     let store =
         store::Store::open(&cfg.data_dir.join("kernel.db")).context("opening kernel store")?;
+    let now_ms = jiff::Timestamp::now().as_millisecond();
+    match store
+        .validate_boot_clock(now_ms)
+        .context("checking boot clock high-water")?
+    {
+        store::BootClockCheck::Ok { .. } => {}
+        store::BootClockCheck::Regressed {
+            high_water_ms,
+            now_ms,
+        } => {
+            anyhow::bail!(
+                "wall clock regressed at boot: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms) beyond the 60s tolerance — refusing to start on a regressed clock; restore the clock or the backup before retrying"
+            );
+        }
+    }
     // Bootstrap the owner principal at startup (idempotent, transactional, fail-closed)
     let owner_principal = store
         .bootstrap_owner_principal(cfg.owner.telegram_user_id, &cfg.owner.display_name)
@@ -367,6 +410,7 @@ async fn main() -> anyhow::Result<()> {
         started_at: Instant::now(),
         spend_cap: cfg.spend_cap,
         overlay_dir,
+        conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
     });
 
     // AD-143 F1: Recover pending breach alerts that crashed in_flight.
@@ -375,6 +419,9 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&cfg.kernel.bind_addr)
         .await
         .with_context(|| format!("binding {}", cfg.kernel.bind_addr))?;
+    commit_post_bind_clock(&state.store, now_ms, || {
+        jiff::Timestamp::now().as_millisecond()
+    })?;
     tracing::info!(addr = %cfg.kernel.bind_addr, owner = cfg.owner.telegram_user_id, "openspine kernel starting");
 
     let http_server =
@@ -391,7 +438,7 @@ async fn main() -> anyhow::Result<()> {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
         res = retry_worker => res.context("dead-letter retry loop failed")?,
-        () = timer_driver => unreachable!("run_timer_driver loops forever"),
+        res = timer_driver => res.context("runtime clock/timer driver failed")?,
     }
 
     Ok(())

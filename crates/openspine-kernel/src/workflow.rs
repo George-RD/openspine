@@ -979,12 +979,13 @@ impl<'a> WorkflowCtx<'a> {
 /// timer's deadline (or `poll_interval`, whichever is sooner), fires every
 /// due timer, and repeats forever. Spawned from `main()`'s startup
 /// `tokio::select!`.
-pub(crate) async fn run_timer_driver(store: &Store, poll_interval: std::time::Duration) -> ! {
+pub(crate) async fn run_timer_driver(
+    store: &Store,
+    poll_interval: std::time::Duration,
+) -> anyhow::Result<()> {
     loop {
         let now = Timestamp::now();
-        if let Err(err) = store.fire_due_timers(now) {
-            tracing::error!("workflow timer driver: {err}");
-        }
+        run_timer_driver_iteration(store, now)?;
         let sleep_for = store
             .next_timer_deadline()
             .ok()
@@ -997,6 +998,14 @@ pub(crate) async fn run_timer_driver(store: &Store, poll_interval: std::time::Du
             .unwrap_or(poll_interval);
         tokio::time::sleep(sleep_for).await;
     }
+}
+
+pub(crate) fn run_timer_driver_iteration(store: &Store, now: Timestamp) -> anyhow::Result<()> {
+    store.observe_runtime_clock(now.as_millisecond())?;
+    if let Err(err) = store.fire_due_timers(now) {
+        tracing::error!("workflow timer driver: {err}");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

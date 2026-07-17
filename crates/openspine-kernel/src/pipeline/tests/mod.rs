@@ -5,6 +5,7 @@ pub(crate) mod approval;
 mod bot_identity;
 mod bot_identity_support;
 mod callback_ack;
+mod concurrency;
 mod digest;
 mod driver;
 mod effect_paths;
@@ -12,7 +13,6 @@ mod offset;
 mod plan;
 mod secret_intake_integration;
 mod token_rotation;
-
 pub(crate) use approval::approval_fixture_grant;
 
 #[tokio::test]

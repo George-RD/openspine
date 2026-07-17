@@ -13,11 +13,11 @@
 //! this kernel serves one owner at a time, so lock contention is not a
 //! concern, and every method here does a single small, fast query.
 //!
-//! No migration mechanism (`PRAGMA user_version` + `ALTER TABLE`) exists
-//! yet — `CREATE TABLE IF NOT EXISTS` only ever runs against a fresh file.
-//! Acceptable while every deploy target is dev-only (D-020); the first
-//! schema change that must survive an existing on-disk `data/kernel.db`
-//! needs one added before it ships.
+//! No migration mechanism existed prior to AD-139 — `CREATE TABLE IF NOT EXISTS`
+//! only ever ran against a fresh file. Every deploy target was dev-only.
+//! The day-2 operations contract (AD-139) introduced versioned migrations
+//! (`PRAGMA user_version`) with a documented downgrade path, upgrading the
+//! ad-hoc lane once a destructive schema change is first needed.
 
 use std::path::Path;
 #[cfg(test)]
@@ -159,6 +159,8 @@ pub enum StoreError {
     CheckpointFilterMismatch(String),
     #[error("consumer checkpoint regression for {0}")]
     CheckpointRegression(String),
+    #[error("clock regression: {0}")]
+    ClockRegression(String),
     #[error("numeric ledger value out of SQLite range")]
     NumericRange,
     #[error("task grant not found for escalation: {0}")]
@@ -173,15 +175,17 @@ pub enum StoreError {
     LedgerCorrupted,
     #[error("workflow timer unknown or never scheduled: {0}")]
     WorkflowTimerUnknown(String),
+    #[error("unsupported database schema version {current} (latest supported is {latest})")]
+    UnsupportedVersion { current: i64, latest: i64 },
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let conn = Connection::open(path)?;
-        conn.execute_batch(SCHEMA_SQL)?;
-        migrations::apply_ad_hoc_migrations(&conn)?;
+        let mut conn = Connection::open(path)?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        migrations::apply_versioned_migrations(&mut conn)?;
         Ok(Self {
             conn: std::sync::Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -192,9 +196,9 @@ impl Store {
     }
 
     pub fn open_in_memory() -> Result<Self, StoreError> {
-        let conn = Connection::open_in_memory()?;
-        conn.execute_batch(SCHEMA_SQL)?;
-        migrations::apply_ad_hoc_migrations(&conn)?;
+        let mut conn = Connection::open_in_memory()?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        migrations::apply_versioned_migrations(&mut conn)?;
         Ok(Self {
             conn: std::sync::Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -520,9 +524,13 @@ impl Store {
 }
 
 mod audit_support;
+pub(crate) mod boot_clock;
+pub(crate) use boot_clock::BootClockCheck;
 mod budget_support;
 #[cfg(test)]
 mod budget_support_tests;
+#[cfg(test)]
+mod day2_tests;
 mod digest_store;
 pub(crate) mod eval_verdict_store;
 #[cfg(test)]
