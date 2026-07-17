@@ -75,6 +75,20 @@ pub(crate) fn load(
             overlay_dir.display()
         )
     })?;
+    // On a real first boot, ship the AD-153 seed workflow set into the overlay
+    // namespace. Gated to non-test builds so the shared `load` used by unit
+    // tests (including overlay-recovery tests) does not materialize files into
+    // their fixtures. `materialize_missing` records a persisted marker, so it
+    // runs exactly once per fresh install: a seed the owner deletes is not
+    // re-created, and an owner-upgraded higher version stays live
+    // (highest-version-wins). An existing file is never overwritten.
+    #[cfg(not(test))]
+    crate::seed_workflows::materialize_missing(store, &overlay_dir).with_context(|| {
+        format!(
+            "materializing seed workflows into {}",
+            overlay_dir.display()
+        )
+    })?;
     let mut overlay_registry = artifact_loader::load_registry(&overlay_dir)
         .with_context(|| format!("loading artifact overlay from {}", overlay_dir.display()))?;
     for (kind, subdir) in [

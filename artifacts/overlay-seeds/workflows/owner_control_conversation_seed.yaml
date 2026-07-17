@@ -1,0 +1,43 @@
+# AD-153 minimal seed workflow set. Ships as an OVERLAY artifact (never a
+# kernel/base fixture, AD-071/AD-080 precedent): materialized into a fresh
+# install's overlay namespace by `seed_workflows::materialize_missing`, then
+# owned exactly like any other learned artifact (editable, replaceable,
+# survives updates untouched per AD-070). Mirrors the shape of the
+# already-proven `owner_control_conversation` base fixture but ships under a
+# distinct id so it never collides with that base identity.
+id: owner_control_conversation_seed
+schema_version: 1
+version: 1
+lifecycle_state: active
+purpose: Seed - owner-facing conversational orchestration over the verified owner-control channel.
+required_agent: main_assistant_agent
+required_capability_pack: owner_control_basic_pack
+initial_state: received
+states:
+  - id: received
+    steps:
+      - id: verify_owner
+        kind: deterministic
+        reasoning_tier: low
+  - id: composed
+    steps:
+      - id: compose_reply
+        kind: agentic
+        reasoning_tier: standard
+  - id: replied
+    steps:
+      - id: send_reply
+        kind: deterministic
+        reasoning_tier: low
+transitions:
+  - from: received
+    to: composed
+    event: routed
+  - from: composed
+    to: replied
+    event: ready
+candidate_allowed_actions:
+  - openspine.status.read
+  - "telegram.reply:owner_channel"
+approval_required: []
+denied_actions: []

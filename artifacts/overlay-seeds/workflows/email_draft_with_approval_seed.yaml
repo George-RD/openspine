@@ -1,0 +1,50 @@
+# AD-153 minimal seed workflow set. OVERLAY artifact (see
+# owner_control_conversation_seed.yaml header). The approval-required state
+# (`awaiting_approval`, approval_action `email.create_draft`) is the
+# digest-bound approval contract exercised by the seed-workflows acceptance
+# test: a run cannot leave the state without a Store-backed, digest-bound
+# owner approval of the exact declared action (D-087/D-088).
+id: email_draft_with_approval_seed
+schema_version: 1
+version: 1
+lifecycle_state: active
+purpose: Seed - draft a reply to an email and require owner approval before any draft is created.
+required_agent: email_reply_drafter
+required_capability_pack: selected_thread_email_draft_pack
+initial_state: selected
+states:
+  - id: selected
+    steps:
+      - id: read_thread
+        kind: deterministic
+        reasoning_tier: low
+  - id: drafted
+    steps:
+      - id: compose_draft
+        kind: agentic
+        reasoning_tier: high
+  - id: awaiting_approval
+    approval: required
+    approval_action: email.create_draft
+    steps:
+      - id: present_draft
+        kind: deterministic
+        reasoning_tier: low
+  - id: approved
+    steps: []
+transitions:
+  - from: selected
+    to: drafted
+    event: thread_read
+  - from: drafted
+    to: awaiting_approval
+    event: draft_ready
+  - from: awaiting_approval
+    to: approved
+    event: owner_approved
+candidate_allowed_actions:
+  - "email.read_thread:selected_no_attachments"
+  - "model.generate:approved_provider"
+approval_required:
+  - email.create_draft
+denied_actions: []

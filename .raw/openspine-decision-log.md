@@ -102,6 +102,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-088 | A workflow transition writes exactly one advancing durable step with edge-bound approval semantics | Accepted |
 | D-089 | Reasoning-tier routing stores only explicit overrides and resolves the active provider per call | Accepted |
 | D-090 | Workflow manifests are digest-bound at run start; production driving is deferred to worker-runtime/seed-workflows | Accepted |
+| D-091 | Seed workflows ship as overlay artifacts under distinct seed identities through the standard quarantine path with marker-gated first-boot materialization | Accepted |
 
 ---
 
@@ -2201,6 +2202,27 @@ worker-runtime lands and assumes the driving contract, or a migration ceremony f
 ---
 
 
+# D-091 — Seed workflows ship as overlay artifacts through the standard path
+
+## Decision
+
+The AD-153 seed set ships as embedded templates materialized once (kv-marker-gated first boot) into the overlay namespace under distinct `_seed` artifact identities, then loads through the SAME quarantine/owner-reconfirmation lifecycle as any discovered overlay artifact (D-080); materialization never overwrites existing files, and owner deletions are honored after the first boot. The customer-service intake seed forward-declares its agent/pack identifiers for future proposals.
+
+## Rationale
+
+AD-153 forbids kernel fixtures; reusing the discovery path instead of a bespoke seed activation branch keeps the provenance invariant total and the seed set user-editable/versioned like everything else.
+
+## Consequences
+
+Seeds are visible, reviewable, and supersedable by higher overlay versions; no special-cased authority or hidden activation exists for shipped content.
+
+## Would change if
+
+A ratified first-run onboarding ceremony pre-accepts seeds with explicit owner consent.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -2262,4 +2284,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-082 (transactionally idempotent task-board timer consumption with permanent AckSkip + blocked audit), D-083 (atomic grant/handoff/audit dispatch with receipt-keyed fail-closed recovery), and D-084 (deterministic bounded task slices; hysteresis deferred), settled while implementing `implement-task-board`. |
 | 2026-07-17 | Added D-085 (lane-derived briefcase task classes pending canon ratification) and D-086 (bounded pre-gate email metadata snapshot carrying only the recipient), settled while implementing `implement-briefcase-packing`. |
 | 2026-07-17 | Added D-087 (declarative state machines with digest-bound approval authorization), D-088 (exactly-one advancing step with edge-bound approval semantics), D-089 (per-call active-provider tier resolution), and D-090 (digest-bound manifests at run start; production driving deferred to worker-runtime/seed-workflows), settled while implementing `implement-workflow-state-machines`. |
+| 2026-07-17 | Added D-091 (seed workflows as overlay artifacts through the standard quarantine path with marker-gated first-boot materialization), settled while implementing `implement-seed-workflows`. |
 
