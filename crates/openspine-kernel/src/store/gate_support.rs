@@ -64,6 +64,25 @@ impl Store {
         Ok(())
     }
 
+    /// Delete a selection token by ID, used for rollback (no orphaned tokens on failure).
+    pub fn delete_selection_token(&self, id: Ulid) -> Result<(), StoreError> {
+        let conn = self.conn.lock();
+        conn.execute(
+            "DELETE FROM selection_tokens WHERE id = ?1",
+            params![id.to_string()],
+        )?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn count_selection_tokens(&self) -> Result<usize, StoreError> {
+        let conn = self.conn.lock();
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM selection_tokens", [], |row| {
+            row.get(0)
+        })?;
+        Ok(count as usize)
+    }
+
     /// Backs `openspine_gate::GateContext::find_selection_token` (Step 5).
     pub fn find_selection_token(&self, id: Ulid) -> Result<Option<SelectionToken>, StoreError> {
         let conn = self.conn.lock();

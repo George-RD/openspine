@@ -542,6 +542,9 @@ pub(crate) mod activation;
 mod audit_support;
 pub(crate) mod boot_clock;
 pub(crate) use boot_clock::BootClockCheck;
+pub(crate) mod briefcase_support;
+#[cfg(test)]
+mod briefcase_support_tests;
 mod budget_support;
 #[cfg(test)]
 mod budget_support_tests;

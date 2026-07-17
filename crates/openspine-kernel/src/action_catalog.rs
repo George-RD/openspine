@@ -70,6 +70,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("artifact.nominate_upstream"),
         id("coolify.delete_resource"),
         id("owner.notify"),
+        id("briefcase.topup"),
         // --- AD-060: egress-class rated web endpoints ---
         id("web.search"),
         id("web.forum_browse"),
@@ -101,6 +102,14 @@ pub fn canonical_catalog() -> ActionCatalog {
         },
         EffectPath {
             name: "activate_approved_artifact".to_string(),
+            classification: EffectPathClass::PostGateApprovedEffect,
+        },
+        EffectPath {
+            name: "resolve_email_counterparty".to_string(),
+            classification: EffectPathClass::PreGateOwnerSelectedRead,
+        },
+        EffectPath {
+            name: "briefcase.topup".to_string(),
             classification: EffectPathClass::PostGateApprovedEffect,
         },
         EffectPath {
@@ -159,8 +168,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            15,
-            "Expected exactly 15 classified effect paths, got {:?}",
+            17,
+            "Expected exactly 17 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -176,6 +185,8 @@ mod tests {
         assert!(path_names.contains(&"create_approved_draft"));
         assert!(path_names.contains(&"activate_approved_artifact"));
         assert!(path_names.contains(&"dispatch_read_selected_thread"));
+        assert!(path_names.contains(&"resolve_email_counterparty"));
+        assert!(path_names.contains(&"briefcase.topup"));
         assert!(path_names.contains(&"fire_due_workflow_timers"));
         assert!(path_names.contains(&"dispatch_lyra_preview/propose_draft_creation"));
         assert!(path_names.contains(&"dispatch_artifact_propose"));

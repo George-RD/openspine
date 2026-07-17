@@ -7,14 +7,14 @@
 
 use super::gmail_state_with_real_thread;
 use crate::config::SpendCapConfig;
-use crate::pipeline::driver::{
-    email_preview_lane, owner_control_lane, run_pipeline, EventInputs, PipelineStage,
-};
+use crate::pipeline::driver::{run_pipeline, PipelineStage};
+use crate::pipeline::lanes::{email_preview_lane, owner_control_lane, EventInputs};
 use crate::store::spend::utc_day as ledger_utc_day;
 use crate::telegram::TelegramConnector;
 use crate::test_support::fixtures::test_state;
 use crate::test_support::fixtures::test_state_with_telegram;
 use jiff::Timestamp;
+use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::event::Lane;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -119,6 +119,108 @@ async fn email_lane_executed_stage_trace_matches_sync_prefix() {
     .unwrap();
     assert!(result.is_some(), "email-preview lane must compose a grant");
     assert_eq!(trace, PipelineStage::SYNC_PREFIX.to_vec());
+}
+
+#[tokio::test]
+async fn email_lane_preflight_resolves_counterparty_into_persisted_briefcase() {
+    let (state, _token_server, _api_server) = gmail_state_with_real_thread().await;
+    let inputs = EventInputs {
+        chat_id: 555,
+        text: "/draft thread-1".to_string(),
+        thread_id: Some("thread-1".to_string()),
+        owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
+    };
+    let mut trace = Vec::new();
+    let result = run_pipeline(
+        &state,
+        email_preview_lane(),
+        &inputs,
+        Timestamp::now(),
+        &mut trace,
+    )
+    .await
+    .unwrap();
+    let grant = result.expect("email-preview lane must compose a grant");
+    assert_eq!(trace, PipelineStage::SYNC_PREFIX.to_vec());
+
+    // The counterparty address was resolved in the pre-gate preflight and
+    // packed truthfully — never a silent "unavailable" placeholder.
+    let briefcase = state.store.find_briefcase(grant.id).unwrap().unwrap();
+    match briefcase.task_shape.counterparty {
+        CounterpartyRef::Unresolved {
+            channel,
+            identifier,
+        } => {
+            assert_eq!(channel, "email");
+            assert_eq!(
+                identifier,
+                "email:ff8d9819fc0e12bf0d24892e45987e249a28dce836a85cad60e28eaaa8c6d976"
+            );
+        }
+        other => panic!("expected Unresolved counterparty, got {other:?}"),
+    }
+    // The pre-gate recipient read is audited as a catalogued effect (D-055).
+    assert!(
+        state
+            .store
+            .count_audit_events_of_kind("email.counterparty.resolved")
+            .unwrap()
+            > 0,
+        "preflight recipient resolution must be audited"
+    );
+}
+
+#[tokio::test]
+async fn injected_briefcase_persist_failure_leaves_no_spawn_or_orphans() {
+    let (state, _token_server, _api_server) = gmail_state_with_real_thread().await;
+    state.store.install_test_briefcase_insert_failure().unwrap();
+    let inputs = EventInputs {
+        chat_id: 555,
+        text: "/draft thread-1".to_string(),
+        thread_id: Some("thread-1".to_string()),
+        owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        principal_override: None,
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
+    };
+    let mut trace = Vec::new();
+    let result = run_pipeline(
+        &state,
+        email_preview_lane(),
+        &inputs,
+        Timestamp::now(),
+        &mut trace,
+    )
+    .await;
+    assert!(
+        result.is_err(),
+        "injected persistence failure must fail closed"
+    );
+    assert_eq!(state.store.count_task_grants().unwrap(), 0);
+    assert_eq!(state.store.count_selection_tokens().unwrap(), 0);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("task.shell_completed")
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("task.shell_failed")
+            .unwrap(),
+        0
+    );
 }
 
 #[tokio::test]

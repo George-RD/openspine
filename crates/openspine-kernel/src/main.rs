@@ -3,6 +3,8 @@ mod api;
 mod artifact_loader;
 mod artifact_store;
 mod benchmark;
+mod briefcase;
+mod briefcase_visibility;
 mod config;
 mod connectors;
 mod escalation;

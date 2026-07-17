@@ -1,99 +1,27 @@
-use super::lanes::{
-    email_build_envelope, email_grant_binding, email_preflight, email_route_guard,
-    owner_build_envelope, owner_grant_binding, owner_preflight, owner_route_guard,
-    scheduled_build_envelope, scheduled_grant_binding, scheduled_preflight, scheduled_route_guard,
-};
-pub use super::stages::PipelineStage;
-use super::{empty_session_policy, notify_owner_best_effort, AppState};
+//! The single typed pipeline driver and lane specifications.
+//!
+//! Exposes `run_pipeline` which executes the synchronous prefix of stages.
+//! MUST NOT import or call `gate()`.
+
 use jiff::Timestamp;
 use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
-use openspine_schemas::artifact::ArtifactRef;
-use openspine_schemas::event::{ChannelTrust, EventEnvelope, Lane};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::route::RouteResolution;
-use std::future::Future;
-use std::pin::Pin;
 use ulid::Ulid;
-pub struct EventInputs {
-    pub chat_id: i64,
-    pub text: String,
-    pub thread_id: Option<String>,
-    pub owner_verified: Option<crate::telegram::VerifiedOwnerContext>,
-    pub principal_override: Option<Ulid>,
-    pub event_type_override: Option<openspine_schemas::event::EventType>,
-    #[allow(dead_code)]
-    pub timer_event_id: Option<String>,
-    pub correlated_task_id: Option<Ulid>,
-    pub dispatch_key: Option<String>,
-    pub dispatch_timer_id: Option<String>,
-}
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PreflightFailure {
-    GmailNotConfigured,
-    RefusedUncontained,
-    ThreadNotFound { thread_id: String },
-    GmailError { err: String },
-}
-pub type PreflightFn =
-    for<'a> fn(
-        &'a AppState,
-        &'a EventInputs,
-        Lane,
-        Timestamp,
-    ) -> Pin<Box<dyn Future<Output = Result<(), PreflightFailure>> + Send + 'a>>;
-pub type BuildEnvelopeFn =
-    fn(&AppState, &EventInputs, Timestamp) -> anyhow::Result<(EventEnvelope, ArtifactRef)>;
-pub type RouteGuardFn = fn(&AppState, &EventEnvelope, Lane) -> anyhow::Result<bool>;
-pub type GrantBindingFn = fn(
-    &AppState,
-    &mut TaskGrant,
-    &EventInputs,
-    &ArtifactRef,
-    Timestamp,
-) -> anyhow::Result<ArtifactRef>;
-#[derive(Clone, Copy)]
-pub struct LaneSpec {
-    pub lane: Lane,
-    pub channel_trust: ChannelTrust,
-    pub purpose: &'static str,
-    pub build_envelope: BuildEnvelopeFn,
-    pub preflight: PreflightFn,
-    pub route_containment_guard: RouteGuardFn,
-    pub grant_binding: GrantBindingFn,
-}
-pub fn owner_control_lane() -> LaneSpec {
-    LaneSpec {
-        lane: Lane::OwnerControl,
-        channel_trust: ChannelTrust::VerifiedOwnerChannel,
-        purpose: "owner_control_conversation",
-        build_envelope: owner_build_envelope,
-        preflight: owner_preflight,
-        route_containment_guard: owner_route_guard,
-        grant_binding: owner_grant_binding,
-    }
-}
-pub fn email_preview_lane() -> LaneSpec {
-    LaneSpec {
-        lane: Lane::ExternalCommunication,
-        channel_trust: ChannelTrust::OwnerDevice,
-        purpose: "selected_thread_email_reply_draft",
-        build_envelope: email_build_envelope,
-        preflight: email_preflight,
-        route_containment_guard: email_route_guard,
-        grant_binding: email_grant_binding,
-    }
-}
-pub fn scheduled_internal_lane() -> LaneSpec {
-    LaneSpec {
-        lane: Lane::ScheduledInternal,
-        channel_trust: ChannelTrust::Unknown,
-        purpose: "task_board_scheduled",
-        build_envelope: scheduled_build_envelope,
-        preflight: scheduled_preflight,
-        route_containment_guard: scheduled_route_guard,
-        grant_binding: scheduled_grant_binding,
-    }
-}
+
+use super::driver_failures::emit_preflight_failure;
+use super::lanes::{EventInputs, LaneSpec};
+pub use super::stages::PipelineStage;
+use super::{empty_session_policy, AppState};
+
+/// Run one verified owner event through the pipeline's synchronous prefix,
+/// interpreting `spec` as lane data. Returns `Ok(None)` for every outcome the
+/// pipeline itself decides on; `Ok(Some(grant))` once authority has been
+/// composed and persisted regardless of whether the shell spawn succeeds; and
+/// `Err` only for a genuine infrastructure failure.
+///
+/// `trace` receives the stages as they execute and must equal
+/// [`PipelineStage::SYNC_PREFIX`] on the happy path for both lanes.
 pub async fn run_pipeline(
     state: &AppState,
     spec: LaneSpec,
@@ -121,10 +49,18 @@ pub async fn run_pipeline(
     }
     trace.push(PipelineStage::Event);
     trace.push(PipelineStage::Verify);
-    if let Err(failure) = (spec.preflight)(state, inputs, spec.lane, now).await {
-        emit_preflight_failure(state, inputs.chat_id, failure).await?;
-        return Ok(None);
-    }
+    let preflight_snapshot = match (spec.preflight)(state, inputs, spec.lane, now).await {
+        Ok(snapshot) => snapshot,
+        Err(failure) => {
+            emit_preflight_failure(state, inputs.chat_id, failure).await?;
+            return Ok(None);
+        }
+    };
+
+    // The audited event envelope is emitted by the driver only after Verify
+    // succeeds — preflight failures never reach here, so no `event.received`
+    // is ever emitted on a preflight-failure path (preserves both flows'
+    // audit surface).
     let (envelope, raw_ref) = (spec.build_envelope)(state, inputs, now)?;
     state.store.append_audit(
         "event.received",
@@ -308,8 +244,6 @@ pub async fn run_pipeline(
             return Ok(None);
         }
     };
-    trace.push(PipelineStage::Grant);
-    let pending_ref = (spec.grant_binding)(state, &mut grant, inputs, &raw_ref, now)?;
     let Some(key) = crate::grant_hmac_key() else {
         state.store.append_audit(
             "authority.denied",
@@ -320,8 +254,28 @@ pub async fn run_pipeline(
             &[],
             &[],
         )?;
+        crate::failure_surfacing::notify_immediate_failure(
+            state,
+            inputs.chat_id,
+            crate::failure_surfacing::FailureClass::Authority,
+            "Grant HMAC key is not configured",
+        )
+        .await?;
         return Ok(None);
     };
+
+    let rollback_tokens = |ids: &[Ulid]| -> anyhow::Result<()> {
+        for token_id in ids {
+            state
+                .store
+                .delete_selection_token(*token_id)
+                .map_err(|err| anyhow::anyhow!("selection-token rollback failed: {err}"))?;
+        }
+        Ok(())
+    };
+    // Grant stage — lane binding, then persist the grant and audit it.
+    trace.push(PipelineStage::Grant);
+    let pending_ref = (spec.grant_binding)(state, &mut grant, inputs, &raw_ref, now)?;
     grant.seal_root(&key);
     if let Some(dispatch_key) = inputs.dispatch_key.as_deref() {
         let token_ref = state.artifacts.put(grant.task_token.as_bytes())?;
@@ -335,9 +289,31 @@ pub async fn run_pipeline(
             inputs.correlated_task_id,
         )?;
     } else {
-        state
-            .store
-            .insert_task_grant(&grant, &pending_ref, inputs.chat_id)?;
+        let briefcase_result = crate::briefcase::pack_for_pipeline(
+            state,
+            inputs.thread_id.as_deref(),
+            spec.lane,
+            &grant,
+            preflight_snapshot.counterparty_address.as_deref(),
+        )
+        .await;
+        let briefcase = match briefcase_result {
+            Ok(b) => b,
+            Err(err) => {
+                rollback_tokens(&grant.selection_tokens)?;
+                return Err(err.into());
+            }
+        };
+        let insert_result = state.store.insert_grant_and_briefcase_atomic(
+            &grant,
+            &pending_ref,
+            inputs.chat_id,
+            &briefcase,
+        );
+        if let Err(err) = insert_result {
+            rollback_tokens(&grant.selection_tokens)?;
+            return Err(err.into());
+        }
     }
     if inputs.dispatch_key.is_none() {
         state.store.append_audit(
@@ -350,6 +326,9 @@ pub async fn run_pipeline(
             &[pending_ref],
         )?;
     }
+
+    // Run stage — spawn the sandboxed shell. A spawn failure is audited but
+    // does not suppress the already-composed grant.
     trace.push(PipelineStage::Run);
     let handoff_result = state
         .sandbox
@@ -379,83 +358,12 @@ pub async fn run_pipeline(
                 "task.shell_failed",
                 None,
                 None,
-                None,
+                Some(&err.to_string()),
                 Some(grant.id),
                 &[],
                 &[],
             )?;
-            crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Resource,
-                "shell task failed",
-                &format!("shell task failed: {err}"),
-            )?;
         }
     }
     Ok(Some(grant))
-}
-async fn emit_preflight_failure(
-    state: &AppState,
-    chat_id: i64,
-    failure: PreflightFailure,
-) -> anyhow::Result<()> {
-    match failure {
-        PreflightFailure::GmailNotConfigured => {
-            state.store.append_audit(
-                "selection.gmail_not_configured",
-                None,
-                None,
-                Some("no gmail connector configured; /draft is unavailable"),
-                None,
-                &[],
-                &[],
-            )?;
-            notify_owner_best_effort(
-                state,
-                chat_id,
-                "Gmail isn't configured on this kernel yet, so /draft is unavailable.",
-            )
-            .await;
-        }
-        PreflightFailure::RefusedUncontained => {
-            state.store.append_audit(
-                "route.refused_uncontained",
-                None,
-                None,
-                Some("external_communication lane requires a containing sandbox driver"),
-                None,
-                &[],
-                &[],
-            )?;
-        }
-        PreflightFailure::ThreadNotFound { thread_id } => {
-            state.store.append_audit(
-                "selection.thread_not_found",
-                None,
-                None,
-                Some(&thread_id),
-                None,
-                &[],
-                &[],
-            )?;
-            notify_owner_best_effort(
-                state,
-                chat_id,
-                &format!("Couldn't find a Gmail thread with id \"{thread_id}\"."),
-            )
-            .await;
-        }
-        PreflightFailure::GmailError { err } => {
-            state
-                .store
-                .append_audit("selection.gmail_error", None, None, None, None, &[], &[])?;
-            crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Connector,
-                "gmail connector error",
-                &format!("gmail: {err}"),
-            )?;
-        }
-    }
-    Ok(())
 }
