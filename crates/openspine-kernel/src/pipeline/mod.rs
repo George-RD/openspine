@@ -27,6 +27,8 @@
 //! `principal_id` (AD-146).
 mod approval;
 mod artifact_activation;
+mod artifact_nomination;
+mod artifact_reconfirmation;
 mod digest_pagination;
 mod driver;
 mod lanes;
@@ -109,6 +111,10 @@ pub struct AppState {
     pub spend_cap: crate::config::SpendCapConfig,
     pub conversation_locks:
         parking_lot::Mutex<std::collections::HashMap<i64, std::sync::Arc<tokio::sync::Mutex<()>>>>,
+    /// `(kind, id)` identities loaded from base fixtures before overlay merge.
+    pub base_artifact_ids: std::collections::HashSet<(String, String)>,
+    /// Digest of sorted active base artifacts reviewed by owner taps.
+    pub base_compatibility_epoch: String,
 }
 
 impl AppState {
@@ -429,6 +435,53 @@ fn kernel_notify_grant() -> Option<TaskGrant> {
         root_grant_id: Ulid::nil(),
         parent_grant_id: None,
         mode: openspine_schemas::grant::GrantMode::Live,
+        chain: vec![],
+        caveat_mac: String::new(),
+        thread_id: None,
+    };
+    grant.seal_root(&key);
+    Some(grant)
+}
+
+/// Short-lived owner-bound synthetic grant minted at the moment an owner taps
+/// an `artifact.reconfirm` button (AD-070). The durable review object is the
+/// pending learned-artifact row + ActionRequest; authority begins only here.
+pub(super) fn mint_reconfirm_grant(task_grant_id: Ulid) -> Option<TaskGrant> {
+    use openspine_schemas::action::ActionId;
+    use openspine_schemas::grant::GrantMode;
+    let key = crate::grant_hmac_key()?;
+    let now = Timestamp::now();
+    let reconfirm = ActionId::new("artifact.reconfirm");
+    let mut grant = TaskGrant {
+        id: task_grant_id,
+        schema_version: 1,
+        lifecycle_state: Lifecycle::Active,
+        user: "kernel".to_string(),
+        purpose: "overlay-reconfirm".to_string(),
+        issued_by: "kernel".to_string(),
+        issued_at: now,
+        expires_at: now + std::time::Duration::from_secs(300),
+        event_id: Ulid::new(),
+        route_id: "overlay_reconfirm".to_string(),
+        agent_id: "kernel".to_string(),
+        workflow_id: "overlay_reconfirm".to_string(),
+        capability_pack_id: "kernel".to_string(),
+        authority_sources: vec![],
+        selection_tokens: vec![],
+        allowed_actions: vec![reconfirm.clone()],
+        approval_required_actions: vec![reconfirm],
+        denied_actions: vec![],
+        allowed_egress_classes: vec![],
+        output_channels: vec![],
+        limits: GrantLimits {
+            max_model_calls: 0,
+            max_artifacts: 0,
+            max_runtime_seconds: 0,
+        },
+        task_token: format!("reconfirm-{}", Ulid::new()),
+        root_grant_id: Ulid::nil(),
+        parent_grant_id: None,
+        mode: GrantMode::Live,
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,

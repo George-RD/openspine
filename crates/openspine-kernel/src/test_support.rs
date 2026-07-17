@@ -95,6 +95,8 @@ pub(crate) mod fixtures {
             )]),
             started_at: std::time::Instant::now(),
             overlay_dir,
+            base_artifact_ids: std::collections::HashSet::new(),
+            base_compatibility_epoch: String::new(),
             // Effectively unlimited for unit tests; real configs set a finite cap.
             spend_cap: crate::config::SpendCapConfig {
                 model_calls_per_day: i64::MAX as u64,

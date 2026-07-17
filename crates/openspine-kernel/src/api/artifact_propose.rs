@@ -108,6 +108,14 @@ pub(super) async fn dispatch_artifact_propose(
     let kind = parsed.kind().to_string();
     let artifact_id = parsed.artifact_id().to_string();
     let version = parsed.version();
+    if state
+        .base_artifact_ids
+        .contains(&(kind.clone(), artifact_id.clone()))
+    {
+        return Err(DispatchError::BadRequest(
+            "artifact id is owned by the base namespace; choose a new id".to_string(),
+        ));
+    }
 
     // 3. Reject duplicates across the live registry and pending proposals
     //    (D-028 monotonic versions). Read guard held only for the scan.
@@ -120,6 +128,21 @@ pub(super) async fn dispatch_artifact_propose(
         .store
         .proposed_artifact_exists(&kind, &artifact_id, version)
         .map_err(|err| DispatchError::Resource(err.into()))?;
+    let current_version = {
+        let registry = state.registry.read();
+        crate::artifact_loader::artifact_version(&registry, &kind, &artifact_id)
+    };
+    let pending_version = state
+        .store
+        .highest_proposed_version(&kind, &artifact_id)
+        .map_err(|err| DispatchError::Resource(err.into()))?;
+    if current_version.is_some_and(|current| version < current)
+        || pending_version.is_some_and(|pending| version < pending)
+    {
+        return Err(DispatchError::BadRequest(
+            "artifact version is lower than the active or pending version".to_string(),
+        ));
+    }
     if exists_in_registry || exists_in_proposals {
         return Err(DispatchError::BadRequest(
             "artifact id/version already exists; bump version".to_string(),

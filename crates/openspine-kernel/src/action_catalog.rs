@@ -66,6 +66,8 @@ pub fn canonical_catalog() -> ActionCatalog {
         id("email.create_draft"),
         // --- fixtures: owner_control_basic_pack approval_required ---
         id("artifact.activate"),
+        id("artifact.reconfirm"),
+        id("artifact.nominate_upstream"),
         id("coolify.delete_resource"),
         id("owner.notify"),
         // --- AD-060: egress-class rated web endpoints ---

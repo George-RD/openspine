@@ -17,6 +17,7 @@ designed_tools:
   - openspine.status.read
   - "workflow.invoke:approved"
   - artifact.propose
+  - artifact.nominate_upstream
   - setup.workflow.start
   - "memory.read:owner_preferences_limited"
   - "model.generate:approved_provider"

@@ -76,6 +76,28 @@ pub(super) async fn handle_draft_approval_callback(
         notify_owner_best_effort(state, chat_id, "That approval request is no longer valid.").await;
         return Ok(());
     };
+    // artifact.reconfirm requests are minted at startup with a reserved
+    // task_grant_id but no grant row; mint a fresh short-lived owner-bound
+    // grant at tap time so the normal channel-bind/consume/gate/post-approval
+    // path runs unchanged. Authority TTL starts only here, not at mint.
+    if request.action.as_str() == "artifact.reconfirm" {
+        let existing = state.store.find_task_grant_by_id(request.task_grant_id)?;
+        let refresh = existing
+            .as_ref()
+            .is_none_or(|(grant, _, _)| grant.is_expired(Timestamp::now()));
+        if refresh {
+            if let Some(grant) = super::mint_reconfirm_grant(request.task_grant_id) {
+                if existing.is_some() {
+                    state.store.refresh_task_grant(&grant)?;
+                } else {
+                    let pending_ref = state.artifacts.put(b"reconfirm-synthetic-pending")?.clone();
+                    state
+                        .store
+                        .insert_task_grant(&grant, &pending_ref, chat_id)?;
+                }
+            }
+        }
+    }
 
     let Some((grant, _pending_ref, bound_chat_id)) =
         state.store.find_task_grant_by_id(request.task_grant_id)?
@@ -120,7 +142,13 @@ pub(super) async fn handle_draft_approval_callback(
     // callback from the wrong chat (or for a dead grant) must stay a
     // no-op deny, not burn the request and permanently kill the real
     // owner's Approve button.
-    if !state.store.try_consume_action_request(action_request_id)? {
+    // Reconfirm requests consume the action request *inside* the durable
+    // reconfirm transaction (so a failed commit leaves it retryable); every
+    // other request is consumed here, before any side effect, to prevent a
+    // second tap from minting a duplicate approval/draft.
+    if request.action.as_str() != "artifact.reconfirm"
+        && !state.store.try_consume_action_request(action_request_id)?
+    {
         state.store.append_audit(
             "draft.approval_already_handled",
             Some(&request.action),

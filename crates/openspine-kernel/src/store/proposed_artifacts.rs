@@ -14,8 +14,6 @@
 
 use crate::overlay_eval_gate::{JudgePassed, ReplayPassed};
 use jiff::Timestamp;
-use openspine_schemas::action::ActionId;
-use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::artifact::{can_transition, Lifecycle};
 use openspine_schemas::lineage::ArtifactLineage;
 use rusqlite::{params, OptionalExtension};
@@ -133,7 +131,7 @@ fn lineage_from_json(s: Option<&str>) -> Result<Option<ArtifactLineage>, StoreEr
 }
 
 impl Store {
-    pub fn find_proposed_artifact(
+    pub fn find_proposed_artifact_state(
         &self,
         kind: &str,
         artifact_id: &str,
@@ -154,97 +152,6 @@ impl Store {
         .optional()?
         .map(|(state, digest)| Ok((parse_lifecycle(&state)?, digest)))
         .transpose()
-    }
-}
-
-impl Store {
-    pub fn activate_with_audit(
-        &self,
-        proposal_id: Ulid,
-        action: &ActionId,
-        grant_id: Ulid,
-        payload_ref: &ArtifactRef,
-    ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        #[cfg(test)]
-        if self
-            .activation_tx_failure
-            .swap(false, std::sync::atomic::Ordering::SeqCst)
-        {
-            return Err(StoreError::ProposedArtifactLifecycle(
-                "injected activation transaction failure".to_string(),
-            ));
-        }
-        let (kind, artifact_id, version): (String, String, i64) = tx.query_row(
-            "SELECT kind, artifact_id, version FROM proposed_artifacts
-             WHERE id = ?1 AND state = ?2",
-            params![proposal_id.to_string(), lifecycle_name(Lifecycle::Approved)],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-        if kind == "model_swap" {
-            let active_max: Option<i64> = tx.query_row(
-                "SELECT MAX(version) FROM proposed_artifacts
-                 WHERE kind = 'model_swap' AND artifact_id = ?1 AND state = ?2",
-                params![artifact_id, lifecycle_name(Lifecycle::Active)],
-                |row| row.get(0),
-            )?;
-            if active_max.is_some_and(|max| max >= version) {
-                return Err(StoreError::ProposedArtifactLifecycle(
-                    "model swap version is not newer than the active version".to_string(),
-                ));
-            }
-        }
-        let changed = tx.execute(
-            "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
-            params![
-                lifecycle_name(Lifecycle::Active),
-                proposal_id.to_string(),
-                lifecycle_name(Lifecycle::Approved)
-            ],
-        )?;
-        if changed != 1 {
-            return Err(StoreError::ProposedArtifactLifecycle(
-                "proposal was not in approved state".to_string(),
-            ));
-        }
-        if kind == "model_swap" {
-            let retired = tx.execute(
-                "UPDATE proposed_artifacts SET state = ?1
-                 WHERE kind = 'model_swap' AND artifact_id = ?2
-                   AND state = ?3 AND version < ?4",
-                params![
-                    lifecycle_name(Lifecycle::Retired),
-                    artifact_id,
-                    lifecycle_name(Lifecycle::Active),
-                    version
-                ],
-            )?;
-            if retired > 0 {
-                Store::append_audit_conn(
-                    &tx,
-                    "artifact.superseded",
-                    Some(action),
-                    None,
-                    None,
-                    Some(grant_id),
-                    &[],
-                    std::slice::from_ref(payload_ref),
-                )?;
-            }
-        }
-        Store::append_audit_conn(
-            &tx,
-            "artifact.activated",
-            Some(action),
-            None,
-            None,
-            Some(grant_id),
-            &[],
-            std::slice::from_ref(payload_ref),
-        )?;
-        tx.commit()?;
-        Ok(())
     }
 }
 
@@ -308,6 +215,19 @@ impl Store {
             |row| row.get(0),
         )?;
         Ok(count > 0)
+    }
+    pub fn highest_proposed_version(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+    ) -> Result<Option<u32>, StoreError> {
+        let conn = self.conn.lock();
+        let value: Option<i64> = conn.query_row(
+            "SELECT MAX(version) FROM proposed_artifacts WHERE kind = ?1 AND artifact_id = ?2",
+            params![kind, artifact_id],
+            |row| row.get::<_, Option<i64>>(0),
+        )?;
+        Ok(value.map(|version| version as u32))
     }
 
     pub fn find_proposed_artifact_by_action_request(
@@ -374,6 +294,116 @@ impl Store {
                 .map_err(|_| StoreError::BadDigest("proposed_artifacts.proposed_at".into()))?,
             lineage: lineage_from_json(lineage_json.as_deref())?,
         }))
+    }
+    /// Load the proposed row for a `(kind, id, version)` identity, if one
+    /// exists. Used to advance a dangling-initial-activation proposal to
+    /// `Active` when the owner re-confirms it (lifecycle truth must match
+    /// effective authority — AD-070).
+    pub fn find_proposed_artifact(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+    ) -> Result<Option<ProposedArtifact>, StoreError> {
+        let conn = self.conn.lock();
+        let row: Option<ProposedRow> = conn
+            .query_row(
+                "SELECT id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
+                 action_request_id, proposed_at, lineage_json \
+                 FROM proposed_artifacts \
+                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3 \
+                 ORDER BY proposed_at DESC LIMIT 1",
+                params![kind, artifact_id, version as i64],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                        row.get(8)?,
+                        row.get(9)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((
+            id,
+            kind,
+            artifact_id,
+            version,
+            state,
+            yaml_digest,
+            task_grant_id,
+            action_request_id,
+            proposed_at,
+            lineage_json,
+        )) = row
+        else {
+            return Ok(None);
+        };
+        Ok(Some(ProposedArtifact {
+            id: Ulid::from_string(&id)
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.id".into()))?,
+            kind,
+            artifact_id,
+            version: version as u32,
+            state: parse_lifecycle(&state)?,
+            yaml_digest,
+            task_grant_id: Ulid::from_string(&task_grant_id)
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.task_grant_id".into()))?,
+            action_request_id: action_request_id
+                .as_deref()
+                .map(Ulid::from_string)
+                .transpose()
+                .map_err(|_| {
+                    StoreError::BadDigest("proposed_artifacts.action_request_id".into())
+                })?,
+            proposed_at: proposed_at
+                .parse()
+                .map_err(|_| StoreError::BadDigest("proposed_artifacts.proposed_at".into()))?,
+            lineage: lineage_from_json(lineage_json.as_deref())?,
+        }))
+    }
+    /// Whether a committed proposal lifecycle is Active for this exact
+    /// artifact version. Startup recovery uses this as the durable publication
+    /// gate, never learned compatibility alone.
+    pub fn is_active_proposal(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+    ) -> Result<bool, StoreError> {
+        let conn = self.conn.lock();
+        let active: Option<i64> = conn
+            .query_row(
+                "SELECT 1 FROM proposed_artifacts \
+                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3 AND state = 'active' \
+                 LIMIT 1",
+                params![kind, artifact_id, version as i64],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(active.is_some())
+    }
+
+    /// Highest Active proposal version for an identity, if any.
+    pub fn highest_active_version(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+    ) -> Result<Option<u32>, StoreError> {
+        let conn = self.conn.lock();
+        let version: Option<i64> = conn.query_row(
+            "SELECT MAX(version) FROM proposed_artifacts \
+             WHERE kind = ?1 AND artifact_id = ?2 AND state = 'active'",
+            params![kind, artifact_id],
+            |row| row.get(0),
+        )?;
+        Ok(version.map(|v| v as u32))
     }
 
     /// Advance a proposal's state one legal step. `can_transition` is

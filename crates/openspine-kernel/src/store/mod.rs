@@ -20,8 +20,10 @@
 //! ad-hoc lane once a destructive schema change is first needed.
 
 use std::path::Path;
-#[cfg(test)]
 use std::sync::atomic::AtomicBool;
+#[cfg(test)]
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use crate::artifact_store::ArtifactStoreError;
 use jiff::Timestamp;
@@ -128,11 +130,12 @@ pub(super) fn genesis_digest() -> Digest {
 
 #[derive(Clone)]
 pub struct Store {
-    conn: std::sync::Arc<Mutex<Connection>>,
+    pub(crate) conn: Arc<Mutex<Connection>>,
     #[cfg(test)]
-    activation_tx_failure: std::sync::Arc<AtomicBool>,
+    activation_tx_failure: Arc<AtomicBool>,
     #[cfg(test)]
-    fault_init_tx: std::sync::Arc<std::sync::Mutex<bool>>,
+    fault_init_tx: Arc<std::sync::Mutex<bool>>,
+    pub(crate) fail_next_owner_reconfirmation: Arc<AtomicBool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -177,6 +180,8 @@ pub enum StoreError {
     WorkflowTimerUnknown(String),
     #[error("unsupported database schema version {current} (latest supported is {latest})")]
     UnsupportedVersion { current: i64, latest: i64 },
+    #[error("learned artifact error: {0}")]
+    LearnedArtifact(String),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -187,11 +192,12 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
         Ok(Self {
-            conn: std::sync::Arc::new(Mutex::new(conn)),
+            conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
-            activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
+            activation_tx_failure: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
-            fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
+            fault_init_tx: Arc::new(std::sync::Mutex::new(false)),
+            fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -200,11 +206,12 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
         Ok(Self {
-            conn: std::sync::Arc::new(Mutex::new(conn)),
+            conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
-            activation_tx_failure: std::sync::Arc::new(AtomicBool::new(false)),
+            activation_tx_failure: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
-            fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
+            fault_init_tx: Arc::new(std::sync::Mutex::new(false)),
+            fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
         })
     }
     #[cfg(test)]
@@ -523,6 +530,7 @@ impl Store {
     }
 }
 
+pub(crate) mod activation;
 mod audit_support;
 pub(crate) mod boot_clock;
 pub(crate) use boot_clock::BootClockCheck;
@@ -542,6 +550,8 @@ mod gate_support;
 mod identity;
 #[cfg(test)]
 mod identity_tests;
+pub(crate) mod learned_artifacts;
+pub(crate) mod learned_reconfirmation;
 #[cfg(test)]
 mod lineage_tests;
 #[cfg(test)]
@@ -554,3 +564,38 @@ mod test_hooks;
 #[cfg(test)]
 mod tests;
 pub(crate) mod workflow_timers;
+
+impl Store {
+    /// Test-only: force the next `commit_owner_reconfirmation` call to fail
+    /// its durable transaction, exercising the registry-in-unchanged +
+    /// request-retryable + no-success-audit contract. No production caller
+    /// may ever set this.
+    #[cfg(test)]
+    pub fn set_fail_next_owner_reconfirmation(&self, fail: bool) {
+        self.fail_next_owner_reconfirmation
+            .store(fail, Ordering::SeqCst);
+    }
+    /// Replace the short-lived synthetic reconfirm grant in place on owner
+    /// retry. The action request id remains unchanged, preserving its
+    /// single-use and digest binding while refreshing only grant authority.
+    pub fn refresh_task_grant(&self, grant: &TaskGrant) -> Result<(), StoreError> {
+        let mut redacted = grant.clone();
+        redacted.task_token.clear();
+        let conn = self.conn.lock();
+        let changed = conn.execute(
+            "UPDATE task_grants SET task_token = ?1, expires_at = ?2, grant_json = ?3 WHERE id = ?4",
+            params![
+                budget_support::hash_task_token(&grant.task_token),
+                grant.expires_at.to_string(),
+                serde_json::to_string(&redacted)?,
+                grant.id.to_string(),
+            ],
+        )?;
+        if changed != 1 {
+            return Err(StoreError::LearnedArtifact(
+                "synthetic reconfirm grant disappeared during refresh".into(),
+            ));
+        }
+        Ok(())
+    }
+}

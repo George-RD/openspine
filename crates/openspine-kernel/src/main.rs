@@ -1,11 +1,3 @@
-//! `openspine` — the OpenSpine kernel binary.
-//!
-//! Implements `openspec/changes/implement-telegram-owner-control-slice/`
-//! (4a-4d): config, storage, artifact store/loader, connectors, minimal
-//! model gateway, and the axum kernel API, wired into two concurrent
-//! long-running tasks — the HTTP API the shell talks to, and the Telegram
-//! long-poll loop that turns owner messages into task grants.
-
 mod action_catalog;
 mod api;
 mod artifact_loader;
@@ -17,10 +9,15 @@ mod escalation;
 mod failure_surfacing;
 mod gmail;
 mod identity;
+#[cfg(test)]
+mod kernel_tests;
 mod model_gateway;
 mod model_swap;
 mod model_swap_recovery;
+mod overlay_compat;
 mod overlay_eval_gate;
+mod overlay_recovery;
+mod overlay_startup;
 mod pipeline;
 mod sandbox;
 mod secret_intake;
@@ -34,22 +31,16 @@ mod workflow;
 mod test_support;
 
 #[cfg(test)]
-mod kernel_tests;
-#[cfg(test)]
 mod model_swap_recovery_tests;
-
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Instant;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
 use clap::Parser;
-
-/// Kernel-owned grant-chain verification key. Production requires explicit
-/// secret intake; tests use a deterministic fixture key only under cfg(test).
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
 pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
     #[cfg(test)]
     {
@@ -63,9 +54,6 @@ pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
             .map(|key| key.into_bytes())
     }
 }
-/// Sample the wall clock through `clock` and atomically commit that exact
-/// value as the boot high-water after confirming it did not regress against
-/// the pre-setup candidate. The helper is called only after listener bind.
 pub(crate) fn commit_post_bind_clock(
     store: &store::Store,
     pre_setup_ms: i64,
@@ -78,42 +66,26 @@ pub(crate) fn commit_post_bind_clock(
         );
     }
     let commit_ms = pre_setup_ms.max(commit_now_ms);
-    match store
-        .commit_boot_clock(commit_ms)
-        .context("committing boot clock high-water")?
-    {
+    match store.commit_boot_clock(commit_ms).context("committing boot clock high-water")? {
         store::BootClockCheck::Ok { .. } => Ok(()),
-        store::BootClockCheck::Regressed {
-            high_water_ms,
-            now_ms,
-        } => anyhow::bail!(
+        store::BootClockCheck::Regressed { high_water_ms, now_ms } => anyhow::bail!(
             "wall clock regressed during startup: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms)"
         ),
     }
 }
-
-/// The kernel binary's own CLI — distinct from `openspine-shell`'s (which
-/// takes `--kernel`/`--task`, never a config path: the shell never reads
-/// `openspine.yaml`, only `KERNEL_ENDPOINT`/`TASK_TOKEN`, see
-/// `docs/kernel-http-contract.md`).
 #[derive(Debug, Parser)]
 #[command(name = "openspine")]
 struct Cli {
-    /// Path to `openspine.yaml`.
     #[arg(long, default_value = "openspine.yaml")]
     config: PathBuf,
-
-    /// Run benchmarks instead of starting the daemon.
     #[arg(long)]
     benchmark: bool,
 }
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
-
     let cli = Cli::parse();
     if cli.benchmark {
         benchmark::run_benchmarks()?;
@@ -123,7 +95,6 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("loading {}", cli.config.display()))?;
 
     let artifact_key = config::artifact_key_bytes()?;
-
     let artifacts =
         artifact_store::ArtifactStore::open(cfg.data_dir.join("artifacts"), artifact_key)
             .context("opening artifact store")?;
@@ -164,12 +135,6 @@ async fn main() -> anyhow::Result<()> {
     let owner_principal = store
         .bootstrap_owner_principal(cfg.owner.telegram_user_id, &cfg.owner.display_name)
         .context("bootstrapping owner principal failed")?;
-    // PRD §18: the audit log is append-only and hash-chained specifically
-    // so tampering/corruption is detectable — detect it now, at boot,
-    // rather than never. A broken chain means someone edited the SQLite
-    // file directly or the process crashed mid-write in a way that left a
-    // torn row; either way, refuse to start rather than serve on top of an
-    // audit trail that can no longer be trusted.
     if !store
         .verify_audit_chain()
         .context("verifying audit chain")?
@@ -179,14 +144,15 @@ async fn main() -> anyhow::Result<()> {
             cfg.data_dir.join("kernel.db").display()
         );
     }
-    let mut registry = artifact_loader::load_registry(&cfg.lyra_dir)
-        .with_context(|| format!("loading artifact registry from {}", cfg.lyra_dir.display()))?;
-    // Overlay files are committed after their proposal row becomes Active;
-    // reconcile the crash window before merging them into the registry.
     let overlay_dir = cfg.data_dir.join("artifacts.d");
     model_swap_recovery::reconcile_model_swap_overlay(&store, &artifacts, &overlay_dir)?;
-    artifact_loader::load_registry_into(&mut registry, &overlay_dir)
-        .with_context(|| format!("loading artifact overlay from {}", overlay_dir.display()))?;
+    let overlay_startup = overlay_startup::load(&cfg.lyra_dir, &cfg.data_dir, &store, &artifacts)?;
+    let registry = overlay_startup.registry;
+    let base_artifact_ids = overlay_startup.base_artifact_ids;
+    let base_compatibility_epoch = overlay_startup.base_compatibility_epoch;
+    let overlay_dir = overlay_startup.overlay_dir;
+    let pending_reconfirm_buttons = overlay_startup.pending_reconfirm_buttons;
+    let pending_reconfirm_notices = overlay_startup.pending_reconfirm_notices;
 
     let sandbox = match cfg.sandbox.driver {
         config::SandboxDriverKind::Process => {
@@ -261,7 +227,7 @@ async fn main() -> anyhow::Result<()> {
     for swap in registry.model_swaps.values() {
         if swap.lifecycle_state == openspine_schemas::artifact::Lifecycle::Active {
             let (provenance_state, provenance_digest) = store
-                .find_proposed_artifact("model_swap", &swap.id, swap.version)
+                .find_proposed_artifact_state("model_swap", &swap.id, swap.version)
                 .with_context(|| {
                     format!("checking ceremony provenance for active swap {}", swap.id)
                 })?
@@ -360,7 +326,6 @@ async fn main() -> anyhow::Result<()> {
         secrets.clone(),
         "telegram.bot_token".to_string(),
     );
-
     let gmail = match &cfg.gmail {
         Some(gmail_cfg) => {
             let client_secret_slot = "gmail.client_secret";
@@ -385,7 +350,6 @@ async fn main() -> anyhow::Result<()> {
         }
         None => None,
     };
-
     let state = Arc::new(pipeline::AppState {
         store,
         artifacts,
@@ -397,6 +361,8 @@ async fn main() -> anyhow::Result<()> {
         owner_user_id: cfg.owner.telegram_user_id,
         provider_config_digests,
         owner_principal_id: owner_principal.id,
+        base_artifact_ids,
+        base_compatibility_epoch,
         owner_identity_id: owner_principal.identity_id,
         kernel_endpoint: cfg
             .kernel
@@ -412,6 +378,26 @@ async fn main() -> anyhow::Result<()> {
         overlay_dir,
         conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
     });
+    for (request_id, summary) in &pending_reconfirm_buttons {
+        if let Err(err) = state
+            .connectors
+            .telegram()
+            .send_reply_with_approval_button(state.owner_user_id, summary, *request_id)
+            .await
+        {
+            tracing::warn!(error = %err, %request_id, "failed to send reconfirm button");
+        }
+    }
+    for notice in &pending_reconfirm_notices {
+        if let Err(err) = state
+            .connectors
+            .telegram()
+            .send_reply(state.owner_user_id, notice)
+            .await
+        {
+            tracing::warn!(error = %err, "failed to send overlay re-proposal notice");
+        }
+    }
 
     // AD-143 F1: Recover pending breach alerts that crashed in_flight.
     crate::spend::recover_pending_breach_alerts(&state).await;
@@ -433,17 +419,14 @@ async fn main() -> anyhow::Result<()> {
     // ledger replay of `workflow.timer_fired`); this loop is what actually
     // fires due timers, sleeping until the earliest known deadline.
     let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
-
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
         res = retry_worker => res.context("dead-letter retry loop failed")?,
         res = timer_driver => res.context("runtime clock/timer driver failed")?,
     }
-
     Ok(())
 }
-
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutdown signal received, draining in-flight requests");

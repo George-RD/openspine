@@ -88,6 +88,11 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-074 | Workflow timers are kernel-fired at most once via trusted-clock atomic claims | Accepted |
 | D-075 | The daily spend kill switch accounts for every model and connector call; breach pauses only non-immediate lanes | Accepted |
 | D-076 | Spend caps are required finite configuration; disabling requires an explicit large cap | Accepted |
+| D-077 | Learned artifacts carry exchange provenance; every reconfirmation records a durable anchor | Accepted |
+| D-078 | Owner reconfirmation is digest-bound; reviewed dangling references survive only under a durable owner-accepted disposition | Accepted |
+| D-079 | Overlay compatibility converges to a fixed point; base wins identity collisions; only the highest Active version is effective | Accepted |
+| D-080 | Legacy migration is discovery/quarantine only; acceptance mints a fresh digest-bound proposal | Accepted |
+| D-081 | Upstream nomination requires explicit depersonalized opt-in and never changes namespace automatically | Accepted |
 
 ---
 
@@ -1903,6 +1908,107 @@ A ratified budget hierarchy replaces the flat daily caps.
 
 
 
+# D-077 — Learned artifacts carry exchange provenance and reconfirmations record a durable anchor
+
+## Decision
+
+Learned provenance retains the producing event identifier and the encrypted exchange `ArtifactRef`; task-grant identity remains authorization metadata only and never becomes provenance. Every successful owner reconfirmation records a `ReconfirmAnchor` (consumed request id, grant event id, reviewed bytes reference) regardless of provenance kind, leaving the original producing provenance unchanged.
+
+## Rationale
+
+AD-070/AD-071 require every learned artifact to be traceable to the exchange that produced it; anchoring acceptances separately keeps review history append-only rather than rewriting provenance.
+
+## Consequences
+
+Counterparty crypto-erase can invalidate derived artifacts through provenance links. Audit can distinguish what produced an artifact from who later re-accepted it.
+
+## Would change if
+
+Provenance moves into a typed edge table with equivalent linkage guarantees.
+
+---
+
+# D-078 — Owner reconfirmation is digest-bound with a durable owner-accepted disposition
+
+## Decision
+
+Owner reconfirmation never activates an artifact whose current on-disk bytes differ from the reviewed bytes or whose identity collides with base. A durable `owner_accepted` disposition is persisted before live insertion and survives restart; reviewed dangling references are permitted only under that disposition, while digest mutations and base collisions remain fail-closed. Startup revalidates compatible overlays against exact stored digests and quarantines mismatches for the currently selected version. Reconfirmation commits atomically in one transaction — the action request is consumed, the learned row set `OwnerAccepted` with its `ReconfirmAnchor`, and any matching proposal advanced `Approved -> Active` with acceptance/activation/superseded audits appended — all before live-registry publication; a failed or rolled-back commit leaves the registry unpublished and the request retryable, and a losing concurrent tap publishes nothing.
+
+## Rationale
+
+WYSIWYS (D-045) extended to learned artifacts: acceptance must bind exactly the bytes the owner reviewed, and acceptance state must be as durable as the authority it unlocks.
+
+## Consequences
+
+Tampered or drifted overlay files cannot ride an old approval; restarts re-prompt only for newly dangling references, never silently re-accept or silently drop accepted state.
+
+## Would change if
+
+Artifacts and lifecycle state move into one transactional store with an atomic filesystem projection.
+
+---
+
+# D-079 — Overlay compatibility converges to a fixed point and base wins identity collisions
+
+## Decision
+
+Overlay compatibility is evaluated to a fixed point over active typed dependencies, alternating ordinary exclusions and owner-accepted revalidation until stable; a persisted pending-review exclusion is version-scoped and remains excluded independent of later dependency reappearance. A base/overlay `(kind,id)` collision stays base-effective, and owner reconfirmation refuses restoration into the base identity, requiring rename/re-proposal. Only the DB-highest Active version of an artifact is effective at startup: lower loaded versions are pruned and the highest Active source is rehydrated (from its overlay file or committed bytes), failing closed rather than silently rolling authority back. Version cutover is highest-only and monotonic: exact duplicates are hard errors, lower versions are rejected, and activating a higher version supersedes the prior live version with an `artifact.superseded` audit, stable across restart. A changed base compatibility epoch triggers typed-reference revalidation, not an automatic re-prompt: still-compatible overlays silently refresh their stored epoch, and only overlays with a newly-dangling reference are excluded and receive a fresh digest-bound reconfirmation. Compatibility in this slice covers only typed `Route` and `WorkflowManifest` dependency edges; unsupported artifact kinds remain fail-closed and require a later ratified decision before participation.
+
+## Rationale
+
+Single-pass compatibility misses transitive invalidations; caller-chosen effective versions or base shadowing would let stale or colliding artifacts hold authority.
+
+## Consequences
+
+Convergence is deterministic under test; version rollback, shadowing, and dangling-dependency exposure surface as owner prompts instead of silent state.
+
+## Would change if
+
+The registry becomes a transactional projection where version selection is a database query rather than a load-time reconciliation.
+
+---
+
+# D-080 — Legacy migration is discovery and quarantine only
+
+## Decision
+
+`LegacyMigration` provenance is discovery/quarantine only: quarantine synthesizes durable provenance and preserves the on-disk digest, and owner acceptance mints a fresh digest-bound proposal establishing `ProducedBy` exchange provenance before any effective-registry insertion. Nothing with LegacyMigration-only provenance ever activates.
+
+## Rationale
+
+Pre-provenance artifacts cannot be granted authority on discovery alone; requiring a fresh reviewed proposal keeps the AD-070 provenance invariant total.
+
+## Consequences
+
+Legacy trees migrate without silent activation; every effective artifact has reviewable provenance.
+
+## Would change if
+
+A ratified bulk-import ceremony provides equivalent provenance and review guarantees.
+
+---
+
+# D-081 — Upstream nomination is explicit depersonalized opt-in
+
+## Decision
+
+A learned overlay artifact may be nominated as an upstream candidate only through a normal digest-bound review whose request explicitly asserts the content is depersonalized. Nomination never changes the artifact namespace automatically.
+
+## Rationale
+
+AD-023/AD-070 make generalization to upstream an explicit owner act; implicit namespace promotion would leak personal overlay content past review.
+
+## Consequences
+
+Nomination is a cataloged, gated action with its own audit; the overlay stays personal until a separate reviewed change adopts it upstream.
+
+## Would change if
+
+An upstream adoption pipeline with its own depersonalization verification supersedes the manual assertion.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1960,4 +2066,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-068 (direct authenticated API bad-request surfacing without duplicate owner notification), D-069 (kernel connector counters as the minimal observability surface), D-070 (encrypted artifact references for retryable owner notifications), D-071 (delivery-unknown send-to-receipt crash semantics), and D-072 (secure lossless `/digest` pagination substrate with presentation deferred), settled while implementing `implement-failure-surfacing-contract`. |
 | 2026-07-17 | Added D-073 (durable workflow steps persist intent before effect, replay rehydrates recorded outcomes, receiptless pending non-idempotent steps fail closed with sealed inline payload set) and D-074 (kernel-owned workflow timers fire at most once via trusted-clock atomic claims), settled while implementing `implement-durable-workflow-replay`. |
 | 2026-07-17 | Added D-075 (the daily spend kill switch accounts for every model and connector call while breach pauses only non-immediate lanes; owner-control and control-plane operations stay live, counted, cap-exempt; notification-only reservation keeps breach alerts deliverable) and D-076 (spend caps are required finite configuration), settled while implementing `implement-spend-kill-switch`. |
+| 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition), D-079 (fixed-point overlay compatibility, base-wins collisions, highest-Active-only effective), and D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), | 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition and one-transaction commit-before-publication), D-079 (fixed-point overlay compatibility over typed Route/Workflow edges, typed epoch revalidation, base-wins collisions, highest-only monotonic version cutover), D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), and D-081 (upstream nomination requires explicit depersonalized opt-in), settled while implementing `implement-overlay-model`. |
 

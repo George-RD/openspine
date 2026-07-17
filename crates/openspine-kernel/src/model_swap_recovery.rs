@@ -120,7 +120,7 @@ pub(crate) fn reconcile_model_swap_overlay(
                 quarantine()?;
                 continue;
             }
-            let Some((state, reviewed_digest)) = store.find_proposed_artifact(
+            let Some((state, reviewed_digest)) = store.find_proposed_artifact_state(
                 "model_swap",
                 pending.artifact_id(),
                 pending.version(),

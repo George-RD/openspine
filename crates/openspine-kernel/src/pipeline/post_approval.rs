@@ -1,12 +1,13 @@
 //! Post-approval resolution registry (kernel registry refactor, D-053 /
 //! kernel-readiness item 1): once `gate()` re-confirms an approved
 //! [`ActionRequest`], the effect handler is resolved here by action id —
-//! `artifact.activate` routes to artifact activation; every other approved
-//! action id (notably `email.create_draft`, the only id step-6/5d ever
-//! mints) falls through to the documented default, the original
-//! draft-creation path. Every approval minted before artifact activation
-//! existed (5d) is a draft, so the default arm is load-bearing, not a
-//! catch-all convenience.
+//! `artifact.activate` routes to artifact activation, `artifact.reconfirm`
+//! routes to overlay reconfirmation, and `artifact.nominate_upstream` routes
+//! to nomination finalization; every other approved action id (notably
+//! `email.create_draft`, the only id step-6/5d ever mints) falls through to
+//! the documented default, the original draft-creation path. Every approval
+//! minted before artifact activation existed (5d) is a draft, so the default
+//! arm is load-bearing, not a catch-all convenience.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -16,6 +17,8 @@ use openspine_schemas::grant::TaskGrant;
 
 use super::approval::create_approved_draft;
 use super::artifact_activation::activate_approved_artifact;
+use super::artifact_nomination::finalize_nomination;
+use super::artifact_reconfirmation::reinstate_artifact;
 use super::plan_approval::resolve_approved_plan;
 use super::AppState;
 
@@ -31,6 +34,24 @@ fn handle_activate_artifact<'a>(
     chat_id: i64,
 ) -> PostApprovalFuture<'a> {
     Box::pin(activate_approved_artifact(state, grant, request, chat_id))
+}
+
+fn handle_reconfirm_artifact<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    request: &'a ActionRequest,
+    chat_id: i64,
+) -> PostApprovalFuture<'a> {
+    Box::pin(reinstate_artifact(state, grant, request, chat_id))
+}
+
+fn handle_nominate_upstream<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    request: &'a ActionRequest,
+    chat_id: i64,
+) -> PostApprovalFuture<'a> {
+    Box::pin(finalize_nomination(state, grant, request, chat_id))
 }
 
 fn handle_create_approved_draft<'a>(
@@ -81,6 +102,8 @@ fn handle_unknown_approved_action<'a>(
 /// are refused instead of falling through to draft creation.
 const POST_APPROVAL_HANDLERS: &[(&str, PostApprovalHandler)] = &[
     ("artifact.activate", handle_activate_artifact),
+    ("artifact.reconfirm", handle_reconfirm_artifact),
+    ("artifact.nominate_upstream", handle_nominate_upstream),
     ("plan.execute", handle_resolve_approved_plan),
     ("email.create_draft", handle_create_approved_draft),
 ];

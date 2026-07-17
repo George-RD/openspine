@@ -136,6 +136,20 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         [],
     )?;
     super::proposed_artifacts::ensure_schema(conn)?;
+    super::learned_artifacts::ensure_schema(conn)?;
+    super::learned_artifacts::migrate_provenance_column(conn)?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE learned_artifacts ADD COLUMN source_path TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE learned_artifacts ADD COLUMN accepted_base_epoch TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE learned_artifacts ADD COLUMN accepted_dependency_fingerprint TEXT",
+    )?;
     // `define-lineage-and-eval-store`: nullable lineage column on
     // proposed_artifacts (non-retrofittable set). No DEFAULT — legacy rows
     // keep NULL (unknown provenance). Unknown MUST NOT be rewritten as root.

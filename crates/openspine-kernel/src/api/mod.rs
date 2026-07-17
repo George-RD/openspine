@@ -17,6 +17,7 @@
 pub(crate) mod actions;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
+mod artifact_nominate;
 mod artifact_propose;
 mod generate;
 pub(crate) mod handler_registry;
@@ -46,6 +47,12 @@ mod artifact_activation_tests;
 mod model_swap_fault_tests;
 #[cfg(test)]
 mod model_swap_http_tests;
+
+#[cfg(test)]
+mod reconfirm_tests;
+
+#[cfg(test)]
+mod nominate_tests;
 
 use std::sync::Arc;
 

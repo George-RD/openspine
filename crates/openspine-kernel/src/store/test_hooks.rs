@@ -56,6 +56,9 @@ impl super::Store {
             activation_tx_failure: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             #[cfg(test)]
             fault_init_tx: std::sync::Arc::new(std::sync::Mutex::new(false)),
+            fail_next_owner_reconfirmation: std::sync::Arc::new(
+                std::sync::atomic::AtomicBool::new(false),
+            ),
         })
     }
 
