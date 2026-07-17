@@ -384,6 +384,179 @@ async fn audit_append_failure_fails_notification_before_connector_effect() {
 }
 
 #[tokio::test]
+async fn audit_readonly_failure_fails_notification_before_connector_effect() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&tg)
+        .await;
+
+    // 1. Open a writable database first so setup (bootstrap_owner_principal etc.) compiles and writes
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("kernel.db");
+    let store_writable = crate::store::Store::open(&db_path).unwrap();
+
+    let connector =
+        TelegramConnector::with_api_url("test-token".to_string(), tg.uri().parse().unwrap());
+    let mut state =
+        crate::test_support::fixtures::build_state_with_store(store_writable, connector, None);
+
+    // Get a valid grant while writable
+    let grant = handle_owner_update(&state, &owner_update("hello"))
+        .await
+        .unwrap()
+        .expect("owner update grants action access");
+
+    // 2. Drop the writable store connection by replacing it with a read-only store
+    let store_readonly = crate::store::Store::open_read_only_for_test(&db_path).unwrap();
+    state.store = store_readonly;
+
+    // 3. Dispatch the action. Because the store is read-only, appending to the audit log
+    // must fail with SQLITE_READONLY, causing the dispatch action to fail loudly
+    // and the connector to NOT be called.
+    let (addr, handle) = start_server(state).await;
+    let response = post_action(
+        addr,
+        &grant.task_token,
+        "telegram.reply:owner_channel",
+        Some(json!({"text": "hello owner"})),
+    )
+    .await;
+
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR
+    );
+    // Assert the connector was never called
+    assert!(tg.received_requests().await.unwrap().is_empty());
+    handle.abort();
+}
+
+// Literal disk-full (SQLITE_FULL) proof: unlike the injected-fault test
+// above, this saturates a REAL file-backed database via
+// `PRAGMA max_page_count`, so the production append path hits a genuine
+// SQLITE_FULL rather than a simulated trigger or a read-only flag. A valid
+// reply payload is used so the Telegram connector call is genuinely pending
+// after the `action.gated` audit append; when that append fails (disk-full)
+// the request must fail loudly and the connector must never be invoked — the
+// empty mock log is causal, not coincidental (a bad payload would skip the
+// connector regardless of disk-full).
+#[tokio::test]
+async fn disk_full_audit_append_aborts_before_connector_effect() {
+    let tg = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&tg)
+        .await;
+
+    // 1. Open a writable file-backed database — a real file so
+    //    `PRAGMA max_page_count` yields a literal SQLITE_FULL.
+    let dir = tempfile::tempdir().unwrap();
+    let db_path = dir.path().join("kernel.db");
+    let store = crate::store::Store::open(&db_path).unwrap();
+
+    let connector =
+        TelegramConnector::with_api_url("test-token".to_string(), tg.uri().parse().unwrap());
+    let state = crate::test_support::fixtures::build_state_with_store(store, connector, None);
+
+    // Get a valid grant while the database still has room.
+    let grant = handle_owner_update(&state, &owner_update("hello"))
+        .await
+        .unwrap()
+        .expect("owner update grants action access");
+
+    // Keep a clone sharing the same connection for post-action assertions
+    // (start_server moves `state`).
+    let probe = state.store.clone();
+
+    // 2. Clamp the page budget on the store's own connection and force
+    //    rollback journaling (WAL would grow the -wal file and dodge the
+    //    main-db page cap). Then saturate the audit ledger with chain-valid
+    //    rows until the next append returns literal SQLITE_FULL. The filler
+    //    row is the smallest valid append shape, so once it fails, every
+    //    equal-or-larger real audit append — the action's `action.gated`
+    //    row included — fails deterministically.
+    state.store.with_conn_for_test(|conn| {
+        conn.execute_batch("PRAGMA journal_mode = DELETE").unwrap();
+        let page_count: i64 = conn
+            .query_row("PRAGMA page_count", [], |row| row.get(0))
+            .unwrap();
+        conn.execute_batch(&format!("PRAGMA max_page_count = {}", page_count + 6))
+            .unwrap();
+    });
+
+    let mut saturated = false;
+    for _ in 0..5000 {
+        match state
+            .store
+            .append_audit("action.gated", None, None, None, None, &[], &[])
+        {
+            Ok(_) => {}
+            Err(crate::store::StoreError::Sqlite(rusqlite::Error::SqliteFailure(ffi_err, _)))
+                if ffi_err.extended_code == rusqlite::ffi::SQLITE_FULL =>
+            {
+                saturated = true;
+                break;
+            }
+            Err(err) => panic!("filler append failed unexpectedly: {err:?}"),
+        }
+    }
+    assert!(
+        saturated,
+        "filler loop never hit SQLITE_FULL; the clamp or iteration cap needs adjusting"
+    );
+
+    let gated_before = probe.count_audit_events_of_kind("action.gated").unwrap();
+    let total_before: i64 = probe.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM audit_log", [], |row| row.get(0))
+            .unwrap()
+    });
+
+    // 3. Dispatch with a VALID reply payload so a connector call is
+    //    genuinely pending. Under saturation the `action.gated` audit
+    //    append (which precedes dispatch/send_reply) fails with SQLITE_FULL,
+    //    so the request must fail loudly and the connector must not run.
+    let (addr, handle) = start_server(state).await;
+    let response = post_action(
+        addr,
+        &grant.task_token,
+        "telegram.reply:owner_channel",
+        Some(json!({"text": "hello owner"})),
+    )
+    .await;
+
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+        "disk-full audit append must fail loudly"
+    );
+    assert!(
+        tg.received_requests().await.unwrap().is_empty(),
+        "connector must not be invoked when the gate audit cannot be recorded"
+    );
+
+    // No unrecorded execution: the failed append rolled back, so nothing
+    // was written for this action.
+    let gated_after = probe.count_audit_events_of_kind("action.gated").unwrap();
+    assert_eq!(
+        gated_after, gated_before,
+        "action.gated append must have rolled back under disk-full"
+    );
+    let total_after: i64 = probe.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM audit_log", [], |row| row.get(0))
+            .unwrap()
+    });
+    assert_eq!(
+        total_after, total_before,
+        "no audit row may land when the ledger is disk-full"
+    );
+
+    handle.abort();
+}
+
+#[tokio::test]
 async fn notify_send_failure_records_attempt_failure_and_dead_letter() {
     let tg = MockServer::start().await;
     Mock::given(method("POST"))

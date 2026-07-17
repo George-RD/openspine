@@ -29,7 +29,7 @@ pub(crate) mod fixtures {
     fn build_state(telegram: TelegramConnector, gmail: Option<GmailConnector>) -> AppState {
         build_state_with_store(Store::open_in_memory().unwrap(), telegram, gmail)
     }
-    fn build_state_with_store(
+    pub(crate) fn build_state_with_store(
         store: Store,
         telegram: TelegramConnector,
         gmail: Option<GmailConnector>,
@@ -100,6 +100,7 @@ pub(crate) mod fixtures {
                 model_calls_per_day: i64::MAX as u64,
                 connector_calls_per_day: i64::MAX as u64,
             },
+            conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
         }
     }
 

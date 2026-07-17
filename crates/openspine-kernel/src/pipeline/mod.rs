@@ -107,6 +107,21 @@ pub struct AppState {
     /// AD-143: required global per-day spend cap across model and connector
     /// calls. The lane gate and usage reservations read this kernel setting.
     pub spend_cap: crate::config::SpendCapConfig,
+    pub conversation_locks:
+        parking_lot::Mutex<std::collections::HashMap<i64, std::sync::Arc<tokio::sync::Mutex<()>>>>,
+}
+
+impl AppState {
+    pub async fn lock_conversation(&self, chat_id: i64) -> tokio::sync::OwnedMutexGuard<()> {
+        let lock = {
+            let mut locks = self.conversation_locks.lock();
+            locks
+                .entry(chat_id)
+                .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+                .clone()
+        };
+        lock.lock_owned().await
+    }
 }
 
 /// Phase 1 has no persisted per-user/session policy system yet (D-013's
@@ -520,8 +535,29 @@ pub async fn handle_owner_update(
     state: &AppState,
     update: &telegram::TelegramUpdate,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let (chat_id, text, owner_verified) = match telegram::verify_update(update, state.owner_user_id)
-    {
+    let verified = telegram::verify_update(update, state.owner_user_id);
+    if let VerifiedUpdate::Ignored { reason } = &verified {
+        state.store.append_audit(
+            "telegram.update.ignored",
+            None,
+            None,
+            Some(reason),
+            None,
+            &[],
+            &[],
+        )?;
+        return Ok(None);
+    }
+
+    let chat_id = match &verified {
+        VerifiedUpdate::OwnerMessage { chat_id, .. } => *chat_id,
+        VerifiedUpdate::OwnerCallback { chat_id, .. } => *chat_id,
+        VerifiedUpdate::Ignored { .. } => unreachable!(),
+    };
+
+    let _guard = state.lock_conversation(chat_id).await;
+
+    let (chat_id, text, owner_verified) = match verified {
         VerifiedUpdate::OwnerMessage {
             chat_id,
             text,
@@ -578,18 +614,7 @@ pub async fn handle_owner_update(
             }
             return Ok(None);
         }
-        VerifiedUpdate::Ignored { reason } => {
-            state.store.append_audit(
-                "telegram.update.ignored",
-                None,
-                None,
-                Some(reason),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
-        }
+        VerifiedUpdate::Ignored { .. } => unreachable!(),
     };
     match crate::secret_intake::capture(state, chat_id, &text).await {
         Ok(Some(outcome)) => {

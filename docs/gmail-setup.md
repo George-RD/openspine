@@ -61,7 +61,7 @@ gmail:
 
 Omitting the `gmail` block entirely is fine — the kernel starts normally
 and the `/draft` command below replies "Gmail isn't configured on this
-kernel yet" instead of failing to start (Phase 1's Telegram-only slice
+kernel yet, so /draft is unavailable." instead of failing to start (Phase 1's Telegram-only slice
 must keep working with no Gmail connector at all).
 
 ## 4. Selecting a thread — the `/draft <thread_id>` command
