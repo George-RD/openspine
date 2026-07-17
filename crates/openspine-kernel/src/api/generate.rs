@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use crate::spend::SpendLane;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
@@ -21,6 +22,7 @@ use crate::model_gateway::{
     build_prompt, build_prompt_with_untrusted_context, PromptMessage, PromptRole,
 };
 use crate::pipeline::AppState;
+use crate::spend::{counted_model_generate, SpendModelError};
 
 const CONVERSATION_HISTORY_LIMIT: usize = 20;
 
@@ -98,6 +100,15 @@ pub(super) async fn post_model_generate(
     let (grant, _pending_ref, _bound_chat_id) = authenticate(&state, &headers).await?;
     let now = Timestamp::now();
     let action = ActionId::new("model.generate:approved_provider");
+    if !crate::spend::admit_spend(&state, crate::spend::SpendLane::from_grant(&grant), now)
+        .await
+        .map_err(internal_error)?
+    {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "daily_spend_cap_exceeded"})),
+        ));
+    }
 
     // D-046: grant budgets are enforced kernel-dispatch-side (same
     // placement precedent as selection-token single-use, see
@@ -249,7 +260,24 @@ pub(super) async fn post_model_generate(
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("active provider {active_provider_id} is unavailable"))
         .map_err(internal_error)?;
-    let text = provider.generate(&prompt).await.map_err(internal_error)?;
+    let text = counted_model_generate(
+        state.as_ref(),
+        SpendLane::from_grant(&grant),
+        &provider,
+        &prompt,
+    )
+    .await
+    .map_err(|err| match err {
+        SpendModelError::Provider(provider_err) => internal_error(provider_err),
+        SpendModelError::Ledger(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error": "daily_spend_cap_unavailable"})),
+        ),
+        SpendModelError::Denied => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error": "daily_spend_cap_exceeded"})),
+        ),
+    })?;
 
     let assistant_ref = state
         .artifacts

@@ -154,6 +154,11 @@ pub(super) fn email_preflight<'a>(
             .thread_id
             .as_deref()
             .expect("email-preview lane always carries a thread id");
+        crate::spend::guard_connector(state, false)
+            .await
+            .map_err(|err| PreflightFailure::GmailError {
+                err: format!("daily spend guard denied Gmail preflight: {err}"),
+            })?;
         let result = gmail.thread_exists(thread_id).await;
         crate::failure_surfacing::record_connector_outcome(&state.store, "gmail", result.is_ok())
             .map_err(|err| PreflightFailure::GmailError {

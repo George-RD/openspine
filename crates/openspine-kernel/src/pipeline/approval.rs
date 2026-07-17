@@ -41,6 +41,7 @@ pub(super) async fn handle_draft_approval_callback(
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
+    crate::spend::guard_connector(state, true).await?;
     let answer_result = state
         .connectors
         .telegram()
@@ -301,6 +302,7 @@ pub(super) async fn create_approved_draft(
         return Ok(());
     };
 
+    crate::spend::guard_connector_for(state, grant).await?;
     let thread_result = gmail.fetch_thread(&thread_id).await;
     if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
         &state.store,
@@ -383,6 +385,7 @@ pub(super) async fn create_approved_draft(
         return Ok(());
     }
 
+    crate::spend::guard_connector_for(state, grant).await?;
     let draft_result = gmail.create_draft(&thread_id, &target, subject, body).await;
     if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
         &state.store,

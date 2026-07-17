@@ -58,6 +58,17 @@ pub struct GmailConfig {
     /// queried from Gmail on every preview (see D-042's trade-off).
     pub mailbox_address: String,
 }
+/// AD-143: required global per-day spend cap across all model and connector
+/// calls, sitting above per-task grant budgets. Operators choose explicit
+/// finite limits; a zero value for either counter is a hard cap of zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpendCapConfig {
+    #[serde(default)]
+    pub model_calls_per_day: u64,
+    #[serde(default)]
+    pub connector_calls_per_day: u64,
+}
 
 /// `providers.yaml`'s `auth` clause: either a plain API key sourced from an
 /// env var, or a future OAuth mode (Step 4c wires only `api_key` for
@@ -151,6 +162,11 @@ pub struct Config {
     /// unless this is explicitly set. Defaults to `false` — the safe state.
     #[serde(default)]
     pub unsafe_allow_uncontained_private_data: bool,
+    /// AD-143: global per-day spend cap across all model and connector calls,
+    /// sitting above per-task grant budgets. Required (no implicit "unlimited"
+    /// default): a wallet-draining kill-switch must be opted INTO with a real
+    /// number, not silently absent. Field defaults keep `spend_cap: {}` valid.
+    pub spend_cap: SpendCapConfig,
     #[serde(default = "default_kernel_bind")]
     pub kernel: KernelBindConfig,
     /// Where to load the `routes/agents/workflows/packs/policies/templates`
@@ -274,6 +290,9 @@ providers:
     auth:
       mode: api_key
       env: OPENSPINE_ANTHROPIC_API_KEY
+spend_cap:
+  model_calls_per_day: 100
+  connector_calls_per_day: 500
 unsafe_allow_uncontained_private_data: false
 "#
     }

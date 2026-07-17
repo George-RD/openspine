@@ -8,7 +8,7 @@
 
 mod providers;
 
-pub use providers::ProviderClient;
+pub use providers::{GatewayError, ProviderClient};
 
 use serde::{Deserialize, Serialize};
 

@@ -85,7 +85,7 @@ fn handle_status_read<'a>(
 
 fn handle_telegram_reply<'a>(
     state: &'a AppState,
-    _grant: &'a TaskGrant,
+    grant: &'a TaskGrant,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -99,6 +99,9 @@ fn handle_telegram_reply<'a>(
                     .to_string(),
             )
         })?;
+        crate::spend::guard_connector_for(state, grant)
+            .await
+            .map_err(DispatchError::Resource)?;
         let send_result = state
             .connectors
             .telegram()

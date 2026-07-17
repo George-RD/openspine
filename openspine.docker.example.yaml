@@ -27,6 +27,11 @@ providers:
       mode: api_key
       env: ANTHROPIC_API_KEY
 
+# AD-143: required kernel-wide daily caps (model + connector calls).
+spend_cap:
+  model_calls_per_day: 1000
+  connector_calls_per_day: 5000
+
 kernel:
   bind_addr: "0.0.0.0:7777" # reachable from shell containers on the compose network
   advertise_endpoint: "http://kernel:7777" # the compose service DNS name

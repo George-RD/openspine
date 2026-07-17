@@ -26,6 +26,11 @@ providers:
       mode: api_key
       env: ANTHROPIC_API_KEY
 
+
+# AD-143: required kernel-wide daily caps (model + connector calls).
+spend_cap:
+  model_calls_per_day: 1000
+  connector_calls_per_day: 5000
 kernel:
   bind_addr: "127.0.0.1:7777"
   # advertise_endpoint omitted: derives http://127.0.0.1:7777, correct when

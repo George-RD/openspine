@@ -540,6 +540,7 @@ mod lineage_tests;
 mod migration_tests;
 mod migrations;
 pub(crate) mod proposed_artifacts;
+pub(crate) mod spend;
 #[cfg(test)]
 mod test_hooks;
 #[cfg(test)]

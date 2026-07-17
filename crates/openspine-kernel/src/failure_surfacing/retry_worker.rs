@@ -68,6 +68,7 @@ pub(crate) async fn retry_due_notifications(state: &AppState) -> Result<()> {
             return Ok(());
         }
     };
+    crate::spend::guard_connector(state, true).await?;
     match state
         .connectors
         .telegram()

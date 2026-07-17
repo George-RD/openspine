@@ -95,6 +95,11 @@ pub(crate) mod fixtures {
             )]),
             started_at: std::time::Instant::now(),
             overlay_dir,
+            // Effectively unlimited for unit tests; real configs set a finite cap.
+            spend_cap: crate::config::SpendCapConfig {
+                model_calls_per_day: i64::MAX as u64,
+                connector_calls_per_day: i64::MAX as u64,
+            },
         }
     }
 

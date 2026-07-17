@@ -10,6 +10,8 @@
 use std::time::Duration;
 
 use crate::model_gateway::{PromptMessage, PromptRole, ProviderClient, ResolvedPrompt};
+use crate::pipeline::AppState;
+use crate::spend::{counted_model_generate, SpendLane, SpendModelError};
 use openspine_schemas::digest::{digest_of, digest_of_bytes, Digest};
 use openspine_schemas::model_swap::{
     GoldenSet, GoldenSetCase, GoldenSetCaseResult, GoldenSetRunResult, ModelSwapManifest,
@@ -40,9 +42,8 @@ pub fn golden_set_digest(golden_set: &GoldenSet) -> Digest {
 
 /// Run the trusted golden set against the already-resolved candidate provider,
 /// deriving every case result from the provider's actual output. The caller
-/// must resolve the set from the startup registry and the provider from the
-/// immutable startup pool; neither is accepted from shell input.
 pub async fn enrich(
+    state: &AppState,
     manifest: &ModelSwapManifest,
     golden_set: &GoldenSet,
     provider: &ProviderClient,
@@ -56,7 +57,7 @@ pub async fn enrich(
     let remaining = remaining_runtime(grant_expires_at, jiff::Timestamp::now())?;
     let timeout = remaining.min(GOLDEN_SET_TIMEOUT);
     let set_digest = golden_set_digest(golden_set);
-    let cases = tokio::time::timeout(timeout, run_cases(golden_set, provider))
+    let cases = tokio::time::timeout(timeout, run_cases(state, golden_set, provider))
         .await
         .map_err(|_| anyhow::anyhow!("golden-set execution exceeded grant runtime"))??;
     let mut enriched = manifest.clone();
@@ -70,31 +71,37 @@ pub async fn enrich(
 }
 
 async fn run_cases(
+    state: &AppState,
     golden_set: &GoldenSet,
     provider: &ProviderClient,
 ) -> anyhow::Result<Vec<GoldenSetCaseResult>> {
     let mut results = Vec::with_capacity(golden_set.cases.len());
     for case in &golden_set.cases {
-        results.push(run_case(golden_set, case, provider).await?);
+        results.push(run_case(state, golden_set, case, provider).await?);
     }
     Ok(results)
 }
-
 async fn run_case(
+    state: &AppState,
     golden_set: &GoldenSet,
     case: &GoldenSetCase,
     provider: &ProviderClient,
 ) -> anyhow::Result<GoldenSetCaseResult> {
-    let output = provider
-        .generate(&ResolvedPrompt {
-            system: golden_set.system.clone().unwrap_or_default(),
-            messages: vec![PromptMessage {
-                role: PromptRole::User,
-                content: case.prompt.clone(),
-            }],
-            max_tokens: GOLDEN_SET_MAX_TOKENS,
-        })
-        .await?;
+    let prompt = ResolvedPrompt {
+        system: golden_set.system.clone().unwrap_or_default(),
+        messages: vec![PromptMessage {
+            role: PromptRole::User,
+            content: case.prompt.clone(),
+        }],
+        max_tokens: GOLDEN_SET_MAX_TOKENS,
+    };
+    let output = counted_model_generate(state, SpendLane::NonImmediate, provider, &prompt)
+        .await
+        .map_err(|err| match err {
+            SpendModelError::Provider(provider_err) => anyhow::anyhow!(provider_err),
+            SpendModelError::Ledger(store_err) => anyhow::anyhow!(store_err),
+            SpendModelError::Denied => anyhow::anyhow!("daily model spend cap exceeded"),
+        })?;
     let passed = case
         .must_contain
         .iter()

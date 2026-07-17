@@ -10,6 +10,7 @@ pub(crate) async fn initialize_telegram_bot_id(state: &AppState) -> anyhow::Resu
     // between a token `put` and the `telegram.bot_id` update during a
     // mid-rotation capture) would otherwise leave the kernel polling bot B
     // under bot A's offset namespace, stranding B's updates.
+    crate::spend::guard_connector(state, true).await?;
     let actual_bot_id = state
         .connectors
         .telegram()

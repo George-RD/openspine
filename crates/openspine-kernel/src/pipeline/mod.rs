@@ -104,6 +104,9 @@ pub struct AppState {
     /// so they survive restart, and the startup loader re-merges them into
     /// the live registry alongside the fixtures.
     pub overlay_dir: PathBuf,
+    /// AD-143: required global per-day spend cap across model and connector
+    /// calls. The lane gate and usage reservations read this kernel setting.
+    pub spend_cap: crate::config::SpendCapConfig,
 }
 
 /// Phase 1 has no persisted per-user/session policy system yet (D-013's
@@ -218,6 +221,23 @@ pub(crate) async fn notify_owner_with_digest(
         record_notify_skipped(state, &format!("attempt audit append failed: {err}"));
         return NotifyOutcome::AttemptAuditFailed;
     }
+    if let Err(err) = state.store.reserve_daily_connector_call(
+        &crate::store::spend::utc_day(Timestamp::now()),
+        i64::MAX as u64,
+    ) {
+        tracing::error!(error = %err, "immediate-lane daily connector reservation failed");
+        if let Err(audit_err) = state.store.append_audit(
+            "spend.immediate_reservation_failed",
+            Some(&request.action),
+            None,
+            None,
+            Some(outcome.audit.task_grant_id),
+            &[],
+            &[],
+        ) {
+            tracing::error!(error = %audit_err, "failed to audit immediate reservation failure");
+        }
+    }
     let send_result = state.connectors.telegram().send_reply(chat_id, text).await;
     match send_result {
         Ok(()) => {
@@ -313,13 +333,20 @@ pub(crate) async fn notify_owner_with_digest(
 /// delivery must never be silently downgraded to success (the escalation
 /// path that calls this depends on the error to avoid recording a false
 /// `action.escalated`).
+pub(crate) async fn notify_owner_required_outcome(
+    state: &AppState,
+    chat_id: i64,
+    text: &str,
+) -> NotifyOutcome {
+    notify_owner_with_digest(state, chat_id, text, &[], None).await
+}
+
 pub(crate) async fn notify_owner_required(
     state: &AppState,
     chat_id: i64,
     text: &str,
 ) -> Result<(), crate::store::StoreError> {
-    let outcome = notify_owner_with_digest(state, chat_id, text, &[], None).await;
-    match outcome {
+    match notify_owner_required_outcome(state, chat_id, text).await {
         NotifyOutcome::Sent => Ok(()),
         other => Err(crate::store::StoreError::OwnerNotificationFailed(format!(
             "required owner notification did not reach Sent: {other:?}"
@@ -410,6 +437,7 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
     loop {
         let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
 
+        crate::spend::guard_connector(state, true).await?;
         let updates = match state.connectors.telegram().poll_once(last_update_id).await {
             Ok(updates) => {
                 crate::failure_surfacing::record_connector_outcome(&state.store, "telegram", true)?;
@@ -467,6 +495,7 @@ async fn dispatch_polled_updates(
 #[cfg(test)]
 pub(crate) async fn poll_telegram_once_for_test(state: &AppState) -> anyhow::Result<()> {
     let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
+    crate::spend::guard_connector(state, true).await?;
     let updates = state
         .connectors
         .telegram()
@@ -521,6 +550,7 @@ pub async fn handle_owner_update(
                 )
                 .await?;
             } else {
+                crate::spend::guard_connector(state, true).await?;
                 let answer_result = state
                     .connectors
                     .telegram()
