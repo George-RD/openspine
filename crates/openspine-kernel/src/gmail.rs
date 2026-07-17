@@ -13,6 +13,8 @@
 //! process (a human completes Google's consent screen once, out of band;
 //! see `docs/telegram-setup.md`).
 
+mod credentials;
+
 use std::time::Duration;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -78,6 +80,8 @@ pub struct GmailThread {
 struct CachedToken {
     access_token: String,
     expires_at: Timestamp,
+    client_secret_version: Option<openspine_schemas::digest::Digest>,
+    refresh_token_version: Option<openspine_schemas::digest::Digest>,
 }
 
 fn http_client() -> reqwest::Client {
@@ -89,13 +93,14 @@ fn http_client() -> reqwest::Client {
 
 /// The live Gmail connector. `token_url`/`api_base_url` default to Google's
 /// real endpoints but are overridable so tests point them at a `wiremock`
-/// server — mirrors `model_gateway::providers::ProviderClient`'s pattern
-/// (plain HTTP client, no vendor SDK, configurable base URL for testing).
 pub struct GmailConnector {
     http: reqwest::Client,
     client_id: String,
     client_secret: String,
     refresh_token: String,
+    secrets: Option<std::sync::Arc<crate::secret_store::SecretStore>>,
+    client_secret_slot: String,
+    refresh_token_slot: String,
     token_url: String,
     api_base_url: String,
     cached: Mutex<Option<CachedToken>>,
@@ -115,11 +120,27 @@ impl GmailConnector {
             client_id,
             client_secret,
             refresh_token,
+            secrets: None,
+            client_secret_slot: String::new(),
+            refresh_token_slot: String::new(),
             token_url: DEFAULT_TOKEN_URL.to_string(),
             api_base_url: DEFAULT_API_BASE_URL.to_string(),
             cached: Mutex::new(None),
             mailbox_address,
         }
+    }
+    pub fn new_with_store(
+        client_id: String,
+        secrets: std::sync::Arc<crate::secret_store::SecretStore>,
+        client_secret_slot: String,
+        refresh_token_slot: String,
+        mailbox_address: String,
+    ) -> Self {
+        let mut connector = Self::new(client_id, String::new(), String::new(), mailbox_address);
+        connector.secrets = Some(secrets);
+        connector.client_secret_slot = client_secret_slot;
+        connector.refresh_token_slot = refresh_token_slot;
+        connector
     }
 
     /// The owner's own address (D-042), used by [`newest_non_owner_recipient`].
@@ -135,19 +156,67 @@ impl GmailConnector {
     }
 
     async fn access_token(&self) -> Result<String, GmailError> {
+        let (client_secret, refresh_token, client_secret_version, refresh_token_version) =
+            if let Some(secrets) = &self.secrets {
+                let (client_bytes, client_version) = secrets
+                    .get_with_version(&self.client_secret_slot)
+                    .map_err(|_| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail client secret is not configured".to_string(),
+                    })?
+                    .ok_or_else(|| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail client secret is not configured".to_string(),
+                    })?;
+                let (refresh_bytes, refresh_version) = secrets
+                    .get_with_version(&self.refresh_token_slot)
+                    .map_err(|_| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail refresh token is not configured".to_string(),
+                    })?
+                    .ok_or_else(|| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail refresh token is not configured".to_string(),
+                    })?;
+                let client_secret =
+                    String::from_utf8(client_bytes).map_err(|_| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail client secret is not configured".to_string(),
+                    })?;
+                let refresh_token =
+                    String::from_utf8(refresh_bytes).map_err(|_| GmailError::TokenRefresh {
+                        status: 0,
+                        body: "gmail refresh token is not configured".to_string(),
+                    })?;
+                (
+                    client_secret,
+                    refresh_token,
+                    Some(client_version),
+                    Some(refresh_version),
+                )
+            } else {
+                (
+                    self.client_secret.clone(),
+                    self.refresh_token.clone(),
+                    None,
+                    None,
+                )
+            };
         if let Some(cached) = self.cached.lock().as_ref() {
-            if cached.expires_at > Timestamp::now() {
+            if cached.expires_at > Timestamp::now()
+                && cached.client_secret_version == client_secret_version
+                && cached.refresh_token_version == refresh_token_version
+            {
                 return Ok(cached.access_token.clone());
             }
         }
-
         let resp = self
             .http
             .post(&self.token_url)
             .form(&[
                 ("client_id", self.client_id.as_str()),
-                ("client_secret", self.client_secret.as_str()),
-                ("refresh_token", self.refresh_token.as_str()),
+                ("client_secret", client_secret.as_str()),
+                ("refresh_token", refresh_token.as_str()),
                 ("grant_type", "refresh_token"),
             ])
             .send()
@@ -166,6 +235,8 @@ impl GmailConnector {
         *self.cached.lock() = Some(CachedToken {
             access_token: parsed.access_token.clone(),
             expires_at,
+            client_secret_version,
+            refresh_token_version,
         });
         Ok(parsed.access_token)
     }
@@ -173,7 +244,6 @@ impl GmailConnector {
     /// Fetch one thread, bounded to [`MAX_MESSAGES`] messages with
     /// attachments stripped (PRD §21.1 step 12). `thread_id` must already
     /// be the kernel's own validated selection — this function does not
-    /// itself decide whether the caller was authorized to ask; `gate()`
     /// already did, before this is ever called.
     pub async fn fetch_thread(&self, thread_id: &str) -> Result<GmailThread, GmailError> {
         let token = self.access_token().await?;

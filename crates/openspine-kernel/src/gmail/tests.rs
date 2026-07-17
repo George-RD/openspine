@@ -1,6 +1,6 @@
 use super::*;
 use serde_json::json;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{body_string_contains, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn connector(token_server: &MockServer, api_server: &MockServer) -> GmailConnector {
@@ -154,4 +154,65 @@ async fn the_access_token_is_cached_across_calls() {
     let connector = connector(&token_server, &api_server);
     connector.fetch_thread("thread-1").await.unwrap();
     connector.fetch_thread("thread-1").await.unwrap();
+}
+
+#[tokio::test]
+async fn rotated_vault_credentials_bypass_live_access_token_cache() {
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .and(body_string_contains("refresh_token=refresh-b"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "access_token": "rotated-access-token",
+            "expires_in": 3600,
+        })))
+        .expect(1)
+        .mount(&token_server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "access_token": "first-access-token",
+            "expires_in": 3600,
+        })))
+        .expect(1)
+        .mount(&token_server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
+        .mount(&api_server)
+        .await;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = std::sync::Arc::new(
+        crate::secret_store::SecretStore::open(dir.path().join("credentials"), [9; 32])
+            .expect("open secret store"),
+    );
+    store
+        .put("gmail.client_secret", b"client-a")
+        .expect("seed client");
+    store
+        .put("gmail.refresh_token", b"refresh-a")
+        .expect("seed refresh");
+    let connector = GmailConnector::new_with_store(
+        "client-id".to_string(),
+        store.clone(),
+        "gmail.client_secret".to_string(),
+        "gmail.refresh_token".to_string(),
+        "owner@example.com".to_string(),
+    )
+    .with_urls(format!("{}/token", token_server.uri()), api_server.uri());
+    connector
+        .fetch_thread("thread-1")
+        .await
+        .expect("first call");
+    store
+        .put("gmail.refresh_token", b"refresh-b")
+        .expect("rotate refresh");
+    connector
+        .fetch_thread("thread-1")
+        .await
+        .expect("rotated call");
 }

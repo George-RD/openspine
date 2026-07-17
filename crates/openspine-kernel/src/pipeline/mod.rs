@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: pipeline orchestration remains one audited stage boundary
 //! The owner-message pipeline: Telegram update -> owner verification ->
 //! identity resolution -> route resolution -> authority composition -> task
 //! grant -> sandboxed shell spawn.
@@ -29,7 +30,14 @@ mod approval;
 mod artifact_activation;
 mod driver;
 mod lanes;
+mod offset;
 mod plan_approval;
+pub(crate) use offset::initialize_telegram_bot_id_until_ready;
+#[cfg(test)]
+pub(crate) use offset::{
+    dispatch_polled_updates_for_test, initialize_telegram_bot_id, resolve_telegram_offset_for_test,
+};
+pub(crate) use offset::{is_already_processed, resolve_telegram_offset};
 mod post_approval;
 mod selection;
 #[cfg(test)]
@@ -48,6 +56,7 @@ use crate::artifact_loader::ArtifactRegistry;
 use crate::artifact_store::ArtifactStore;
 use crate::connectors::ConnectorRegistry;
 use crate::sandbox::Sandbox;
+use crate::secret_store::SecretStore;
 use crate::store::Store;
 use crate::telegram::{self, VerifiedUpdate};
 use std::collections::HashMap;
@@ -64,6 +73,7 @@ use plan_approval::handle_plan_approval_callback;
 pub struct AppState {
     pub store: Store,
     pub artifacts: ArtifactStore,
+    pub secrets: std::sync::Arc<SecretStore>,
     pub registry: parking_lot::RwLock<ArtifactRegistry>,
     pub action_catalog: ActionCatalog,
     pub sandbox: Sandbox,
@@ -344,11 +354,9 @@ fn kernel_notify_grant() -> Option<TaskGrant> {
 /// update rather than replaying an already-actioned one.
 pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
     const POLL_ERROR_BACKOFF: std::time::Duration = std::time::Duration::from_secs(5);
+    initialize_telegram_bot_id_until_ready(state, POLL_ERROR_BACKOFF).await;
     loop {
-        let last_update_id: Option<i64> = state
-            .store
-            .get_kv("last_telegram_update_id")?
-            .and_then(|s| s.parse().ok());
+        let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
 
         let updates = match state.connectors.telegram().poll_once(last_update_id).await {
             Ok(updates) => updates,
@@ -358,23 +366,47 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
                 continue;
             }
         };
+        dispatch_polled_updates(state, updates, offset_key, last_update_id).await?;
+    }
+}
 
-        for update in updates {
-            if let Some(last) = last_update_id {
-                if update.update_id <= last {
-                    continue; // already processed before an earlier crash
-                }
-            }
-            // Persist the offset *before* handling: see this function's
-            // doc comment on the at-most-once tradeoff.
-            state
-                .store
-                .set_kv("last_telegram_update_id", &update.update_id.to_string())?;
-            if let Err(err) = handle_owner_update(state, &update).await {
-                tracing::warn!(error = %err, update_id = update.update_id, "owner update handling failed");
-            }
+async fn dispatch_polled_updates(
+    state: &AppState,
+    updates: Vec<telegram::TelegramUpdate>,
+    offset_key: String,
+    last_update_id: Option<i64>,
+) -> anyhow::Result<()> {
+    for update in updates {
+        // At-most-once replay guard: a previously consumed update is
+        // dropped before it can reach the pipeline, model, or shell.
+        if is_already_processed(update.update_id, last_update_id) {
+            continue;
+        }
+        // Persist the offset *before* handling: see this function's
+        // at-most-once contract above.
+        state
+            .store
+            .set_kv(&offset_key, &update.update_id.to_string())?;
+        if let Err(err) = handle_owner_update(state, &update).await {
+            tracing::warn!(
+                error = %err,
+                update_id = update.update_id,
+                "owner update handling failed"
+            );
         }
     }
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) async fn poll_telegram_once_for_test(state: &AppState) -> anyhow::Result<()> {
+    let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
+    let updates = state
+        .connectors
+        .telegram()
+        .poll_once(last_update_id)
+        .await?;
+    dispatch_polled_updates(state, updates, offset_key, last_update_id).await
 }
 
 /// Run one verified-or-not Telegram update through the full pipeline.
@@ -453,6 +485,70 @@ pub async fn handle_owner_update(
             return Ok(None);
         }
     };
+    match crate::secret_intake::capture(state, chat_id, &text).await {
+        Ok(Some(outcome)) => {
+            let response = match outcome {
+                crate::secret_intake::CaptureOutcome::Stored(crate::secret_intake::SecretMode::Intake) => {
+                    "Secret intake completed; value was stored."
+                }
+                crate::secret_intake::CaptureOutcome::Staged(crate::secret_intake::SecretMode::Intake) => {
+                    "Secret received and staged; provide the paired Gmail credential to validate and activate it."
+                }
+                crate::secret_intake::CaptureOutcome::Staged(crate::secret_intake::SecretMode::Rotate) => {
+                    "Secret received and staged; provide the paired Gmail credential to validate and activate rotation."
+                }
+                crate::secret_intake::CaptureOutcome::Stored(crate::secret_intake::SecretMode::Rotate) => {
+                    "Secret rotation completed; value was stored."
+                }
+                crate::secret_intake::CaptureOutcome::Rejected => {
+                    "Secret message discarded; intake expired, failed validation, or was not bound to this chat. Retry."
+                }
+            };
+            notify_owner_best_effort(state, chat_id, response).await;
+            return Ok(None);
+        }
+        Ok(None) => {}
+        Err(err) => {
+            let _ = state.store.delete_kv("secret.intake.pending");
+            tracing::warn!(error = %err, "secret capture failed; pending state cleared");
+            notify_owner_best_effort(
+                state,
+                chat_id,
+                "Secret capture failed; intake was cleared. Retry.",
+            )
+            .await;
+            return Ok(None);
+        }
+    }
+    if text.trim().starts_with("/secret") {
+        if let Some((mode, slot)) = crate::secret_intake::parse_command(&text) {
+            let proof = owner_verified
+                .as_ref()
+                .expect("verified owner message carries proof");
+            let armed = crate::secret_intake::arm(
+                state,
+                chat_id,
+                state.owner_principal_id,
+                proof,
+                mode,
+                slot,
+            )?;
+            let response = if armed {
+                "Secret mode armed; send the value in your next private message."
+            } else {
+                "Secret mode was denied; retry after verifying owner authority."
+            };
+            notify_owner_best_effort(state, chat_id, response).await;
+        } else {
+            notify_owner_best_effort(
+                state,
+                chat_id,
+                "Invalid /secret command. Use /secret intake <slot> or /secret rotate <slot>.",
+            )
+            .await;
+        }
+        return Ok(None);
+    }
     if let Some((channel_user_id, relationship_str)) = telegram::parse_bind_command(&text) {
         let proof = owner_verified.as_ref().unwrap();
         match crate::identity::handle_owner_bind(

@@ -75,6 +75,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-061 | Model-swap golden sets use a bounded deterministic first cut: operator-owned role-bound fixtures, at least three standard plus one adversarial case, deterministic substring criteria, a 20-case cap, bounded prompts/evidence, and replay timeout capped by both five minutes and the grant's remaining expiry; attempted calls consume reserved budget | Accepted |
 | D-062 | An active model swap is restorable only when the exact normalized manifest matches the latest persisted Active proposal and its digest-bound replay and judge verdicts; startup fails closed rather than silently falling back when DB provenance and overlay state disagree | Accepted |
 | D-063 | Model-swap activation is a serialized, provenance-bound staged protocol: lifecycle, supersession, and activation audit commit transactionally before provider publication; `.pending` files are loader-invisible and startup either completes a digest-matching committed activation or quarantines/removes an uncommitted or tampered candidate | Accepted |
+| D-064 | Connector secrets migrate once into the kernel vault; connectors resolve vault slots at call time | Accepted |
+| D-065 | Provider API-key vault migration belongs to the foundation-amendment lane | Accepted |
+| D-066 | Paired Gmail credentials stage until atomic validated promotion | Accepted |
+| D-067 | Telegram poll offsets are namespaced by bot identity and legacy state migrates once | Accepted |
 
 ---
 
@@ -1628,6 +1632,86 @@ Artifacts and lifecycle state move into one transactional store with an atomic m
 ---
 
 
+# D-064 — Connector secrets migrate once into the kernel vault
+
+## Decision
+
+Connector credentials move from runtime environment lookup to the encrypted kernel vault. Legacy connector environment variables MAY seed an absent vault slot exactly once at first startup, but MUST NOT be consulted after a slot exists. Connector calls resolve the vault at call time. `OPENSPINE_ARTIFACT_KEY` remains an environment bootstrap because it is the root key required to open the vault.
+
+## Rationale
+
+One-way bootstrap preserves existing installations while making rotation effective without restart and preventing stale environment values from overriding owner-managed credentials.
+
+## Consequences
+
+Telegram and Gmail credentials become vault-authoritative after first seed. Missing or undecryptable slots fail closed.
+
+## Would change if
+
+The root encryption key gains a hardware-backed or external key-management bootstrap that removes its environment dependency.
+
+---
+
+# D-065 — Provider API-key vault migration belongs to foundation amendment
+
+## Decision
+
+Provider API keys remain environment-sourced until a future foundation-amendment change explicitly migrates them into the kernel vault. The archived model-gateway change is not an executable owner for this work.
+
+## Rationale
+
+Provider credentials sit on the kernel model-gateway trust boundary. Migrating them implicitly inside connector secret intake would widen the change and bypass the kernel-amendment ceremony.
+
+## Consequences
+
+This change migrates connector credentials only. Provider-key migration stays explicit, reviewable, and dependency-aware.
+
+## Would change if
+
+The foundation-amendment lane ratifies and implements a provider-key vault migration.
+
+---
+
+# D-066 — Paired Gmail credentials stage until atomic validated promotion
+
+## Decision
+
+A first Gmail credential is stored only in a staging slot and is not validated or active until the paired credential arrives and the connector validates the pair. Promotion is atomic with full-snapshot rollback on any post-mutation failure.
+
+## Rationale
+
+Publishing half of an OAuth credential pair creates a broken live configuration; non-atomic promotion can leave live and staged slots inconsistent after storage or audit failure.
+
+## Consequences
+
+Incomplete pairs never become connector-visible. Failed promotion restores live values, staged values, and staging metadata exactly so the owner can retry.
+
+## Would change if
+
+The provider supports independently valid single-field credentials with no pairwise validation requirement.
+
+---
+
+# D-067 — Telegram poll offsets are namespaced by bot identity
+
+## Decision
+
+The consumed Telegram `update_id` is persisted under the current bot id. A legacy non-namespaced offset migrates into that namespace exactly once and is then cleared. Same-bot token rotation preserves the consumed offset; a different bot starts with a fresh namespace and never inherits the previous bot's offset.
+
+## Rationale
+
+A global offset either suppresses valid updates after bot rotation or replays already-consumed updates. Bot identity, not token text, is the stable delivery cursor boundary.
+
+## Consequences
+
+Same-bot rotation avoids redelivery. Different-bot rotation does not strand the new bot behind another bot's cursor. Migration and bot-id persistence occur transactionally.
+
+## Would change if
+
+Telegram supplies a stronger server-side consumer identity and cursor primitive that survives token rotation without local namespacing.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -1681,4 +1765,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-16 | Added D-057 (counterparty-facing actions are an explicit kernel ActionCatalog set, v1 = `email.send` only; only such denials get the canonical deferral + escalation), D-058 (security escalations require result-returning gated owner delivery; `action.escalated` only after connector success; failures recorded as `owner.notify_failed` and returned as structured errors), and D-059 (dormant `thread_id` bindings are MAC-authenticated when populated, omitted from canonical bytes when `None` for legacy compatibility), settled while implementing `implement-escalation-and-refusal`. |
 | 2026-07-16 | Added D-060 (the AD-142 overlay eval gate ships a deterministic first-cut evaluator — owner-history availability gate + structural probes — with verdicts in the D-056 eval store; the full OQ-17 holdout replay and AD-111 prover-verifier protocol remain owner-reserved), settled while implementing `implement-overlay-eval-gate`. |
 | 2026-07-16 | Added D-061 (bounded deterministic first-cut model-swap golden sets with grant-bounded timeout and consumed attempt budget), D-062 (symmetric Active proposal ↔ exact overlay provenance required at startup), and D-063 (serialized staged model-swap activation with transactional lifecycle/audit and digest-bound crash recovery), settled while implementing `implement-model-swap-ceremony`. |
+| 2026-07-16 | Added D-064 (one-way connector-secret migration into the encrypted kernel vault with call-time resolution), D-065 (provider API-key migration owned by the foundation-amendment lane), D-066 (paired Gmail credentials stage until atomic validated promotion), and D-067 (Telegram offsets namespaced by bot identity with one-time legacy migration), settled while implementing `implement-secret-intake`. |
 

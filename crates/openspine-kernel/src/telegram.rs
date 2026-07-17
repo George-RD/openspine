@@ -281,32 +281,107 @@ pub fn build_owner_envelope(
     }
 }
 
+pub const BOT_TOKEN_SLOT: &str = "telegram.bot_token";
+
 /// The live Telegram connector: long-polling plus the reply dispatcher.
-/// Thin wrapper over [`teloxide::Bot`] — every decision this connector
-/// makes lives in [`verify_update`]/[`build_owner_envelope`] above, not
-/// here, so the untested I/O surface is as small as possible.
 pub struct TelegramConnector {
+    bot: parking_lot::Mutex<TelegramBotState>,
+    secrets: Option<std::sync::Arc<crate::secret_store::SecretStore>>,
+    token_slot: String,
+}
+
+struct TelegramBotState {
     bot: Bot,
+    token: String,
+    api_url: Option<reqwest::Url>,
 }
 
 impl TelegramConnector {
     pub fn new(bot_token: String) -> Self {
         Self {
-            bot: Bot::new(bot_token),
+            bot: parking_lot::Mutex::new(TelegramBotState {
+                bot: Bot::new(bot_token.clone()),
+                token: bot_token,
+                api_url: None,
+            }),
+            secrets: None,
+            token_slot: String::new(),
         }
     }
 
-    /// Build a connector that redirects all Bot API calls to `api_url`.
-    /// Used by tests to point [`send_reply`] and [`poll_once`] at a local
-    /// `wiremock` server instead of the real `api.telegram.org`.
+    pub fn new_with_store(
+        bot_token: String,
+        secrets: std::sync::Arc<crate::secret_store::SecretStore>,
+        token_slot: String,
+    ) -> Self {
+        let mut connector = Self::new(bot_token);
+        connector.secrets = Some(secrets);
+        connector.token_slot = token_slot;
+        connector
+    }
+
+    async fn current_bot(&self) -> anyhow::Result<Bot> {
+        let Some(secrets) = &self.secrets else {
+            return Ok(self.bot.lock().bot.clone());
+        };
+        let token = secrets
+            .get_string(&self.token_slot)
+            .map_err(|err| anyhow::anyhow!("telegram bot token lookup failed: {err}"))?
+            .ok_or_else(|| anyhow::anyhow!("telegram bot token is not configured"))?;
+        let mut state = self.bot.lock();
+        if state.token != token {
+            let mut bot = Bot::new(token.clone());
+            if let Some(api_url) = &state.api_url {
+                bot = bot.set_api_url(api_url.clone());
+            }
+            state.bot = bot;
+            state.token = token;
+        }
+        Ok(state.bot.clone())
+    }
+
+    pub async fn validate_candidate_token_id(&self, candidate: &str) -> Option<i64> {
+        let api_url = self.bot.lock().api_url.clone();
+        let mut bot = Bot::new(candidate.to_string());
+        if let Some(url) = api_url {
+            bot = bot.set_api_url(url);
+        }
+        bot.get_me().send().await.ok().map(|user| user.id.0 as i64)
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn current_token_for_test(&self) -> anyhow::Result<String> {
+        let _ = self.current_bot().await?;
+        Ok(self.bot.lock().token.clone())
+    }
+
     #[cfg(test)]
     pub fn with_api_url(bot_token: String, api_url: reqwest::Url) -> Self {
-        Self {
-            bot: Bot::new(bot_token).set_api_url(api_url),
-        }
+        let connector = Self::new(bot_token);
+        let mut state = connector.bot.lock();
+        state.api_url = Some(api_url.clone());
+        state.bot = state.bot.clone().set_api_url(api_url);
+        drop(state);
+        connector
     }
-
-    /// Fetch one batch of updates via long-polling, starting after
+    /// Test-only: a vault-backed connector (`new_with_store`) whose bot API
+    /// URL is pointed at a mock server — so after a token rotation the live
+    /// `current_bot()` reads the promoted token from the vault and polls
+    /// with it, exercising the production promotion path end to end.
+    #[cfg(test)]
+    pub(crate) fn with_store_and_api_url(
+        bot_token: String,
+        secrets: std::sync::Arc<crate::secret_store::SecretStore>,
+        token_slot: String,
+        api_url: reqwest::Url,
+    ) -> Self {
+        let connector = Self::new_with_store(bot_token, secrets, token_slot);
+        let mut state = connector.bot.lock();
+        state.api_url = Some(api_url.clone());
+        state.bot = state.bot.clone().set_api_url(api_url);
+        drop(state);
+        connector
+    }
     /// `offset` (the last processed `update_id`, or `None` for "everything
     /// currently queued"). Telegram's own `offset` semantics are "greater
     /// by one than the highest previously received id", so this adds 1
@@ -315,7 +390,8 @@ impl TelegramConnector {
         &self,
         last_update_id: Option<i64>,
     ) -> anyhow::Result<Vec<TelegramUpdate>> {
-        let mut request = self.bot.get_updates();
+        let bot = self.current_bot().await?;
+        let mut request = bot.get_updates();
         if let Some(id) = last_update_id {
             request = request.offset((id + 1) as i32);
         }
@@ -329,9 +405,11 @@ impl TelegramConnector {
     /// grant-bound owner chat before ever calling this — this function
     /// itself performs no channel-binding check (spec.md's
     /// `Deny(ChannelBindingViolation)` requirement lives in the dispatcher,
-    /// gate()-mediated, not here).
     pub async fn send_reply(&self, chat_id: i64, text: &str) -> anyhow::Result<()> {
-        self.bot.send_message(ChatId(chat_id), text).await?;
+        self.current_bot()
+            .await?
+            .send_message(ChatId(chat_id), text)
+            .await?;
         Ok(())
     }
 
@@ -351,7 +429,8 @@ impl TelegramConnector {
             format!("{APPROVE_CALLBACK_PREFIX}{action_request_id}"),
         );
         let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
-        self.bot
+        self.current_bot()
+            .await?
             .send_message(ChatId(chat_id), text)
             .reply_markup(markup)
             .await?;
@@ -370,7 +449,8 @@ impl TelegramConnector {
             format!("{APPROVE_PLAN_CALLBACK_PREFIX}{action_request_id}"),
         );
         let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
-        self.bot
+        self.current_bot()
+            .await?
             .send_message(ChatId(chat_id), text)
             .reply_markup(markup)
             .await?;
@@ -383,12 +463,14 @@ impl TelegramConnector {
     /// owner's tap has already done its job regardless of whether
     /// Telegram's own UI acknowledgment succeeds.
     pub async fn answer_callback_query(&self, callback_query_id: &str) {
-        if let Err(err) = self
-            .bot
+        let Ok(bot) = self.current_bot().await else {
+            return;
+        };
+        if let Err(err) = bot
             .answer_callback_query(CallbackQueryId(callback_query_id.to_string()))
             .await
         {
-            tracing::warn!(error = %err, "failed to answer a Telegram callback query");
+            tracing::warn!(error = %err, "failed to answer Telegram callback query");
         }
     }
 }
