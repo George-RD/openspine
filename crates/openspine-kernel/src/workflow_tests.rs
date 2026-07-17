@@ -121,9 +121,7 @@ fn timer_driver_fires_once_across_recovery_and_stale_contexts() {
         let store = Store::open(&db).unwrap();
         let mut workflow = WorkflowCtx::new(&store, "timer-run").unwrap();
         let timer = workflow.schedule_timer(due).unwrap();
-        assert!(!workflow
-            .poll_timer(&timer, Timestamp::from_second(9).unwrap())
-            .unwrap());
+        assert!(!workflow.poll_timer(&timer).unwrap());
     }
     let store = Store::open(&db).unwrap();
     assert_eq!(store.fire_due_timers(due).unwrap().len(), 1);
@@ -133,9 +131,7 @@ fn timer_driver_fires_once_across_recovery_and_stale_contexts() {
         .is_empty());
     let mut recovered = WorkflowCtx::new(&store, "timer-run").unwrap();
     let timer = recovered.schedule_timer(due).unwrap();
-    assert!(recovered
-        .poll_timer(&timer, Timestamp::from_second(11).unwrap())
-        .unwrap());
+    assert!(recovered.poll_timer(&timer).unwrap());
 }
 
 #[test]
@@ -245,9 +241,7 @@ fn timer_and_deterministic_reads_replay() {
     let due = Timestamp::from_second(20).unwrap();
     let mut first = WorkflowCtx::new_with_definition(&store, "defined", "mail", "7").unwrap();
     let timer = first.schedule_timer(due).unwrap();
-    assert!(!first
-        .poll_timer(&timer, Timestamp::from_second(10).unwrap())
-        .unwrap());
+    assert!(!first.poll_timer(&timer).unwrap());
     let recorded_now = first.now().unwrap();
     let mut recovered = WorkflowCtx::new_with_definition(&store, "defined", "mail", "7").unwrap();
     assert_eq!(recovered.schedule_timer(due).unwrap(), timer);
@@ -286,15 +280,20 @@ fn timer_schedule_converges_across_contexts() {
     let mut workflow_b = WorkflowCtx::new(&store, "timer-converge").unwrap();
     let timer_b = workflow_b.schedule_timer(due).unwrap();
     assert_eq!(timer_a, timer_b);
-    assert!(!workflow_b
-        .poll_timer(&timer_b, Timestamp::from_second(9).unwrap())
-        .unwrap());
-    assert!(workflow_b
-        .poll_timer(&timer_b, Timestamp::from_second(11).unwrap())
-        .unwrap());
-    assert!(workflow_b
-        .poll_timer(&timer_b, Timestamp::from_second(11).unwrap())
-        .unwrap());
+    assert!(!workflow_b.poll_timer(&timer_b).unwrap());
+    assert!(store
+        .fire_due_timers(Timestamp::from_second(9).unwrap())
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        store
+            .fire_due_timers(Timestamp::from_second(11).unwrap())
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(workflow_b.poll_timer(&timer_b).unwrap());
+    assert!(workflow_b.poll_timer(&timer_b).unwrap());
     assert_eq!(
         store
             .count_audit_events_of_kind("workflow.timer_fired")
@@ -431,9 +430,7 @@ fn timer_fires_once_across_recovery_trusted_now() {
     let timer = {
         let mut workflow = WorkflowCtx::new(&store, "timer-recovery").unwrap();
         let timer = workflow.schedule_timer(due).unwrap();
-        assert!(!workflow
-            .poll_timer(&timer, Timestamp::from_second(9).unwrap())
-            .unwrap());
+        assert!(!workflow.poll_timer(&timer).unwrap());
         assert_eq!(
             store
                 .count_audit_events_of_kind("workflow.timer_fired")
@@ -444,15 +441,20 @@ fn timer_fires_once_across_recovery_trusted_now() {
     };
     let mut recovered = WorkflowCtx::new(&store, "timer-recovery").unwrap();
     assert_eq!(recovered.schedule_timer(due).unwrap(), timer);
-    assert!(!recovered
-        .poll_timer(&timer, Timestamp::from_second(9).unwrap())
-        .unwrap());
-    assert!(recovered
-        .poll_timer(&timer, Timestamp::from_second(11).unwrap())
-        .unwrap());
-    assert!(recovered
-        .poll_timer(&timer, Timestamp::from_second(11).unwrap())
-        .unwrap());
+    assert!(!recovered.poll_timer(&timer).unwrap());
+    assert!(store
+        .fire_due_timers(Timestamp::from_second(9).unwrap())
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        store
+            .fire_due_timers(Timestamp::from_second(11).unwrap())
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(recovered.poll_timer(&timer).unwrap());
+    assert!(recovered.poll_timer(&timer).unwrap());
     assert_eq!(
         store
             .count_audit_events_of_kind("workflow.timer_fired")

@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784256213.632745,
-    "ast_hash": "d059826ce5f9eeae758be68346ad1852",
+    "mtime": 1784257345.737549,
+    "ast_hash": "d16ad5c83ad9984d0cb2dbafe2a638d8",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1844,29 +1844,24 @@
     "ast_hash": "b05a4a04837bd4e002ab4269b95a810f",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784252809.6682403,
-    "ast_hash": "2ccf72c1b063d4138a9b8e6d4ab9c29b",
-    "semantic_hash": ""
-  },
   "openspec/changes/implement-durable-workflow-replay/design.md": {
-    "mtime": 1784256214.5811834,
-    "ast_hash": "d5510acbf81ad784ef9b1fae79866be7",
+    "mtime": 1784257386.9434898,
+    "ast_hash": "fc4af0bc00f9dac6b4feed9b7992a243",
     "semantic_hash": ""
   },
   "openspec/changes/implement-durable-workflow-replay/proposal.md": {
-    "mtime": 1784256214.5813692,
-    "ast_hash": "c91769644770d49b32829ff16f340e24",
+    "mtime": 1784257386.9438586,
+    "ast_hash": "8fcd22d6e5f2853b2b72665c0ee90aac",
     "semantic_hash": ""
   },
   "openspec/changes/implement-durable-workflow-replay/specs/durable-workflow-replay/spec.md": {
-    "mtime": 1784256214.5817113,
-    "ast_hash": "d74f3d387aec5af41c8040c99e772fc8",
+    "mtime": 1784257386.9445,
+    "ast_hash": "454be1153088276536d28887b31ada4a",
     "semantic_hash": ""
   },
   "openspec/changes/implement-durable-workflow-replay/tasks.md": {
-    "mtime": 1784256214.5819154,
-    "ast_hash": "61010b2731b8d87c9fbeea31b0e7ee8e",
+    "mtime": 1784257386.9442005,
+    "ast_hash": "7b9b8ad580cce7a2a7f93b4949d9fc66",
     "semantic_hash": ""
   }
 }
