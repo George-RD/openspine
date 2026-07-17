@@ -243,7 +243,7 @@ impl Store {
     /// same locked connection, so a mutation failure (or an audit failure) rolls
     /// back the whole transaction — there is never a briefcase update without its
     /// audit row, nor an audit row for an update that did not land.
-    pub fn mutate_briefcase_and_audit<R, E, F>(
+    pub(crate) fn mutate_briefcase_and_audit<R, E, F>(
         &self,
         task_grant_id: Ulid,
         mutate: F,

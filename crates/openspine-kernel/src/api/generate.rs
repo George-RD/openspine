@@ -23,6 +23,7 @@ use crate::model_gateway::{
 };
 use crate::pipeline::AppState;
 use crate::spend::{counted_model_generate, SpendModelError};
+use openspine_schemas::workflow::ReasoningTier;
 
 const CONVERSATION_HISTORY_LIMIT: usize = 20;
 
@@ -240,12 +241,20 @@ pub(super) async fn post_model_generate(
             content: String::from_utf8_lossy(&bytes).into_owned(),
         });
     }
-
     let prompt = match &body.untrusted_context {
-        Some(untrusted) => {
-            build_prompt_with_untrusted_context(&template, untrusted, conversation, body.max_tokens)
-        }
-        None => build_prompt(&template, conversation, body.max_tokens),
+        Some(untrusted) => build_prompt_with_untrusted_context(
+            &template,
+            untrusted,
+            conversation,
+            body.max_tokens,
+            ReasoningTier::Standard,
+        ),
+        None => build_prompt(
+            &template,
+            conversation,
+            body.max_tokens,
+            ReasoningTier::Standard,
+        ),
     };
     let active_provider_id = state
         .active_model_providers
@@ -255,15 +264,18 @@ pub(super) async fn post_model_generate(
         .ok_or_else(|| anyhow::anyhow!("no active base model provider"))
         .map_err(internal_error)?;
     let provider = state
-        .provider_pool
-        .get(&active_provider_id)
-        .cloned()
+        .gateway_tier_map
+        .resolve(
+            ReasoningTier::Standard,
+            &active_provider_id,
+            &state.provider_pool,
+        )
         .ok_or_else(|| anyhow::anyhow!("active provider {active_provider_id} is unavailable"))
         .map_err(internal_error)?;
     let text = counted_model_generate(
         state.as_ref(),
         SpendLane::from_grant(&grant),
-        &provider,
+        provider,
         &prompt,
     )
     .await

@@ -75,6 +75,7 @@ pub(crate) mod fixtures {
                 "test-provider".to_string(),
                 test_provider,
             )]),
+            gateway_tier_map: crate::model_gateway::GatewayTierMap::new(),
             active_model_providers: parking_lot::RwLock::new(std::collections::HashMap::from([
                 (
                     openspine_schemas::model_swap::ModelRole::Base,
