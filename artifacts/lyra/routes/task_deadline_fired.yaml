@@ -1,0 +1,12 @@
+id: task_deadline_fired
+schema_version: 1
+lifecycle_state: active
+priority: 100
+effect: allow
+when:
+  source: timer
+  event_type: timer.deadline.fired
+  lane: scheduled_internal
+agent: main_assistant_agent
+workflow: task_board_scheduled
+capability_pack: scheduled_timer_pack

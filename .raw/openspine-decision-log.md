@@ -93,6 +93,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-079 | Overlay compatibility converges to a fixed point; base wins identity collisions; only the highest Active version is effective | Accepted |
 | D-080 | Legacy migration is discovery/quarantine only; acceptance mints a fresh digest-bound proposal | Accepted |
 | D-081 | Upstream nomination requires explicit depersonalized opt-in and never changes namespace automatically | Accepted |
+| D-082 | Task-board timer consumption is transactionally idempotent; unknown owners and unmet dependencies are permanent AckSkip with blocked-attention audit | Accepted |
+| D-083 | Task dispatch commits grant, handoff, and authority audit in one transaction; recovery is receipt-keyed and fail-closed | Accepted |
+| D-084 | Task slices are deterministic category-ordered bounded projections; hysteresis scoring is deferred | Accepted |
 
 ---
 
@@ -2009,6 +2012,67 @@ An upstream adoption pipeline with its own depersonalization verification supers
 ---
 
 
+# D-082 — Task-board timer consumption is transactionally idempotent
+
+## Decision
+
+The task-board timer consumer records timer-event idempotency in the same SQLite transaction as grant persistence; replays acknowledge as `AckSkip`, while transient failures withhold the checkpoint for retry. Unknown task owners and unmet dependencies are permanent `AckSkip`: unmet dependencies atomically mark the task blocked and audit `task.blocked`, keeping attention visible instead of retrying forever.
+
+## Rationale
+
+Deadline/reminder firing rides the D-074 kernel timers and the D-073 replay substrate; classification into replay/retry/permanent-skip keeps the consumer convergent and truthful.
+
+## Consequences
+
+A fired deadline is processed exactly once per task; misconfigured tasks surface as owner-visible blocked state, not silent event loss or hot loops.
+
+## Would change if
+
+Task ownership becomes multi-principal, requiring routed attention instead of permanent skip.
+
+---
+
+# D-083 — Task dispatch is atomic with receipt-keyed fail-closed recovery
+
+## Decision
+
+Task dispatch commits the worker grant, the `handed_off` dispatch state, and the `authority.granted` audit in one SQLite transaction. The dispatch row's ULID is the stable idempotency key: workers persist a durable receipt on completion, recovery consults the receipt before any re-run, and a `handed_off` row without a receipt fails closed to owner-visible attention rather than re-running the grant.
+
+## Rationale
+
+A shell action is not provably idempotent; D-073 semantics (never re-run a recorded effect, receiptless pending fails closed) extend to task dispatch. Splitting grant from its audit created a crash window with unaudited authority.
+
+## Consequences
+
+Crash between handoff and completion cannot double-execute worker effects or leave granted authority unaudited; stuck dispatches surface for owner action.
+
+## Would change if
+
+Worker actions gain kernel-verifiable idempotency tokens end-to-end, permitting automatic redispatch.
+
+---
+
+# D-084 — Task slices are deterministic bounded projections
+
+## Decision
+
+Deterministic task slices compose correlated-task-first (including reminder-before-due), then due-now, blocked, and asked-about categories, with de-duplication and a hard cap; the worker sees slices, never the whole board. Hysteresis attention scoring is deferred to a later change.
+
+## Rationale
+
+AD-090/AD-131 require the master context to own the board while workers get bounded, detail-free projections; a fixed category order keeps slice content reviewable and testable.
+
+## Consequences
+
+Slice composition is a pure function under test; adding scoring later changes ranking within the same bounded contract.
+
+## Would change if
+
+AD-123 hysteresis scoring is ratified into a concrete decision, replacing category order with scored order.
+
+---
+
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -2066,5 +2130,6 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-068 (direct authenticated API bad-request surfacing without duplicate owner notification), D-069 (kernel connector counters as the minimal observability surface), D-070 (encrypted artifact references for retryable owner notifications), D-071 (delivery-unknown send-to-receipt crash semantics), and D-072 (secure lossless `/digest` pagination substrate with presentation deferred), settled while implementing `implement-failure-surfacing-contract`. |
 | 2026-07-17 | Added D-073 (durable workflow steps persist intent before effect, replay rehydrates recorded outcomes, receiptless pending non-idempotent steps fail closed with sealed inline payload set) and D-074 (kernel-owned workflow timers fire at most once via trusted-clock atomic claims), settled while implementing `implement-durable-workflow-replay`. |
 | 2026-07-17 | Added D-075 (the daily spend kill switch accounts for every model and connector call while breach pauses only non-immediate lanes; owner-control and control-plane operations stay live, counted, cap-exempt; notification-only reservation keeps breach alerts deliverable) and D-076 (spend caps are required finite configuration), settled while implementing `implement-spend-kill-switch`. |
-| 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition), D-079 (fixed-point overlay compatibility, base-wins collisions, highest-Active-only effective), and D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), | 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition and one-transaction commit-before-publication), D-079 (fixed-point overlay compatibility over typed Route/Workflow edges, typed epoch revalidation, base-wins collisions, highest-only monotonic version cutover), D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), and D-081 (upstream nomination requires explicit depersonalized opt-in), settled while implementing `implement-overlay-model`. |
+| 2026-07-17 | Added D-077 (exchange provenance + durable reconfirm anchors), D-078 (digest-bound owner reconfirmation with durable owner-accepted disposition and one-transaction commit-before-publication), D-079 (fixed-point overlay compatibility over typed Route/Workflow edges, typed epoch revalidation, base-wins collisions, highest-only monotonic version cutover), D-080 (legacy migration is discovery/quarantine only with fresh digest-bound acceptance proposals), and D-081 (upstream nomination requires explicit depersonalized opt-in), settled while implementing `implement-overlay-model`. |
+| 2026-07-17 | Added D-082 (transactionally idempotent task-board timer consumption with permanent AckSkip + blocked audit), D-083 (atomic grant/handoff/audit dispatch with receipt-keyed fail-closed recovery), and D-084 (deterministic bounded task slices; hysteresis deferred), settled while implementing `implement-task-board`. |
 

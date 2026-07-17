@@ -419,11 +419,13 @@ async fn main() -> anyhow::Result<()> {
     // ledger replay of `workflow.timer_fired`); this loop is what actually
     // fires due timers, sleeping until the earliest known deadline.
     let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
+    let task_timer_consumer = pipeline::run_task_deadline_consumer(&state);
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
         res = retry_worker => res.context("dead-letter retry loop failed")?,
         res = timer_driver => res.context("runtime clock/timer driver failed")?,
+        () = task_timer_consumer => unreachable!("task timer consumer loops forever"),
     }
     Ok(())
 }

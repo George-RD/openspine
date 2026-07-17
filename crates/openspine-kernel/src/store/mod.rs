@@ -182,6 +182,14 @@ pub enum StoreError {
     UnsupportedVersion { current: i64, latest: i64 },
     #[error("learned artifact error: {0}")]
     LearnedArtifact(String),
+    #[error("invalid task timer schedule: {0}")]
+    InvalidTaskTimerSchedule(String),
+    #[error("prepopulated task timer id: {0}")]
+    PrepopulatedTimerId(String),
+    #[error("unsupported task schema version: {0}")]
+    UnsupportedTaskSchemaVersion(u32),
+    #[error("task not found: {0}")]
+    TaskNotFound(Ulid),
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -559,6 +567,8 @@ mod migration_tests;
 mod migrations;
 pub(crate) mod proposed_artifacts;
 pub(crate) mod spend;
+pub(crate) mod task_board;
+pub(crate) mod task_dispatch;
 #[cfg(test)]
 mod test_hooks;
 #[cfg(test)]

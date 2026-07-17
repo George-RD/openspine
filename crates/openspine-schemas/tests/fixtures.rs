@@ -146,7 +146,7 @@ fn every_fixture_file_is_covered_by_a_test() {
     }
     assert_eq!(
         found.len(),
-        10,
-        "expected 10 fixture files, found {found:?}"
+        14,
+        "expected 14 fixture files, found {found:?}"
     );
 }

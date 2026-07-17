@@ -185,7 +185,8 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     add_column_if_missing(
         conn,
         "ALTER TABLE workflow_step_registry ADD COLUMN completed_seq INTEGER",
-    )
+    )?;
+    super::task_board::ensure_schema(conn)
 }
 
 // ---- versioned PRAGMA user_version framework (AD-139) -------------------

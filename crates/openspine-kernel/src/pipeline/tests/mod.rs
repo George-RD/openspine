@@ -12,6 +12,7 @@ mod effect_paths;
 mod offset;
 mod plan;
 mod secret_intake_integration;
+mod task_board;
 mod token_rotation;
 pub(crate) use approval::approval_fixture_grant;
 

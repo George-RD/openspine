@@ -55,6 +55,14 @@ pub enum EventType {
     TelegramOwnerMessage,
     #[serde(rename = "email.thread.selected")]
     EmailThreadSelected,
+    /// A kernel-owned task deadline firing (AD-090): rides the archived
+    /// `workflow.timer_fired` path, then flows through the normal
+    /// route -> grant -> gate pipeline as a scheduled-internal event.
+    #[serde(rename = "timer.deadline.fired")]
+    TimerDeadlineFired,
+    /// A kernel-owned task reminder firing (AD-090): same path as a deadline.
+    #[serde(rename = "timer.reminder.fired")]
+    TimerReminderFired,
 }
 
 /// PRD §4.1 `verification_method`.
@@ -262,6 +270,22 @@ mod tests {
         assert_eq!(json, serde_json::json!("telegram.owner.message"));
         let json = serde_json::to_value(EventType::EmailThreadSelected).unwrap();
         assert_eq!(json, serde_json::json!("email.thread.selected"));
+    }
+
+    #[test]
+    fn timer_deadline_fired_round_trips() {
+        let json = serde_json::to_value(EventType::TimerDeadlineFired).unwrap();
+        assert_eq!(json, serde_json::json!("timer.deadline.fired"));
+        let back: EventType = serde_json::from_value(json).unwrap();
+        assert_eq!(back, EventType::TimerDeadlineFired);
+    }
+
+    #[test]
+    fn timer_reminder_fired_round_trips() {
+        let json = serde_json::to_value(EventType::TimerReminderFired).unwrap();
+        assert_eq!(json, serde_json::json!("timer.reminder.fired"));
+        let back: EventType = serde_json::from_value(json).unwrap();
+        assert_eq!(back, EventType::TimerReminderFired);
     }
 
     #[test]
