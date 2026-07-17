@@ -183,6 +183,7 @@ pub(super) async fn dispatch_artifact_propose(
             ));
         }
         let enriched = enrich(
+            state,
             swap,
             &golden_set,
             &provider,
@@ -315,6 +316,9 @@ pub(super) async fn dispatch_artifact_propose(
         eval.summary,
         digest = yaml_ref.digest
     );
+    crate::spend::guard_connector_for(state, grant)
+        .await
+        .map_err(DispatchError::Resource)?;
     let send_result = state
         .connectors
         .telegram()

@@ -20,6 +20,7 @@ pub(super) async fn handle_plan_approval_callback(
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
+    crate::spend::guard_connector(state, true).await?;
     let answer_result = state
         .connectors
         .telegram()

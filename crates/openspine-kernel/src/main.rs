@@ -25,6 +25,7 @@ mod pipeline;
 mod sandbox;
 mod secret_intake;
 mod secret_store;
+mod spend;
 mod store;
 mod telegram;
 mod workflow;
@@ -364,8 +365,12 @@ async fn main() -> anyhow::Result<()> {
         provider_pool,
         active_model_providers: parking_lot::RwLock::new(active_model_providers),
         started_at: Instant::now(),
+        spend_cap: cfg.spend_cap,
         overlay_dir,
     });
+
+    // AD-143 F1: Recover pending breach alerts that crashed in_flight.
+    crate::spend::recover_pending_breach_alerts(&state).await;
 
     let listener = tokio::net::TcpListener::bind(&cfg.kernel.bind_addr)
         .await

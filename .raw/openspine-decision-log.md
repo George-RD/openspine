@@ -86,6 +86,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-072 | `/digest <ULID> [page]` is a secure lossless pagination substrate; presentation remains deferred | Accepted |
 | D-073 | Durable workflow steps persist intent before effect; recovery replays recorded outcomes and fails closed on receiptless pending effects | Accepted |
 | D-074 | Workflow timers are kernel-fired at most once via trusted-clock atomic claims | Accepted |
+| D-075 | The daily spend kill switch accounts for every model and connector call; breach pauses only non-immediate lanes | Accepted |
+| D-076 | Spend caps are required finite configuration; disabling requires an explicit large cap | Accepted |
 
 ---
 
@@ -1859,6 +1861,47 @@ Timer handlers acquire effects requiring gated authority, which would move firin
 
 ---
 
+# D-075 — The spend kill switch accounts globally but pauses only non-immediate lanes
+
+## Decision
+
+The AD-143 daily spend kill switch counts every model invocation (including bounded model-swap golden-set evaluation) and every connector call — grant-bound effects, control-plane polling, callback acknowledgements, credential validation probes — in one durable UTC-day ledger with atomic reserve-and-check. On breach, only non-immediate (proactive/headless) lanes are paused, at both grant composition and action dispatch. Owner-control immediate effects remain live and counted, cap-exempt by lane; control-plane operations remain live and counted; a dedicated notification-only reservation keeps the breach notification deliverable. Breach marking is transactional with the denial decision, and a durable alert state is consumed only on confirmed delivery or a confirmed durable dead letter.
+
+## Rationale
+
+AD-143's "across all model calls and connector usage" is accounting scope; its enforcement contract pauses the proactive and headless lanes and requires owner notification on the immediate lane. Denying the owner's own control lane would contradict that contract, while exempting anything from accounting would falsify the ledger.
+
+## Consequences
+
+After breach the owner keeps a live, fully accounted control channel while autonomous spending stops. Reception (polling/acks) cannot self-deny the daemon. Every exemption is visible in the ledger rather than invisible to it.
+
+## Would change if
+
+Lanes gain per-lane budgets, or a ratified decision classifies evaluation calls as non-production spend.
+
+---
+
+# D-076 — Spend caps are required finite configuration
+
+## Decision
+
+`spend_cap.model_calls_per_day` and `spend_cap.connector_calls_per_day` are required finite values in the deny-unknown-fields configuration schema. There is no absent/disabled state: an operator who wants an effectively unlimited cap must set an explicitly large number.
+
+## Rationale
+
+A silently missing cap is indistinguishable from a misconfigured one; requiring an explicit value makes disabling the kill switch a visible, reviewable act.
+
+## Consequences
+
+Config parsing fails loudly without caps. Example configurations carry finite values.
+
+## Would change if
+
+A ratified budget hierarchy replaces the flat daily caps.
+
+---
+
+
 
 ## Open Decision Questions — CLOSED (see linked decisions)
 
@@ -1916,4 +1959,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-16 | Added D-064 (one-way connector-secret migration into the encrypted kernel vault with call-time resolution), D-065 (provider API-key migration owned by the foundation-amendment lane), D-066 (paired Gmail credentials stage until atomic validated promotion), and D-067 (Telegram offsets namespaced by bot identity with one-time legacy migration), settled while implementing `implement-secret-intake`. |
 | 2026-07-17 | Added D-068 (direct authenticated API bad-request surfacing without duplicate owner notification), D-069 (kernel connector counters as the minimal observability surface), D-070 (encrypted artifact references for retryable owner notifications), D-071 (delivery-unknown send-to-receipt crash semantics), and D-072 (secure lossless `/digest` pagination substrate with presentation deferred), settled while implementing `implement-failure-surfacing-contract`. |
 | 2026-07-17 | Added D-073 (durable workflow steps persist intent before effect, replay rehydrates recorded outcomes, receiptless pending non-idempotent steps fail closed with sealed inline payload set) and D-074 (kernel-owned workflow timers fire at most once via trusted-clock atomic claims), settled while implementing `implement-durable-workflow-replay`. |
+| 2026-07-17 | Added D-075 (the daily spend kill switch accounts for every model and connector call while breach pauses only non-immediate lanes; owner-control and control-plane operations stay live, counted, cap-exempt; notification-only reservation keeps breach alerts deliverable) and D-076 (spend caps are required finite configuration), settled while implementing `implement-spend-kill-switch`. |
 

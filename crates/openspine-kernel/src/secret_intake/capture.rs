@@ -55,6 +55,7 @@ pub async fn capture(
     state.store.delete_kv(PENDING_KEY)?;
 
     if pending.slot == crate::telegram::BOT_TOKEN_SLOT {
+        crate::spend::guard_connector(state, true).await?;
         let Some(bot_id) = state
             .connectors
             .telegram()
@@ -170,6 +171,7 @@ pub async fn capture(
             } else {
                 (staged_value.clone(), text.to_string())
             };
+            crate::spend::guard_connector(state, true).await?;
             if !gmail
                 .validate_credential_pair(&client_secret, &refresh_token)
                 .await
@@ -307,6 +309,7 @@ pub async fn capture(
             } else {
                 (live_counterpart, text.to_string())
             };
+            crate::spend::guard_connector(state, true).await?;
             if !gmail
                 .validate_credential_pair(&client_secret, &refresh_token)
                 .await

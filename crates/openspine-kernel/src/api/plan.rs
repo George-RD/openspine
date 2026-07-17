@@ -38,6 +38,9 @@ pub(crate) async fn dispatch_plan_preview(
                 &[],
             )
             .map_err(|err| DispatchError::Resource(err.into()))?;
+        crate::spend::guard_connector_for(state, grant)
+            .await
+            .map_err(DispatchError::Resource)?;
         let send_result = state
             .connectors
             .telegram()
@@ -100,6 +103,9 @@ pub(crate) async fn dispatch_plan_preview(
         .store
         .insert_action_request(&request)
         .map_err(|err| DispatchError::Resource(err.into()))?;
+    crate::spend::guard_connector_for(state, grant)
+        .await
+        .map_err(DispatchError::Resource)?;
     let send_result = state
         .connectors
         .telegram()

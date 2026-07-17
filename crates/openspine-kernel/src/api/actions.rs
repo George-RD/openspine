@@ -18,6 +18,16 @@ use std::str::FromStr;
 use std::sync::Arc;
 use ulid::Ulid;
 
+async fn guard_connector_dispatch(
+    state: &AppState,
+    grant: &TaskGrant,
+) -> Result<(), DispatchError> {
+    let immediate = matches!(grant.workflow_id.as_str(), "owner_control_conversation");
+    crate::spend::guard_connector(state, immediate)
+        .await
+        .map_err(DispatchError::Resource)
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ActionRequestBody {
@@ -91,11 +101,7 @@ pub(super) async fn post_actions(
         result,
     }))
 }
-
-/// Shared non-HTTP mediation boundary used by both HTTP actions and durable
-/// workflow adapters. It is the single path that builds the request, calls
-/// `gate()`, emits the gate/failure audit events, and dispatches the concrete
-/// handler selected by the action registry.
+/// Shared mediation boundary for HTTP and durable workflow actions.
 pub(crate) async fn mediate_and_dispatch_action(
     state: &AppState,
     grant: &TaskGrant,
@@ -105,6 +111,15 @@ pub(crate) async fn mediate_and_dispatch_action(
     surface: FailureSurface,
 ) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
     let now = Timestamp::now();
+    let spend_lane = crate::spend::SpendLane::from_grant(grant);
+    if !crate::spend::admit_spend(state, spend_lane, now)
+        .await
+        .map_err(|err| DispatchError::Resource(err.into()))?
+    {
+        return Err(DispatchError::Resource(anyhow::anyhow!(
+            "daily spend cap exceeded"
+        )));
+    }
     let payload_ref = match payload {
         Some(value) => Some(
             state
@@ -156,9 +171,6 @@ pub(crate) async fn mediate_and_dispatch_action(
         if state.action_catalog.is_counterparty_facing(&action) {
             if let Some((deferral, notice)) = surface_denial(grant, &action, &decision, None, now) {
                 let event = EscalationEvent::from_denial(&notice);
-                // AD-133: route through the reusable kernel machinery. It
-                // resolves the persisted task's bound owner chat itself;
-                // the owner-only reason never returns to the worker.
                 crate::escalation::route_escalation(state, grant, &event)
                     .await
                     .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
@@ -166,8 +178,6 @@ pub(crate) async fn mediate_and_dispatch_action(
                 return Ok((decision, Some(deferral.text.to_string()), None));
             }
         }
-
-        // Non-counterparty denials retain the ordinary typed enum outcome.
         return Ok((decision, None, None));
     }
 
@@ -308,6 +318,7 @@ pub(super) async fn dispatch_lyra_preview(
                 &[],
             )
             .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        guard_connector_dispatch(state, grant).await?;
         let send_result = state
             .connectors
             .telegram()
@@ -333,6 +344,7 @@ pub(super) async fn dispatch_lyra_preview(
     }
     match propose_draft_creation(state, grant, preview).await {
         Ok(action_request_id) => {
+            guard_connector_dispatch(state, grant).await?;
             let send_result = state
                 .connectors
                 .telegram()
@@ -356,11 +368,6 @@ pub(super) async fn dispatch_lyra_preview(
             send_result.map_err(DispatchError::Connector)?;
         }
         Err(err) => {
-            // Resource-class propose failures are fatal. Return the typed
-            // error and let the outer `post_actions` layer audit + batch it
-            // exactly once — do NOT batch here, or the failure is counted
-            // twice (this is the `gmail_failure_surface_record_failed` trap
-            // the parent required us to remove).
             if err.failure_class() == FailureClass::Resource {
                 return Err(DispatchError::Resource(anyhow::Error::new(err)));
             }
@@ -388,6 +395,7 @@ pub(super) async fn dispatch_lyra_preview(
                     &[],
                 )
                 .map_err(|e| DispatchError::Resource(anyhow::Error::new(e)))?;
+            guard_connector_dispatch(state, grant).await?;
             let send_result = state
                 .connectors
                 .telegram()
@@ -421,10 +429,9 @@ pub(super) async fn dispatch_lyra_preview(
 /// fetch the bounded, attachment-free thread from Gmail. Every validation
 /// failure here is the shell's own contract violation (a foreign, unknown,
 /// expired, wrong-type, or already-used token) — `400`, not `500`; only an
-/// actual Gmail-connector failure after a valid consume is `500`.
 pub(super) async fn dispatch_read_selected_thread(
     state: &AppState,
-    _grant: &TaskGrant,
+    grant: &TaskGrant,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
     let payload = payload.ok_or_else(|| {
@@ -470,6 +477,9 @@ pub(super) async fn dispatch_read_selected_thread(
             "selection token exists but no gmail connector is configured"
         ))
     })?;
+    crate::spend::guard_connector_for(state, grant)
+        .await
+        .map_err(DispatchError::Resource)?;
     let thread_result = gmail.fetch_thread(&token.target_id).await;
     crate::failure_surfacing::record_connector_outcome(
         &state.store,

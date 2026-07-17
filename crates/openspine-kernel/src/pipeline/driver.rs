@@ -140,6 +140,24 @@ pub async fn run_pipeline(
     now: Timestamp,
     trace: &mut Vec<PipelineStage>,
 ) -> anyhow::Result<Option<TaskGrant>> {
+    if !crate::spend::admit_spend(
+        state,
+        crate::spend::SpendLane::from_event_lane(spec.lane),
+        now,
+    )
+    .await?
+    {
+        state.store.append_audit(
+            "spend.cap_breached",
+            None,
+            None,
+            Some("non-immediate lane paused by global daily spend cap"),
+            None,
+            &[],
+            &[],
+        )?;
+        return Ok(None);
+    }
     // Event stage — intake + lane selection were performed by the caller
     // (`handle_owner_update`) ahead of this function. Record it and proceed.
     trace.push(PipelineStage::Event);

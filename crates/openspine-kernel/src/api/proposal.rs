@@ -34,6 +34,8 @@ pub(super) enum ProposalError {
     ArtifactBudgetExhausted,
     #[error("artifact payload persistence failed: {0}")]
     ArtifactStore(#[source] ArtifactStoreError),
+    #[error("daily spend cap exceeded")]
+    SpendGuard(#[source] anyhow::Error),
     #[error("action request persistence failed: {0}")]
     ActionRequestPersist(#[source] StoreError),
 }
@@ -50,6 +52,7 @@ impl ProposalError {
             | Self::ArtifactBudgetCheck(_)
             | Self::ArtifactBudgetExhausted
             | Self::ArtifactStore(_)
+            | Self::SpendGuard(_)
             | Self::ActionRequestPersist(_) => FailureClass::Resource,
             Self::NoGmailConnector
             | Self::NoSelectionToken
@@ -79,6 +82,9 @@ pub(super) async fn propose_draft_creation(
         .find_selection_token(token_id)
         .map_err(ProposalError::SelectionTokenLookup)?
         .ok_or(ProposalError::SelectionTokenNotFound)?;
+    crate::spend::guard_connector_for(state, grant)
+        .await
+        .map_err(ProposalError::SpendGuard)?;
     let thread_result = gmail.fetch_thread(&token.target_id).await;
     crate::failure_surfacing::record_connector_outcome(
         &state.store,

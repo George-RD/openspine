@@ -139,6 +139,12 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // indexed table (non-retrofittable set; AD-111 verdict landing).
     super::eval_verdict_store::ensure_schema(conn)?;
     super::workflow_timers::ensure_schema(conn)?;
+    // AD-143: durable global per-day spend ledger (kernel-wide admission boundary).
+    super::spend::ensure_schema(conn)?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE daily_spend ADD COLUMN alert_state INTEGER NOT NULL DEFAULT 0",
+    )?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS workflow_step_registry (
             run_id TEXT NOT NULL,

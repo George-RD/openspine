@@ -452,3 +452,44 @@ async fn model_swap_propose_reaches_http_gate_and_audits_failure() {
     );
     handle.abort();
 }
+
+#[tokio::test]
+async fn spend_dispatch_denial_precedes_connector_effect() {
+    use crate::api::actions::{mediate_and_dispatch_action, FailureSurface};
+    use crate::config::SpendCapConfig;
+    use openspine_schemas::action::ActionId;
+
+    let telegram_server = MockServer::start().await;
+    let mut state =
+        crate::test_support::fixtures::test_state_with_telegram(TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ));
+    state.spend_cap = SpendCapConfig {
+        model_calls_per_day: i64::MAX as u64,
+        connector_calls_per_day: 0,
+    };
+    let mut grant = handle_owner_update(&state, &owner_update("hello"))
+        .await
+        .unwrap()
+        .expect("owner grant");
+    grant.workflow_id = "scheduled_internal".into();
+    let result = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        ActionId::new("telegram.reply:owner_channel"),
+        crate::api::dispatch_tests::OWNER_CHAT_ID,
+        Some(&json!({"text": "hello"})),
+        FailureSurface::DirectResponse,
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(crate::api::actions::DispatchError::Resource(_))
+    ));
+    let requests = telegram_server.received_requests().await.unwrap();
+    assert!(requests.iter().all(|request| {
+        let body = request.body_json::<Value>().expect("Telegram request JSON");
+        body["text"] != "hello"
+    }));
+}
