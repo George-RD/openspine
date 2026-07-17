@@ -81,9 +81,10 @@ impl From<RelationshipKind> for RelationshipTier {
 /// class" — no such field exists yet on [`crate::workflow::WorkflowManifest`];
 /// see the implementing change's IMPLEMENTATION-NOTES for the proposed
 /// D-0XX canon entry naming this derivation. *leaning*.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskClass {
+    #[default]
     Conversation,
     DraftApproval,
     Effectful,

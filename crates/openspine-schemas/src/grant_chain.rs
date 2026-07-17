@@ -364,17 +364,78 @@ pub fn bindings_valid(grant: &TaskGrant) -> bool {
 
 /// These caveats are authenticated but have no request fields at this gate
 /// boundary yet; reject them rather than silently treating them as no-ops.
+/// `OutputChannelAllowlist` is supported (see
+/// [`effectively_allows_output_channel`]) — the first runtime consumer is
+/// `implement-worker-runtime`'s sub-grant minting (AD-101/AD-033).
 pub fn has_unsupported_caveats(grant: &TaskGrant) -> bool {
-    flattened_caveats(&grant.chain).iter().any(|c| {
-        matches!(
-            c,
-            Caveat::ModelTier { .. } | Caveat::OutputChannelAllowlist { .. }
-        )
-    })
+    flattened_caveats(&grant.chain)
+        .iter()
+        .any(|c| matches!(c, Caveat::ModelTier { .. }))
 }
 
 pub fn flattened_caveats(chain: &[ChainStep]) -> Vec<&Caveat> {
     chain.iter().flat_map(|s| s.added_caveats.iter()).collect()
+}
+/// Effective output-channel membership (mirrors [`effectively_allows`] for
+/// actions): `channel` is usable only if it is in the root's
+/// `output_channels` AND every `OutputChannelAllowlist` caveat in the chain
+/// also names it. A worker sub-grant minted with an empty-channels caveat
+/// therefore has zero effective output channels regardless of what its
+/// ancestor root carried — the caveat can only narrow, never widen (D-007 /
+/// AD-101).
+pub fn effectively_allows_output_channel(grant: &TaskGrant, channel: &str) -> bool {
+    if !grant.output_channels.iter().any(|c| c == channel) {
+        return false;
+    }
+    for caveat in flattened_caveats(&grant.chain) {
+        if let Caveat::OutputChannelAllowlist { channels } = caveat {
+            if !channels.iter().any(|c| c == channel) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Effective output-channel membership (mirrors [`effectively_allows`] for
+/// Effective output-channel membership (mirrors [`effectively_allows`] for
+/// actions): `channel` is usable only if it is in the root's
+/// `output_channels` AND every `OutputChannelAllowlist` caveat in the chain
+/// also names it. A worker sub-grant minted with an empty-channels caveat
+/// therefore has zero effective output channels regardless of what its
+/// ancestor root carried — the caveat can only narrow, never widen (D-007 /
+/// AD-101).
+pub fn effectively_allows_output_channel(grant: &TaskGrant, channel: &str) -> bool {
+    if !grant.output_channels.iter().any(|c| c == channel) {
+        return false;
+    }
+    for caveat in flattened_caveats(&grant.chain) {
+        if let Caveat::OutputChannelAllowlist { channels } = caveat {
+            if !channels.iter().any(|c| c == channel) {
+                return false;
+            }
+        }
+    }
+    true
+}
+/// actions): `channel` is usable only if it is in the root's
+/// `output_channels` AND every `OutputChannelAllowlist` caveat in the chain
+/// also names it. A worker sub-grant minted with an empty-channels caveat
+/// therefore has zero effective output channels regardless of what its
+/// ancestor root carried — the caveat can only narrow, never widen (D-007 /
+/// AD-101).
+pub fn effectively_allows_output_channel(grant: &TaskGrant, channel: &str) -> bool {
+    if !grant.output_channels.iter().any(|c| c == channel) {
+        return false;
+    }
+    for caveat in flattened_caveats(&grant.chain) {
+        if let Caveat::OutputChannelAllowlist { channels } = caveat {
+            if !channels.iter().any(|c| c == channel) {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 pub fn effectively_allows(grant: &TaskGrant, action: &ActionId) -> bool {
