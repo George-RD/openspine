@@ -963,22 +963,15 @@ impl<'a> WorkflowCtx<'a> {
             }
         }
     }
-    pub(crate) fn poll_timer(
-        &mut self,
-        timer: &TimerHandle,
-        at: Timestamp,
-    ) -> Result<bool, WorkflowError> {
+    /// Observe whether `timer` has durably fired. Consumers only schedule
+    /// and observe (D-074): firing belongs exclusively to the kernel timer
+    /// driver's trusted-clock `fire_due_timers` path, so no caller-supplied
+    /// timestamp can claim a timer before its real deadline.
+    pub(crate) fn poll_timer(&self, timer: &TimerHandle) -> Result<bool, WorkflowError> {
         if timer.run_id != self.run_id {
             return Ok(false);
         }
-        if self.store.workflow_timer_fired(timer.timer_id())? {
-            return Ok(true);
-        }
-        if at < timer.fires_at() {
-            return Ok(false);
-        }
-        self.store.fire_workflow_timer(timer.timer_id(), at)?;
-        Ok(true)
+        Ok(self.store.workflow_timer_fired(timer.timer_id())?)
     }
 }
 

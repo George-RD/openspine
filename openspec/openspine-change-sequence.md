@@ -55,6 +55,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   `Requires:` lines reference it)
 - `implement-failure-surfacing-contract` (D-068..D-072; brief stays in place —
   later `Requires:` lines reference it)
+- `implement-durable-workflow-replay` (D-073..D-074; brief stays in place —
+  later `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
@@ -201,7 +203,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 #### implement-durable-workflow-replay
 
 - **Canon:** AD-104; AD-012 (*leaning* — timers are the substrate dark-window
-  grants ride on).
+  grants ride on); D-073..D-074.
 - **Requires:** implement-event-bus-subscriptions.
 - **Scope:** deterministic workflow executions; every outside-world step
   (model call, connector call, approval) records its result as an event; crash
