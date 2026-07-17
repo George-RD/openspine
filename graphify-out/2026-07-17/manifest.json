@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784281665.8312824,
-    "ast_hash": "993ac075d07e5f22aaf2779965624d54",
+    "mtime": 1784282675.1007447,
+    "ast_hash": "852f6f8b232136fed5cfeb5a75e70c25",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -2222,11 +2222,6 @@
   "crates/openspine-schemas/src/briefcase/topup_tests.rs": {
     "mtime": 1784281671.6735961,
     "ast_hash": "6fbc7ea3f74acb5b806903348fa36b84",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784270005.4918375,
-    "ast_hash": "4a9c9e89704aba398be2f74afc6a9dfd",
     "semantic_hash": ""
   },
   "openspec/changes/implement-briefcase-packing/design.md": {
