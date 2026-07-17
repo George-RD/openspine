@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1784269592.542914,
+    "mtime": 1784269713.5823529,
     "ast_hash": "faea5c950426aff8937b958afba9313e",
     "semantic_hash": ""
   },
@@ -1825,7 +1825,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/workflow_timers.rs": {
-    "mtime": 1784269614.9933121,
+    "mtime": 1784269713.5566757,
     "ast_hash": "d11ee96df2b0f2dac3f718221d39326e",
     "semantic_hash": ""
   },
@@ -1920,27 +1920,27 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-spend-kill-switch/design.md": {
-    "mtime": 1784269580.5355203,
+    "mtime": 1784269713.581457,
     "ast_hash": "5a5bc2c7a6e127d8129d4efade5cf3fa",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-spend-kill-switch/proposal.md": {
-    "mtime": 1784269580.5370104,
+    "mtime": 1784269713.5816212,
     "ast_hash": "2b811ccf4485984a9be6780846ee7501",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-spend-kill-switch/specs/spend-kill-switch/spec.md": {
-    "mtime": 1784269580.5375075,
+    "mtime": 1784269713.5818772,
     "ast_hash": "370e8d6f2b7e3aa31a0c6609d180987e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-spend-kill-switch/tasks.md": {
-    "mtime": 1784269580.537732,
+    "mtime": 1784269713.5820363,
     "ast_hash": "6c39a91054f70035fb2d76a88536edf6",
     "semantic_hash": ""
   },
   "openspec/specs/spend-kill-switch/spec.md": {
-    "mtime": 1784269581.489467,
+    "mtime": 1784269713.582588,
     "ast_hash": "6952c1f227b739cc2119e5965e9afe2e",
     "semantic_hash": ""
   }
