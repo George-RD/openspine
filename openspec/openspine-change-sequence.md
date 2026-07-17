@@ -57,6 +57,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   later `Requires:` lines reference it)
 - `implement-durable-workflow-replay` (D-073..D-074; brief stays in place —
   later `Requires:` lines reference it)
+- `implement-spend-kill-switch` (D-075..D-076)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

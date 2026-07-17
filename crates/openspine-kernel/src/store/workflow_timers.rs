@@ -171,7 +171,7 @@ impl Store {
     /// guarantees that row is unique. Appends the terminal
     /// `workflow.timer_fired` event and records its ledger id, all in the same
     /// transaction. Returns the (possibly already-existing) terminal event.
-    pub(crate) fn fire_workflow_timer(
+    fn fire_workflow_timer(
         &self,
         timer_id: &str,
         at: Timestamp,

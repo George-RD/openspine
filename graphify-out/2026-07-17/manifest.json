@@ -1879,11 +1879,6 @@
     "ast_hash": "3e99bc68502862d298bc509195021496",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784269467.1629434,
-    "ast_hash": "5f5ba8c3568dbe58898b9acc4ceb8596",
-    "semantic_hash": ""
-  },
   "openspec/changes/implement-spend-kill-switch/design.md": {
     "mtime": 1784262765.8564613,
     "ast_hash": "5a5bc2c7a6e127d8129d4efade5cf3fa",
