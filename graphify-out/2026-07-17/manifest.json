@@ -1954,11 +1954,6 @@
     "ast_hash": "0c81e186e42134db8027acc278cd2c33",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784275352.4816263,
-    "ast_hash": "e1481d30b02359972edc05a60d64c327",
-    "semantic_hash": ""
-  },
   "openspec/changes/implement-overlay-model/design.md": {
     "mtime": 1784274251.6639795,
     "ast_hash": "6dec05ddc9856a913afe7ad46a7529d6",
