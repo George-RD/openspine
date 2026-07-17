@@ -63,6 +63,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-overlay-model` (D-077..D-081; brief stays in place — later
   `Requires:` lines reference it)
 - `implement-task-board` (D-082..D-084)
+- `implement-briefcase-packing` (D-085..D-086; brief stays in place — later
+  `Requires:` lines reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
