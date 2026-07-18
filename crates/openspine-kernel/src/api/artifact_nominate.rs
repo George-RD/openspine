@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 use ulid::Ulid;
 
 use super::actions::DispatchError;
+use super::connector_breaker::call_with_connector;
 use crate::pipeline::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -123,12 +124,21 @@ pub(super) async fn dispatch_artifact_nominate(
         content_digest,
         target_digest,
     );
-    state
-        .connectors
-        .telegram()
-        .send_reply_with_approval_button(bound_chat_id, &summary, request.id)
+    crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(DispatchError::Resource)?;
+    call_with_connector(
+        state,
+        "telegram",
+        &request.action,
+        grant,
+        state.connectors.telegram().send_reply_with_approval_button(
+            bound_chat_id,
+            &summary,
+            request.id,
+        ),
+    )
+    .await?;
     Ok(json!({
         "proposed": true,
         "action_request_id": request.id.to_string(),

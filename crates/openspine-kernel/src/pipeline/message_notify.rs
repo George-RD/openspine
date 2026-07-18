@@ -102,7 +102,14 @@ pub(crate) async fn notify_owner_with_digest(
             tracing::error!(error = %audit_err, "failed to audit immediate reservation failure");
         }
     }
-    let send_result = state.connectors.telegram().send_reply(chat_id, text).await;
+    let send_result = crate::api::connector_breaker::call_with_connector(
+        state,
+        "telegram",
+        &request.action,
+        &notify_grant,
+        state.connectors.telegram().send_reply(chat_id, text),
+    )
+    .await;
     match send_result {
         Ok(()) => {
             let result = if digest_item_ids.is_empty() {
@@ -139,7 +146,7 @@ pub(crate) async fn notify_owner_with_digest(
                 Ok(ref_) => ref_.digest.to_string(),
                 Err(put_err) => {
                     let reason =
-                        format!("artifact persistence failed; notification send error: {err}");
+                        format!("artifact persistence failed; notification send error: {err:?}");
                     if let Err(digest_err) = crate::failure_surfacing::batch_failure(
                         state,
                         crate::failure_surfacing::FailureClass::Connector,
@@ -167,11 +174,11 @@ pub(crate) async fn notify_owner_with_digest(
                 chat_id,
                 &text_ref,
                 outcome.audit.task_grant_id,
-                &err.to_string(),
+                &format!("{err:?}"),
                 digest_item_ids,
                 detail,
             ) {
-                tracing::error!(error = %record_err, send_error = %err, "owner notification failure could not be durably recorded");
+                tracing::error!(error = %record_err, send_error = ?err, "owner notification failure could not be durably recorded");
                 if let Err(surface_err) = crate::failure_surfacing::batch_failure(
                     state,
                     crate::failure_surfacing::FailureClass::Resource,

@@ -52,9 +52,15 @@ async fn reconfirm_tap_restores_orphaned_artifact() {
     seed_owner_history(&state, &grant);
     let payload =
         json!({"kind": "route", "yaml": route_yaml("reconfirm_target_route", "proposed")});
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("proposal accepted");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("proposal accepted");
     let propose_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()
@@ -166,9 +172,15 @@ async fn reconfirm_tap_refuses_tampered_yaml() {
         .expect("grant composed");
     seed_owner_history(&state, &grant);
     let payload = json!({"kind": "route", "yaml": route_yaml("tamper_target_route", "proposed")});
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("proposal accepted");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("proposal accepted");
     let propose_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()
@@ -261,9 +273,15 @@ async fn orphaned_reconfirm_fixture(
         .expect("grant composed");
     seed_owner_history(state, &grant);
     let payload = json!({"kind": "route", "yaml": route_yaml(artifact_id, "proposed")});
-    let result = dispatch_artifact_propose(state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("proposal accepted");
+    let result = dispatch_artifact_propose(
+        state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("proposal accepted");
     let propose_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()

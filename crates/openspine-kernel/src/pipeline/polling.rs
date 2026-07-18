@@ -22,17 +22,16 @@ pub async fn run_telegram_poll_loop(state: &AppState) -> anyhow::Result<()> {
         let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
 
         crate::spend::guard_connector(state, true).await?;
-        let updates = match state.connectors.telegram().poll_once(last_update_id).await {
-            Ok(updates) => {
-                crate::failure_surfacing::record_connector_outcome(&state.store, "telegram", true)?;
-                updates
-            }
+        let updates = match crate::api::connector_breaker::call_with_connector_preflight(
+            state,
+            "telegram",
+            None,
+            state.connectors.telegram().poll_once(last_update_id),
+        )
+        .await
+        {
+            Ok(updates) => updates,
             Err(err) => {
-                crate::failure_surfacing::record_connector_outcome(
-                    &state.store,
-                    "telegram",
-                    false,
-                )?;
                 crate::failure_surfacing::batch_failure(
                     state,
                     crate::failure_surfacing::FailureClass::Connector,
@@ -78,12 +77,14 @@ async fn dispatch_polled_updates(
 
 #[cfg(test)]
 pub(crate) async fn poll_telegram_once_for_test(state: &AppState) -> anyhow::Result<()> {
-    let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
     crate::spend::guard_connector(state, true).await?;
-    let updates = state
-        .connectors
-        .telegram()
-        .poll_once(last_update_id)
-        .await?;
+    let (offset_key, last_update_id) = resolve_telegram_offset(state)?;
+    let updates = crate::api::connector_breaker::call_with_connector_preflight(
+        state,
+        "telegram",
+        None,
+        state.connectors.telegram().poll_once(last_update_id),
+    )
+    .await?;
     dispatch_polled_updates(state, updates, offset_key, last_update_id).await
 }

@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use jiff::Timestamp;
+use openspine_schemas::action::ActionId;
 
 use crate::pipeline::AppState;
 use crate::store::failure_surfacing_types::{
@@ -69,11 +70,16 @@ pub(crate) async fn retry_due_notifications(state: &AppState) -> Result<()> {
         }
     };
     crate::spend::guard_connector(state, true).await?;
-    match state
-        .connectors
-        .telegram()
-        .send_reply(dead_letter.chat_id, &text)
-        .await
+    match crate::api::connector_breaker::call_with_connector_preflight(
+        state,
+        "telegram",
+        Some(&ActionId::new("owner.notify")),
+        state
+            .connectors
+            .telegram()
+            .send_reply(dead_letter.chat_id, &text),
+    )
+    .await
     {
         Ok(()) => {
             // Reconstruct the contract-specific receipt metadata if this

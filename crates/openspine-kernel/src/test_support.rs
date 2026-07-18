@@ -95,6 +95,7 @@ pub(crate) mod fixtures {
                 crate::config::provider_config_digest(&test_provider_config),
             )]),
             started_at: std::time::Instant::now(),
+            connector_call_timeout: std::time::Duration::from_secs(30),
             overlay_dir,
             base_artifact_ids: std::collections::HashSet::new(),
             base_compatibility_epoch: String::new(),

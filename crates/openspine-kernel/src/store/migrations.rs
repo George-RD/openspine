@@ -187,7 +187,9 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE workflow_step_registry ADD COLUMN completed_seq INTEGER",
     )?;
-    super::task_board::ensure_schema(conn)
+    super::task_board::ensure_schema(conn)?;
+    // Candidate Gmail draft-write extension: durable pending evidence.
+    super::pending_draft::ensure_schema(conn)
 }
 
 // ---- versioned PRAGMA user_version framework (AD-139) -------------------

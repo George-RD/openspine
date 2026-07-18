@@ -16,6 +16,7 @@
 //! neither the approval-callback step nor the final registry/overlay
 //! assertions could then reach.
 
+use openspine_schemas::action::ActionId;
 use serde_json::{json, Value};
 use ulid::Ulid;
 use wiremock::matchers::{method, path};
@@ -88,9 +89,15 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
     seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("newly_proposed_route", "proposed")});
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("a well-formed proposal must be accepted");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("a well-formed proposal must be accepted");
     let action_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()
@@ -165,9 +172,15 @@ async fn activation_with_mutated_payload_is_denied() {
     seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("already_active_route", "proposed")});
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("a well-formed proposal must be accepted");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("a well-formed proposal must be accepted");
     let action_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()
@@ -187,14 +200,23 @@ async fn activation_with_mutated_payload_is_denied() {
 
     let second_payload =
         json!({"kind": "route", "yaml": route_yaml("already_active_route", "proposed")});
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&second_payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&second_payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("already exists"), "unexpected message: {msg}")
         }
-        DispatchError::Resource(_) | DispatchError::Connector(_) => panic!(
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => panic!(
             "a re-proposal of an already-active id/version must be a BadRequest, not Internal \
              — an Internal result here would mean the duplicate guard was bypassed and the \
              attempt instead hit the store's UNIQUE constraint"
@@ -281,9 +303,15 @@ async fn model_swap_ceremony_switches_real_generate_provider() {
         "yaml": "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\ntarget_provider_id: swapped-provider\ngolden_set_id: model_swap_default\ngolden_set_result:\n  golden_set_id: model_swap_default\n  golden_set_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000\n  provider_config_digest: sha256:0000000000000000000000000000000000000000000000000000000000000000\n  cases: []\n",
     });
     assert!(
-        dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&forged))
-            .await
-            .is_err(),
+        dispatch_artifact_propose(
+            &state,
+            &grant,
+            &ActionId::new("artifact.propose"),
+            OWNER_CHAT_ID,
+            Some(&forged)
+        )
+        .await
+        .is_err(),
         "proposer-supplied evidence must be rejected before approval"
     );
 
@@ -291,9 +319,15 @@ async fn model_swap_ceremony_switches_real_generate_provider() {
         "kind": "model_swap",
         "yaml": "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\ntarget_provider_id: swapped-provider\ngolden_set_id: model_swap_default\n",
     });
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&valid))
-        .await
-        .expect("kernel must enrich and propose a valid model swap");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&valid),
+    )
+    .await
+    .expect("kernel must enrich and propose a valid model swap");
     let action_request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()

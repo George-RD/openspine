@@ -56,9 +56,15 @@ async fn proposed_plan_fixture() -> (AppState, MockServer, ActionRequest) {
             },
         ],
     };
-    let result = crate::api::plan::dispatch_plan_preview(&state, &grant, 555, &plan)
-        .await
-        .unwrap();
+    let result = crate::api::plan::dispatch_plan_preview(
+        &state,
+        &grant,
+        &ActionId::new("plan.propose"),
+        555,
+        &plan,
+    )
+    .await
+    .unwrap();
     assert_eq!(result["approval_offered"], true);
     let request = state.store.latest_action_request().unwrap().unwrap();
     let outbound = telegram_server.received_requests().await.unwrap();
@@ -157,7 +163,14 @@ async fn plan_proposal_budget_exhaustion_persists_no_request() {
             summary: "Book the meeting".to_string(),
         }],
     };
-    let result = crate::api::plan::dispatch_plan_preview(&state, &grant, 555, &plan).await;
+    let result = crate::api::plan::dispatch_plan_preview(
+        &state,
+        &grant,
+        &ActionId::new("plan.propose"),
+        555,
+        &plan,
+    )
+    .await;
     assert!(result.is_err());
     assert_eq!(state.store.count_action_requests().unwrap(), 0);
 }
@@ -207,7 +220,14 @@ async fn plan_preview_records_telegram_failure_counter_on_send_error() {
             summary: "Book the meeting".to_string(),
         }],
     };
-    let result = crate::api::plan::dispatch_plan_preview(&state, &grant, 555, &plan).await;
+    let result = crate::api::plan::dispatch_plan_preview(
+        &state,
+        &grant,
+        &ActionId::new("plan.propose"),
+        555,
+        &plan,
+    )
+    .await;
     assert!(
         matches!(result, Err(DispatchError::Connector(_))),
         "plan preview must classify Telegram send failure as Connector: {result:?}"

@@ -114,25 +114,10 @@ pub(crate) fn record_connector_outcome_or_batch(state: &AppState, connector: &st
 ///
 /// A callback ack is pure control-plane bookkeeping (it only stops the
 /// tapper's spinner); it must never abort the approval or notification it
-/// accompanies, nor be swallowed silently. This records the connector
-/// outcome counter, and — if that store write fails, or if the
-/// acknowledgement itself failed — routes the failure into the owner digest
-/// (Resource for the counter write, Connector for the ack itself). Secondary
-/// store failures are traced, never returned early (PI parent note /
-/// FsReviewSec P1: a failed ack must not prevent an approval from
-/// completing, and the unrecognized-callback audit must still run).
+/// Surface callback acknowledgement failures after the connector wrapper has
+/// recorded the Telegram outcome and D-069 counter. This helper remains
+/// best-effort so an ack failure never prevents approval processing.
 pub(crate) fn record_callback_ack(state: &AppState, success: bool, error: Option<&str>) {
-    if let Err(counter_err) = record_connector_outcome(&state.store, "telegram", success) {
-        tracing::error!(error = %counter_err, "failed to persist telegram callback counter");
-        if let Err(surface_err) = batch_failure(
-            state,
-            FailureClass::Resource,
-            "Telegram callback counter persistence failed",
-            "Telegram callback counter persistence failed",
-        ) {
-            tracing::error!(error = %surface_err, "callback counter failure surface append failed");
-        }
-    }
     if !success {
         if let Some(ack_err) = error {
             if let Err(surface_err) = batch_failure(

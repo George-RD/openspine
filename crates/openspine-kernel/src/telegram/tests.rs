@@ -225,7 +225,11 @@ async fn invalid_candidate_bot_token_is_rejected_without_replacing_live_bot() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/botcandidate/getMe"))
-        .respond_with(ResponseTemplate::new(401).set_body_string("invalid token"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "application/json")
+                .set_body_string(r#"{"ok":false,"error_code":401,"description":"Unauthorized"}"#),
+        )
         .mount(&server)
         .await;
     let connector = TelegramConnector::new("old-token".to_string());
@@ -238,7 +242,7 @@ async fn invalid_candidate_bot_token_is_rejected_without_replacing_live_bot() {
     assert!(connector
         .validate_candidate_token_id("candidate")
         .await
-        .is_none());
+        .is_err());
     assert_eq!(
         connector
             .current_token_for_test()

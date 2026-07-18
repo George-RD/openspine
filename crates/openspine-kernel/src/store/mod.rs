@@ -19,6 +19,7 @@
 //! (`PRAGMA user_version`) with a documented downgrade path, upgrading the
 //! ad-hoc lane once a destructive schema change is first needed.
 
+mod pending_draft;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 #[cfg(test)]

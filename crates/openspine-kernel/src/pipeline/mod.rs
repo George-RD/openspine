@@ -79,6 +79,7 @@ use crate::store::Store;
 use crate::telegram::{self, VerifiedUpdate};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use approval::handle_draft_approval_callback;
 use driver::run_pipeline;
@@ -117,6 +118,10 @@ pub struct AppState {
     pub provider_config_digests: HashMap<String, openspine_schemas::digest::Digest>,
     /// Backs `GET /v1/status`'s `uptime_seconds`.
     pub started_at: std::time::Instant,
+    /// Bounded duration of any single connector call (AD-141: per-call
+    /// connector timeout). Defaults to 30s; tests set it tiny to exercise
+    /// timeouts quickly.
+    pub connector_call_timeout: Duration,
     /// `data/artifacts.d` overlay dir (5a/5d): approved `artifact.propose`
     /// activations are written here as `<kind-plural>/<id>-v<version>.yaml`
     /// so they survive restart, and the startup loader re-merges them into
@@ -280,11 +285,16 @@ pub async fn handle_owner_update(
                 .await?;
             } else {
                 crate::spend::guard_connector(state, true).await?;
-                let answer_result = state
-                    .connectors
-                    .telegram()
-                    .answer_callback_query(&callback_query_id)
-                    .await;
+                let answer_result = crate::api::connector_breaker::call_with_connector_preflight(
+                    state,
+                    "telegram",
+                    None,
+                    state
+                        .connectors
+                        .telegram()
+                        .answer_callback_query(&callback_query_id),
+                )
+                .await;
                 crate::failure_surfacing::record_callback_ack(
                     state,
                     answer_result.is_ok(),

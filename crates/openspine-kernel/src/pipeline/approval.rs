@@ -8,19 +8,17 @@
 //! (D-044: the shell that requested the preview is long gone by the time a
 //! human taps a button).
 
-use crate::artifact_store::ArtifactStoreError;
 use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
-use openspine_schemas::action::{ActionRequest, GateDecision};
+use openspine_schemas::action::GateDecision;
 use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord, TimeoutBehavior};
-use openspine_schemas::artifact::ArtifactRef;
-use openspine_schemas::digest::digest_of;
-use openspine_schemas::grant::TaskGrant;
-use serde_json::json;
 use ulid::Ulid;
 
 use super::post_approval::resolve_post_approval_handler;
 use super::{notify_owner_best_effort, AppState};
+#[path = "approval_draft.rs"]
+mod approval_draft;
+pub(super) use approval_draft::create_approved_draft;
 
 /// How long a freshly minted approval remains valid (PRD §15-style
 /// reasoning applied to D-011 approvals): this handler mints the approval
@@ -42,11 +40,16 @@ pub(super) async fn handle_draft_approval_callback(
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
     crate::spend::guard_connector(state, true).await?;
-    let answer_result = state
-        .connectors
-        .telegram()
-        .answer_callback_query(callback_query_id)
-        .await;
+    let answer_result = crate::api::connector_breaker::call_with_connector_preflight(
+        state,
+        "telegram",
+        None,
+        state
+            .connectors
+            .telegram()
+            .answer_callback_query(callback_query_id),
+    )
+    .await;
     // A callback ack is pure control-plane bookkeeping (it only stops the
     // tapper's spinner). It must never abort the approval it accompanies, so
     // its telemetry is recorded best-effort and the approval proceeds
@@ -251,224 +254,4 @@ pub(super) async fn handle_draft_approval_callback(
             Ok(())
         }
     }
-}
-
-/// Actually create the Gmail draft, only ever reached after `gate()` has
-/// confirmed a matching, unexpired approval. Re-derives the reply target
-/// fresh from a live Gmail fetch (D-042) and — critically — re-checks it
-/// against the digest bound at proposal time (D-041) before ever calling
-/// [`crate::gmail::GmailConnector::create_draft`]: the thread may have
-/// received a new message between proposal and approval, which would silently
-/// change who "the newest non-owner sender" is. Content addressing already
-/// guarantees the payload (`subject`/`body`) can't have changed; the target
-/// is not content-addressed, so this is the one place a "approved draft A,"
-/// slip through undetected without an explicit re-check (spec.md's
-/// "Recipient changes after approval" scenario).
-pub(super) async fn create_approved_draft(
-    state: &AppState,
-    grant: &TaskGrant,
-    request: &ActionRequest,
-    chat_id: i64,
-) -> anyhow::Result<()> {
-    let payload_ref = request
-        .payload_ref
-        .as_ref()
-        .expect("checked by handle_draft_approval_callback before dispatch");
-    // D-041/D-011: the payload itself is content-addressed by digest. Re-read
-    // it from the artifact store and verify the bytes still hash to the digest
-    // bound at approval time (D-055.4). `get` decrypts and checks the digest;
-    // a mismatch means the stored payload was tampered with or corrupted since
-    // approval, so the draft must not be created from content the owner never
-    // reviewed.
-    let bytes = match state.artifacts.get(payload_ref) {
-        Ok(bytes) => bytes,
-        Err(ArtifactStoreError::DigestMismatch) => {
-            state.store.append_audit(
-                "draft.payload_mutated_since_approval",
-                Some(&request.action),
-                None,
-                Some("recomputed payload digest no longer matches the approved one"),
-                Some(grant.id),
-                &[],
-                std::slice::from_ref(payload_ref),
-            )?;
-            notify_owner_best_effort(
-                state,
-                chat_id,
-                "The draft content changed since you approved it — please run /draft again.",
-            )
-            .await;
-            return Ok(());
-        }
-        Err(other) => return Err(other.into()),
-    };
-    let payload: serde_json::Value = serde_json::from_slice(&bytes)?;
-    let subject = payload["subject"].as_str().unwrap_or_default();
-    let body = payload["body"].as_str().unwrap_or_default();
-    let thread_id = request
-        .target_ref
-        .as_ref()
-        .and_then(|t| t.id.clone())
-        .unwrap_or_default();
-
-    let Some(gmail) = state.connectors.gmail() else {
-        state.store.append_audit(
-            "draft.creation_failed",
-            Some(&request.action),
-            None,
-            Some("no gmail connector configured"),
-            Some(grant.id),
-            &[],
-            &[],
-        )?;
-        crate::failure_surfacing::batch_failure(
-            state,
-            crate::failure_surfacing::FailureClass::Connector,
-            "gmail connector unavailable during approval",
-            "gmail connector unavailable during approval",
-        )?;
-        return Ok(());
-    };
-
-    crate::spend::guard_connector_for(state, grant).await?;
-    let thread_result = gmail.fetch_thread(&thread_id).await;
-    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-        &state.store,
-        "gmail",
-        thread_result.is_ok(),
-    ) {
-        tracing::error!(error = %counter_err, "failed to persist Gmail fetch counter");
-    }
-    let thread = match thread_result {
-        Ok(thread) => thread,
-        Err(err) => {
-            state.store.append_audit(
-                "draft.creation_failed",
-                Some(&request.action),
-                None,
-                None,
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-            crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Connector,
-                "gmail thread fetch failed during approval",
-                &err.to_string(),
-            )?;
-            return Ok(());
-        }
-    };
-    let Some(target) = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
-    else {
-        state.store.append_audit(
-            "draft.creation_failed",
-            Some(&request.action),
-            None,
-            Some("no non-owner recipient found in thread"),
-            Some(grant.id),
-            &[],
-            &[],
-        )?;
-        notify_owner_best_effort(
-            state,
-            chat_id,
-            "Approved, but couldn't determine who to reply to.",
-        )
-        .await;
-        return Ok(());
-    };
-
-    // D-041/D-011: the target must still match exactly what was
-    // digest-bound at proposal time — same shape `propose_draft_creation`
-    // hashed. A mismatch means the thread changed since approval; the
-    // draft must not be created with a target the owner never reviewed.
-    let current_target_digest = digest_of(&json!({
-        "thread_id": thread_id,
-        "connector": "gmail_primary",
-        "account_role": "owner_mailbox",
-        "recipients": [target.recipient],
-    }));
-    if Some(&current_target_digest) != request.target_digest.as_ref() {
-        let target_ref = ArtifactRef {
-            digest: current_target_digest.clone(),
-            schema_version: 1,
-        };
-        state.store.append_audit(
-            "draft.target_mutated_since_approval",
-            Some(&request.action),
-            None,
-            Some("recomputed target digest no longer matches the approved one"),
-            Some(grant.id),
-            &[target_ref],
-            std::slice::from_ref(payload_ref),
-        )?;
-        notify_owner_best_effort(
-            state,
-            chat_id,
-            "The thread changed since you approved this draft — please run /draft again.",
-        )
-        .await;
-        return Ok(());
-    }
-
-    crate::spend::guard_connector_for(state, grant).await?;
-    let draft_result = gmail.create_draft(&thread_id, &target, subject, body).await;
-    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-        &state.store,
-        "gmail",
-        draft_result.is_ok(),
-    ) {
-        tracing::error!(error = %counter_err, "failed to persist Gmail create counter");
-    }
-    match draft_result {
-        Ok(draft_id) => {
-            let draft_id_refs = match state.artifacts.put(draft_id.as_bytes()) {
-                Ok(r) => vec![r],
-                Err(err) => {
-                    tracing::warn!(error = %err, "failed to store draft_id artifact ref");
-                    vec![]
-                }
-            };
-            let target_ref = ArtifactRef {
-                digest: current_target_digest.clone(),
-                schema_version: 1,
-            };
-            let mut payload_refs = vec![payload_ref.clone()];
-            payload_refs.extend(draft_id_refs);
-            state.store.append_audit(
-                "draft.created",
-                Some(&request.action),
-                None,
-                None,
-                Some(grant.id),
-                &[target_ref],
-                &payload_refs,
-            )?;
-            notify_owner_best_effort(state, chat_id, "Draft created in Gmail.").await;
-        }
-        Err(err) => {
-            let target_ref = ArtifactRef {
-                digest: current_target_digest.clone(),
-                schema_version: 1,
-            };
-            state.store.append_audit(
-                "draft.creation_failed",
-                Some(&request.action),
-                None,
-                None,
-                Some(grant.id),
-                &[target_ref],
-                std::slice::from_ref(payload_ref),
-            )?;
-            crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Connector,
-                "gmail create draft failed during approval",
-                &err.to_string(),
-            )?;
-        }
-    }
-    Ok(())
 }

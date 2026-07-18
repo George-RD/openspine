@@ -80,18 +80,12 @@ impl Store {
                 availability_outcome,
             ],
         )?;
-        // Commit the audit and dead-letter before the best-effort counter write.
-        // A broken counter table must never roll back retryable owner failure state.
         tx.commit()?;
-        drop(conn);
-        self.increment_connector_outcome("telegram", "failure")?;
         Ok(id)
     }
 
-    /// Atomically record a successful owner notification and its connector
-    /// success counter. This is the truthful counterpart to
-    /// [`Self::record_notify_failure`].
-    /// Record success, success counter, and optional detail receipt atomically.
+    /// Record notification success and audit metadata. The connector outcome
+    /// counter is recorded by the universal connector wrapper.
     pub fn record_notify_success(
         &self,
         task_grant_id: Ulid,
@@ -109,11 +103,6 @@ impl Store {
             Some(task_grant_id),
             &[],
             &[],
-        )?;
-        tx.execute(
-            "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'success', 1) \
-             ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
-            [],
         )?;
         if let Some(detail) = detail {
             detail.append_in_tx(&tx)?;
@@ -141,11 +130,6 @@ impl Store {
             Some(task_grant_id),
             &[],
             &[],
-        )?;
-        tx.execute(
-            "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'success', 1) \
-             ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
-            [],
         )?;
         for id in digest_item_ids {
             tx.execute(

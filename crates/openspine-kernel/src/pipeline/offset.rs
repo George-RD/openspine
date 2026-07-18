@@ -11,12 +11,17 @@ pub(crate) async fn initialize_telegram_bot_id(state: &AppState) -> anyhow::Resu
     // mid-rotation capture) would otherwise leave the kernel polling bot B
     // under bot A's offset namespace, stranding B's updates.
     crate::spend::guard_connector(state, true).await?;
-    let actual_bot_id = state
-        .connectors
-        .telegram()
-        .validate_candidate_token_id(&token)
-        .await
-        .ok_or_else(|| anyhow::anyhow!("telegram bot identity validation failed"))?;
+    let actual_bot_id = crate::api::connector_breaker::call_with_connector_preflight(
+        state,
+        "telegram",
+        None,
+        state
+            .connectors
+            .telegram()
+            .validate_candidate_token_id(&token),
+    )
+    .await?
+    .ok_or_else(|| anyhow::anyhow!("telegram bot identity validation failed"))?;
     match state.store.get_kv("telegram.bot_id")? {
         // True first boot: persist the identity and migrate the legacy offset.
         None => state

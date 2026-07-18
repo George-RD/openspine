@@ -21,11 +21,16 @@ pub(super) async fn handle_plan_approval_callback(
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
     crate::spend::guard_connector(state, true).await?;
-    let answer_result = state
-        .connectors
-        .telegram()
-        .answer_callback_query(callback_query_id)
-        .await;
+    let answer_result = crate::api::connector_breaker::call_with_connector_preflight(
+        state,
+        "telegram",
+        None,
+        state
+            .connectors
+            .telegram()
+            .answer_callback_query(callback_query_id),
+    )
+    .await;
     crate::failure_surfacing::record_callback_ack(
         state,
         answer_result.is_ok(),

@@ -109,6 +109,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-095 | Persona seeding uses a kernel-authored traceable bootstrap ProducedBy event with encrypted exchange blob and digest-bound learned rows; startup admission is provenance-gated | Accepted |
 | D-096 | Personality anti-pattern probes are deterministic eval constraints (no model calls, never prompt text); digest/brief format ships as the learnable default with the correction route owned by implement-reflection-miner | Accepted |
 | D-097 | Persona overlay loading is admission-gated: generic loaders exclude personas; a raw-byte admission gate requires a matching validated learned row before parsing | Accepted |
+| D-098 | Gmail draft writes keep durable pending evidence: rows inserted before the call resolve only on a confirmed provider response; no automatic resend | Accepted |
+| D-099 | Connector breakers use sliding-window failure accounting; successes close probes but never erase recorded failures | Accepted |
 
 ---
 
@@ -2354,6 +2356,49 @@ All overlay kinds converge on a shared admission gate, subsuming the persona-spe
 ---
 
 
+# D-098 — Gmail draft writes keep durable pending evidence
+
+## Decision
+
+A `gmail.create_draft` timeout or transport/no-response error (including a 2xx response missing the expected draft id) leaves a durable `pending_draft_writes` row — inserted before the call, resolved only on a confirmed provider response — so the write is never silently claimed failed. Because Gmail lacks an idempotency key, the runtime performs no automatic resend; an operator manually reconciles the pending row.
+
+## Rationale
+
+Extends the D-071 owner-delivery durable-evidence discipline to the provider write side; automatic resend without idempotency risks duplicate drafts.
+
+## Consequences
+
+DeliveryUnknown is a distinct dispatch outcome; pending rows are operator-visible and never auto-cleared.
+
+## Would change if
+
+Gmail exposes an idempotency key, enabling safe automatic reconciliation.
+
+---
+
+
+# D-099 — Connector breakers use sliding-window failure accounting
+
+## Decision
+
+Circuit breakers count failures within a sliding `failure_window` (default 60s). A success closes a HalfOpen probe or keeps the breaker Closed but never erases recorded failures; probe admissions are RAII permits whose drop-without-outcome reopens the breaker with a fresh epoch, and stale-epoch outcomes are ignored.
+
+## Rationale
+
+Consecutive-failure counting let interleaved successes (e.g. preflight reads) launder a repeatedly failing write path below the threshold — reviewer-verified against the real approval flow.
+
+## Consequences
+
+A failing operation trips the connector breaker even when other operations on the same connector succeed; cancellation cannot wedge a HalfOpen probe.
+
+## Would change if
+
+Per-operation-class breakers replace the per-connector breaker.
+
+---
+
+
+
 
 ## Open Decision Questions — CLOSED (see linked decisions)
 
@@ -2419,4 +2464,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-091 (seed workflows as overlay artifacts through the standard quarantine path with marker-gated first-boot materialization), settled while implementing `implement-seed-workflows`. |
 | 2026-07-18 | Added D-092 (kernel-owned nerve admission/replay boundaries with atomic budget debits) and D-093 (ModelTier::Cheap conservative default for manifest-derived advisee limits), settled while implementing `implement-nerve-subscribers`. |
 | 2026-07-18 | Added D-094 (persona as a no-authority seventh overlay artifact kind), D-095 (kernel-authored bootstrap provenance with validated seed/repair), D-096 (deterministic personality probes; learnable digest default with correction route owned by implement-reflection-miner), and D-097 (admission-gated persona overlay loading), settled while implementing `implement-personality-seed`. |
+| 2026-07-18 | Added D-098 (durable pending evidence for Gmail draft writes; no automatic resend) and D-099 (sliding-window breaker failure accounting with RAII probe permits), settled while implementing `implement-connector-reality`. |
 

@@ -56,12 +56,17 @@ pub async fn capture(
 
     if pending.slot == crate::telegram::BOT_TOKEN_SLOT {
         crate::spend::guard_connector(state, true).await?;
-        let Some(bot_id) = state
-            .connectors
-            .telegram()
-            .validate_candidate_token_id(text)
-            .await
-        else {
+        let bot_id = crate::api::connector_breaker::call_with_connector_preflight(
+            state,
+            "telegram",
+            None,
+            state
+                .connectors
+                .telegram()
+                .validate_candidate_token_id(text),
+        )
+        .await?;
+        let Some(bot_id) = bot_id else {
             state.store.append_audit(
                 &format!("{kind_prefix}.rejected"),
                 None,
@@ -172,10 +177,14 @@ pub async fn capture(
                 (staged_value.clone(), text.to_string())
             };
             crate::spend::guard_connector(state, true).await?;
-            if !gmail
-                .validate_credential_pair(&client_secret, &refresh_token)
-                .await
-            {
+            let valid = crate::api::connector_breaker::call_with_connector_preflight(
+                state,
+                "gmail",
+                None,
+                gmail.validate_credential_pair(&client_secret, &refresh_token),
+            )
+            .await?;
+            if !valid {
                 state.store.append_audit(
                     &format!("{kind_prefix}.rejected"),
                     None,
@@ -310,10 +319,14 @@ pub async fn capture(
                 (live_counterpart, text.to_string())
             };
             crate::spend::guard_connector(state, true).await?;
-            if !gmail
-                .validate_credential_pair(&client_secret, &refresh_token)
-                .await
-            {
+            let valid = crate::api::connector_breaker::call_with_connector_preflight(
+                state,
+                "gmail",
+                None,
+                gmail.validate_credential_pair(&client_secret, &refresh_token),
+            )
+            .await?;
+            if !valid {
                 state.store.append_audit(
                     &format!("{kind_prefix}.rejected"),
                     None,

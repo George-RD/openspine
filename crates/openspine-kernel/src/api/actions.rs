@@ -1,5 +1,6 @@
 use super::authenticate;
-use super::proposal::propose_draft_creation;
+use super::connector_breaker::call_with_connector;
+use super::proposal::{propose_draft_creation, ProposalError};
 use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
 use crate::failure_surfacing::{batch_failure, FailureClass};
 use crate::pipeline::AppState;
@@ -87,7 +88,10 @@ pub(super) async fn post_actions(
         DispatchError::BadRequest(message) => {
             (StatusCode::BAD_REQUEST, Json(json!({"error": message})))
         }
-        DispatchError::Connector(cause) | DispatchError::Resource(cause) => {
+        DispatchError::Connector(cause)
+        | DispatchError::ConnectorUnavailable(cause)
+        | DispatchError::DeliveryUnknown(cause)
+        | DispatchError::Resource(cause) => {
             tracing::error!(error = %cause, "action dispatch failed");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -181,20 +185,46 @@ pub(crate) async fn mediate_and_dispatch_action(
         return Ok((decision, None, None));
     }
 
-    match dispatch_allowed_action(state, grant, &action, bound_chat_id, payload).await {
+    // AD-103/AD-141: every connector effect runs through its breaker + bounded
+    // timeout via the handler's `call_with_connector`. An Open breaker blocks
+    // the effect with the distinct `connector_unavailable` audit event
+    // (operational, not policy) — emitted inside the helper, never here.
+    let dispatched = super::connector_breaker::dispatch_allowed_action(
+        state,
+        grant,
+        &action,
+        bound_chat_id,
+        payload,
+    )
+    .await;
+    match dispatched {
         Ok(result) => Ok((GateDecision::Allow, None, Some(result))),
         Err(err) => {
+            // AD-103: a `ConnectorUnavailable` (Open/HalfOpen breaker) already
+            // appended the distinct `connector_unavailable` audit; do not also
+            // record `action.dispatch_failed` or batch it (that would
+            // double-count the operational outage).
+            if matches!(err, DispatchError::ConnectorUnavailable(_)) {
+                return Err(err);
+            }
             let digest_class = match &err {
-                DispatchError::Resource(_) => FailureClass::Resource,
-                DispatchError::Connector(_) => FailureClass::Connector,
-                DispatchError::BadRequest(_) => FailureClass::Connector,
+                DispatchError::Resource(_) | DispatchError::DeliveryUnknown(_) => {
+                    FailureClass::Resource
+                }
+                DispatchError::Connector(_) | DispatchError::BadRequest(_) => {
+                    FailureClass::Connector
+                }
+                DispatchError::ConnectorUnavailable(_) => unreachable!(),
             };
             let digest_summary = match &err {
                 DispatchError::BadRequest(msg) => msg.clone(),
-                DispatchError::Connector(cause) | DispatchError::Resource(cause) => {
+                DispatchError::Connector(cause)
+                | DispatchError::Resource(cause)
+                | DispatchError::DeliveryUnknown(cause) => {
                     tracing::error!(error = %cause, "action dispatch failed");
                     format!("{action}: {cause}")
                 }
+                DispatchError::ConnectorUnavailable(_) => unreachable!(),
             };
             state
                 .store
@@ -228,6 +258,15 @@ pub(crate) async fn mediate_and_dispatch_action(
 pub(crate) enum DispatchError {
     BadRequest(String),
     Connector(anyhow::Error),
+    /// Admission rejected by a genuinely Open/HalfOpen breaker. The distinct
+    /// `connector_unavailable` audit event is already recorded by the helper;
+    /// `mediate_and_dispatch_action` must not also surface it as a normal
+    /// `action.dispatch_failed`.
+    ConnectorUnavailable(anyhow::Error),
+    /// A write to an external connector timed out after the provider may have
+    /// acted (candidate Gmail-write extension): delivery-unknown, not a
+    /// confirmed failure. Distinct from `Resource` so callers can fence it.
+    DeliveryUnknown(anyhow::Error),
     Resource(anyhow::Error),
 }
 
@@ -240,37 +279,6 @@ pub(crate) enum DispatchError {
 pub(crate) enum FailureSurface {
     DirectResponse,
     Detached,
-}
-
-/// Run the effect of one `gate()`-allowed action. Only reached after
-/// `Allow` — a deny/approval-required decision never calls this.
-///
-/// `openspine.status.read`, `telegram.reply:owner_channel`,
-/// `email.read_thread:selected_no_attachments`, `lyra.ui.preview`, and
-/// `artifact.propose` (5c: validate, persist, and ask the owner to
-/// approve activation) are real; `workflow.invoke:approved` and
-/// `setup.workflow.start` remain specified stubs (`tasks.md`: "Do not
-/// implement real behavior for these — a stub response is the specified
-/// deliverable"). Any other allowed action (e.g.
-/// grant but no kernel-side subsystem yet exists for) falls through to the
-/// same honest stub shape rather than a 500 — an *authorized* action must
-/// never fail the request just because its kernel-side implementation
-/// doesn't exist yet.
-async fn dispatch_allowed_action(
-    state: &AppState,
-    grant: &TaskGrant,
-    action: &ActionId,
-    bound_chat_id: i64,
-    payload: Option<&Value>,
-) -> Result<Value, DispatchError> {
-    let id = action.0.as_str();
-    match state.action_handlers.lookup(id) {
-        Some(handler) => handler(state, grant, bound_chat_id, payload).await,
-        None => Ok(json!({
-            "stub": true,
-            "note": format!("{id} has no Step 4 kernel-side implementation yet"),
-        })),
-    }
 }
 
 /// `lyra.ui.preview`'s real implementation (build plan Step 5, extended by
@@ -293,10 +301,10 @@ async fn dispatch_allowed_action(
 /// button" rather than a broken button), so it is batched here — and only
 /// once the durable digest write succeeds does the preview get shown; if
 /// that write fails it escalates to a typed `Resource` error (PI parent
-/// note: a Resource failure must never be reported as a successful preview).
 pub(super) async fn dispatch_lyra_preview(
     state: &AppState,
     grant: &TaskGrant,
+    action: &ActionId,
     bound_chat_id: i64,
     preview: &PreviewPayload,
 ) -> Result<Value, DispatchError> {
@@ -319,53 +327,44 @@ pub(super) async fn dispatch_lyra_preview(
             )
             .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
         guard_connector_dispatch(state, grant).await?;
-        let send_result = state
-            .connectors
-            .telegram()
-            .send_reply(bound_chat_id, &truncate_with_notice(&full))
-            .await;
-        if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-            &state.store,
+        // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+        // site; the helper records breaker health and the D-069 counter.
+        call_with_connector(
+            state,
             "telegram",
-            send_result.is_ok(),
-        ) {
-            tracing::error!(error = %counter_err, "failed to persist Telegram counter");
-            if let Err(surface_err) = crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Resource,
-                "Telegram counter persistence failed",
-                "Telegram counter persistence failed",
-            ) {
-                tracing::error!(error = %surface_err, "counter failure surface append failed");
-            }
-        }
-        send_result.map_err(DispatchError::Connector)?;
-        return Ok(json!({"sent": true}));
-    }
-    match propose_draft_creation(state, grant, preview).await {
-        Ok(action_request_id) => {
-            guard_connector_dispatch(state, grant).await?;
-            let send_result = state
+            action,
+            grant,
+            state
                 .connectors
                 .telegram()
-                .send_reply_with_approval_button(bound_chat_id, &text, action_request_id)
-                .await;
-            if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-                &state.store,
+                .send_reply(bound_chat_id, &truncate_with_notice(&full)),
+        )
+        .await?;
+        return Ok(json!({"sent": true}));
+    }
+    match propose_draft_creation(state, grant, action, preview).await {
+        Ok(action_request_id) => {
+            guard_connector_dispatch(state, grant).await?;
+            call_with_connector(
+                state,
                 "telegram",
-                send_result.is_ok(),
-            ) {
-                tracing::error!(error = %counter_err, "failed to persist Telegram counter");
-                if let Err(surface_err) = crate::failure_surfacing::batch_failure(
-                    state,
-                    crate::failure_surfacing::FailureClass::Resource,
-                    "Telegram counter persistence failed",
-                    "Telegram counter persistence failed",
-                ) {
-                    tracing::error!(error = %surface_err, "counter failure surface append failed");
-                }
-            }
-            send_result.map_err(DispatchError::Connector)?;
+                action,
+                grant,
+                state.connectors.telegram().send_reply_with_approval_button(
+                    bound_chat_id,
+                    &text,
+                    action_request_id,
+                ),
+            )
+            .await?;
+        }
+        Err(ProposalError::GmailUnavailable(c)) => {
+            // A genuinely Open Gmail breaker surfaces as `GmailUnavailable`;
+            // propagate it as `DispatchError::ConnectorUnavailable` so the
+            // outer `mediate_and_dispatch_action` skips its own
+            // `action.dispatch_failed` batch (the `connector_unavailable`
+            // audit is already recorded by the helper).
+            return Err(DispatchError::ConnectorUnavailable(c));
         }
         Err(err) => {
             if err.failure_class() == FailureClass::Resource {
@@ -396,27 +395,14 @@ pub(super) async fn dispatch_lyra_preview(
                 )
                 .map_err(|e| DispatchError::Resource(anyhow::Error::new(e)))?;
             guard_connector_dispatch(state, grant).await?;
-            let send_result = state
-                .connectors
-                .telegram()
-                .send_reply(bound_chat_id, &text)
-                .await;
-            if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-                &state.store,
+            call_with_connector(
+                state,
                 "telegram",
-                send_result.is_ok(),
-            ) {
-                tracing::error!(error = %counter_err, "failed to persist Telegram counter");
-                if let Err(surface_err) = crate::failure_surfacing::batch_failure(
-                    state,
-                    crate::failure_surfacing::FailureClass::Resource,
-                    "Telegram counter persistence failed",
-                    "Telegram counter persistence failed",
-                ) {
-                    tracing::error!(error = %surface_err, "counter failure surface append failed");
-                }
-            }
-            send_result.map_err(DispatchError::Connector)?;
+                action,
+                grant,
+                state.connectors.telegram().send_reply(bound_chat_id, &text),
+            )
+            .await?;
             return Ok(json!({"sent": true}));
         }
     }
@@ -432,6 +418,7 @@ pub(super) async fn dispatch_lyra_preview(
 pub(super) async fn dispatch_read_selected_thread(
     state: &AppState,
     grant: &TaskGrant,
+    action: &ActionId,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
     let payload = payload.ok_or_else(|| {
@@ -480,14 +467,16 @@ pub(super) async fn dispatch_read_selected_thread(
     crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(DispatchError::Resource)?;
-    let thread_result = gmail.fetch_thread(&token.target_id).await;
-    crate::failure_surfacing::record_connector_outcome(
-        &state.store,
+    // AD-103/AD-141: admit + bound-timeout the Gmail fetch at the call site;
+    // the helper records breaker health and the D-069 counter.
+    let thread = call_with_connector(
+        state,
         "gmail",
-        thread_result.is_ok(),
+        action,
+        grant,
+        gmail.fetch_thread(&token.target_id),
     )
-    .map_err(|err| DispatchError::Resource(err.into()))?;
-    let thread = thread_result.map_err(|err| DispatchError::Connector(err.into()))?;
+    .await?;
 
     Ok(json!({
         "thread_id": thread.thread_id,

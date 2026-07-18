@@ -6,6 +6,7 @@ mod benchmark;
 mod briefcase;
 mod briefcase_visibility;
 mod config;
+mod connector_reality;
 mod connectors;
 mod escalation;
 mod failure_surfacing;
@@ -48,7 +49,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
     #[cfg(test)]
     {
@@ -396,26 +397,48 @@ async fn main() -> anyhow::Result<()> {
         active_model_providers: parking_lot::RwLock::new(active_model_providers),
         started_at: Instant::now(),
         spend_cap: cfg.spend_cap,
+        connector_call_timeout: Duration::from_secs(30),
         overlay_dir,
         conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
     });
     for (request_id, summary) in &pending_reconfirm_buttons {
-        if let Err(err) = state
-            .connectors
-            .telegram()
-            .send_reply_with_approval_button(state.owner_user_id, summary, *request_id)
-            .await
-        {
+        let guard = crate::spend::guard_connector(&state, true).await;
+        if let Err(err) = guard {
+            tracing::warn!(error = %err, %request_id, "spend guard blocked reconfirm button");
+            continue;
+        }
+        let result = crate::api::connector_breaker::call_with_connector_preflight(
+            &state,
+            "telegram",
+            None,
+            state.connectors.telegram().send_reply_with_approval_button(
+                state.owner_user_id,
+                summary,
+                *request_id,
+            ),
+        )
+        .await;
+        if let Err(err) = result {
             tracing::warn!(error = %err, %request_id, "failed to send reconfirm button");
         }
     }
     for notice in &pending_reconfirm_notices {
-        if let Err(err) = state
-            .connectors
-            .telegram()
-            .send_reply(state.owner_user_id, notice)
-            .await
-        {
+        let guard = crate::spend::guard_connector(&state, true).await;
+        if let Err(err) = guard {
+            tracing::warn!(error = %err, "spend guard blocked overlay notice");
+            continue;
+        }
+        let result = crate::api::connector_breaker::call_with_connector_preflight(
+            &state,
+            "telegram",
+            None,
+            state
+                .connectors
+                .telegram()
+                .send_reply(state.owner_user_id, notice),
+        )
+        .await;
+        if let Err(err) = result {
             tracing::warn!(error = %err, "failed to send overlay re-proposal notice");
         }
     }
