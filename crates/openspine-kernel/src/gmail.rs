@@ -28,6 +28,10 @@ use helpers::{build_raw_reply_message, header_value, parse_thread};
 const DEFAULT_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const DEFAULT_API_BASE_URL: &str = "https://gmail.googleapis.com";
 const GMAIL_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+/// Refresh the cached access token this many seconds before Google's own
+/// `expires_in` would lapse, so a request never races an about-to-expire
+/// token across the wire (AD-141: never let a Gmail token lapse mid-task).
+const TOKEN_REFRESH_SKEW_SECONDS: i64 = 60;
 /// PRD §15's selection-scope `max_messages: 20` default — this connector
 /// enforces its own hard ceiling independent of any caller-supplied scope,
 /// so a forged/malformed scope can never widen what one fetch returns.
@@ -42,10 +46,6 @@ pub enum ThreadRecipient {
     ThreadNotFound,
     Unavailable,
 }
-/// Refresh the cached access token this many seconds before Google's own
-/// `expires_in` would lapse, so a request never races an about-to-expire
-/// token across the wire.
-const TOKEN_REFRESH_SKEW_SECONDS: i64 = 60;
 
 /// Fixed failure class for Gmail connector errors. This is the stable label
 /// that is audited/persisted; the provider's response body is NEVER carried
@@ -262,7 +262,14 @@ impl GmailConnector {
                 )
             };
         if let Some(cached) = self.cached.lock().as_ref() {
+            // AD-141: refresh proactively while the token is still valid but
+            // within `TOKEN_REFRESH_SKEW_SECONDS` of expiry, so a Gmail call
+            // never races an about-to-expire token across the wire. A changed
+            // client secret / refresh token version also forces a refresh.
+            let refresh_within = cached.expires_at
+                <= Timestamp::now() + Duration::from_secs(TOKEN_REFRESH_SKEW_SECONDS as u64);
             if cached.expires_at > Timestamp::now()
+                && !refresh_within
                 && cached.client_secret_version == client_secret_version
                 && cached.refresh_token_version == refresh_token_version
             {
@@ -288,8 +295,9 @@ impl GmailConnector {
             });
         }
         let parsed: TokenResponse = resp.json().await?;
-        let ttl = (parsed.expires_in - TOKEN_REFRESH_SKEW_SECONDS).max(0) as u64;
-        let expires_at = Timestamp::now() + Duration::from_secs(ttl);
+        // Store the TRUE expiry. The proactive-refresh skew is applied once,
+        // at read time (access_token: `expires_at <= now + skew`), never here.
+        let expires_at = Timestamp::now() + Duration::from_secs(parsed.expires_in.max(0) as u64);
         *self.cached.lock() = Some(CachedToken {
             access_token: parsed.access_token.clone(),
             expires_at,

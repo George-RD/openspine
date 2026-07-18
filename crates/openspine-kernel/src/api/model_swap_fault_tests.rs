@@ -1,3 +1,4 @@
+use openspine_schemas::action::ActionId;
 use serde_json::json;
 use ulid::Ulid;
 use wiremock::matchers::{method, path};
@@ -65,9 +66,15 @@ async fn injected_activation_tx_failure_keeps_approved_old_state() {
         "kind": "model_swap",
         "yaml": "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\ntarget_provider_id: swapped-provider\ngolden_set_id: model_swap_default\n"
     });
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&proposal))
-        .await
-        .unwrap();
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&proposal),
+    )
+    .await
+    .unwrap();
     let request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()

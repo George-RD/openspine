@@ -6,6 +6,7 @@
 //! split out purely to keep both files under the 500-line gate — and reuse
 //! [`mint_grant_with_selection_token`] and [`OWNER_CHAT_ID`] from here.
 
+use crate::connector_reality::BreakerState;
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::Lifecycle;
@@ -413,4 +414,86 @@ async fn unregistered_known_action_returns_stub_shape() {
     );
 
     handle.abort();
+}
+
+/// AD-103/AD-141 acceptance: an Open gmail circuit breaker blocks the effect
+/// AFTER `gate()` has authorized it, emitting the distinct
+/// `connector_unavailable` audit event — operational failure, never a policy
+/// denial. No Gmail network call is made.
+#[tokio::test]
+async fn open_gmail_breaker_blocks_effect_with_connector_unavailable_event() {
+    use crate::api::actions::{mediate_and_dispatch_action, DispatchError, FailureSurface};
+
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    // No mocks are mounted on either server: the Open breaker must block the
+    // effect BEFORE any Gmail network call is ever attempted.
+    let state = test_state_with_gmail(gmail_connector(&token_server, &api_server));
+    let (grant, token) = mint_grant_with_selection_token(
+        &state,
+        &["email.read_thread:selected_no_attachments"],
+        Timestamp::now() + std::time::Duration::from_secs(120),
+    );
+    // Trip the gmail circuit breaker (default failure threshold is 3).
+    for _ in 0..3 {
+        state.connectors.record_connector_outcome("gmail", false);
+    }
+
+    let payload = json!({ "selection_token_id": token.id.to_string() });
+    let result = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        ActionId::new("email.read_thread:selected_no_attachments"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+        FailureSurface::Detached,
+    )
+    .await;
+
+    assert!(
+        matches!(result, Err(DispatchError::ConnectorUnavailable(_))),
+        "an Open breaker must block the effect as a ConnectorUnavailable dispatch error, got {result:?}"
+    );
+    // The distinct connector_unavailable audit event is appended exactly once.
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("connector_unavailable")
+            .unwrap(),
+        1,
+    );
+    // The operational block is never double-batched as a normal dispatch
+    // failure — ConnectorUnavailable is the distinct, already-audited outcome.
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("action.dispatch_failed")
+            .unwrap(),
+        0,
+    );
+    // The block is operational, not a policy denial: `gate()` Authorized the
+    // action (action.gated carries an Allow), and the distinct
+    // connector_unavailable event records the health block on top of it.
+    let gated_allows = state
+        .store
+        .all_audit_event_jsons()
+        .unwrap()
+        .into_iter()
+        .filter_map(|raw| serde_json::from_str::<Value>(&raw).ok())
+        .any(|event| {
+            event["kind"] == "action.gated"
+                && event["action"] == "email.read_thread:selected_no_attachments"
+                && event["decision"]["outcome"] == "allow"
+        });
+    assert!(
+        gated_allows,
+        "the breaker block must be post-gate (action.gated Allow), not a policy denial"
+    );
+    // R6: an Open gmail breaker must not block a *different* connector's
+    // admission — telegram stays Closed and still acquires.
+    assert_eq!(
+        state.connectors.breaker_state("telegram"),
+        Some(BreakerState::Closed)
+    );
+    assert!(state.connectors.acquire_connector("telegram").is_ok());
 }

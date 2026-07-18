@@ -1,8 +1,8 @@
 use crate::artifact_store::ArtifactStoreError;
 use crate::failure_surfacing::FailureClass;
-use crate::gmail::GmailError;
 use crate::pipeline::AppState;
 use crate::store::StoreError;
+use anyhow::Error;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::digest::{canonical_json, digest_of};
 use openspine_schemas::event::{TargetRef, TargetRefKind};
@@ -10,7 +10,8 @@ use openspine_schemas::grant::TaskGrant;
 use serde_json::json;
 use ulid::Ulid;
 
-use super::actions::PreviewPayload;
+use super::actions::{DispatchError, PreviewPayload};
+use super::connector_breaker::call_with_connector;
 
 #[derive(Debug, thiserror::Error)]
 pub(super) enum ProposalError {
@@ -23,9 +24,11 @@ pub(super) enum ProposalError {
     #[error("selection token not found")]
     SelectionTokenNotFound,
     #[error("Gmail outcome counter persistence failed: {0}")]
-    GmailOutcomeRecord(#[source] StoreError),
-    #[error("Gmail thread fetch failed: {0}")]
-    GmailThreadFetch(#[source] GmailError),
+    GmailOutcomeRecord(#[source] Error),
+    #[error("Gmail connector call failed (fetch/admission/timeout): {0}")]
+    GmailCall(#[source] Error),
+    #[error("Gmail connector unavailable (breaker open): {0}")]
+    GmailUnavailable(#[source] Error),
     #[error("no non-owner recipient found")]
     NoNonOwnerRecipient,
     #[error("artifact budget check failed: {0}")]
@@ -57,7 +60,8 @@ impl ProposalError {
             Self::NoGmailConnector
             | Self::NoSelectionToken
             | Self::SelectionTokenNotFound
-            | Self::GmailThreadFetch(_)
+            | Self::GmailCall(_)
+            | Self::GmailUnavailable(_)
             | Self::NoNonOwnerRecipient => FailureClass::Connector,
         }
     }
@@ -66,6 +70,7 @@ impl ProposalError {
 pub(super) async fn propose_draft_creation(
     state: &AppState,
     grant: &TaskGrant,
+    action: &ActionId,
     preview: &PreviewPayload,
 ) -> Result<Ulid, ProposalError> {
     let gmail = state
@@ -85,17 +90,26 @@ pub(super) async fn propose_draft_creation(
     crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(ProposalError::SpendGuard)?;
-    let thread_result = gmail.fetch_thread(&token.target_id).await;
-    crate::failure_surfacing::record_connector_outcome(
-        &state.store,
+    // AD-103/AD-141: admit + bound-timeout the Gmail fetch at the call site;
+    // the helper records breaker health and the D-069 counter. A genuinely
+    // Open breaker surfaces as `GmailUnavailable` so the caller can propagate
+    // the distinct `connector_unavailable` outcome without re-batching.
+    let thread = call_with_connector(
+        state,
         "gmail",
-        thread_result.is_ok(),
+        action,
+        grant,
+        gmail.fetch_thread(&token.target_id),
     )
-    .map_err(ProposalError::GmailOutcomeRecord)?;
-    // The connector outcome counter is persisted above; the caller routes
-    // the typed `ProposalError` into the digest exactly once (avoiding a
-    // duplicate batch here).
-    let thread = thread_result.map_err(ProposalError::GmailThreadFetch)?;
+    .await
+    .map_err(|e| match e {
+        DispatchError::ConnectorUnavailable(c) => ProposalError::GmailUnavailable(c),
+        DispatchError::Connector(c) | DispatchError::DeliveryUnknown(c) => {
+            ProposalError::GmailCall(c)
+        }
+        DispatchError::BadRequest(msg) => ProposalError::GmailCall(anyhow::anyhow!(msg)),
+        DispatchError::Resource(c) => ProposalError::GmailOutcomeRecord(c),
+    })?;
     let target = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
         .ok_or(ProposalError::NoNonOwnerRecipient)?;
 

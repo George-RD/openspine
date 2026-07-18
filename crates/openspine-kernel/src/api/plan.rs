@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use ulid::Ulid;
 
 use super::actions::DispatchError;
+use super::connector_breaker::call_with_connector;
 use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
 use crate::pipeline::AppState;
 
@@ -15,6 +16,7 @@ use crate::pipeline::AppState;
 pub(crate) async fn dispatch_plan_preview(
     state: &AppState,
     grant: &TaskGrant,
+    action: &ActionId,
     bound_chat_id: i64,
     plan: &openspine_schemas::plan::Plan,
 ) -> Result<Value, DispatchError> {
@@ -41,17 +43,19 @@ pub(crate) async fn dispatch_plan_preview(
         crate::spend::guard_connector_for(state, grant)
             .await
             .map_err(DispatchError::Resource)?;
-        let send_result = state
-            .connectors
-            .telegram()
-            .send_reply(bound_chat_id, &truncate_with_notice(&full))
-            .await;
-        crate::failure_surfacing::record_connector_outcome_or_batch(
+        // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+        // site; the helper records breaker health and the D-069 counter.
+        call_with_connector(
             state,
             "telegram",
-            send_result.is_ok(),
-        );
-        send_result.map_err(DispatchError::Connector)?;
+            action,
+            grant,
+            state
+                .connectors
+                .telegram()
+                .send_reply(bound_chat_id, &truncate_with_notice(&full)),
+        )
+        .await?;
         return Ok(json!({"sent": true, "approval_offered": false}));
     }
     // D-046/D-050: a shell-initiated artifact put draws from the same
@@ -106,16 +110,18 @@ pub(crate) async fn dispatch_plan_preview(
     crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(DispatchError::Resource)?;
-    let send_result = state
-        .connectors
-        .telegram()
-        .send_reply_with_plan_approval_button(bound_chat_id, &full, request.id)
-        .await;
-    crate::failure_surfacing::record_connector_outcome_or_batch(
+    // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+    // site; the helper records breaker health and the D-069 counter.
+    call_with_connector(
         state,
         "telegram",
-        send_result.is_ok(),
-    );
-    send_result.map_err(DispatchError::Connector)?;
+        action,
+        grant,
+        state
+            .connectors
+            .telegram()
+            .send_reply_with_plan_approval_button(bound_chat_id, &full, request.id),
+    )
+    .await?;
     Ok(json!({"sent": true, "approval_offered": true}))
 }

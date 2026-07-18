@@ -37,6 +37,7 @@ base64.workspace = true
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 parking_lot = "0.12.5"
+hmac-sha256.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -52,6 +52,11 @@ pub struct PreflightSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreflightFailure {
     GmailNotConfigured,
+    SpendUnavailable,
+    ConnectorUnavailable,
+    ConnectorRateLimited,
+    ConnectorTimeout,
+    ConnectorResource,
     RefusedUncontained,
     ThreadNotFound {
         thread_id: String,
@@ -290,7 +295,17 @@ pub(super) fn email_preflight<'a>(
         // path, classified `PreGateOwnerSelectedRead`: the read is authorized
         // by the verified-owner `/draft` selection and the containment guard,
         // not by the authority `gate()`.
-        let recipient = match gmail.fetch_thread_recipient(thread_id).await {
+        crate::spend::guard_connector(state, true)
+            .await
+            .map_err(|_| PreflightFailure::SpendUnavailable)?;
+        let recipient_result = crate::api::connector_breaker::call_with_connector_preflight(
+            state,
+            "gmail",
+            None,
+            gmail.fetch_thread_recipient(thread_id),
+        )
+        .await;
+        let recipient = match recipient_result {
             Ok(crate::gmail::ThreadRecipient::Address(address)) => address,
             Ok(crate::gmail::ThreadRecipient::ThreadNotFound) => {
                 return Err(PreflightFailure::ThreadNotFound {
@@ -302,11 +317,24 @@ pub(super) fn email_preflight<'a>(
                     thread_id: thread_id.to_string(),
                 })
             }
-            Err(err) => {
-                return Err(PreflightFailure::GmailError {
-                    status: err.status,
-                    class: err.class,
-                })
+            Err(crate::api::connector_breaker::PreflightConnectorError::Connector(err)) => {
+                let (status, class) = err
+                    .downcast_ref::<crate::gmail::GmailError>()
+                    .map(|err| (err.status, err.class))
+                    .unwrap_or((None, crate::gmail::GmailFailureClass::Transport));
+                return Err(PreflightFailure::GmailError { status, class });
+            }
+            Err(crate::api::connector_breaker::PreflightConnectorError::Unavailable { .. }) => {
+                return Err(PreflightFailure::ConnectorUnavailable)
+            }
+            Err(crate::api::connector_breaker::PreflightConnectorError::RateLimited { .. }) => {
+                return Err(PreflightFailure::ConnectorRateLimited)
+            }
+            Err(crate::api::connector_breaker::PreflightConnectorError::Timeout { .. }) => {
+                return Err(PreflightFailure::ConnectorTimeout)
+            }
+            Err(crate::api::connector_breaker::PreflightConnectorError::Resource { .. }) => {
+                return Err(PreflightFailure::ConnectorResource)
             }
         };
         // The recipient resolution is an enumerated effect; record it without
@@ -322,10 +350,7 @@ pub(super) fn email_preflight<'a>(
                 &[],
                 &[],
             )
-            .map_err(|_| PreflightFailure::GmailError {
-                status: None,
-                class: crate::gmail::GmailFailureClass::Transport,
-            })?;
+            .map_err(|_| PreflightFailure::ConnectorResource)?;
         Ok(PreflightSnapshot {
             counterparty_address: Some(recipient),
         })

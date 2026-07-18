@@ -10,6 +10,7 @@
 //! caught even if the YAML coincidentally re-hashes.
 
 use super::actions::DispatchError;
+use super::connector_breaker::call_with_connector;
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::artifact::Lifecycle;
@@ -40,6 +41,7 @@ struct ArtifactProposePayload {
 pub(super) async fn dispatch_artifact_propose(
     state: &AppState,
     grant: &TaskGrant,
+    action: &ActionId,
     bound_chat_id: i64,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
@@ -342,27 +344,20 @@ pub(super) async fn dispatch_artifact_propose(
     crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(DispatchError::Resource)?;
-    let send_result = state
-        .connectors
-        .telegram()
-        .send_reply_with_approval_button(bound_chat_id, &summary, action_request_id)
-        .await;
-    if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-        &state.store,
+    // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+    // site; the helper records breaker health and the D-069 counter.
+    call_with_connector(
+        state,
         "telegram",
-        send_result.is_ok(),
-    ) {
-        tracing::error!(error = %counter_err, "failed to persist Telegram counter");
-        if let Err(surface_err) = crate::failure_surfacing::batch_failure(
-            state,
-            crate::failure_surfacing::FailureClass::Resource,
-            "Telegram counter persistence failed",
-            "Telegram counter persistence failed",
-        ) {
-            tracing::error!(error = %surface_err, "counter failure surface append failed");
-        }
-    }
-    send_result.map_err(DispatchError::Connector)?;
+        action,
+        grant,
+        state.connectors.telegram().send_reply_with_approval_button(
+            bound_chat_id,
+            &summary,
+            action_request_id,
+        ),
+    )
+    .await?;
     Ok(json!({
         "proposed": true,
         "action_request_id": action_request_id.to_string(),

@@ -13,6 +13,7 @@
 //! is `pub(super)` precisely so this module (nested inside `api`, like
 //! every other test module here) can call it directly.
 
+use openspine_schemas::action::ActionId;
 use serde_json::{json, Value};
 use ulid::Ulid;
 use wiremock::matchers::{method, path};
@@ -74,9 +75,15 @@ async fn artifact_propose_persists_and_sends_approval_button() {
     seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("dark_mode_route", "proposed")});
-    let result = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("a well-formed, non-duplicate proposal must be accepted");
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("a well-formed, non-duplicate proposal must be accepted");
     assert_eq!(result["proposed"], true);
 
     let action_request_id: Ulid = result["action_request_id"]
@@ -138,14 +145,23 @@ async fn artifact_propose_rejects_malformed_yaml() {
                  agent: main_assistant_agent\nworkflow: owner_control_conversation\n\
                  capability_pack: owner_control_basic_pack\n",
     });
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("failed to parse"), "unexpected message: {msg}")
         }
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("malformed YAML must be a BadRequest, not infrastructure failure")
         }
     }
@@ -168,15 +184,24 @@ async fn artifact_propose_rejects_unknown_kind() {
     // Kind rejection happens before any parsing, so the YAML body itself
     // is irrelevant here.
     let payload = json!({"kind": "widget", "yaml": "irrelevant: true\n"});
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => assert!(
             msg.contains("route|agent|workflow|pack|policy"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("unknown kind must be a BadRequest, not infrastructure failure")
         }
     }
@@ -200,15 +225,24 @@ async fn artifact_propose_rejects_template_kind() {
         "kind": "template",
         "yaml": "id: injected_template\nschema_version: 1\n",
     });
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => assert!(
             msg.contains("route|agent|workflow|pack|policy"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("template kind must be a BadRequest, not infrastructure failure")
         }
     }
@@ -280,18 +314,33 @@ async fn artifact_propose_rejects_duplicate_id_version() {
     seed_owner_history(&state, &grant);
 
     let payload = json!({"kind": "route", "yaml": route_yaml("dup_route", "proposed")});
-    dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .expect("the first proposal must succeed");
+    dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .expect("the first proposal must succeed");
 
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => {
             assert!(msg.contains("already exists"), "unexpected message: {msg}")
         }
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("a pending-duplicate proposal must be a BadRequest, not Internal")
         }
     }
@@ -309,15 +358,24 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
         .expect("owner update must compose a grant");
 
     let payload = json!({"kind": "route", "yaml": route_yaml("preactivate_route", "active")});
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => assert!(
             msg.contains("lifecycle_state must be proposed"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("a pre-activation attempt must be a BadRequest, not Internal")
         }
     }

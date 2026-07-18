@@ -122,7 +122,7 @@ fn generic_dead_letter_has_null_semantic_metadata_and_only_owner_notified() {
     assert_eq!(dl[0].page_count, None);
     assert_eq!(dl[0].availability_outcome, None);
     let claimed = store
-        .claim_due_dead_letter(jiff::Timestamp::now())
+        .claim_due_dead_letter(jiff::Timestamp::now() + jiff::SignedDuration::from_secs(10))
         .expect("claim")
         .expect("due");
     // Generic completion (detail = None) records only `owner.notified` and
@@ -212,7 +212,7 @@ fn unavailable_detail_retry_emits_unavailable_receipt_with_page_metadata() {
         .record_notify_failure_with_digest(555, "ref", grant, "wiremock", &[], Some(&detail))
         .expect("record");
     let claimed = store
-        .claim_due_dead_letter(jiff::Timestamp::now())
+        .claim_due_dead_letter(jiff::Timestamp::now() + jiff::SignedDuration::from_secs(10))
         .expect("claim")
         .expect("due");
     let token = claimed.claim_token.clone().unwrap();

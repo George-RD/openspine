@@ -7,6 +7,7 @@ use openspine_schemas::grant::TaskGrant;
 
 use super::notify_owner_best_effort;
 use super::AppState;
+use crate::api::connector_breaker::call_with_connector;
 
 /// Overlay so it survives a restart, and insert it into the live registry
 /// so it participates in routing/composition immediately.
@@ -242,10 +243,13 @@ pub(super) async fn activate_approved_artifact(
             schema_version: 1,
         };
         state.store.insert_action_request(&reconfirm_request)?;
-        state
-            .connectors
-            .telegram()
-            .send_reply_with_approval_button(
+        crate::spend::guard_connector_for(state, grant).await?;
+        call_with_connector(
+            state,
+            "telegram",
+            &request.action,
+            grant,
+            state.connectors.telegram().send_reply_with_approval_button(
                 chat_id,
                 &format!(
                     "Re-confirm overlay\nKind: {}\nId: {} v{}\nDigest: {}\n\nApprove to restore.",
@@ -255,8 +259,10 @@ pub(super) async fn activate_approved_artifact(
                     review_ref.digest,
                 ),
                 request_id,
-            )
-            .await?;
+            ),
+        )
+        .await
+        .map_err(|err| anyhow::anyhow!("{err:?}"))?;
         state.store.append_audit(
             "artifact.reconfirmation_required",
             Some(&request.action),

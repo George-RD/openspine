@@ -18,6 +18,7 @@ pub(crate) mod actions;
 mod briefcase;
 #[cfg(test)]
 mod briefcase_tests;
+pub(crate) mod connector_breaker;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
 mod artifact_nominate;

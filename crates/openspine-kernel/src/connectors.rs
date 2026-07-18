@@ -13,12 +13,16 @@
 
 use std::collections::{hash_map::Entry, HashMap};
 
+use crate::connector_reality::{
+    BreakerState, CircuitBreakerConfig, ConnectorProbePermit, ConnectorRuntime, RateLimitConfig,
+};
+use crate::gmail::GmailConnector;
+use crate::telegram::TelegramConnector;
+use jiff::Timestamp;
 use openspine_gate::EgressClassifier;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::egress::EgressClass;
-
-use crate::gmail::GmailConnector;
-use crate::telegram::TelegramConnector;
+use parking_lot::Mutex;
 
 /// A kernel connector. The trait is the AD-060 / AD-103 registration
 /// seam: connectors declare their name and any rated egress endpoints.
@@ -88,6 +92,10 @@ pub struct ConnectorRegistry {
     /// Aggregated endpoint → class ratings from built-in web egress plus
     /// every configured connector's `egress_endpoints()`.
     egress_ratings: HashMap<ActionId, EgressClass>,
+    /// Per-connector admission control (rate limit + circuit breaker),
+    /// keyed by connector name. Mutated behind a lock so shared `AppState`
+    /// references can record outcomes from any dispatch path.
+    runtimes: Mutex<HashMap<String, ConnectorRuntime>>,
 }
 impl ConnectorRegistry {
     pub fn new(
@@ -99,10 +107,31 @@ impl ConnectorRegistry {
             declared.extend(gmail.egress_endpoints());
         }
         let egress_ratings = Self::build_egress_ratings(declared)?;
+        let now = Timestamp::now();
+        let mut runtimes = HashMap::new();
+        runtimes.insert(
+            "telegram".to_string(),
+            ConnectorRuntime::new(
+                RateLimitConfig::default(),
+                CircuitBreakerConfig::default(),
+                now,
+            ),
+        );
+        if gmail.is_some() {
+            runtimes.insert(
+                "gmail".to_string(),
+                ConnectorRuntime::new(
+                    RateLimitConfig::default(),
+                    CircuitBreakerConfig::default(),
+                    now,
+                ),
+            );
+        }
         Ok(Self {
             telegram,
             gmail,
             egress_ratings,
+            runtimes: Mutex::new(runtimes),
         })
     }
 
@@ -169,6 +198,73 @@ impl ConnectorRegistry {
         }
         v.into_iter()
     }
+
+    /// Admit one connector effect through its rate limiter and circuit breaker.
+    #[allow(dead_code)]
+    pub fn acquire_connector(
+        &self,
+        connector: &str,
+    ) -> Result<ConnectorProbePermit, crate::connector_reality::ConnectorCallError> {
+        let now = Timestamp::now();
+        let runtimes = self.runtimes.lock();
+        let runtime = runtimes.get(connector).ok_or_else(|| {
+            crate::connector_reality::ConnectorCallError::Unavailable {
+                connector: connector.to_string(),
+                state: crate::connector_reality::BreakerState::Open { until: now },
+            }
+        })?;
+        runtime.try_acquire(connector, now)
+    }
+
+    pub fn acquire_connector_with_generation(
+        &self,
+        connector: &str,
+    ) -> Result<ConnectorProbePermit, crate::connector_reality::ConnectorCallError> {
+        let now = Timestamp::now();
+        let runtimes = self.runtimes.lock();
+        let runtime = runtimes.get(connector).ok_or_else(|| {
+            crate::connector_reality::ConnectorCallError::Unavailable {
+                connector: connector.to_string(),
+                state: crate::connector_reality::BreakerState::Open { until: now },
+            }
+        })?;
+        runtime.try_acquire_with_generation(connector, now)
+    }
+
+    pub fn record_connector_outcome_for_generation(
+        &self,
+        connector: &str,
+        permit: ConnectorProbePermit,
+        succeeded: bool,
+    ) {
+        let runtimes = self.runtimes.lock();
+        if let Some(runtime) = runtimes.get(connector) {
+            runtime.record_outcome(permit, succeeded, Timestamp::now());
+        }
+    }
+
+    /// Record the outcome of a connector call into its circuit breaker.
+    #[allow(dead_code)]
+    pub fn record_connector_outcome(&self, connector: &str, succeeded: bool) {
+        let now = Timestamp::now();
+        let mut runtimes = self.runtimes.lock();
+        if let Some(runtime) = runtimes.get_mut(connector) {
+            if succeeded {
+                runtime.record_success();
+            } else {
+                runtime.record_failure(now);
+            }
+        }
+    }
+
+    #[allow(dead_code)] // introspection helper; mirrors ConnectorRuntime::breaker_state
+    /// Current breaker state for a connector, if registered.
+    pub fn breaker_state(&self, connector: &str) -> Option<BreakerState> {
+        let runtimes = self.runtimes.lock();
+        runtimes
+            .get(connector)
+            .map(|runtime| runtime.breaker_state())
+    }
 }
 
 impl EgressClassifier for ConnectorRegistry {
@@ -178,289 +274,5 @@ impl EgressClassifier for ConnectorRegistry {
 }
 
 #[cfg(test)]
-mod tests {
-    use jiff::Timestamp;
-    use openspine_gate::{gate, ActionOrigin, GateContext, NoEgress};
-    use openspine_schemas::action::{
-        ActionCatalog, ActionId, ActionRequest, DenialReason, GateDecision,
-    };
-    use openspine_schemas::approval::ApprovalRecord;
-    use openspine_schemas::artifact::Lifecycle;
-    use openspine_schemas::egress::EgressClass;
-    use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
-    use openspine_schemas::selection::SelectionToken;
-    use ulid::Ulid;
-
-    use crate::gmail::GmailConnector;
-    use crate::telegram::TelegramConnector;
-
-    use super::{Connector, ConnectorRegistry};
-
-    fn gmail() -> GmailConnector {
-        GmailConnector::new(
-            "cid".to_string(),
-            "csec".to_string(),
-            "rtok".to_string(),
-            "owner@example.com".to_string(),
-        )
-    }
-
-    #[test]
-    fn connector_registry_enumerates_configured_connectors() {
-        // Gmail absent.
-        let absent = ConnectorRegistry::new(TelegramConnector::new("t".to_string()), None)
-            .expect("built-in egress ratings are conflict-free");
-        let names: Vec<&str> = absent.iter().map(Connector::name).collect();
-        assert_eq!(names, vec!["telegram"]);
-
-        // Gmail present.
-        let present =
-            ConnectorRegistry::new(TelegramConnector::new("t".to_string()), Some(gmail()))
-                .expect("built-in egress ratings are conflict-free");
-        let names: Vec<&str> = present.iter().map(Connector::name).collect();
-        assert_eq!(names, vec!["telegram", "gmail"]);
-
-        // Accessors reflect configuration.
-        assert!(present.gmail().is_some());
-        assert!(absent.gmail().is_none());
-        assert_eq!(present.telegram().name(), "telegram");
-    }
-
-    #[test]
-    fn registry_rates_built_in_web_egress_endpoints() {
-        let registry = ConnectorRegistry::new(TelegramConnector::new("t".to_string()), None)
-            .expect("built-in egress ratings are conflict-free");
-        assert_eq!(
-            registry.egress_class_for(&ActionId::new("web.search")),
-            Some(EgressClass::Search)
-        );
-        assert_eq!(
-            registry.egress_class_for(&ActionId::new("web.forum_browse")),
-            Some(EgressClass::ForumBrowse)
-        );
-        assert_eq!(
-            registry.egress_class_for(&ActionId::new("web.form_submit")),
-            Some(EgressClass::WebFormPost)
-        );
-        // Unrated action is not an egress endpoint.
-        assert_eq!(
-            registry.egress_class_for(&ActionId::new("openspine.status.read")),
-            None
-        );
-    }
-
-    #[test]
-    fn conflicting_egress_rating_is_rejected_without_downgrade() {
-        let action = ActionId::new("web.form_submit");
-        let error =
-            ConnectorRegistry::build_egress_ratings(vec![(action.clone(), EgressClass::Search)])
-                .expect_err("conflicting class must be rejected");
-        assert_eq!(error.action, action);
-        assert_eq!(error.existing, EgressClass::WebFormPost);
-        assert_eq!(error.requested, EgressClass::Search);
-
-        // Same-class declarations are idempotent in the constructor path.
-        let ratings = ConnectorRegistry::build_egress_ratings(vec![(
-            ActionId::new("web.form_submit"),
-            EgressClass::WebFormPost,
-        )])
-        .expect("same class is idempotent");
-        assert_eq!(
-            ratings.get(&ActionId::new("web.form_submit")),
-            Some(&EgressClass::WebFormPost)
-        );
-    }
-
-    /// AD-060 Done-when: a pack granted search-class egress cannot submit
-    /// a web form. Exercises registry → gate end-to-end (no mock classifier).
-    #[test]
-    fn search_class_pack_cannot_submit_web_form() {
-        let registry = ConnectorRegistry::new(TelegramConnector::new("t".to_string()), None)
-            .expect("built-in egress ratings are conflict-free");
-
-        // Prove the registry itself rates form-submit as WebFormPost.
-        assert_eq!(
-            registry.egress_class_for(&ActionId::new("web.form_submit")),
-            Some(EgressClass::WebFormPost)
-        );
-
-        let issued_at = Timestamp::now();
-        let mut grant = TaskGrant {
-            id: Ulid::new(),
-            schema_version: 1,
-            lifecycle_state: Lifecycle::Active,
-            user: "owner".to_string(),
-            purpose: "test".to_string(),
-            issued_by: "kernel".to_string(),
-            issued_at,
-            expires_at: issued_at + std::time::Duration::from_secs(120),
-            event_id: Ulid::new(),
-            route_id: "owner_telegram_main_assistant".to_string(),
-            agent_id: "main_assistant_agent".to_string(),
-            workflow_id: "owner_control_conversation".to_string(),
-            capability_pack_id: "search_only_pack".to_string(),
-            authority_sources: vec![],
-            selection_tokens: vec![],
-            // Both actions are action-allowed; egress class is the finer constraint.
-            allowed_actions: vec![
-                ActionId::new("web.search"),
-                ActionId::new("web.form_submit"),
-            ],
-            approval_required_actions: vec![],
-            denied_actions: vec![],
-            allowed_egress_classes: vec![EgressClass::Search],
-            output_channels: vec![],
-            limits: GrantLimits {
-                max_model_calls: 8,
-                max_artifacts: 20,
-                max_runtime_seconds: 120,
-            },
-            task_token: "a".repeat(64),
-            root_grant_id: Ulid::nil(),
-            parent_grant_id: None,
-            mode: GrantMode::Live,
-            chain: vec![],
-            caveat_mac: String::new(),
-            thread_id: None,
-        };
-        grant.seal_root(b"openspine-test-grant-hmac-key-v1");
-
-        let catalog = ActionCatalog::new([
-            ActionId::new("web.search"),
-            ActionId::new("web.form_submit"),
-        ]);
-        let ctx = EmptyGateContext;
-        let now = Timestamp::now();
-
-        // Form submit is denied: registry rates it WebFormPost, grant only has Search.
-        let form_req = ActionRequest {
-            id: Ulid::new(),
-            task_grant_id: grant.id,
-            action: ActionId::new("web.form_submit"),
-            target_ref: None,
-            payload_ref: None,
-            target_digest: None,
-            selection_token_id: None,
-            requested_at: now,
-            schema_version: 1,
-        };
-        let outcome = gate(
-            &grant,
-            &form_req,
-            ActionOrigin::Shell,
-            &ctx,
-            &catalog,
-            &registry, // real ConnectorRegistry, not a mock classifier
-            now,
-        );
-        assert_eq!(
-            outcome.decision,
-            GateDecision::Deny {
-                reason: DenialReason::EgressClassNotGranted
-            }
-        );
-
-        // Search is allowed: same grant, registry rates it Search.
-        let search_req = ActionRequest {
-            id: Ulid::new(),
-            task_grant_id: grant.id,
-            action: ActionId::new("web.search"),
-            target_ref: None,
-            payload_ref: None,
-            target_digest: None,
-            selection_token_id: None,
-            requested_at: now,
-            schema_version: 1,
-        };
-        let outcome = gate(
-            &grant,
-            &search_req,
-            ActionOrigin::Shell,
-            &ctx,
-            &catalog,
-            &registry,
-            now,
-        );
-        assert_eq!(outcome.decision, GateDecision::Allow);
-    }
-
-    /// GateContext with no approvals/tokens — only used for the egress test.
-    struct EmptyGateContext;
-
-    impl GateContext for EmptyGateContext {
-        fn approval_for_request(&self, _action_request_id: Ulid) -> Option<ApprovalRecord> {
-            None
-        }
-
-        fn find_selection_token(&self, _id: Ulid) -> Option<SelectionToken> {
-            None
-        }
-
-        fn grant_hmac_key(&self) -> Option<Vec<u8>> {
-            Some(b"openspine-test-grant-hmac-key-v1".to_vec())
-        }
-    }
-
-    #[test]
-    fn no_egress_classifier_skips_check_for_unrated_actions() {
-        // Sanity: NoEgress still lets unrated actions through on allow-list.
-        let issued_at = Timestamp::now();
-        let mut grant = TaskGrant {
-            id: Ulid::new(),
-            schema_version: 1,
-            lifecycle_state: Lifecycle::Active,
-            user: "owner".to_string(),
-            purpose: "test".to_string(),
-            issued_by: "kernel".to_string(),
-            issued_at,
-            expires_at: issued_at + std::time::Duration::from_secs(120),
-            event_id: Ulid::new(),
-            route_id: "r".to_string(),
-            agent_id: "a".to_string(),
-            workflow_id: "w".to_string(),
-            capability_pack_id: "p".to_string(),
-            authority_sources: vec![],
-            selection_tokens: vec![],
-            allowed_actions: vec![ActionId::new("openspine.status.read")],
-            approval_required_actions: vec![],
-            denied_actions: vec![],
-            allowed_egress_classes: vec![],
-            output_channels: vec![],
-            limits: GrantLimits {
-                max_model_calls: 8,
-                max_artifacts: 20,
-                max_runtime_seconds: 120,
-            },
-            task_token: "a".repeat(64),
-            root_grant_id: Ulid::nil(),
-            parent_grant_id: None,
-            mode: GrantMode::Live,
-            chain: vec![],
-            caveat_mac: String::new(),
-            thread_id: None,
-        };
-        grant.seal_root(b"openspine-test-grant-hmac-key-v1");
-        let catalog = ActionCatalog::new([ActionId::new("openspine.status.read")]);
-        let req = ActionRequest {
-            id: Ulid::new(),
-            task_grant_id: grant.id,
-            action: ActionId::new("openspine.status.read"),
-            target_ref: None,
-            payload_ref: None,
-            target_digest: None,
-            selection_token_id: None,
-            requested_at: Timestamp::now(),
-            schema_version: 1,
-        };
-        let outcome = gate(
-            &grant,
-            &req,
-            ActionOrigin::Shell,
-            &EmptyGateContext,
-            &catalog,
-            &NoEgress,
-            Timestamp::now(),
-        );
-        assert_eq!(outcome.decision, GateDecision::Allow);
-    }
-}
+#[path = "connectors_tests.rs"]
+mod connectors_tests;

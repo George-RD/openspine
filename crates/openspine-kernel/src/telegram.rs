@@ -18,6 +18,7 @@ use openspine_schemas::event::{
 use teloxide::prelude::*;
 use teloxide::types::{CallbackQueryId, InlineKeyboardButton, InlineKeyboardMarkup};
 use ulid::Ulid;
+mod credential;
 
 /// Minimal, testable projection of one Telegram update.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -361,15 +362,6 @@ impl TelegramConnector {
             state.token = token;
         }
         Ok(state.bot.clone())
-    }
-
-    pub async fn validate_candidate_token_id(&self, candidate: &str) -> Option<i64> {
-        let api_url = self.bot.lock().api_url.clone();
-        let mut bot = Bot::new(candidate.to_string());
-        if let Some(url) = api_url {
-            bot = bot.set_api_url(url);
-        }
-        bot.get_me().send().await.ok().map(|user| user.id.0 as i64)
     }
 
     #[cfg(test)]

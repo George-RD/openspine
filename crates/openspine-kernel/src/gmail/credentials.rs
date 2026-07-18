@@ -4,7 +4,7 @@
 //! Contains the paired OAuth credential validation used by the secret
 //! intake capture flow.
 
-use super::GmailConnector;
+use super::{GmailConnector, GmailError};
 
 impl GmailConnector {
     /// Validate a candidate OAuth credential pair by attempting a single
@@ -15,8 +15,12 @@ impl GmailConnector {
     ///
     /// The caller (secret-intake capture) determines which argument is
     /// which based on slot names.
-    pub async fn validate_credential_pair(&self, client_secret: &str, refresh_token: &str) -> bool {
-        let Ok(resp) = self
+    pub async fn validate_credential_pair(
+        &self,
+        client_secret: &str,
+        refresh_token: &str,
+    ) -> Result<bool, GmailError> {
+        let resp = self
             .http
             .post(&self.token_url)
             .form(&[
@@ -27,9 +31,7 @@ impl GmailConnector {
             ])
             .send()
             .await
-        else {
-            return false;
-        };
-        resp.status().is_success()
+            .map_err(GmailError::from)?;
+        Ok(resp.status().is_success())
     }
 }

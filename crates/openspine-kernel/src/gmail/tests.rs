@@ -236,3 +236,53 @@ async fn rotated_vault_credentials_bypass_live_access_token_cache() {
         .await
         .expect("rotated call");
 }
+
+#[tokio::test]
+async fn gmail_token_refresh_only_within_skew_window() {
+    // `expires_in` (90s) is ABOVE the 60s proactive-refresh skew, so a second
+    // immediate call must reuse the cached token (exactly one refresh). The
+    // old double-skew bug stored expiry as now + (90-60) == now+30, which
+    // would wrongly look "within skew" and refresh again (two POSTs).
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "access_token": "test-access-token",
+            "expires_in": 90,
+        })))
+        .expect(1)
+        .mount(&token_server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
+        .mount(&api_server)
+        .await;
+    let connector = connector(&token_server, &api_server);
+    connector.fetch_thread("thread-1").await.unwrap();
+    connector.fetch_thread("thread-1").await.unwrap();
+}
+
+#[tokio::test]
+async fn gmail_token_refreshes_near_expiry() {
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "access_token": "test-access-token",
+            "expires_in": 30,
+        })))
+        .expect(2)
+        .mount(&token_server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(sample_thread_json()))
+        .mount(&api_server)
+        .await;
+    let connector = connector(&token_server, &api_server);
+    connector.fetch_thread("thread-1").await.unwrap();
+    connector.fetch_thread("thread-1").await.unwrap();
+}

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 
+use openspine_schemas::action::ActionId;
 use openspine_schemas::grant::TaskGrant;
 use serde_json::{json, Value};
 
@@ -22,6 +23,7 @@ use super::actions::{
 };
 use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
+use super::connector_breaker::call_with_connector;
 use super::plan::dispatch_plan_preview;
 
 /// The boxed future every handler returns. Must be `Send` because dispatch
@@ -29,10 +31,15 @@ use super::plan::dispatch_plan_preview;
 type HandlerFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, DispatchError>> + Send + 'a>>;
 
 /// A kernel action handler: given the bound app state, the grant that
-/// authorized the action, the grant-bound chat id, and the optional JSON
-/// payload, produce the action result (or a [`DispatchError`]).
-pub(crate) type ActionHandler =
-    for<'a> fn(&'a AppState, &'a TaskGrant, i64, Option<&'a Value>) -> HandlerFuture<'a>;
+/// authorized the action, the action id, the grant-bound chat id, and the
+/// optional JSON payload, produce the action result (or a [`DispatchError`]).
+pub(crate) type ActionHandler = for<'a> fn(
+    &'a AppState,
+    &'a TaskGrant,
+    &'a ActionId,
+    i64,
+    Option<&'a Value>,
+) -> HandlerFuture<'a>;
 
 /// The kernel's action-handler registry. Every registered `ActionId` maps to
 /// exactly one handler; the canonical set is [`Self::default_registrations`].
@@ -82,6 +89,7 @@ impl ActionHandlerRegistry {
 fn handle_status_read<'a>(
     _state: &'a AppState,
     _grant: &'a TaskGrant,
+    _action: &'a ActionId,
     _chat_id: i64,
     _payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -91,6 +99,7 @@ fn handle_status_read<'a>(
 fn handle_telegram_reply<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    action: &'a ActionId,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -107,27 +116,19 @@ fn handle_telegram_reply<'a>(
         crate::spend::guard_connector_for(state, grant)
             .await
             .map_err(DispatchError::Resource)?;
-        let send_result = state
-            .connectors
-            .telegram()
-            .send_reply(bound_chat_id, &reply.text)
-            .await;
-        if let Err(counter_err) = crate::failure_surfacing::record_connector_outcome(
-            &state.store,
+        // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+        // site. The helper records both breaker health and the D-069 counter.
+        call_with_connector(
+            state,
             "telegram",
-            send_result.is_ok(),
-        ) {
-            tracing::error!(error = %counter_err, "failed to persist Telegram counter");
-            if let Err(surface_err) = crate::failure_surfacing::batch_failure(
-                state,
-                crate::failure_surfacing::FailureClass::Resource,
-                "Telegram counter persistence failed",
-                "Telegram counter persistence failed",
-            ) {
-                tracing::error!(error = %surface_err, "counter failure surface append failed");
-            }
-        }
-        send_result.map_err(DispatchError::Connector)?;
+            action,
+            grant,
+            state
+                .connectors
+                .telegram()
+                .send_reply(bound_chat_id, &reply.text),
+        )
+        .await?;
         Ok(json!({"sent": true}))
     })
 }
@@ -135,15 +136,17 @@ fn handle_telegram_reply<'a>(
 fn handle_read_selected_thread<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    action: &'a ActionId,
     _chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
-    Box::pin(dispatch_read_selected_thread(state, grant, payload))
+    Box::pin(dispatch_read_selected_thread(state, grant, action, payload))
 }
 
 fn handle_lyra_preview<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    action: &'a ActionId,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -157,12 +160,14 @@ fn handle_lyra_preview<'a>(
                     .to_string(),
             )
         })?;
-        dispatch_lyra_preview(state, grant, bound_chat_id, &preview).await
+        dispatch_lyra_preview(state, grant, action, bound_chat_id, &preview).await
     })
 }
+
 fn handle_plan_propose<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    action: &'a ActionId,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -174,19 +179,21 @@ fn handle_plan_propose<'a>(
             serde_json::from_value(p.clone()).map_err(|_| {
                 DispatchError::BadRequest("plan.propose payload is not a valid Plan".to_string())
             })?;
-        dispatch_plan_preview(state, grant, bound_chat_id, &plan).await
+        dispatch_plan_preview(state, grant, action, bound_chat_id, &plan).await
     })
 }
 
 fn handle_artifact_propose<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    action: &'a ActionId,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_artifact_propose(
         state,
         grant,
+        action,
         bound_chat_id,
         payload,
     ))
@@ -195,6 +202,7 @@ fn handle_artifact_propose<'a>(
 fn handle_artifact_nominate<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
+    _action: &'a ActionId,
     bound_chat_id: i64,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
@@ -209,27 +217,23 @@ fn handle_artifact_nominate<'a>(
 fn handle_workflow_invoke<'a>(
     _state: &'a AppState,
     _grant: &'a TaskGrant,
+    _action: &'a ActionId,
     _chat_id: i64,
     _payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
-    Box::pin(async move {
-        Ok(json!({
-            "stub": true,
-            "note": "workflow invocation is a Step 4 stub; no workflow execution engine exists yet",
-        }))
-    })
+    Box::pin(
+        async move { Ok(json!({"stub": true, "note": "workflow.invoke not yet implemented"})) },
+    )
 }
 
 fn handle_setup_workflow_start<'a>(
     _state: &'a AppState,
     _grant: &'a TaskGrant,
+    _action: &'a ActionId,
     _chat_id: i64,
     _payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
-        Ok(json!({
-            "stub": true,
-            "note": "the setup workflow is a Step 4 stub; no setup wizard exists yet",
-        }))
+        Ok(json!({"stub": true, "note": "setup.workflow.start not yet implemented"}))
     })
 }
