@@ -2,7 +2,7 @@
 
 use jiff::Timestamp;
 use openspine_schemas::artifact::{ArtifactNamespace, ArtifactRef};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
 use super::{Store, StoreError};
@@ -184,6 +184,94 @@ impl Store {
                 "learned artifacts must be overlay-owned".into(),
             ));
         }
+        let conn = self.conn.lock();
+        Self::insert_learned_artifact_conn(&conn, artifact)
+    }
+
+    /// Like [`Self::record_learned_artifact`] but inserts the learned-artifact
+    /// row and appends an audit event (`audit_kind`, `audit_reason`) in a
+    /// single SQLite transaction, so the authoritative row and its receipt
+    /// can never diverge. This is the provenance-binding path used by
+    /// non-proposable bootstrap artifacts (e.g. persona seed, AD-080) where a
+    /// separate row-then-audit call would leave a permanently unrecoverable
+    /// row if the audit append failed (a restart skips the already-recorded
+    /// id and never backfills the missing receipt).
+    pub fn record_learned_artifact_with_audit(
+        &self,
+        artifact: &LearnedArtifact,
+        audit_kind: &str,
+        audit_reason: &str,
+    ) -> Result<(), StoreError> {
+        if artifact.namespace != ArtifactNamespace::Overlay {
+            return Err(StoreError::LearnedArtifact(
+                "learned artifacts must be overlay-owned".into(),
+            ));
+        }
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        Self::insert_learned_artifact_conn(&tx, artifact)?;
+        Self::append_audit_conn(
+            &tx,
+            audit_kind,
+            None,
+            None,
+            Some(audit_reason),
+            None,
+            &[],
+            &[],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Remove a malformed learned row after recording the quarantine decision.
+    pub fn quarantine_learned_artifact(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+        reason: &str,
+    ) -> Result<bool, StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let exists: Option<i64> = tx
+            .query_row(
+                "SELECT 1 FROM learned_artifacts
+                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                params![kind, artifact_id, version as i64],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if exists.is_none() {
+            return Ok(false);
+        }
+        Self::append_audit_conn(
+            &tx,
+            "artifact.persona_quarantined",
+            None,
+            None,
+            Some(reason),
+            None,
+            &[],
+            &[],
+        )?;
+        tx.execute(
+            "DELETE FROM learned_artifacts
+             WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+            params![kind, artifact_id, version as i64],
+        )?;
+        tx.commit()?;
+        Ok(true)
+    }
+
+    /// Insert a learned-artifact row using an existing connection/transaction.
+    /// Shared by [`Self::record_learned_artifact`] (auto-committed) and
+    /// [`Self::record_learned_artifact_with_audit`] (wrapped in a transaction
+    /// with a paired audit event). Behavior is identical either way.
+    fn insert_learned_artifact_conn(
+        conn: &Connection,
+        artifact: &LearnedArtifact,
+    ) -> Result<(), StoreError> {
         let provenance = serde_json::to_string(&artifact.provenance)
             .map_err(|err| StoreError::LearnedArtifact(format!("provenance json: {err}")))?;
         let accepted_via = artifact
@@ -192,7 +280,6 @@ impl Store {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|err| StoreError::LearnedArtifact(format!("accepted_via json: {err}")))?;
-        let conn = self.conn.lock();
         conn.execute(
             "INSERT INTO learned_artifacts
              (kind, artifact_id, version, provenance, accepted_via, learned_at, compatibility,

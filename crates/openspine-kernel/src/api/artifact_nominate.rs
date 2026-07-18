@@ -46,6 +46,11 @@ pub(super) async fn dispatch_artifact_nominate(
             "artifact.nominate_upstream requires depersonalized: true".to_string(),
         ));
     }
+    if !crate::artifact_loader::is_proposable_kind(&req.kind) {
+        return Err(DispatchError::BadRequest(
+            "artifact.nominate_upstream target kind is not proposable".to_string(),
+        ));
+    }
     let learned = state
         .store
         .list_learned_artifacts()

@@ -31,6 +31,7 @@ fn discard_staged_overlay_files(overlay_dir: &Path) -> anyhow::Result<()> {
         "packs",
         "policies",
         "templates",
+        "personas",
     ] {
         let dir = overlay_dir.join(subdir);
         if !dir.is_dir() {
@@ -63,7 +64,7 @@ pub(crate) fn load(
     store: &Store,
     artifacts: &ArtifactStore,
 ) -> anyhow::Result<OverlayStartup> {
-    let mut registry = artifact_loader::load_registry(lyra_dir)
+    let mut registry = artifact_loader::load_base_registry(lyra_dir)
         .with_context(|| format!("loading artifact registry from {}", lyra_dir.display()))?;
     let base_artifact_ids = artifact_loader::artifact_identity_pairs(&registry);
     let base_compatibility_epoch =
@@ -89,8 +90,18 @@ pub(crate) fn load(
             overlay_dir.display()
         )
     })?;
-    let mut overlay_registry = artifact_loader::load_registry(&overlay_dir)
+    let mut overlay_registry = artifact_loader::load_registry_without_personas(&overlay_dir)
         .with_context(|| format!("loading artifact overlay from {}", overlay_dir.display()))?;
+    let mut learned = store
+        .list_learned_artifacts()
+        .context("loading learned artifact provenance")?;
+    crate::overlay_persona_admission::admit(
+        store,
+        artifacts,
+        &overlay_dir,
+        &learned,
+        &mut overlay_registry,
+    )?;
     for (kind, subdir) in [
         ("route", "routes"),
         ("agent", "agents"),
@@ -148,9 +159,6 @@ pub(crate) fn load(
         .intersection(&base_artifact_ids)
         .cloned()
         .collect::<HashSet<_>>();
-    let mut learned = store
-        .list_learned_artifacts()
-        .context("loading learned artifact provenance")?;
     let collision_orphans: Vec<crate::overlay_compat::OrphanedArtifact> = collisions
         .iter()
         .filter_map(|(kind, artifact_id)| {

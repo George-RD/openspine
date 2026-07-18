@@ -29,6 +29,7 @@ pub mod model;
 pub mod model_swap;
 pub mod nerve;
 pub mod pack;
+pub mod persona;
 pub mod plan;
 pub mod policy;
 pub mod principal;

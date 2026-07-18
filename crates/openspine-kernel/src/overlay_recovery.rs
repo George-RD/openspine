@@ -214,13 +214,51 @@ pub(crate) fn prune_non_highest_active(
     overlay_registry: &mut ArtifactRegistry,
     store: &Store,
 ) -> anyhow::Result<HashSet<(String, String)>> {
+    let learned = store.list_learned_artifacts()?;
+    let eligible_personas: HashSet<(String, u32)> = overlay_registry
+        .sources
+        .iter()
+        .filter_map(|((kind, id, version), source)| {
+            if kind != "persona" {
+                return None;
+            }
+            learned
+                .iter()
+                .any(|row| {
+                    row.kind == "persona"
+                        && row.artifact_id == *id
+                        && row.version == *version
+                        && matches!(
+                            &row.provenance,
+                            crate::store::learned_artifacts::Provenance::ProducedBy { .. }
+                        )
+                        && row.pending_yaml_digest.as_deref()
+                            == Some(
+                                openspine_schemas::digest::digest_of_bytes(&source.bytes).as_str(),
+                            )
+                })
+                .then_some((id.clone(), *version))
+        })
+        .collect();
+    let mut excluded: HashSet<(String, String)> =
+        crate::artifact_loader::exclude_unbacked_persona_versions(
+            overlay_registry,
+            &eligible_personas,
+        )?
+        .into_iter()
+        .map(|(id, _version)| ("persona".to_string(), id))
+        .collect();
     let identities: HashSet<(String, String)> = overlay_registry
         .sources
         .keys()
         .map(|(k, id, _v)| (k.clone(), id.clone()))
         .collect();
-    let mut excluded: HashSet<(String, String)> = HashSet::new();
     for (kind, artifact_id) in identities {
+        if kind == "persona" {
+            // Valid persona versions are retained by the row-and-digest
+            // admission pass above; personas have no proposal lifecycle.
+            continue;
+        }
         let highest = store.highest_active_version(&kind, &artifact_id)?;
         let loaded: Vec<u32> = overlay_registry
             .sources

@@ -50,6 +50,7 @@
 //! deferred to `implement-model-swap-ceremony`).
 
 mod judge;
+pub(crate) mod personality_probes;
 mod replay;
 
 #[cfg(test)]

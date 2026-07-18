@@ -1,4 +1,4 @@
-// openspine:allow-large-module reason: Unified six-kind artifact loader and identity/source validation must remain one audit boundary.
+// openspine:allow-large-module reason: Unified seven-kind artifact loader and identity/source validation must remain one audit boundary.
 //! Load and validate every `artifacts/**/*.yaml` fixture at startup (build
 //! plan 4a). Only `lifecycle_state: active` artifacts join routing — that
 //! constraint already lives in `resolve_route`/`compose_authority`
@@ -14,6 +14,7 @@ use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::ids::ArtifactId;
 use openspine_schemas::model_swap::{GoldenSet, ModelSwapManifest};
 use openspine_schemas::pack::CapabilityPack;
+use openspine_schemas::persona::PersonaElement;
 use openspine_schemas::policy::Policy;
 use openspine_schemas::route::Route;
 use openspine_schemas::workflow::WorkflowManifest;
@@ -72,6 +73,12 @@ pub struct ArtifactRegistry {
     pub templates: HashMap<String, PromptTemplate>,
     pub golden_sets: HashMap<String, GoldenSet>,
     pub model_swaps: HashMap<ArtifactId, ModelSwapManifest>,
+    /// Personality seed elements (AD-080): free-text behavioral guidance,
+    /// shipped as learnable overlay artifacts and loaded here so they are
+    /// discoverable by the registry like any other kind. They are not
+    /// authority-bearing, so they carry no `ParsedProposal` and never enter
+    /// the proposal/approval pipeline.
+    pub personas: HashMap<ArtifactId, PersonaElement>,
     /// Raw source bytes + path retained for every loaded artifact so legacy
     /// migration and digest-bound reconfirmation never assume a canonical
     /// `{id}-v{version}.yaml` filename (AD-070). Keyed by (kind, id, version).
@@ -143,6 +150,12 @@ pub fn artifact_identity_pairs(registry: &ArtifactRegistry) -> HashSet<(String, 
             .keys()
             .map(|id| ("template".into(), id.clone())),
     );
+    pairs.extend(
+        registry
+            .personas
+            .keys()
+            .map(|id| ("persona".into(), id.clone())),
+    );
     pairs
 }
 
@@ -171,6 +184,67 @@ pub fn exclude_identity_pairs(
     registry
         .model_swaps
         .retain(|id, _| !excluded.contains(&("model_swap".into(), id.clone())));
+    registry
+        .personas
+        .retain(|id, _| !excluded.contains(&("persona".into(), id.clone())));
+}
+
+/// Retain only persona source versions that have durable row and digest
+/// backing. Sources are kept for every persona version so an ineligible
+/// higher version cannot hide an eligible lower version.
+pub fn exclude_unbacked_persona_versions(
+    registry: &mut ArtifactRegistry,
+    eligible: &HashSet<(String, u32)>,
+) -> anyhow::Result<Vec<(String, u32)>> {
+    let persona_sources: Vec<(String, u32)> = registry
+        .sources
+        .keys()
+        .filter(|(kind, _, _)| kind == "persona")
+        .map(|(_, id, version)| (id.clone(), *version))
+        .collect();
+    let mut excluded = Vec::new();
+    for (id, version) in persona_sources {
+        if eligible.contains(&(id.clone(), version)) {
+            continue;
+        }
+        registry
+            .sources
+            .remove(&("persona".into(), id.clone(), version));
+        if registry
+            .personas
+            .get(&id)
+            .is_some_and(|persona| persona.version == version)
+        {
+            registry.personas.remove(&id);
+        }
+        excluded.push((id, version));
+    }
+    let mut to_rehydrate: Vec<((String, String, u32), ArtifactSource)> = registry
+        .sources
+        .iter()
+        .filter(|((kind, id, version), _)| {
+            kind == "persona"
+                && eligible.contains(&(id.clone(), *version))
+                && registry
+                    .personas
+                    .get(id)
+                    .is_none_or(|persona| persona.version < *version)
+        })
+        .map(|((kind, id, version), source)| ((kind.clone(), id.clone(), *version), source.clone()))
+        .collect();
+    to_rehydrate.sort_by(
+        |((_, left_id, left_version), _), ((_, right_id, right_version), _)| {
+            left_id.cmp(right_id).then(left_version.cmp(right_version))
+        },
+    );
+    for ((_kind, id, version), source) in to_rehydrate {
+        let persona: PersonaElement = serde_yaml::from_slice(&source.bytes)?;
+        if persona.id != id || persona.version != version {
+            anyhow::bail!("persona source identity mismatch for {id} v{version}");
+        }
+        registry.personas.insert(id, persona);
+    }
+    Ok(excluded)
 }
 pub fn artifact_version(registry: &ArtifactRegistry, kind: &str, id: &str) -> Option<u32> {
     match kind {
@@ -185,6 +259,7 @@ pub fn artifact_version(registry: &ArtifactRegistry, kind: &str, id: &str) -> Op
         "policy" => registry.policies.get(id).map(|a| a.version),
         "template" => registry.templates.get(id).map(|a| a.version),
         "model_swap" => registry.model_swaps.get(id).map(|a| a.version),
+        "persona" => registry.personas.get(id).map(|p| p.version),
         _ => None,
     }
 }
@@ -206,6 +281,7 @@ pub fn merge_registry(dst: &mut ArtifactRegistry, src: ArtifactRegistry) {
     dst.templates.extend(src.templates);
     dst.model_swaps.extend(src.model_swaps);
     dst.sources.extend(src.sources);
+    dst.personas.extend(src.personas);
 }
 
 fn load_yaml_dir<T, F>(dir: &Path, mut on_each: F) -> Result<(), ArtifactLoadError>
@@ -255,13 +331,138 @@ pub fn load_registry(dir: &Path) -> Result<ArtifactRegistry, ArtifactLoadError> 
     Ok(registry)
 }
 
-/// Merge every artifact under `dir` into an existing registry (5a: the
-/// startup loader first fills the registry from the fixture dir, then
-/// calls this again for the `data/artifacts.d` overlay so approved
-/// proposals survive restart). A `(kind, id, version)` already present
-/// in the registry is a hard error rather than silent precedence —
-/// activation-time checks make such a collision unreachable except by a
-/// manual file edit, and fail-fast beats a silently-shadowed artifact.
+/// Load all non-persona overlay kinds. Persona admission is caller-gated by
+/// durable learned rows and exact YAML digests before any persona parse or
+/// version precedence can occur.
+pub fn load_registry_without_personas(dir: &Path) -> Result<ArtifactRegistry, ArtifactLoadError> {
+    load_registry(dir)
+}
+
+/// Load only persona files whose raw YAML digest is explicitly admitted by a
+/// durable learned row. Unadmitted files are ignored before schema parsing or
+/// version precedence, so malformed/orphan higher versions cannot fail startup
+/// or hide an eligible lower version.
+pub fn load_admitted_personas(
+    registry: &mut ArtifactRegistry,
+    dir: &Path,
+    admitted: &HashMap<(String, u32), String>,
+) -> Result<(), ArtifactLoadError> {
+    let personas_dir = dir.join("personas");
+    if !personas_dir.is_dir() {
+        return Ok(());
+    }
+    let mut entries: Vec<_> = std::fs::read_dir(&personas_dir)
+        .map_err(|source| ArtifactLoadError::Read {
+            path: personas_dir.clone(),
+            source,
+        })?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "yaml" || extension == "yml")
+        })
+        .collect();
+    entries.sort();
+    for path in entries {
+        let bytes = std::fs::read(&path).map_err(|source| ArtifactLoadError::Read {
+            path: path.clone(),
+            source,
+        })?;
+        let Ok(value) = serde_yaml::from_slice::<serde_yaml::Value>(&bytes) else {
+            continue;
+        };
+        let Some(id) = value.get("id").and_then(serde_yaml::Value::as_str) else {
+            continue;
+        };
+        let Some(version) = value
+            .get("version")
+            .and_then(serde_yaml::Value::as_u64)
+            .map(|value| value as u32)
+        else {
+            continue;
+        };
+        let key = (id.to_string(), version);
+        if admitted.get(&key)
+            != Some(&openspine_schemas::digest::digest_of_bytes(&bytes).to_string())
+        {
+            continue;
+        }
+        let persona: PersonaElement =
+            serde_yaml::from_slice(&bytes).map_err(|source| ArtifactLoadError::Parse {
+                path: path.clone(),
+                source,
+            })?;
+        let existing_version = registry.personas.get(id).map(|persona| persona.version);
+        if existing_version.is_some_and(|existing| existing >= version) {
+            if existing_version.is_some_and(|existing| existing > version) {
+                registry.sources.insert(
+                    ("persona".into(), id.to_string(), version),
+                    ArtifactSource { path, bytes },
+                );
+            }
+            continue;
+        }
+        registry.personas.insert(id.to_string(), persona);
+        registry.sources.insert(
+            ("persona".into(), id.to_string(), version),
+            ArtifactSource { path, bytes },
+        );
+    }
+    Ok(())
+}
+
+/// Load the base (kernel-shipped) fixture tree. Unlike [`load_registry`],
+/// this rejects a non-empty `personas/` subdirectory outright rather than
+/// parsing it: personas are an overlay-only artifact kind that must ship as
+/// learnable, pre-populated overlay artifacts, never as base fixtures
+/// (AD-080). A persona YAML placed in the base tree would otherwise load
+/// silently, be counted in `base_artifact_ids`, and be admitted without any
+/// `ProducedBy` provenance row — defeating the overlay-only provenance
+/// boundary. This is deliberately a separate entry point (not a parameter
+/// on [`load_registry`]/[`load_registry_into`]) so every existing overlay
+/// load and test — which legitimately load personas — is unaffected.
+/// Load the base (kernel-shipped) fixture tree. Unlike [`load_registry`],
+/// this enforces the overlay-only provenance boundary for personas (AD-080):
+/// personas must ship as learnable, pre-populated overlay artifacts, never as
+/// base fixtures. A persona YAML placed in the base tree would otherwise load
+/// silently, be counted in `base_artifact_ids`, and be admitted without any
+/// `ProducedBy` provenance row — defeating the boundary. The check is done
+/// *after* loading (not check-then-load) so a file appearing between the
+/// probe and the real read cannot slip through. This is a separate entry
+/// point (not a parameter on [`load_registry`]/[`load_registry_into`]) so
+/// every existing overlay load and test — which legitimately load personas —
+/// is unaffected.
+pub fn load_base_registry(dir: &Path) -> Result<ArtifactRegistry, ArtifactLoadError> {
+    let registry = load_registry(dir)?;
+    let persona_dir = dir.join("personas");
+    let has_persona_fixture = persona_dir.is_dir()
+        && std::fs::read_dir(&persona_dir)
+            .map_err(|source| ArtifactLoadError::Read {
+                path: persona_dir.clone(),
+                source,
+            })?
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .any(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "yaml" || extension == "yml")
+            });
+    if has_persona_fixture {
+        return Err(ArtifactLoadError::Invalid {
+            kind: "persona".to_string(),
+            id: "*".to_string(),
+            reason: format!(
+                "personas are overlay-only (AD-080); base tree {} must not contain persona fixtures",
+                dir.display()
+            ),
+        });
+    }
+    Ok(registry)
+}
+
+/// Merge every non-persona artifact under `dir` into an existing registry.
+/// Persona loading is exclusively handled by `load_admitted_personas`.
 pub fn load_registry_into(
     registry: &mut ArtifactRegistry,
     dir: &Path,
@@ -369,6 +570,11 @@ impl Versioned for PromptTemplate {
 }
 
 impl Versioned for ModelSwapManifest {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
+impl Versioned for PersonaElement {
     fn version(&self) -> u32 {
         self.version
     }

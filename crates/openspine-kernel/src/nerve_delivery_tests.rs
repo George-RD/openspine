@@ -14,8 +14,8 @@ fn ack_policy_is_exhaustive_and_deduplicating() {
         pipeline::NotifyOutcome::AttemptAuditFailed,
         pipeline::NotifyOutcome::DeadLetterPersistFailed,
     ];
-    assert!(durable.into_iter().all(nerve_delivery_handoff_complete));
+    assert!(durable.into_iter().all(nerve_delivery::handoff_complete));
     assert!(retained
         .into_iter()
-        .all(|outcome| !nerve_delivery_handoff_complete(outcome)));
+        .all(|outcome| !nerve_delivery::handoff_complete(outcome)));
 }

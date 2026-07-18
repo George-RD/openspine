@@ -16,8 +16,10 @@ mod kernel_tests;
 mod model_gateway;
 mod model_swap;
 mod model_swap_recovery;
+mod nerve_delivery;
 mod overlay_compat;
 mod overlay_eval_gate;
+mod overlay_persona_admission;
 mod overlay_recovery;
 mod overlay_startup;
 mod pipeline;
@@ -88,14 +90,6 @@ struct Cli {
     benchmark: bool,
 }
 
-fn nerve_delivery_handoff_complete(outcome: pipeline::NotifyOutcome) -> bool {
-    matches!(
-        outcome,
-        pipeline::NotifyOutcome::Sent
-            | pipeline::NotifyOutcome::OutcomeAuditFailed
-            | pipeline::NotifyOutcome::SendFailed
-    )
-}
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -161,6 +155,12 @@ async fn main() -> anyhow::Result<()> {
     }
     let overlay_dir = cfg.data_dir.join("artifacts.d");
     model_swap_recovery::reconcile_model_swap_overlay(&store, &artifacts, &overlay_dir)?;
+    // Pre-populate the Donna×Leo personality seed as learnable overlay
+    // artifacts (AD-080). Idempotent: safe to run every boot; only seeds the
+    // elements not already present in learned_artifacts. Must run before
+    // overlay_startup::load so the seeded YAML is discovered into the registry.
+    store::personality_seed::seed_if_missing(&store, &artifacts, &overlay_dir)
+        .context("seeding personality seed overlay artifacts")?;
     let overlay_startup = overlay_startup::load(&cfg.lyra_dir, &cfg.data_dir, &store, &artifacts)?;
     let registry = overlay_startup.registry;
     let base_artifact_ids = overlay_startup.base_artifact_ids;
@@ -450,38 +450,7 @@ async fn main() -> anyhow::Result<()> {
         std::time::Duration::from_secs(5),
     );
 
-    let nerve_delivery = async {
-        loop {
-            match state.store.pending_nerve_deliveries() {
-                Ok(items) => {
-                    for (interjection_id, class_digest) in items {
-                        let outcome = pipeline::notify_owner_with_digest(
-                            &state,
-                            state.owner_user_id,
-                            &format!(
-                                "A governed screener notice is ready (digest {class_digest})."
-                            ),
-                            &[],
-                            None,
-                        )
-                        .await;
-                        if nerve_delivery_handoff_complete(outcome) {
-                            if let Err(err) = state.store.ack_nerve_delivery(&interjection_id) {
-                                tracing::error!("acknowledging nerve delivery: {err}");
-                            }
-                        } else {
-                            tracing::warn!(
-                                ?outcome,
-                                "nerve delivery not durably handed off; retaining for retry"
-                            );
-                        }
-                    }
-                }
-                Err(err) => tracing::error!("loading nerve deliveries: {err}"),
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
-    };
+    let nerve_delivery = nerve_delivery::run(state.clone());
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
