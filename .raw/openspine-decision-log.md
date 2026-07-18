@@ -122,6 +122,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-108 | A commissioned worker must be effectively able to report: worker.commission rejects specs whose composed chain lacks worker.report_result (pre-persist and in-transaction); the shell reports only for an authenticated is_worker view AND effective report authority | Accepted |
 | D-109 | Authority-equivalence classes are computed by the kernel from composed grant projections, never from shell-supplied class identities; class identity is the five-field composed tuple and never incorporates per-grant fields (id/token/expiry) | Accepted |
 | D-110 | Cross-class ambiguity escalates to the owner; the matcher may never return a member of another class - within-class members are only constructable through unique-class resolution | Accepted |
+| D-111 | A restarted worker never inherits the dead worker's grant: continuation requires normal pipeline re-composition with distinct grant and dispatch identity; worker-grant authentication rejects any terminal dispatch before action authorization, so completed and failed worker tokens are both revoked | Accepted |
+| D-112 | A worker crash competes atomically with a worker result for the dispatched-to-terminal transition; exactly one terminal outcome is accepted, and sandbox exits are classified Startup (125-127) / Crash (128-255) / ShellExit | Accepted |
+| D-113 | Restart intensity is capped per validated connector (three failures in thirty seconds), the cap precheck serializes with durable dispatch insertion before any grant or token is minted, exhaustion surfaces a best-effort owner escalation and never auto-retries, and legacy NULL-connector rows terminalize into a structured failure event without a synthetic connector identity | Accepted |
+| D-114 | Worker addressing is the identity tuple (owner, conversation, task) with at most one in-flight message per (owner, conversation) and grant-conditional stale cleanup; a worker child commissions only while its parent remains dispatched; a durable worker-failure consumer routes failures to the escalation surface before checkpointing | Accepted |
 
 ---
 
@@ -2638,6 +2642,86 @@ A future UX required the kernel to auto-pick across classes (forbidden — that 
 
 ---
 
+# D-111 — Worker restarts never inherit authority; terminal tokens are dead
+
+## Decision
+
+A restarted worker NEVER inherits the dead worker's grant; continuation requires normal pipeline re-composition and a distinct grant and dispatch identity. Worker-grant authentication rejects any terminal dispatch (completed or failed) before action authorization.
+
+## Rationale
+
+AD-100: OTP-style supervision with authority reset — a dead worker's credential must stop authorizing the moment its dispatch terminalizes, in the same transaction, or replayed tokens hold live authority.
+
+## Consequences
+
+Failed and completed worker tokens are structurally revoked; continuation is a fresh, fully-composed authority, never a resumed one.
+
+## Would change if
+
+A ratified re-rooting ceremony let workers hold resumable grants.
+
+---
+
+# D-112 — Exactly one terminal outcome per worker dispatch
+
+## Decision
+
+A worker crash competes atomically with a worker result for the dispatched-to-terminal transition; exactly one terminal outcome is accepted. Sandbox exit taxonomy is structural: 125-127 map to StartupFailure, 128-255 (signals/OOM) to Crashed, other nonzero to ShellExited, and a zero exit without a reported result terminalizes as failure.
+
+## Rationale
+
+Crash-vs-result races otherwise double-report or silently strand a dispatch; taxonomy accuracy keeps supervision decisions (restart vs surface) grounded in what actually happened.
+
+## Consequences
+
+Terminal state is convergent under concurrent crash and result; misclassified Docker statuses cannot masquerade as clean shell exits.
+
+## Would change if
+
+The sandbox driver gained structured exit reporting richer than exit codes.
+
+---
+
+# D-113 — Fail-closed per-connector restart intensity caps
+
+## Decision
+
+Restart intensity is capped per validated connector at three failures in thirty seconds. The cap precheck serializes with durable dispatch insertion BEFORE any worker grant or token artifact is minted; a refused commission mints nothing. Exhaustion surfaces a best-effort owner escalation and never mints authority or auto-retries. Legacy dispatch rows with a NULL connector are terminalized and surfaced through a structured failure event without a synthetic connector identity.
+
+## Rationale
+
+Cap-after-mint leaves orphan credentials on refusal; empty-bucket accounting would let unbound legacy failures dodge every cap.
+
+## Consequences
+
+A flaky connector cannot hot-loop worker restarts; refusals are authority-free and owner-visible.
+
+## Would change if
+
+Connector health gains a dedicated breaker-integrated supervisor replacing fixed caps.
+
+---
+
+# D-114 — Tuple-addressed workers with a durable failure consumer
+
+## Decision
+
+Worker addressing is the identity tuple (owner, conversation, task) rather than a process handle; at most one message may be in flight per (owner, conversation), with stale cleanup conditional on the claiming grant id. A worker child may be commissioned only while its parent remains dispatched. A durable worker-failure consumer, started at kernel boot, routes ordinary and legacy-unbound failures to the escalation surface before checkpointing.
+
+## Rationale
+
+AD-102 leaning (identity addressing) made concrete; parent-liveness in the commission transaction closes the auth-to-commission TOCTOU; consumer-before-checkpoint keeps failures owner-visible across crashes.
+
+## Consequences
+
+Worker identity survives process churn; orphan children cannot be commissioned under a terminalized parent.
+
+## Would change if
+
+Multi-conversation worker fan-out required a richer addressing scheme.
+
+---
+
 
 
 
@@ -2713,4 +2797,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-107 (standing rules concretize AD-012 dark-window defaults with fail-closed reservation accounting), settled while implementing `implement-standing-rules`. |
 | 2026-07-18 | Added D-108 (commissioned workers must be effectively able to report; authenticated is_worker view marker gates shell reporting), settled while fixing the worker/shell contract post-merge. |
 | 2026-07-18 | Added D-109 (kernel-computed equivalence classes with pure five-field identity) and D-110 (within-class-only selection; cross-class ambiguity escalates), settled while implementing `implement-authority-equivalence-matcher`. |
+| 2026-07-18 | Added D-111 (no grant inheritance; terminal tokens dead), D-112 (exactly one terminal outcome; sandbox exit taxonomy), D-113 (fail-closed per-connector restart caps), and D-114 (tuple worker addressing with durable failure consumer), settled while implementing `implement-worker-supervision`. |
 

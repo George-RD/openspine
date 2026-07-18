@@ -232,6 +232,7 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // Candidate Gmail draft-write extension: durable pending evidence.
     super::pending_draft::ensure_schema(conn)?;
     super::worker_dispatch::ensure_schema(conn)?;
+    super::worker_supervision::ensure_schema(conn)?;
     super::worker_result_relay::ensure_schema(conn)?;
     Ok(())
 }

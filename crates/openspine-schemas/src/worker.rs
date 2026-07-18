@@ -8,9 +8,65 @@
 //! instruction.
 
 use serde::{Deserialize, Serialize};
+use ulid::Ulid;
 
 use crate::action::ActionId;
 use crate::artifact::ArtifactRef;
+
+/// Stable virtual-actor address for a worker (AD-102). The process handle is
+/// deliberately absent so the address remains valid across restarts.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkerIdentity {
+    pub owner: String,
+    pub conversation: String,
+    pub task: String,
+}
+
+/// Closed failure taxonomy for a supervised worker (AD-100). Kept as an enum
+/// so the `worker_failed` event stays structured; any diagnostic free text is
+/// carried as a digest `ArtifactRef` (see [`WorkerFailed::detail_ref`]), never
+/// inline, preserving D-012 plaintext discipline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum WorkerFailureReason {
+    /// The sandboxed shell exited without reporting a result.
+    ShellExited,
+    /// The worker process crashed (panic/OOM/abort).
+    Crash,
+    /// The worker exceeded its runtime budget without producing a result.
+    Timeout,
+    /// The worker became unreachable (lost heartbeat / unresponsive).
+    Lost,
+    /// The supervisor could not (re)start the worker at all.
+    StartupFailure,
+}
+
+/// Structured supervisor failure event (AD-100). The restart decision and
+/// authority reset are represented as data consumed by the master lane.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub struct WorkerFailed {
+    pub worker_grant_id: Ulid,
+    pub parent_grant_id: Ulid,
+    pub identity: WorkerIdentity,
+    pub connector: String,
+    pub reason: WorkerFailureReason,
+    /// Optional digest reference to an encrypted artifact holding untrusted
+    /// diagnostic detail (D-012): cargo, never instructions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail_ref: Option<ArtifactRef>,
+    pub restart_count: u32,
+    pub restart_limit: u32,
+    /// Whether the master lane may re-compose a *fresh* grant for this
+    /// identity through the normal pipeline. `true` does NOT mean the
+    /// supervisor respawns the worker: AD-100 requires a brand-new grant from
+    /// re-composition, never a transfer or inheritance of the dead worker's
+    /// grant. Becomes `false` once the per-connector restart cap is exceeded
+    /// (fail-closed: surface to owner instead of a restart storm).
+    pub recomposition_permitted: bool,
+    pub occurred_at: jiff::Timestamp,
+}
 /// The structured outcome a worker reports back. Mirrors AD-033's
 /// worker→master crossing: schema-checked fields plus free text that stays
 /// wrapped-as-untrusted.

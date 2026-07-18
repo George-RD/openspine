@@ -13,7 +13,9 @@ use openspine_schemas::artifact::{ArtifactRef, Lifecycle};
 use openspine_schemas::briefcase::{Briefcase, CounterpartyRef, TaskClass, TaskShape};
 use openspine_schemas::digest::{digest_of, Digest};
 use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
-use openspine_schemas::worker::{WorkerCommissionSpec, WorkerOutcome, WorkerResult};
+use openspine_schemas::worker::{
+    WorkerCommissionSpec, WorkerIdentity, WorkerOutcome, WorkerResult,
+};
 use rusqlite::{params, OptionalExtension};
 use serde_json::json;
 use ulid::Ulid;
@@ -134,6 +136,12 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         &test_briefcase(),
         "receipt-consumer-test",
         &request_digest,
+        &WorkerIdentity {
+            owner: parent.user.clone(),
+            conversation: parent.event_id.to_string(),
+            task: worker.id.to_string(),
+        },
+        "test.connector",
     )
     .expect("commission persisted");
     let detail_ref = artifact_ref('d');

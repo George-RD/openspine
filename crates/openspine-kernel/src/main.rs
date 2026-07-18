@@ -585,6 +585,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     let worker_result_consumer = pipeline::run_worker_result_consumer(&state);
+    let worker_failed_consumer = pipeline::run_worker_failed_consumer(&state);
     let standing_rule_dark_window_consumer =
         pipeline::run_standing_rule_dark_window_consumer(&state);
     tokio::select! {
@@ -596,6 +597,7 @@ async fn main() -> anyhow::Result<()> {
         () = nerve_dispatcher => unreachable!("run_nerve_dispatcher loops forever"),
         () = nerve_delivery => unreachable!("nerve_delivery loops forever"),
         res = worker_result_consumer => res.context("worker result consumer failed")?,
+        res = worker_failed_consumer => res.context("worker failed consumer failed")?,
         () = standing_rule_dark_window_consumer => {
             unreachable!("standing-rule dark-window consumer loops forever")
         }

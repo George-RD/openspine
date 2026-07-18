@@ -45,6 +45,7 @@ mod plan_approval;
 mod stages;
 pub(crate) mod standing_rule_timer;
 mod timer_dispatch;
+mod worker_failed_consumer;
 mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;
 #[cfg(test)]
@@ -58,6 +59,7 @@ pub(crate) use timer_dispatch::run_task_deadline_consumer;
 pub(crate) use timer_dispatch::{
     dispatch_task_timer_event, dispatch_task_wake, recover_timer_dispatches, TimerDispatchOutcome,
 };
+pub(crate) use worker_failed_consumer::run_worker_failed_consumer;
 pub(crate) use worker_result_consumer::run_worker_result_consumer;
 mod post_approval;
 mod selection;

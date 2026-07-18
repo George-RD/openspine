@@ -14,7 +14,7 @@ use openspine_schemas::audit::AuditKind;
 use openspine_schemas::briefcase::{CounterpartyRef, TaskClass, TaskShape};
 use openspine_schemas::digest::{digest_of, Digest};
 use openspine_schemas::event_bus::EventSubscriptionFilter;
-use openspine_schemas::worker::{WorkerCommissionSpec, WorkerOutcome};
+use openspine_schemas::worker::{WorkerCommissionSpec, WorkerIdentity, WorkerOutcome};
 
 fn test_key() -> Vec<u8> {
     crate::grant_hmac_key().expect("test HMAC key present")
@@ -79,6 +79,12 @@ fn commission(store: &Store, parent: &TaskGrant) -> TaskGrant {
         &minimal_briefcase(),
         &format!("receipt-{}", parent.id),
         &request_digest(),
+        &WorkerIdentity {
+            owner: parent.user.clone(),
+            conversation: parent.event_id.to_string(),
+            task: worker.id.to_string(),
+        },
+        "test.connector",
     )
     .expect("commission persisted");
     worker
@@ -221,6 +227,12 @@ fn commission_is_receipt_idempotent() {
         &minimal_briefcase(),
         &receipt,
         &request_digest(),
+        &WorkerIdentity {
+            owner: parent.user.clone(),
+            conversation: parent.event_id.to_string(),
+            task: worker.id.to_string(),
+        },
+        "test.connector",
     )
     .expect("first commission persisted");
 
@@ -234,6 +246,12 @@ fn commission_is_receipt_idempotent() {
         &minimal_briefcase(),
         &receipt,
         &request_digest(),
+        &WorkerIdentity {
+            owner: parent.user.clone(),
+            conversation: parent.event_id.to_string(),
+            task: worker.id.to_string(),
+        },
+        "test.connector",
     );
     assert!(second.is_ok(), "idempotent commission must return Ok");
 
@@ -289,6 +307,12 @@ fn commission_receipt_binding_rejects_different_parent_or_request() {
         &minimal_briefcase(),
         receipt,
         &request_digest(),
+        &WorkerIdentity {
+            owner: parent.user.clone(),
+            conversation: parent.event_id.to_string(),
+            task: worker.id.to_string(),
+        },
+        "test.connector",
     )
     .unwrap();
     let different_parent = sample_grant("worker-parent-other");
@@ -494,6 +518,7 @@ fn receipted_worker_dispatch_is_not_recovered() {
         Some(WorkerDispatchState::Terminal),
         "recorded result flips dispatch terminal"
     );
+    assert!(worker_dispatch_failed(&store, worker.id).unwrap());
 
     // Now excluded from recovery: an already-receipted row is never rerun.
     let pending_after = pending_worker_dispatches(&store, Timestamp::now()).unwrap();

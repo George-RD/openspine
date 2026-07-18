@@ -204,6 +204,14 @@ pub enum StoreError {
     WorkerCannotReportResults,
     #[error("worker result already recorded (receipt-keyed idempotency)")]
     WorkerResultAlreadyRecorded,
+    #[error("worker dispatch already terminal; failure not recorded (fail-closed)")]
+    WorkerDispatchAlreadyFailed,
+    #[error("conversation {0} already has an in-flight message (one message at a time)")]
+    ConversationInFlight(String),
+    #[error("worker restart cap exhausted for connector {0}")]
+    WorkerRestartCapExceeded(String),
+    #[error("worker dispatch has no validated connector binding")]
+    WorkerConnectorUnbound,
     #[error("artifact store error during failure surfacing: {0}")]
     ArtifactStore(#[source] ArtifactStoreError),
     #[error("audit ledger chain failed verification")]
@@ -675,6 +683,7 @@ mod test_hooks;
 mod tests;
 pub(crate) mod worker_dispatch;
 pub(crate) mod worker_result_relay;
+pub(crate) mod worker_supervision;
 pub(crate) mod workflow_timers;
 
 impl Store {
