@@ -285,6 +285,9 @@ pub fn compose_authority(
     approval_required_actions.sort();
     let mut denied_actions: Vec<ActionId> = deny.into_iter().collect();
     denied_actions.sort();
+    let mut output_channels = input.agent.output_channels.allowed.clone();
+    output_channels.sort();
+    output_channels.dedup();
 
     let grant = TaskGrant {
         id: Ulid::new(),
@@ -312,7 +315,7 @@ pub fn compose_authority(
         approval_required_actions,
         denied_actions,
         allowed_egress_classes: input.pack.allowed_egress_classes.clone(),
-        output_channels: input.agent.output_channels.allowed.clone(),
+        output_channels,
         limits: GrantLimits {
             max_model_calls: input.agent.model_policy.max_model_calls_per_task,
             max_artifacts: input.agent.limits.max_artifacts,

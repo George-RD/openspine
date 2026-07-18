@@ -120,6 +120,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-106 | Mined-skill promotion decisions are digest-bound to the exactly-rendered owner preview: the bounded provenance+diff summary the owner saw is persisted and consumed by approve/reject; approval without a delivered preview fails | Accepted |
 | D-107 | Standing rules concretize AD-012 dark-window defaults (resolving its leaning status): timer-boxed conditional grants whose fired default re-runs the normal gate consuming a digest-bound one-use pending authorization; reservations are fail-closed (ambiguous outcomes finalize; only proven pre-effect failures cancel-then-rearm) | Accepted |
 | D-108 | A commissioned worker must be effectively able to report: worker.commission rejects specs whose composed chain lacks worker.report_result (pre-persist and in-transaction); the shell reports only for an authenticated is_worker view AND effective report authority | Accepted |
+| D-109 | Authority-equivalence classes are computed by the kernel from composed grant projections, never from shell-supplied class identities; class identity is the five-field composed tuple and never incorporates per-grant fields (id/token/expiry) | Accepted |
+| D-110 | Cross-class ambiguity escalates to the owner; the matcher may never return a member of another class - within-class members are only constructable through unique-class resolution | Accepted |
 
 ---
 
@@ -2596,6 +2598,46 @@ A ratified non-reporting worker class (fire-and-forget effects) is introduced wi
 
 ---
 
+# D-109 — Kernel-computed authority-equivalence classes with pure five-field identity
+
+## Decision
+
+Authority-equivalence classes are computed by the kernel from composed grant projections, never from shell-supplied class identities. `compose_all` is the sole public builder and routes through `compose_authority`; `from_composed_grant` is `pub(crate)`. Class identity is exactly the composed (allowed_actions, approval_required_actions, denied_actions, output_channels, limits) tuple; per-grant fields (id/token/expiry) never enter identity, so identical inputs composed at different times yield the same class.
+
+## Rationale
+
+AD-147 defines equivalence as "identical composed tuple"; letting the shell name classes or letting per-grant metadata leak into identity would fabricate or fragment authority classes.
+
+## Consequences
+
+Class identity is deterministic, timestamp-stable, and auditable; stored channels are canonicalized so reordering cannot mint a new class.
+
+## Would change if
+
+A matcher needed to group candidates before composition, or a class identity ever incorporated per-grant fields — both violate AD-147's definition.
+
+---
+
+# D-110 — Cross-class ambiguity escalates; selection is within-class only
+
+## Decision
+
+The matcher picks freely WITHIN one authority-equivalence class and never across classes. `AuthorityClassMember` is only constructable inside `ResolvedAuthorityClass::select_within_class`, and `resolve` returns `Escalate` rather than a pick when more than one class matches.
+
+## Rationale
+
+AD-147/AD-124: a cross-class pick would silently widen or alter authority; making it structurally impossible beats policy checks.
+
+## Consequences
+
+Cross-class ambiguity always surfaces to the owner; within-class picks compose identical grants by construction (property-tested).
+
+## Would change if
+
+A future UX required the kernel to auto-pick across classes (forbidden — that would widen authority).
+
+---
+
 
 
 
@@ -2670,4 +2712,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-104 (runtime skills on the gate-containment guarantee, revisiting D-048), D-105 (kernel-bound skill-context attribution with Causal/Contextual digest semantics), and D-106 (digest-bound promotion previews), settled while implementing `implement-skill-artifact-class`. |
 | 2026-07-18 | Added D-107 (standing rules concretize AD-012 dark-window defaults with fail-closed reservation accounting), settled while implementing `implement-standing-rules`. |
 | 2026-07-18 | Added D-108 (commissioned workers must be effectively able to report; authenticated is_worker view marker gates shell reporting), settled while fixing the worker/shell contract post-merge. |
+| 2026-07-18 | Added D-109 (kernel-computed equivalence classes with pure five-field identity) and D-110 (within-class-only selection; cross-class ambiguity escalates), settled while implementing `implement-authority-equivalence-matcher`. |
 

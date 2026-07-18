@@ -567,6 +567,17 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - **Done when:** property test — any within-class pick composes an identical
   grant; a cross-class pick is structurally impossible.
 
+#### wire-authority-equivalence-selection
+
+- **Canon:** AD-147; AD-124 (consumption of the matcher's contract).
+- **Requires:** implement-authority-equivalence-matcher (**HARD** — owns the
+  deferred production adoption recorded in that change's design/notes).
+- **Scope:** wire route/composition callsites to select candidates via
+  `AuthorityEquivalenceClasses` (resolve -> within-class pick or escalation);
+  no new authority semantics — adoption only.
+- **Done when:** a production routing path selects through class resolution
+  under test; cross-class ambiguity escalates end-to-end.
+
 #### implement-seed-workflows
 
 - **Canon:** AD-153.
