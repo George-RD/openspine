@@ -73,7 +73,8 @@ pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreErro
 }
 #[cfg(test)]
 impl Store {
-    /// Test-only observability for D-071: how many draft writes are still
+    /// Test-only observability for the draft-write pending-evidence candidate
+    /// (D-071 precedent): how many draft writes are still
     /// awaiting manual reconciliation (delivery-unknown, never claimed
     /// failed by an automatic resend).
     pub(crate) fn count_pending_draft_writes(&self) -> Result<usize, StoreError> {

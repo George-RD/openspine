@@ -26,6 +26,7 @@ mod tests {
         let mut breaker = CircuitBreaker::new(CircuitBreakerConfig {
             failure_threshold: 2,
             open_for: Duration::from_secs(10),
+            failure_window: Duration::from_secs(60),
         });
         breaker.record_failure(start);
         assert_eq!(breaker.state(), BreakerState::Closed);
@@ -45,6 +46,7 @@ mod tests {
             CircuitBreakerConfig {
                 failure_threshold: 1,
                 open_for: Duration::from_secs(10),
+                failure_window: Duration::from_secs(60),
             },
             start,
         );
@@ -163,6 +165,7 @@ mod tests {
             CircuitBreakerConfig {
                 failure_threshold: 2,
                 open_for: Duration::from_secs(30),
+                failure_window: Duration::from_secs(60),
             },
             start,
         );
@@ -179,6 +182,54 @@ mod tests {
         assert_eq!(runtime.breaker_state(), BreakerState::HalfOpen);
     }
     #[test]
+    fn interleaved_successes_do_not_mask_windowed_failures() {
+        // A repeatedly failing operation (e.g. timed-out writes) must trip
+        // the breaker even when unrelated calls on the same connector keep
+        // succeeding (e.g. preflight reads).
+        let start = now();
+        let runtime = ConnectorRuntime::new(
+            RateLimitConfig::default(),
+            CircuitBreakerConfig {
+                failure_threshold: 3,
+                open_for: Duration::from_secs(30),
+                failure_window: Duration::from_secs(60),
+            },
+            start,
+        );
+        for i in 0..3u64 {
+            let t = start + Duration::from_secs(i);
+            let ok = runtime.try_acquire_with_generation("gmail", t).unwrap();
+            runtime.record_outcome(ok, true, t);
+            let bad = runtime.try_acquire_with_generation("gmail", t).unwrap();
+            runtime.record_outcome(bad, false, t);
+            if i < 2 {
+                assert_eq!(runtime.breaker_state(), BreakerState::Closed);
+            }
+        }
+        assert!(matches!(runtime.breaker_state(), BreakerState::Open { .. }));
+    }
+    #[test]
+    fn failures_outside_window_expire() {
+        let start = now();
+        let runtime = ConnectorRuntime::new(
+            RateLimitConfig::default(),
+            CircuitBreakerConfig {
+                failure_threshold: 2,
+                open_for: Duration::from_secs(30),
+                failure_window: Duration::from_secs(60),
+            },
+            start,
+        );
+        let f1 = runtime.try_acquire_with_generation("gmail", start).unwrap();
+        runtime.record_outcome(f1, false, start);
+        // Second failure lands 61s later: the first has expired, so the
+        // breaker stays Closed.
+        let late = start + Duration::from_secs(61);
+        let f2 = runtime.try_acquire_with_generation("gmail", late).unwrap();
+        runtime.record_outcome(f2, false, late);
+        assert_eq!(runtime.breaker_state(), BreakerState::Closed);
+    }
+    #[test]
     fn timeout_outcomes_count_as_breaker_failures() {
         let start = now();
         let runtime = ConnectorRuntime::new(
@@ -186,6 +237,7 @@ mod tests {
             CircuitBreakerConfig {
                 failure_threshold: 2,
                 open_for: Duration::from_secs(30),
+                failure_window: Duration::from_secs(60),
             },
             start,
         );
@@ -204,6 +256,7 @@ mod tests {
             CircuitBreakerConfig {
                 failure_threshold: 1,
                 open_for: Duration::from_secs(10),
+                failure_window: Duration::from_secs(60),
             },
             start,
         );

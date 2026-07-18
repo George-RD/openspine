@@ -1,4 +1,5 @@
 use super::*;
+use crate::connector_reality::BreakerState;
 use crate::gmail::GmailConnector;
 use crate::telegram::TelegramConnector;
 use openspine_schemas::action::{ActionId, ActionRequest};
@@ -212,7 +213,8 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
         .find_approval_for_request(request.id)
         .unwrap()
         .is_some());
-    // D-071 success path: a confirmed draft write resolves its pending row.
+    // Draft-write pending-evidence success path (D-071 precedent, candidate):
+    // a confirmed draft write resolves its pending row.
     assert_eq!(state.store.count_pending_draft_writes().unwrap(), 0);
 
     // Second tap on the same (still-live) button: must be a no-op, not a
@@ -239,7 +241,8 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
 
 #[tokio::test]
 async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
-    // D-071: a `gmail.create_draft` that times out (the provider may have
+    // Draft-write candidate (D-071 precedent): a `gmail.create_draft` that
+    // times out (the provider may have
     // acted before the response was lost) is delivery-unknown, never a
     // confirmed failure. Each timeout leaves a durable pending row for manual
     // reconciliation and emits the distinct `draft.delivery_unknown` audit.
@@ -302,6 +305,13 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
             .unwrap()
             .is_none());
     }
+
+    // Real wrapper-recorded timeouts must trip the breaker: three timed-out
+    // writes are three failures, so the gmail breaker is Open afterwards.
+    assert!(matches!(
+        state.connectors.breaker_state("gmail"),
+        Some(BreakerState::Open { .. })
+    ));
 
     assert_eq!(state.store.count_pending_draft_writes().unwrap(), 3);
     assert_eq!(

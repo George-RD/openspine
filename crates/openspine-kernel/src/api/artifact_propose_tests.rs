@@ -267,15 +267,24 @@ async fn artifact_propose_rejects_persona_kind() {
         "kind": "persona",
         "yaml": "id: injected_persona\nschema_version: 1\n",
     });
-    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
-        .await
-        .unwrap_err();
+    let err = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+    )
+    .await
+    .unwrap_err();
     match err {
         DispatchError::BadRequest(msg) => assert!(
             msg.contains("route|agent|workflow|pack|policy"),
             "unexpected message: {msg}"
         ),
-        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+        DispatchError::Resource(_)
+        | DispatchError::Connector(_)
+        | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::DeliveryUnknown(_) => {
             panic!("persona kind must be a BadRequest, not infrastructure failure")
         }
     }

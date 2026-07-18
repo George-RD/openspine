@@ -128,6 +128,11 @@ impl RateLimitBucket {
 pub struct CircuitBreakerConfig {
     pub failure_threshold: u32,
     pub open_for: Duration,
+    /// Failures within this window count toward the threshold. Interleaved
+    /// successes close a HalfOpen probe but never erase recorded failures, so
+    /// a repeatedly failing operation (e.g. timed-out writes) cannot be masked
+    /// by unrelated successes (e.g. preflight reads) on the same connector.
+    pub failure_window: Duration,
 }
 
 impl Default for CircuitBreakerConfig {
@@ -135,6 +140,7 @@ impl Default for CircuitBreakerConfig {
         Self {
             failure_threshold: 3,
             open_for: Duration::from_secs(30),
+            failure_window: Duration::from_secs(60),
         }
     }
 }
@@ -150,7 +156,8 @@ pub enum BreakerState {
 pub struct CircuitBreaker {
     config: CircuitBreakerConfig,
     state: BreakerState,
-    consecutive_failures: u32,
+    /// Timestamps of failures inside the sliding `failure_window`.
+    recent_failures: std::collections::VecDeque<Timestamp>,
 }
 
 impl CircuitBreaker {
@@ -161,7 +168,7 @@ impl CircuitBreaker {
                 ..config
             },
             state: BreakerState::Closed,
-            consecutive_failures: 0,
+            recent_failures: std::collections::VecDeque::new(),
         }
     }
 
@@ -185,16 +192,19 @@ impl CircuitBreaker {
     }
 
     pub fn record_success(&mut self) {
+        // A success closes the breaker (HalfOpen probe passed / Closed stays
+        // Closed) but deliberately leaves the failure window intact: unrelated
+        // successes must not launder a failing operation below the threshold.
         self.state = BreakerState::Closed;
-        self.consecutive_failures = 0;
     }
 
     pub fn record_failure(&mut self, now: Timestamp) {
         match self.state {
             BreakerState::HalfOpen => self.open(now),
             BreakerState::Closed => {
-                self.consecutive_failures = self.consecutive_failures.saturating_add(1);
-                if self.consecutive_failures >= self.config.failure_threshold {
+                self.prune_failures(now);
+                self.recent_failures.push_back(now);
+                if self.recent_failures.len() as u32 >= self.config.failure_threshold {
                     self.open(now);
                 }
             }
@@ -202,11 +212,26 @@ impl CircuitBreaker {
         }
     }
 
+    fn prune_failures(&mut self, now: Timestamp) {
+        while let Some(&oldest) = self.recent_failures.front() {
+            if now
+                .since(oldest)
+                .ok()
+                .and_then(|d| Duration::try_from(d).ok())
+                .is_some_and(|d| d > self.config.failure_window)
+            {
+                self.recent_failures.pop_front();
+            } else {
+                break;
+            }
+        }
+    }
+
     fn open(&mut self, now: Timestamp) {
         self.state = BreakerState::Open {
             until: now + self.config.open_for,
         };
-        self.consecutive_failures = 0;
+        self.recent_failures.clear();
     }
 }
 
