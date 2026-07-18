@@ -69,6 +69,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   later `Requires:` lines reference it)
 - `implement-seed-workflows` (D-091)
 - `implement-nerve-subscribers` (D-092..D-093)
+- `implement-personality-seed` (D-094..D-097)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
