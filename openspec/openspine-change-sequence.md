@@ -76,6 +76,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-standing-rules` (D-107)
 - `implement-authority-equivalence-matcher` (D-109..D-110; production
   adoption deferred to `wire-authority-equivalence-selection` below)
+- `implement-worker-supervision` (D-111..D-114)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
