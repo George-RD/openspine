@@ -5,9 +5,15 @@
 //! route/workflow/agent/pack/policy inputs into a `TaskGrant` or a denial.
 
 mod compose;
+mod equivalence;
 mod route;
 pub mod worker_grant;
 
 pub use compose::{compose_authority, AuthorityInput, AuthorityOutcome};
+pub use equivalence::{
+    AuthorityCandidate, AuthorityClass, AuthorityClassId, AuthorityClassMember,
+    AuthorityClassScope, AuthorityEquivalenceClasses, ClassResolution, EquivalenceError,
+    ResolvedAuthorityClass,
+};
 pub use route::resolve_route;
 pub use worker_grant::{mint_worker_grant, MintError};
