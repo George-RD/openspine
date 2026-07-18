@@ -29,6 +29,7 @@ mod sandbox;
 mod secret_intake;
 mod secret_store;
 mod seed_workflows;
+mod skill;
 mod spend;
 mod store;
 mod telegram;

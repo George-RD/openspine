@@ -110,6 +110,7 @@ pub(super) async fn dispatch_artifact_nominate(
         target_digest: Some(target_digest.clone()),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: now,
         schema_version: 1,
     };

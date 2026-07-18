@@ -79,6 +79,7 @@ pub(crate) fn request_for(action: &str) -> ActionRequest {
         target_digest: Some(digest('b')),
         selection_token_id: None,
         params: BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     }

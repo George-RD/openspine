@@ -179,6 +179,7 @@ mod tests {
             target_digest: None,
             selection_token_id: None,
             params: std::collections::BTreeMap::new(),
+            skill_attribution: None,
             requested_at: now,
             schema_version: 1,
         };
@@ -208,6 +209,7 @@ mod tests {
             target_digest: None,
             selection_token_id: None,
             params: std::collections::BTreeMap::new(),
+            skill_attribution: None,
             requested_at: now,
             schema_version: 1,
         };
@@ -296,6 +298,7 @@ mod tests {
             target_digest: None,
             selection_token_id: None,
             params: std::collections::BTreeMap::new(),
+            skill_attribution: None,
             requested_at: Timestamp::now(),
             schema_version: 1,
         };

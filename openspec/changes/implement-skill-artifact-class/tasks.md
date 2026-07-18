@@ -1,0 +1,15 @@
+# Tasks
+
+- [x] Add versioned `Skill` schema with provenance, state, opaque body, task-shape index, and per-agent/per-pack visibility; deny unknown fields (structural containment, AD-040).
+- [x] Add `skills` SQLite table and `store::skill_store` (separate from `artifact.propose`, D-048) with provenance-branching insert and a digest-bound promotion transition.
+- [x] Add the install/update ceremony (`skill::ceremony`) branching by provenance (AD-041); trusted commits to `Installed`, mined lands `PendingReview`.
+- [x] Add the AD-110 promotion pass (`skill::review`): deterministic authority-key / exfiltration scan, eval-verdict store record, unforgeable digest-bound token; make verdict persistence fallible so promotion fails closed without its record.
+- [x] Add the AD-042 read-only matcher (`skill::selection`): deterministic task-shape index plus deterministic token-overlap semantic fallback; visibility scoped per agent OR pack; inject, never install.
+- [ ] Formal UNNUMBERED candidate revisit of D-048 grounded in the gate-containment guarantee (verbatim candidate retained in `design.md` and `IMPLEMENTATION-NOTES.md` for landing-time D-ID adjudication); owner adjudicated implementation scope as deferred, not a ratified decision. **Deferred by Main adjudication to landing.**
+- [x] Write tests: provenance install branching, mined pending + promotion deny, owner reject, matcher inject-never-install, gate containment under malicious skill, promotion verdict queryable (approved + rejected), pack-scoped visibility, semantic fallback selects only installed/visible, authenticated grant-derived `skill.context` scope/task selection.
+- [ ] UNNUMBERED candidate deferral recorded: silent skill injection into worker briefcase/prompt construction is owned by `implement-worker-runtime` (owner adjudication); this change supplies the gated kernel action and matcher only. **Deferred by Main adjudication to implement-worker-runtime.**
+- [x] Wire the production `/skill install <complete Skill JSON>` command route; reject empty, missing-field, unknown-field, trailing-segment, and oversize payloads, with ceremony-controlled provenance/state/digest (named command tests in `pipeline/tests/skill_command_tests.rs`).
+- [x] Persist the production `/promote <id> <version>` preview with provenance and prior/current diff summaries plus owner-principal binding; consume the exact digest/principal-bound record atomically on approve/reject, and reject approval without a prior preview (named command tests in `pipeline/tests/skill_command_tests.rs`).
+- [x] Make `CeremonyToken::new` module-private and migrate sibling tests to the `#[cfg(test)]` `test_token()` helper; retain the named sibling mint-path guard (`ceremony_token_mintable_only_via_test_token`).
+- [x] Run all required local gates and record evidence.
+- Gate evidence: `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `scripts/check-file-sizes.sh`, `scripts/check-claims.sh`, and `openspec validate implement-skill-artifact-class --strict` all pass (see `IMPLEMENTATION-NOTES.md`).

@@ -292,6 +292,24 @@ pub enum GateDecision {
 /// caller compute and attach whatever target digest that action's approval
 /// flow requires; `payload_digest` needs no separate field since it is
 /// always `payload_ref.digest` when a payload ref is present.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub enum SkillAttributionKind {
+    #[default]
+    Causal,
+    Contextual {
+        skills: Vec<String>,
+        omitted: usize,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillAttribution {
+    pub id: String,
+    pub version: u32,
+    #[serde(default)]
+    pub kind: SkillAttributionKind,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActionRequest {
@@ -309,6 +327,8 @@ pub struct ActionRequest {
     /// is a caveat violation, not a silent pass.
     #[serde(default)]
     pub params: BTreeMap<String, String>,
+    #[serde(default)]
+    pub skill_attribution: Option<SkillAttribution>,
     pub requested_at: jiff::Timestamp,
     pub schema_version: u32,
 }

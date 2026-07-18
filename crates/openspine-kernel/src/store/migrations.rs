@@ -62,6 +62,22 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         "ALTER TABLE audit_log ADD COLUMN aggregate_seq INTEGER NOT NULL DEFAULT 0",
     )?;
     // AD-105: durable consumer checkpoints + bus indexes (idempotent replay).
+    // AD-042: durable kernel-bound skill.context selections for derived actions.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS skill_context_selections (
+            id TEXT PRIMARY KEY,
+            task_grant_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            pack_id TEXT NOT NULL,
+            skill_id TEXT NOT NULL,
+            skill_version INTEGER NOT NULL,
+            task_class TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_skill_context_grant
+            ON skill_context_selections (task_grant_id, used, expires_at);",
+    )?;
     // Indexes live here (not SCHEMA_SQL) so legacy DBs get columns first.
     // - idx_audit_id: unique event IDs even if a legacy table lacked UNIQUE.
     // - idx_audit_aggregate: lookup by stream.
@@ -187,6 +203,10 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE workflow_step_registry ADD COLUMN completed_seq INTEGER",
     )?;
+    // AD-040/AD-041: skills artifact table (separate from artifact.propose).
+    super::skill_store::ensure_schema(conn)?;
+    super::skill_promotion_decisions::ensure_schema(conn)?;
+    super::skill_preview_records::ensure_schema(conn)?;
     super::task_board::ensure_schema(conn)?;
     // Candidate Gmail draft-write extension: durable pending evidence.
     super::pending_draft::ensure_schema(conn)?;
@@ -216,19 +236,32 @@ pub(super) struct VersionedMigration {
 /// Forward versioned migrations beyond [`BASELINE_USER_VERSION`].
 /// Entry v2 adds the `boot_meta` table that backs boot clock-regression
 /// detection ([`super::boot_clock`]); it is purely additive and reversible.
-pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[VersionedMigration {
-    version: 2,
-    up: "CREATE TABLE IF NOT EXISTS boot_meta (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-    );",
-}];
+/// Entry v3 adds the `skills.schema_version` column (AD-040/AD-041): the
+/// ad-hoc `ensure_schema` deliberately omits it, so a fresh or legacy
+/// `skills` table converges here via an additive `ALTER TABLE ... ADD COLUMN`
+/// (DEFAULT 1, the only supported version) without rewriting any row.
+pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
+    VersionedMigration {
+        version: 2,
+        up: "CREATE TABLE IF NOT EXISTS boot_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );",
+    },
+    VersionedMigration {
+        version: 3,
+        up: "ALTER TABLE skills ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;",
+    },
+];
 
 /// Inverse `down` SQL for each versioned migration (AD-139 downgrade path),
 /// test-only — production never reverts. Kept in lockstep with
 /// [`VERSIONED_MIGRATIONS`] by version.
 #[cfg(test)]
-const VERSIONED_DOWNS: &[(i64, &str)] = &[(2, "DROP TABLE IF EXISTS boot_meta;")];
+const VERSIONED_DOWNS: &[(i64, &str)] = &[
+    (2, "DROP TABLE IF EXISTS boot_meta;"),
+    (3, "ALTER TABLE skills DROP COLUMN schema_version;"),
+];
 
 /// Latest reachable schema version: the ad-hoc baseline, or the highest
 /// versioned migration if any exist.

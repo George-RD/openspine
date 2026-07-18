@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: owner command routing and shared pipeline entrypoints remain co-located for the single event boundary
 //! The owner-message pipeline: Telegram update -> owner verification ->
 //! identity resolution -> route resolution -> authority composition -> task
 //! grant -> sandboxed shell spawn.
@@ -231,6 +232,122 @@ pub(crate) use polling::poll_telegram_once_for_test;
 /// <thread_id>` message selects the email-preview lane, any other owner
 /// message selects the owner-control lane. The driver interprets the chosen
 /// lane as data; it does not branch on command syntax itself.
+/// Deterministic line-based content diff summary for the owner-facing
+/// promote preview. Shows added/removed lines (up to 5 each) so the owner
+/// can see what changed between prior and current skill content without
+/// leaking the full body into the preview surface.
+fn bounded_preview(text: String, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text;
+    }
+    let mut end = max_bytes.saturating_sub("…".len());
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &text[..end])
+}
+
+fn content_diff_summary(prior: &str, current: &str) -> String {
+    fn bounded_text(text: &str, max_bytes: usize) -> String {
+        if text.len() <= max_bytes {
+            return text.to_string();
+        }
+        let mut end = max_bytes.saturating_sub("…".len());
+        while end > 0 && !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}…", &text[..end])
+    }
+    let prior_lines: Vec<&str> = prior.lines().collect();
+    let current_lines: Vec<&str> = current.lines().collect();
+    let mut added = Vec::new();
+    let mut removed = Vec::new();
+    let mut pi = 0;
+    let mut ci = 0;
+    while pi < prior_lines.len() || ci < current_lines.len() {
+        if ci >= current_lines.len() {
+            removed.push(prior_lines[pi]);
+            pi += 1;
+        } else if pi >= prior_lines.len() {
+            added.push(current_lines[ci]);
+            ci += 1;
+        } else if prior_lines[pi] == current_lines[ci] {
+            pi += 1;
+            ci += 1;
+        } else {
+            // Try to find the current line in prior (line was removed)
+            let mut found = false;
+            for lookahead in pi + 1..prior_lines.len().min(pi + 3) {
+                if prior_lines[lookahead] == current_lines[ci] {
+                    for prior_line in prior_lines.iter().take(lookahead).skip(pi) {
+                        removed.push(*prior_line);
+                    }
+                    pi = lookahead;
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                // Try to find the prior line in current (line was added)
+                for lookahead in ci + 1..current_lines.len().min(ci + 3) {
+                    if current_lines[lookahead] == prior_lines[pi] {
+                        for cur_line in current_lines.iter().take(lookahead).skip(ci) {
+                            added.push(*cur_line);
+                        }
+                        ci = lookahead;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if !found {
+                removed.push(prior_lines[pi]);
+                added.push(current_lines[ci]);
+                pi += 1;
+                ci += 1;
+            }
+        }
+    }
+    let mut parts: Vec<String> = Vec::new();
+    if !removed.is_empty() {
+        let shown: Vec<String> = removed
+            .iter()
+            .take(5)
+            .map(|line| bounded_text(line, 256))
+            .collect();
+        parts.push(format!(
+            "-{} removed lines{}",
+            removed.len(),
+            if shown.len() < removed.len() {
+                format!(" (e.g. {:?})", shown)
+            } else {
+                format!(": {:?}", shown)
+            }
+        ));
+    }
+    if !added.is_empty() {
+        let shown: Vec<String> = added
+            .iter()
+            .take(5)
+            .map(|line| bounded_text(line, 256))
+            .collect();
+        parts.push(format!(
+            "+{} added lines{}",
+            added.len(),
+            if shown.len() < added.len() {
+                format!(" (e.g. {:?})", shown)
+            } else {
+                format!(": {:?}", shown)
+            }
+        ));
+    }
+    if parts.is_empty() {
+        "no content change".to_string()
+    } else {
+        bounded_text(&parts.join("; "), 2000)
+    }
+}
+
 pub async fn handle_owner_update(
     state: &AppState,
     update: &telegram::TelegramUpdate,
@@ -405,7 +522,212 @@ pub async fn handle_owner_update(
             relationship_str,
         );
         let message = result.unwrap_or_else(|err| err);
-        notify_owner_best_effort(state, chat_id, &message).await;
+        if !message.is_empty() {
+            notify_owner_best_effort(state, chat_id, &message).await;
+        }
+        return Ok(None);
+    }
+
+    if let Some(rest) = text
+        .strip_prefix("/skill install")
+        .filter(|r| r.is_empty() || r.chars().next().is_some_and(char::is_whitespace))
+    {
+        let message = match owner_verified.as_ref() {
+            Some(proof) => {
+                let payload = rest.trim();
+                if payload.is_empty() {
+                    "Usage: /skill install <skill-json>".to_string()
+                } else if payload.len() > 64 * 1024 {
+                    "Skill install rejected: payload too large (max 64 KiB).".to_string()
+                } else {
+                    // The complete Skill JSON is the sole artifact source
+                    // (AD-041): deny_unknown_fields rejects extra fields and a
+                    // missing required field is a serde error, so a message
+                    // cannot header-address one id/version while persisting
+                    // another. The ceremony assigns UserInstalled provenance,
+                    // the matching state, and recomputes the digest from the
+                    // body — the payload's self-asserted
+                    // provenance/state/digest are never trusted.
+                    match serde_json::from_str::<openspine_schemas::skill::Skill>(payload) {
+                        Ok(mut skill) => {
+                            match crate::skill::ceremony::install_user_skill(
+                                &state.store,
+                                state.owner_principal_id,
+                                proof,
+                                &mut skill,
+                                jiff::Timestamp::now(),
+                            ) {
+                                Ok(()) => {
+                                    format!("Skill {} v{} installed.", skill.id, skill.version)
+                                }
+                                Err(e) => format!("Skill install failed: {e}"),
+                            }
+                        }
+                        Err(e) => format!("Skill install rejected: invalid payload ({e})."),
+                    }
+                }
+            }
+            None => "Usage: /skill install <skill-json> (owner verification required)".to_string(),
+        };
+        if !message.is_empty() {
+            notify_owner_best_effort(state, chat_id, &message).await;
+        }
+        return Ok(None);
+    }
+    if let Some(rest) = text.strip_prefix("/promote ") {
+        let mut parts = rest
+            .splitn(4, char::is_whitespace)
+            .filter(|p| !p.is_empty());
+        let skill_id = parts.next();
+        let version = parts.next().and_then(|v| v.parse::<u32>().ok());
+        let action = parts.next();
+        let reason = parts.next().unwrap_or("owner decision");
+        let message = match (skill_id, version, action, owner_verified.as_ref()) {
+            (Some(id), Some(ver), None, Some(_proof)) => {
+                match crate::store::skill_store::get_skill(&state.store, id, ver) {
+                    Ok(Some(skill)) => {
+                        // AD-041: resolve the actual highest active prior version
+                        // from the store (not assumed v-1), so a non-contiguous
+                        // version history still shows the correct prior content.
+                        let prior = match crate::store::skill_read_queries::highest_prior_version(
+                            &state.store,
+                            id,
+                            ver,
+                        ) {
+                            Ok(Some(prev)) => {
+                                let diff = content_diff_summary(&prev.body, &skill.body);
+                                bounded_preview(
+                                    format!(
+                                        "prior v{} digest={} title={:?} task_shape={:?} visibility={:?}\n{}",
+                                        prev.version,
+                                        prev.content_digest,
+                                        prev.title,
+                                        prev.task_shape,
+                                        prev.visibility,
+                                        diff
+                                    ),
+                                    900,
+                                )
+                            }
+                            Ok(None) => bounded_preview(
+                                format!(
+                                    "first version (no prior); body excerpt={:?}",
+                                    skill.body.chars().take(128).collect::<String>()
+                                ),
+                                900,
+                            ),
+                            Err(_) => "no prior version found".to_string(),
+                        };
+                        let provenance_summary =
+                            bounded_preview(format!("{:?}", skill.provenance), 300);
+                        let current_diff = bounded_preview(
+                            format!(
+                                "digest={} title={:?} provenance={:?} visibility={:?}",
+                                skill.content_digest,
+                                skill.title,
+                                skill.provenance,
+                                skill.visibility
+                            ),
+                            900,
+                        );
+                        let task_shape_summary =
+                            bounded_preview(format!("{:?}", skill.task_shape), 300);
+                        let preview_text = bounded_preview(
+                            format!(
+                            "Skill review: id={} version={} provenance={} digest={} task_shape={:?}.
+                             --- RESERVED CONTENT DIFF ---
+                             prior: {}
+                             current: {}
+                             --- END CONTENT DIFF ---
+Use /promote {} {} approve or /promote {} {} reject <reason>.",
+                            skill.id,
+                            skill.version,
+                            provenance_summary,
+                            skill.content_digest,
+                            task_shape_summary,
+                            prior,
+                            current_diff,
+                            skill.id,
+                            skill.version,
+                            skill.id,
+                            skill.version,
+                        ),
+                            3500,
+                        );
+                        // Persist the preview ONLY after the owner actually
+                        // receives the message (confirmed Telegram send).
+                        // A failed send leaves no consumable preview record,
+                        // so approve/reject without a confirmed preview fails
+                        // closed (AD-041/AD-110: the owner must see the
+                        // content before deciding).
+                        let outcome = crate::pipeline::notify_owner_with_digest(
+                            state,
+                            chat_id,
+                            &preview_text,
+                            &[],
+                            None,
+                        )
+                        .await;
+                        if outcome == crate::pipeline::message_notify::NotifyOutcome::Sent {
+                            if let Err(e) =
+                                crate::store::skill_preview_records::record_skill_preview(
+                                    &state.store.conn.lock(),
+                                    id,
+                                    ver,
+                                    &state.owner_principal_id.to_string(),
+                                    &skill.content_digest,
+                                    &provenance_summary,
+                                    &prior,
+                                    &current_diff,
+                                    &preview_text,
+                                )
+                            {
+                                format!("Skill preview failed: {e}")
+                            } else {
+                                // Preview already sent via notify_owner_with_digest;
+                                // return empty so the outer notify_owner_best_effort
+                                // is a no-op (avoids double-sending).
+                                String::new()
+                            }
+                        } else {
+                            format!("Skill preview delivery failed (outcome={outcome:?}); preview not persisted. Retry /promote.")
+                        }
+                    }
+                    Ok(None) => "Skill not found.".to_string(),
+                    Err(err) => format!("Skill review unavailable: {err}"),
+                }
+            }
+            (Some(id), Some(ver), Some("approve"), Some(proof)) => {
+                crate::skill::ceremony::owner_decide_promotion(
+                    &state.store,
+                    state.owner_principal_id,
+                    proof,
+                    id,
+                    ver,
+                    crate::skill::ceremony::OwnerSkillDecision::Approve,
+                )
+                .map(|_| "Skill promotion approved.".to_string())
+                .unwrap_or_else(|err| format!("Skill promotion denied: {err}"))
+            }
+            (Some(id), Some(ver), Some("reject"), Some(proof)) => {
+                crate::skill::ceremony::owner_decide_promotion(
+                    &state.store,
+                    state.owner_principal_id,
+                    proof,
+                    id,
+                    ver,
+                    crate::skill::ceremony::OwnerSkillDecision::Reject {
+                        reason: reason.to_string(),
+                    },
+                )
+                .map(|_| "Skill rejected.".to_string())
+                .unwrap_or_else(|err| format!("Skill rejection failed: {err}"))
+            }
+            _ => "Usage: /promote <skill_id> <version> <approve|reject> [reason]".to_string(),
+        };
+        if !message.is_empty() {
+            notify_owner_best_effort(state, chat_id, &message).await;
+        }
         return Ok(None);
     }
 

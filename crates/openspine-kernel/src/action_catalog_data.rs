@@ -317,5 +317,12 @@ pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
                 egress_class: None,
             },
         ),
+        (
+            id("skill.context"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
     ]
 }

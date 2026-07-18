@@ -10,7 +10,9 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
-use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
+use openspine_schemas::action::{
+    ActionId, ActionRequest, GateDecision, SkillAttribution, SkillAttributionKind,
+};
 use openspine_schemas::digest::canonical_json;
 use openspine_schemas::escalation::{surface_denial, EscalationEvent};
 use openspine_schemas::grant::TaskGrant;
@@ -35,10 +37,12 @@ async fn guard_connector_dispatch(
 pub(super) struct ActionRequestBody {
     action: String,
     #[serde(default)]
-    #[allow(dead_code)] // see the comment on `dispatch_allowed_action` below
+    #[allow(dead_code)]
     target: Option<Value>,
     #[serde(default)]
     payload: Option<Value>,
+    #[serde(default)]
+    skill_context_token_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,30 +80,108 @@ pub(super) async fn post_actions(
 ) -> Result<Json<ActionResponseBody>, (StatusCode, Json<Value>)> {
     let (grant, _pending_ref, bound_chat_id) = authenticate(&state, &headers).await?;
     let action = ActionId::new(body.action);
-    let (decision, counterparty_deferral, result) = mediate_and_dispatch_action(
-        &state,
-        &grant,
-        action,
-        bound_chat_id,
-        body.payload.as_ref(),
-        FailureSurface::DirectResponse,
-    )
-    .await
-    .map_err(|err| match &err {
-        DispatchError::BadRequest(message) => {
-            (StatusCode::BAD_REQUEST, Json(json!({"error": message})))
-        }
-        DispatchError::Connector(cause)
-        | DispatchError::ConnectorUnavailable(cause)
-        | DispatchError::DeliveryUnknown(cause)
-        | DispatchError::Resource(cause) => {
-            tracing::error!(error = %cause, "action dispatch failed");
+    let payload = body.payload;
+    let token_text = body.skill_context_token_id.as_deref();
+    let (skill_attribution, skill_context_token) = match token_text {
+        Some(text) => {
+            let token_id = Ulid::from_str(text).map_err(|_| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": "invalid skill context token"})),
+                )
+            })?;
+            let selection = crate::store::skill_read_queries::find_live_skill_context_selection(
+                &state.store,
+                token_id,
+                grant.id,
+            )
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "internal_error"})),
+                )
+            })?
+            .ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": "invalid or expired skill context token"})),
+                )
+            })?;
+            if selection.agent_id != grant.agent_id || selection.pack_id != grant.capability_pack_id
+            {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": "skill context token scope mismatch"})),
+                ));
+            }
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": "internal_error"})),
+                Some(SkillAttribution {
+                    id: selection.skill_id.clone(),
+                    version: selection.skill_version,
+                    kind: SkillAttributionKind::Causal,
+                }),
+                Some((token_id, selection)),
             )
         }
-    })?;
+        None => {
+            let selections = crate::store::skill_read_queries::live_skill_context_selections(
+                &state.store,
+                grant.id,
+            )
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "internal_error"})),
+                )
+            })?;
+            if selections.is_empty() {
+                (None, None)
+            } else {
+                (
+                    Some(SkillAttribution {
+                        id: "skill.context".to_string(),
+                        version: 0,
+                        kind: SkillAttributionKind::Contextual {
+                            skills: selections
+                                .iter()
+                                .take(8)
+                                .map(|s| format!("{} v{}", s.skill_id, s.skill_version))
+                                .collect(),
+                            omitted: selections.len().saturating_sub(8),
+                        },
+                    }),
+                    None,
+                )
+            }
+        }
+    };
+    let (decision, counterparty_deferral, result) =
+        mediate_and_dispatch_action_with_attribution_and_token(
+            &state,
+            &grant,
+            action,
+            bound_chat_id,
+            payload.as_ref(),
+            FailureSurface::DirectResponse,
+            skill_attribution.as_ref(),
+            skill_context_token.map(|(id, _)| id),
+        )
+        .await
+        .map_err(|err| match &err {
+            DispatchError::BadRequest(message) => {
+                (StatusCode::BAD_REQUEST, Json(json!({"error": message})))
+            }
+            DispatchError::Connector(cause)
+            | DispatchError::ConnectorUnavailable(cause)
+            | DispatchError::DeliveryUnknown(cause)
+            | DispatchError::Resource(cause) => {
+                tracing::error!(error = %cause, "action dispatch failed");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "internal_error"})),
+                )
+            }
+        })?;
     Ok(Json(ActionResponseBody {
         decision,
         counterparty_deferral,
@@ -114,6 +196,51 @@ pub(crate) async fn mediate_and_dispatch_action(
     bound_chat_id: i64,
     payload: Option<&Value>,
     surface: FailureSurface,
+) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
+    mediate_and_dispatch_action_with_attribution(
+        state,
+        grant,
+        action,
+        bound_chat_id,
+        payload,
+        surface,
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn mediate_and_dispatch_action_with_attribution(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: ActionId,
+    bound_chat_id: i64,
+    payload: Option<&Value>,
+    surface: FailureSurface,
+    skill_attribution: Option<&SkillAttribution>,
+) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
+    mediate_and_dispatch_action_with_attribution_and_token(
+        state,
+        grant,
+        action,
+        bound_chat_id,
+        payload,
+        surface,
+        skill_attribution,
+        None,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn mediate_and_dispatch_action_with_attribution_and_token(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: ActionId,
+    bound_chat_id: i64,
+    payload: Option<&Value>,
+    surface: FailureSurface,
+    skill_attribution: Option<&SkillAttribution>,
+    skill_context_token: Option<Ulid>,
 ) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
     let now = Timestamp::now();
     let spend_lane = crate::spend::SpendLane::from_grant(grant);
@@ -149,6 +276,24 @@ pub(crate) async fn mediate_and_dispatch_action(
                 .unwrap_or_default()
         })
         .unwrap_or_default();
+    if let Some(attr) = skill_attribution.as_ref() {
+        if !matches!(&attr.kind, SkillAttributionKind::Contextual { .. }) {
+            let visible = crate::store::skill_read_queries::installed_skills_for_agent_and_pack(
+                &state.store,
+                &grant.agent_id.to_string(),
+                &grant.capability_pack_id.to_string(),
+            )
+            .map_err(|e| DispatchError::Resource(anyhow::Error::new(e)))?;
+            if !visible
+                .iter()
+                .any(|skill| skill.id == attr.id && skill.version == attr.version)
+            {
+                return Err(DispatchError::BadRequest(
+                    "skill attribution is outside grant visibility".to_string(),
+                ));
+            }
+        }
+    }
     let request = ActionRequest {
         id: Ulid::new(),
         task_grant_id: grant.id,
@@ -158,6 +303,7 @@ pub(crate) async fn mediate_and_dispatch_action(
         target_digest: None,
         selection_token_id,
         params,
+        skill_attribution: skill_attribution.cloned(),
         requested_at: now,
         schema_version: 1,
     };
@@ -170,18 +316,38 @@ pub(crate) async fn mediate_and_dispatch_action(
         &state.connectors,
         now,
     );
-    state
-        .store
-        .append_audit(
-            "action.gated",
-            Some(&action),
-            Some(&outcome.decision),
-            None,
-            Some(grant.id),
-            &[],
-            payload_ref.as_slice(),
-        )
-        .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+    if let Some(token_id) = skill_context_token {
+        let consumed = state
+            .store
+            .consume_skill_context_selection_and_append_audit(
+                token_id,
+                grant.id,
+                &grant.agent_id.to_string(),
+                &grant.capability_pack_id.to_string(),
+                &action,
+                &outcome.decision,
+                payload_ref.as_slice(),
+            )
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        if !consumed {
+            return Err(DispatchError::BadRequest(
+                "invalid or expired skill context token".to_string(),
+            ));
+        }
+    } else {
+        state
+            .store
+            .append_audit(
+                "action.gated",
+                Some(&action),
+                Some(&outcome.decision),
+                None,
+                Some(grant.id),
+                &[],
+                payload_ref.as_slice(),
+            )
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+    }
 
     let decision = outcome.decision;
     if !matches!(decision, GateDecision::Allow) {
@@ -191,6 +357,36 @@ pub(crate) async fn mediate_and_dispatch_action(
                 crate::escalation::route_escalation(state, grant, &event)
                     .await
                     .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+                if let Some(attr) = request.skill_attribution.as_ref() {
+                    let summary = match &attr.kind {
+                        SkillAttributionKind::Contextual { skills, omitted } => {
+                            let suffix = if *omitted > 0 {
+                                format!(" +{} more", omitted)
+                            } else {
+                                String::new()
+                            };
+                            format!(
+                                "denied action in task with active skills: {}{}",
+                                skills.join(", "),
+                                suffix
+                            )
+                        }
+                        SkillAttributionKind::Causal => format!(
+                            "skill-derived action denied at gate: {} skill {} v{}",
+                            action.0, attr.id, attr.version
+                        ),
+                    };
+                    batch_failure(
+                        state,
+                        FailureClass::GateDenial,
+                        &summary,
+                        &format!(
+                            "action={} skill={} version={} decision={:?}",
+                            action.0, attr.id, attr.version, decision
+                        ),
+                    )
+                    .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+                }
 
                 return Ok((decision, Some(deferral.text.to_string()), None));
             }

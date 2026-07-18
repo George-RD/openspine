@@ -61,7 +61,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 2);
+        assert_eq!(user_version, 3);
 
         let table_exists: i64 = conn
             .query_row(
@@ -103,7 +103,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 2);
+        assert_eq!(user_version, 3);
 
         let table_exists: i64 = conn
             .query_row(
@@ -169,7 +169,7 @@ fn legacy_user_version_0_stamps_and_migrates() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 2);
+        assert_eq!(user_version, 3);
 
         // Verify legacy row survived (aggregate_id default is 'system')
         let agg_id: String = conn
@@ -205,7 +205,7 @@ fn versioned_migrations_atomicity_rollback() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 2);
+        assert_eq!(user_version, 3);
     }
     drop(store);
 
@@ -223,7 +223,7 @@ fn versioned_migrations_atomicity_rollback() {
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 2);
+    assert_eq!(user_version, 3);
 
     let table_exists: i64 = conn
         .query_row(
@@ -255,7 +255,7 @@ fn versioned_migrations_future_rejected() {
             err,
             crate::store::StoreError::UnsupportedVersion {
                 current: 99,
-                latest: 2
+                latest: 3
             }
         ),
         "expected UnsupportedVersion, got {err:?}"
@@ -273,4 +273,80 @@ fn versioned_migrations_future_rejected() {
             .unwrap();
         assert_eq!(table_count, 0, "no schema tables must be created");
     }
+}
+
+/// AD-040/AD-041 v3 migration regression: a skills table created by the
+/// pre-v3 ad-hoc lane (no schema_version column) must converge to the
+/// current shape after Store::open, and a legacy row must hydrate with
+/// schema_version=1 (the DEFAULT backfill) without fabrication.
+#[test]
+fn v2_to_v3_skills_schema_migration_backfills_legacy_rows() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("kernel.db");
+
+    // 1. Create a pre-v3 DB: skills table WITHOUT schema_version column.
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS skills (
+                id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                provenance TEXT NOT NULL,
+                state TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                task_shape_json TEXT NOT NULL,
+                visibility_json TEXT NOT NULL,
+                content_digest TEXT NOT NULL,
+                installed_at INTEGER NOT NULL,
+                PRIMARY KEY(id, version)
+            );
+            PRAGMA user_version = 2;",
+        )
+        .unwrap();
+        // Insert a legacy row.
+        conn.execute(
+            "INSERT INTO skills (id, version, provenance, state, title, body, \
+             task_shape_json, visibility_json, content_digest, installed_at) \
+             VALUES ('legacy_skill', 1, '\"shipped_seed\"', '\"installed\"', 'legacy', 'body', \
+                     '[]', '{\"agents\":[],\"packs\":[]}', \
+                     'sha256:0000000000000000000000000000000000000000000000000000000000000000', 0)",
+            [],
+        )
+        .unwrap();
+    }
+
+    // 2. Open via Store::open — v3 migration adds schema_version DEFAULT 1.
+    let store = Store::open(&path).unwrap();
+    {
+        let conn = store.conn.lock();
+        let user_version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(user_version, 3, "v3 migration must have run");
+
+        // Verify the column exists.
+        let col_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('skills') WHERE name = 'schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            col_count, 1,
+            "schema_version column must exist after v3 migration"
+        );
+    }
+
+    // 3. The legacy row must hydrate with schema_version=1 (DEFAULT backfill).
+    let skill = crate::store::skill_store::get_skill(&store, "legacy_skill", 1)
+        .unwrap()
+        .expect("legacy skill must be readable after migration");
+    assert_eq!(
+        skill.schema_version, 1,
+        "legacy row must hydrate with schema_version=1 (DEFAULT backfill)"
+    );
+    assert_eq!(skill.id, "legacy_skill");
+    assert_eq!(skill.version, 1);
 }

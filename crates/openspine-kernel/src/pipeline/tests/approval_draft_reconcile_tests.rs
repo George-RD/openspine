@@ -39,6 +39,7 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -101,6 +102,7 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

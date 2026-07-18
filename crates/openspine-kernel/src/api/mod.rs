@@ -19,6 +19,7 @@ mod briefcase;
 #[cfg(test)]
 mod briefcase_tests;
 pub(crate) mod connector_breaker;
+pub(crate) mod skill_context;
 pub(crate) mod worker;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
@@ -36,6 +37,9 @@ pub(crate) mod tests;
 
 #[cfg(test)]
 pub(crate) mod dispatch_tests;
+
+#[cfg(test)]
+mod skill_context_action_tests;
 
 #[cfg(test)]
 mod generate_tests;

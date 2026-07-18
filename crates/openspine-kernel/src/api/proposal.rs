@@ -147,6 +147,7 @@ pub(super) async fn propose_draft_creation(
         target_digest: Some(target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: jiff::Timestamp::now(),
         schema_version: 1,
     };
