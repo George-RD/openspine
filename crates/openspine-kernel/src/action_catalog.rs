@@ -70,6 +70,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         "web.form_submit",
         "worker.commission",
         "worker.report_result",
+        "skill.context",
     ];
     // Every catalog id receives a literal declaration. `None/None` is a
     // deliberate classification for non-egress actions, not an auto-default;
@@ -153,6 +154,10 @@ pub fn canonical_catalog() -> ActionCatalog {
                 name: "fire_due_workflow_timers".to_string(),
                 classification: EffectPathClass::InternalMaintenanceNonEffect,
             },
+            EffectPath {
+                name: "dispatch_skill_context".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
         ])
 }
 
@@ -166,8 +171,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            17,
-            "Expected exactly 17 classified effect paths, got {:?}",
+            18,
+            "Expected exactly 18 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -195,6 +200,7 @@ mod tests {
         assert!(path_names.contains(&"secret_intake::capture"));
         assert!(path_names.contains(&"sweep_expired_grants"));
         assert!(path_names.contains(&"answer_callback_query"));
+        assert!(path_names.contains(&"dispatch_skill_context"));
     }
 
     #[test]

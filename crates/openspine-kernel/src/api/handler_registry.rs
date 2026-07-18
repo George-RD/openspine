@@ -25,6 +25,7 @@ use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::connector_breaker::call_with_connector;
 use super::plan::dispatch_plan_preview;
+use super::skill_context::dispatch_skill_context;
 use super::worker::{handle_worker_commission, handle_worker_report_result};
 
 /// The boxed future every handler returns. Must be `Send` because dispatch
@@ -86,6 +87,7 @@ impl ActionHandlerRegistry {
             "worker.report_result",
             handle_worker_report_result as ActionHandler,
         );
+        map.insert("skill.context", handle_skill_context as ActionHandler);
         ActionHandlerRegistry { map }
     }
 
@@ -252,4 +254,14 @@ fn handle_setup_workflow_start<'a>(
     Box::pin(async move {
         Ok(json!({"stub": true, "note": "setup.workflow.start not yet implemented"}))
     })
+}
+
+fn handle_skill_context<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    _action: &'a ActionId,
+    _chat_id: i64,
+    payload: Option<&'a Value>,
+) -> HandlerFuture<'a> {
+    Box::pin(dispatch_skill_context(state, grant, payload))
 }

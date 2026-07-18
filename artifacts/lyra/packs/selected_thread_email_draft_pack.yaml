@@ -17,6 +17,7 @@ candidate_allowed_actions:
   - "artifact.write:task_scratch"
   - lyra.ui.preview
   - briefcase.topup
+  - skill.context
 approval_required:
   - email.create_draft
 denied_actions:

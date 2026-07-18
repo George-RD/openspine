@@ -84,6 +84,19 @@ CREATE TABLE IF NOT EXISTS selection_tokens (
     used INTEGER NOT NULL DEFAULT 0,
     token_json TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS skill_context_selections (
+    id TEXT PRIMARY KEY,
+    task_grant_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    pack_id TEXT NOT NULL,
+    skill_id TEXT NOT NULL,
+    skill_version INTEGER NOT NULL,
+    task_class TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_skill_context_grant
+    ON skill_context_selections (task_grant_id, used, expires_at);
 CREATE TABLE IF NOT EXISTS action_requests (
     id TEXT PRIMARY KEY,
     request_json TEXT NOT NULL,
@@ -136,6 +149,8 @@ pub struct Store {
     activation_tx_failure: Arc<AtomicBool>,
     #[cfg(test)]
     fault_init_tx: Arc<std::sync::Mutex<bool>>,
+    #[cfg(test)]
+    fail_next_skill_promotion_tx: Arc<AtomicBool>,
     pub(crate) fail_next_owner_reconfirmation: Arc<AtomicBool>,
 }
 
@@ -195,6 +210,16 @@ pub enum StoreError {
     PrepopulatedTimerId(String),
     #[error("unsupported task schema version: {0}")]
     UnsupportedTaskSchemaVersion(u32),
+    #[error("skill not found: {0}")]
+    SkillNotFound(String),
+    #[error("skill lifecycle violation: {0}")]
+    SkillLifecycle(String),
+    #[error("skill review/promotion digest mismatch: {0}")]
+    SkillDigestMismatch(String),
+    #[error("skill provenance mismatch: {0}")]
+    SkillProvenanceMismatch(String),
+    #[error("unsupported skill schema version: {0}")]
+    UnsupportedSkillSchemaVersion(u32),
     #[error("task not found: {0}")]
     TaskNotFound(Ulid),
 }
@@ -213,6 +238,8 @@ impl Store {
             activation_tx_failure: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             fault_init_tx: Arc::new(std::sync::Mutex::new(false)),
+            #[cfg(test)]
+            fail_next_skill_promotion_tx: Arc::new(AtomicBool::new(false)),
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
         })
     }
@@ -228,12 +255,24 @@ impl Store {
             activation_tx_failure: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             fault_init_tx: Arc::new(std::sync::Mutex::new(false)),
+            #[cfg(test)]
+            fail_next_skill_promotion_tx: Arc::new(AtomicBool::new(false)),
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
         })
     }
     #[cfg(test)]
     pub(crate) fn fail_next_activation_tx_for_test(&self) {
         self.activation_tx_failure
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Test-only: force the next `promote_skill` transaction to fail after
+    /// its AD-110 verdict has already been durably recorded (in a prior,
+    /// separately-committed transaction), proving verdict-before-effect: a
+    /// failure here must leave the skill `PendingReview`, never `Installed`.
+    #[cfg(test)]
+    pub(crate) fn fail_next_skill_promotion_tx_for_test(&self) {
+        self.fail_next_skill_promotion_tx
             .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
@@ -582,6 +621,10 @@ pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
 pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
+pub(crate) mod skill_preview_records;
+pub(crate) mod skill_promotion_decisions;
+pub(crate) mod skill_read_queries;
+pub(crate) mod skill_store;
 pub(crate) mod spend;
 pub(crate) mod task_board;
 pub(crate) mod task_dispatch;

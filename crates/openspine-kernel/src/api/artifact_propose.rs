@@ -330,6 +330,7 @@ pub(super) async fn dispatch_artifact_propose(
         target_digest: Some(target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: now,
         schema_version: 1,
     };

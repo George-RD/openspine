@@ -83,6 +83,7 @@ async fn test_path_2_create_draft_payload_mutated_audited() {
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -119,6 +120,7 @@ async fn test_path_3_activate_artifact_failure_audited() {
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

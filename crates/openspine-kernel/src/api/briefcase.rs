@@ -100,6 +100,7 @@ pub(crate) async fn post_topup(
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

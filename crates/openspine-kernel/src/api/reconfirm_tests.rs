@@ -116,6 +116,7 @@ async fn reconfirm_tap_restores_orphaned_artifact() {
         target_digest: Some(target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -232,6 +233,7 @@ async fn reconfirm_tap_refuses_tampered_yaml() {
         )),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -323,6 +325,7 @@ async fn orphaned_reconfirm_fixture(
         target_digest: Some(target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -474,6 +477,7 @@ async fn reconfirm_legacy_migration_establishes_produced_by_and_proposal() {
         target_digest: Some(target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

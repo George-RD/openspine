@@ -122,7 +122,7 @@ fn read_eval_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<EvalRow> {
 /// between `Store::insert_eval_verdict` (locked own connection) and callers
 /// that must write the row inside their own transaction, so both paths use
 /// one column contract.
-pub(super) fn insert_eval_verdict_conn(
+pub(crate) fn insert_eval_verdict_conn(
     conn: &rusqlite::Connection,
     row: &EvalVerdict,
 ) -> Result<(), StoreError> {

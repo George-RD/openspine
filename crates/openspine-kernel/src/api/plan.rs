@@ -101,6 +101,7 @@ pub(crate) async fn dispatch_plan_preview(
         target_digest: Some(question.target_digest),
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

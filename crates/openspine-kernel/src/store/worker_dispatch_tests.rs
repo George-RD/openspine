@@ -93,6 +93,7 @@ fn gate_request(grant_id: Ulid, action: &str) -> ActionRequest {
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: Timestamp::now(),
         schema_version: 1,
     }

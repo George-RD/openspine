@@ -115,6 +115,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-101 | Worker dispatch is receipt-bound and fail-closed: commissioning is single-tx receipt-idempotent, and recovery never reruns a dispatched row without a completion receipt — it surfaces it for owner attention | Accepted |
 | D-102 | Worker results relay through the master lane under the nerve-delivery ack policy with durable event-id dedupe, bounded retries, and owner-visible dead-letters | Accepted |
 | D-103 | Action egress declarations are a literal catalog-owned table (including explicit no-egress rows); connector metadata is never authority classification | Accepted |
+| D-104 | Runtime skills are permitted on the gate-containment guarantee (revisits D-048): skills shape competence only, install via a dedicated ceremony distinct from artifact.propose, mined skills need the AD-110 one-tap promotion review; the AD-043 external import pipeline stays deferred | Accepted |
+| D-105 | Skill-context attribution is kernel-bound: opaque single-use selection tokens (grant/agent/skill/version/task-class/expiry) drive Causal attribution atomically with the action audit; live selections give bounded Contextual digest notices; caller-supplied attribution does not exist | Accepted |
+| D-106 | Mined-skill promotion decisions are digest-bound to the exactly-rendered owner preview: the bounded provenance+diff summary the owner saw is persisted and consumed by approve/reject; approval without a delivered preview fails | Accepted |
 
 ---
 
@@ -2486,6 +2489,70 @@ Typed registration makes unclassified actions unrepresentable, subsuming the tes
 ---
 
 
+# D-104 — Runtime skills are permitted on the gate-containment guarantee (revisits D-048)
+
+## Decision
+
+D-048 kept prompt templates fixture-only because an instruction surface is an injection-escalation vector. AD-040 supplies the missing honest ground D-048 predated: a skill is the same category as a poisoned template, but the gate contains any skill — trusted or not — because every effectful action is mediated by `gate()`, which rejects injected recipients/egress at the boundary and surfaces the attempt in the audit/digest. Runtime skills (a versioned artifact class shaping competence only, with no authority-shaped field, ids bounded at admission) are therefore permitted, gated by provenance (AD-041) and, for mined skills, the AD-110 one-tap promotion review through a sealed capability-token ceremony. This does not repeal D-048's separation of the install path from `artifact.propose`: skills use the dedicated skill ceremony, never the five-kind propose pipeline. The AD-043 external-skill import pipeline remains an unnumbered deferred candidate; silent skill injection into worker briefcases is wired at the worker-runtime boundary, not here.
+
+## Rationale
+
+Safety through architecture: containment is structural (gate + provenance + sealed promotion), so competence surfaces need not be frozen as fixtures.
+
+## Consequences
+
+Skill install/update/promotion are production-reachable owner ceremonies; poisoned skill bodies die at the gate and surface to the owner.
+
+## Would change if
+
+The gate ever stopped mediating a skill-suggested action, or a skill type gained an authority field (both violate AD-040 by construction).
+
+---
+
+
+# D-105 — Kernel-bound skill-context attribution
+
+## Decision
+
+`skill.context` mints opaque single-use selection tokens persisted server-side bound to (grant, agent, skill, version, task class, expiry). An explicit token on a follow-up action drives CAUSAL attribution, consumed atomically with the action's `action.gated` audit in one immediate transaction (pre-audit failure never burns a token). A denial without a token, under a grant with live selections, surfaces a bounded, deterministically ordered plural CONTEXTUAL notice — never an arbitrary single blame. Used tokens stay context-live until grant expiry (no burn-then-exfil window). Caller-supplied attribution fields do not exist; the token travels top-level, outside strict effect payloads.
+
+## Rationale
+
+Attribution must be unforgeable and honest: causal claims only from kernel-verified selection, contextual claims enumerated, omission harmless because denial still audits and escalates.
+
+## Consequences
+
+Owner digests distinguish 'this skill caused the denied action' from 'these skills were active in the task'; forged/expired/cross-grant tokens are rejected.
+
+## Would change if
+
+Worker-runtime briefcase injection lands and carries selection provenance end-to-end, subsuming the token handshake.
+
+---
+
+
+# D-106 — Digest-bound promotion previews
+
+## Decision
+
+`/promote` renders a bounded owner preview (provenance summary, prior = highest installed version, content-level diff with per-field UTF-8-safe caps and a reserved diff section) and persists the exactly-rendered summary; the preview becomes consumable only on confirmed delivery, and approve/reject consume that persisted record digest-bound. Approval without a delivered preview fails closed.
+
+## Rationale
+
+AD-041 one-tap review is meaningful only if the decision is provably bound to what the owner actually saw.
+
+## Consequences
+
+A notify failure or truncated diff cannot lead to an unseen approval; repeat approvals are guarded.
+
+## Would change if
+
+An interactive review surface replaces Telegram message previews.
+
+---
+
+
+
 
 
 
@@ -2555,4 +2622,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-094 (persona as a no-authority seventh overlay artifact kind), D-095 (kernel-authored bootstrap provenance with validated seed/repair), D-096 (deterministic personality probes; learnable digest default with correction route owned by implement-reflection-miner), and D-097 (admission-gated persona overlay loading), settled while implementing `implement-personality-seed`. |
 | 2026-07-18 | Added D-098 (durable pending evidence for Gmail draft writes; no automatic resend) and D-099 (sliding-window breaker failure accounting with RAII probe permits), settled while implementing `implement-connector-reality`. |
 | 2026-07-18 | Added D-100 (append-only worker caveat-chain child with structural egress denial), D-101 (receipt-bound fail-closed worker dispatch/recovery), D-102 (master-lane worker result relay under the delivery ack policy), and D-103 (catalog-owned literal egress declarations), settled while implementing `implement-worker-runtime`. |
+| 2026-07-18 | Added D-104 (runtime skills on the gate-containment guarantee, revisiting D-048), D-105 (kernel-bound skill-context attribution with Causal/Contextual digest semantics), and D-106 (digest-bound promotion previews), settled while implementing `implement-skill-artifact-class`. |
 

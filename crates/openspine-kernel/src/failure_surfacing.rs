@@ -14,6 +14,7 @@ use crate::store::{Store, StoreError};
 pub(crate) enum FailureClass {
     Authority,
     Escalation,
+    GateDenial,
     Connector,
     Resource,
 }
@@ -31,6 +32,7 @@ impl FailureClass {
             Self::Escalation => "escalation",
             Self::Connector => "connector",
             Self::Resource => "resource",
+            Self::GateDenial => "gate_denial",
         }
     }
 

@@ -157,6 +157,7 @@ pub(super) async fn post_model_generate(
         target_digest: None,
         selection_token_id: None,
         params: std::collections::BTreeMap::new(),
+        skill_attribution: None,
         requested_at: now,
         schema_version: 1,
     };

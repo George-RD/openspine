@@ -5,10 +5,11 @@
 //! group (everything the approval/selection flow touches) separate from the
 //! task-grant/audit-log core.
 
-use openspine_schemas::action::ActionRequest;
+use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::approval::ApprovalRecord;
+use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::selection::SelectionToken;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
 use super::{Store, StoreError};
@@ -115,6 +116,51 @@ impl Store {
             params![id.to_string()],
         )?;
         Ok(rows > 0)
+    }
+    /// Consume a live skill-context selection and append its action-gated
+    /// audit row under one BEGIN IMMEDIATE transaction. A failed audit insert
+    /// rolls the token update back, while concurrent callers serialize on the
+    /// used=0 predicate and exactly one caller can win.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn consume_skill_context_selection_and_append_audit(
+        &self,
+        token_id: Ulid,
+        grant_id: Ulid,
+        agent_id: &str,
+        pack_id: &str,
+        action: &ActionId,
+        decision: &GateDecision,
+        payload_refs: &[ArtifactRef],
+    ) -> Result<bool, StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let changed = tx.execute(
+            "UPDATE skill_context_selections SET used = 1
+             WHERE id = ?1 AND task_grant_id = ?2 AND agent_id = ?3
+               AND pack_id = ?4 AND used = 0 AND expires_at > ?5",
+            params![
+                token_id.to_string(),
+                grant_id.to_string(),
+                agent_id,
+                pack_id,
+                jiff::Timestamp::now().to_string(),
+            ],
+        )?;
+        if changed != 1 {
+            return Ok(false);
+        }
+        Self::append_audit_conn(
+            &tx,
+            "action.gated",
+            Some(action),
+            Some(decision),
+            None,
+            Some(grant_id),
+            &[],
+            payload_refs,
+        )?;
+        tx.commit()?;
+        Ok(true)
     }
 
     // ---- pending action requests (D-040) --------------------------------

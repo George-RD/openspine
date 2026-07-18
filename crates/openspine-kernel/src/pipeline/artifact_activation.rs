@@ -240,6 +240,7 @@ pub(super) async fn activate_approved_artifact(
             target_digest: Some(target_digest),
             selection_token_id: None,
             params: std::collections::BTreeMap::new(),
+            skill_attribution: None,
             requested_at: Timestamp::now(),
             schema_version: 1,
         };
