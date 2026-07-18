@@ -17,6 +17,7 @@ use openspine_schemas::pack::CapabilityPack;
 use openspine_schemas::persona::PersonaElement;
 use openspine_schemas::policy::Policy;
 use openspine_schemas::route::Route;
+use openspine_schemas::standing_rule::StandingRuleManifest;
 use openspine_schemas::workflow::WorkflowManifest;
 
 #[path = "artifact_loader_impl.rs"]
@@ -79,6 +80,12 @@ pub struct ArtifactRegistry {
     /// authority-bearing, so they carry no `ParsedProposal` and never enter
     /// the proposal/approval pipeline.
     pub personas: HashMap<ArtifactId, PersonaElement>,
+    /// Standing rules: inert composition-input bookkeeping only. NEVER
+    /// consulted at gate time (D-007 — the task grant is the only live
+    /// authority object); the runtime `standing_rules` table in the store is
+    /// the sole gate-consultation source. Present only so activation writes
+    /// a uniform registry entry and survives restart reload.
+    pub standing_rules: HashMap<ArtifactId, openspine_schemas::standing_rule::StandingRuleManifest>,
     /// Raw source bytes + path retained for every loaded artifact so legacy
     /// migration and digest-bound reconfirmation never assume a canonical
     /// `{id}-v{version}.yaml` filename (AD-070). Keyed by (kind, id, version).
@@ -579,6 +586,11 @@ impl Versioned for PersonaElement {
         self.version
     }
 }
+impl Versioned for StandingRuleManifest {
+    fn version(&self) -> u32 {
+        self.version
+    }
+}
 /// A declarative artifact parsed from a proposal's YAML, tagged by kind.
 /// `route | agent | workflow | pack | policy | model_swap` are proposable;
 /// prompt templates and golden sets remain fixture-only because they define
@@ -591,6 +603,7 @@ pub enum ParsedProposal {
     Pack(CapabilityPack),
     Policy(Policy),
     ModelSwap(ModelSwapManifest),
+    StandingRule(StandingRuleManifest),
 }
 
 impl ParsedProposal {
@@ -602,6 +615,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(_) => "pack",
             ParsedProposal::Policy(_) => "policy",
             ParsedProposal::ModelSwap(_) => "model_swap",
+            ParsedProposal::StandingRule(_) => "standing_rule",
         }
     }
 
@@ -613,6 +627,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(p) => &p.id,
             ParsedProposal::Policy(p) => &p.id,
             ParsedProposal::ModelSwap(m) => &m.id,
+            ParsedProposal::StandingRule(r) => &r.id,
         }
     }
 
@@ -624,6 +639,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(p) => p.version,
             ParsedProposal::Policy(p) => p.version,
             ParsedProposal::ModelSwap(m) => m.version,
+            ParsedProposal::StandingRule(r) => r.version,
         }
     }
 
@@ -635,6 +651,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(p) => p.lifecycle_state,
             ParsedProposal::Policy(p) => p.lifecycle_state,
             ParsedProposal::ModelSwap(m) => m.lifecycle_state,
+            ParsedProposal::StandingRule(r) => r.lifecycle_state,
         }
     }
     /// Overlay subdirectory name matching the loader's per-kind layout
@@ -656,6 +673,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(p) => p.lifecycle_state = active,
             ParsedProposal::Policy(p) => p.lifecycle_state = active,
             ParsedProposal::ModelSwap(m) => m.lifecycle_state = active,
+            ParsedProposal::StandingRule(r) => r.lifecycle_state = active,
         }
     }
 
@@ -668,6 +686,7 @@ impl ParsedProposal {
             ParsedProposal::Pack(p) => serde_yaml::to_string(p),
             ParsedProposal::ModelSwap(m) => serde_yaml::to_string(m),
             ParsedProposal::Policy(p) => serde_yaml::to_string(p),
+            ParsedProposal::StandingRule(r) => serde_yaml::to_string(r),
         }
     }
 
@@ -702,6 +721,9 @@ impl ParsedProposal {
                 }
                 registry.routes.push(r);
                 Ok(None)
+            }
+            ParsedProposal::StandingRule(r) => {
+                replace_keyed(&mut registry.standing_rules, r.id.clone(), r)
             }
             ParsedProposal::ModelSwap(m) => {
                 replace_keyed(&mut registry.model_swaps, m.id.clone(), m)
@@ -744,7 +766,7 @@ fn replace_keyed<T: Versioned>(
     Ok(None)
 }
 
-/// Single source of truth for the six proposable artifact kinds (PRD §13/5c,
+/// Single source of truth for the seven proposable artifact kinds (PRD §13/5c,
 /// D-048, AD-152). Each entry pairs a kind's name and overlay subdirectory
 /// with parsing and duplicate-check behavior. Prompt templates and golden
 /// sets are deliberately fixture-only.
@@ -758,7 +780,7 @@ pub struct ArtifactKindSpec {
 /// The six proposable kinds, in a fixed order. This table is the only
 /// declaration of what `artifact.propose` accepts; the kind guard, parser,
 /// and duplicate-check all derive from it.
-pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 6] = &[
+pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 7] = &[
     ArtifactKindSpec {
         name: "route",
         overlay_subdir: "routes",
@@ -822,6 +844,17 @@ pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 6] = &[
                 .is_some_and(|m| m.version == version)
         },
     },
+    ArtifactKindSpec {
+        name: "standing_rule",
+        overlay_subdir: "standing_rules",
+        parse: |yaml| Ok(ParsedProposal::StandingRule(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .standing_rules
+                .get(id)
+                .is_some_and(|r| r.version == version)
+        },
+    },
 ];
 
 /// Look up a kind spec by name in the single source of truth.
@@ -843,7 +876,7 @@ pub fn is_proposable_kind(kind: &str) -> bool {
     find_kind_spec(kind).is_some()
 }
 /// Parse proposal YAML for `kind` into a [`ParsedProposal`]. `kind` must
-/// already be one of the five proposable kinds; an unknown kind yields a
+/// already be one of the seven proposable kinds; an unknown kind yields a
 /// serde error rather than a silent accept.
 pub fn parse_proposal(kind: &str, yaml: &str) -> Result<ParsedProposal, serde_yaml::Error> {
     use serde::de::Error as _;

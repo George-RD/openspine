@@ -110,24 +110,26 @@ async fn fires_task_timer_and_reaches_worker_gate(kind: TaskTimerKind) {
     assert!(!pending_json.contains("dependencies"));
     assert!(!pending_json.contains("provenance"));
     assert!(!pending_json.contains("owning_grant_id"));
-    let (decision, _, _) = mediate_and_dispatch_action(
+    let (decision, _, _, _) = mediate_and_dispatch_action(
         &state,
         &grant,
         ActionId::new("openspine.status.read"),
         state.owner_user_id,
         None,
         FailureSurface::Detached,
+        None,
     )
     .await
     .unwrap();
     assert_eq!(decision, GateDecision::Allow);
-    let (proposal_decision, _, _) = mediate_and_dispatch_action(
+    let (proposal_decision, _, _, _) = mediate_and_dispatch_action(
         &state,
         &grant,
         ActionId::new("artifact.propose"),
         state.owner_user_id,
         None,
         FailureSurface::Detached,
+        None,
     )
     .await
     .unwrap();

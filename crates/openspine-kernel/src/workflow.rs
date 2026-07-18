@@ -1202,13 +1202,14 @@ impl<'a> WorkflowCtx<'a> {
                     bound_chat_id,
                     payload,
                     FailureSurface::Detached,
+                    None,
                 )
                 .await;
                 // The persisted/replayed outcome is a closed, non-sensitive
                 // code on failure (never provider internals or plaintext). The
                 // detailed error is logged for diagnostics only.
                 let outcome: Result<ArtifactRef, String> = match dispatched {
-                    Ok((openspine_schemas::action::GateDecision::Allow, _, Some(value))) => {
+                    Ok((openspine_schemas::action::GateDecision::Allow, _, Some(value), _)) => {
                         match serde_json::to_vec(&value) {
                             Ok(bytes) => match artifacts.put(&bytes) {
                                 Ok(receipt) => {
@@ -1231,7 +1232,7 @@ impl<'a> WorkflowCtx<'a> {
                             }
                         }
                     }
-                    Ok((decision, _, _)) => {
+                    Ok((decision, _, _, _)) => {
                         tracing::warn!(decision = ?decision, "gated step not executed");
                         Err(Self::GATED_STEP_FAILED.to_string())
                     }

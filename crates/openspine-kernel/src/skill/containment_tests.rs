@@ -147,13 +147,14 @@ async fn poisoned_skill_counterparty_denial_surfaces_via_escalation() {
         .store
         .count_audit_events_of_kind("action.escalated")
         .unwrap();
-    let (decision, deferral, _result) = crate::api::actions::mediate_and_dispatch_action(
+    let (decision, deferral, _result, _) = crate::api::actions::mediate_and_dispatch_action(
         &state,
         &grant,
         action,
         OWNER_CHAT,
         Some(&attacker_payload),
         FailureSurface::Detached,
+        None,
     )
     .await
     .unwrap();

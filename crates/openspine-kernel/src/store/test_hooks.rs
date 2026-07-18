@@ -63,6 +63,12 @@ impl super::Store {
             fail_next_owner_reconfirmation: std::sync::Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
             ),
+            fail_next_standing_rule_remaining: std::sync::Arc::new(
+                std::sync::atomic::AtomicBool::new(false),
+            ),
+            fail_next_effective_allow_audit: std::sync::Arc::new(
+                std::sync::atomic::AtomicBool::new(false),
+            ),
         })
     }
 

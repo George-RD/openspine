@@ -248,6 +248,13 @@ pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
             },
         ),
         (
+            id("artifact.revoke"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
+        (
             id("artifact.reconfirm"),
             ActionEgressDeclaration {
                 output_channels: None,

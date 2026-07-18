@@ -211,14 +211,15 @@ async fn relay_one(state: &AppState, event: &AuditEvent) -> anyhow::Result<Relay
         bound_chat_id,
         Some(&payload),
         FailureSurface::Detached,
+        None,
     )
     .await
     {
-        Ok((GateDecision::Allow, _, Some(_))) => Ok(RelayOutcome::Delivered),
-        Ok((GateDecision::Allow, _, None)) => Err(anyhow::anyhow!(
+        Ok((GateDecision::Allow, _, Some(_), _)) => Ok(RelayOutcome::Delivered),
+        Ok((GateDecision::Allow, _, None, _)) => Err(anyhow::anyhow!(
             "worker result relay dispatch failed after gate allow"
         )),
-        Ok((decision, _, _)) => {
+        Ok((decision, _, _, _)) => {
             state.store.append_audit(
                 "worker.result.relay_denied",
                 Some(&ActionId::new(RELAY_ACTION)),

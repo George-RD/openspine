@@ -23,7 +23,7 @@ use super::actions::{
 };
 use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
-use super::connector_breaker::call_with_connector;
+use super::connector_breaker::call_with_connector_write;
 use super::plan::dispatch_plan_preview;
 use super::skill_context::dispatch_skill_context;
 use super::worker::{handle_worker_commission, handle_worker_report_result};
@@ -66,6 +66,7 @@ impl ActionHandlerRegistry {
         );
         map.insert("lyra.ui.preview", handle_lyra_preview as ActionHandler);
         map.insert("artifact.propose", handle_artifact_propose as ActionHandler);
+        map.insert("artifact.revoke", handle_artifact_revoke as ActionHandler);
         map.insert("plan.propose", handle_plan_propose as ActionHandler);
         map.insert(
             "artifact.nominate_upstream",
@@ -104,6 +105,25 @@ impl ActionHandlerRegistry {
         self.map.keys().map(|s| ActionId::new(*s)).collect()
     }
 }
+fn handle_artifact_revoke<'a>(
+    state: &'a AppState,
+    _grant: &'a TaskGrant,
+    _action: &'a ActionId,
+    _chat_id: i64,
+    payload: Option<&'a Value>,
+) -> HandlerFuture<'a> {
+    Box::pin(async move {
+        let rule_id = payload
+            .and_then(|value| value.get("rule_id"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| DispatchError::BadRequest("artifact.revoke requires rule_id".into()))?;
+        let revoked = state
+            .store
+            .revoke_standing_rule(rule_id, jiff::Timestamp::now())
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        Ok(json!({"revoked": revoked, "rule_id": rule_id}))
+    })
+}
 
 fn handle_status_read<'a>(
     _state: &'a AppState,
@@ -137,7 +157,7 @@ fn handle_telegram_reply<'a>(
             .map_err(DispatchError::Resource)?;
         // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
         // site. The helper records both breaker health and the D-069 counter.
-        call_with_connector(
+        call_with_connector_write(
             state,
             "telegram",
             action,

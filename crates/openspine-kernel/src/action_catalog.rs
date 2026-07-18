@@ -60,6 +60,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         "artifact.write:task_scratch",
         "email.create_draft",
         "artifact.activate",
+        "artifact.revoke",
         "artifact.reconfirm",
         "artifact.nominate_upstream",
         "coolify.delete_resource",
@@ -100,6 +101,10 @@ pub fn canonical_catalog() -> ActionCatalog {
             },
             EffectPath {
                 name: "activate_approved_artifact".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "revoke_standing_rule".to_string(),
                 classification: EffectPathClass::PostGateApprovedEffect,
             },
             EffectPath {
@@ -171,8 +176,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            18,
-            "Expected exactly 18 classified effect paths, got {:?}",
+            19,
+            "Expected exactly 19 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
