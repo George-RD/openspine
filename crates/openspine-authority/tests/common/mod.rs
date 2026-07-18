@@ -124,6 +124,7 @@ pub fn owner_route() -> Route {
         agent: Some("main_assistant_agent".to_string()),
         workflow: Some("owner_control_conversation".to_string()),
         capability_pack: Some("owner_control_basic_pack".to_string()),
+        persona: None,
     }
 }
 

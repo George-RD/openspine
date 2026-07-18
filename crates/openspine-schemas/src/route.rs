@@ -32,6 +32,11 @@ pub struct RouteWhen {
     pub lane: Option<Lane>,
     pub connector: Option<Connector>,
     pub account_role: Option<AccountRole>,
+    /// AD-136: the connector/number a conversation arrives on. A route
+    /// matches only when the event's `channel_account` equals this value,
+    /// so a bound number deterministically selects its route/persona.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_account: Option<String>,
     pub actor: Option<RouteActorWhen>,
 }
 
@@ -57,6 +62,9 @@ impl RouteWhen {
             n += 1;
         }
         if self.account_role.is_some() {
+            n += 1;
+        }
+        if self.channel_account.is_some() {
             n += 1;
         }
         if let Some(actor) = &self.actor {
@@ -85,7 +93,7 @@ pub enum RouteEffect {
     Deny,
 }
 
-/// A declarative route artifact (PRD §6.1).
+// A declarative route artifact (PRD §6.1).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Route {
@@ -102,6 +110,13 @@ pub struct Route {
     pub agent: Option<ArtifactId>,
     pub workflow: Option<ArtifactId>,
     pub capability_pack: Option<ArtifactId>,
+    /// AD-136: the persona artifact this route selects when it wins.
+    /// `None` means the route binds no persona. The binding is kernel
+    /// machinery — this is only the *reference* the kernel carries
+    /// from the matched route; an unbound or invalid persona yields
+    /// no fronting persona (never the agent's choice).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub persona: Option<ArtifactId>,
 }
 
 /// The result of resolving one or more candidate routes against an event
@@ -150,6 +165,7 @@ mod tests {
             agent: Some("main_assistant_agent".to_string()),
             workflow: Some("owner_control_conversation".to_string()),
             capability_pack: Some("owner_control_basic_pack".to_string()),
+            persona: None,
         }
     }
 

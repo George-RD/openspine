@@ -197,6 +197,7 @@ mod tests {
             chain: vec![],
             caveat_mac: String::new(),
             thread_id: None,
+            persona_id: None,
             allowed_egress_classes: vec![],
         };
         g.seal_root(TEST_GRANT_HMAC_KEY);

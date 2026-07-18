@@ -4,14 +4,17 @@
 //! MUST NOT import or call `gate()`.
 
 use jiff::Timestamp;
-use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
-use openspine_schemas::event::Lane;
+use openspine_authority::{
+    compose_authority, resolve_persona, resolve_route, AuthorityInput, AuthorityOutcome,
+};
+use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::event::{EventEnvelope, Lane, Source};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::route::RouteResolution;
 use ulid::Ulid;
 
 use super::driver_failures::emit_preflight_failure;
-use super::lanes::{EventInputs, LaneSpec};
+use super::lanes::{EventInputs, LaneSpec, PreflightSnapshot};
 pub use super::stages::PipelineStage;
 use super::{empty_session_policy, AppState};
 
@@ -58,11 +61,51 @@ pub async fn run_pipeline(
         }
     };
 
+    let (envelope, raw_ref) = (spec.build_envelope)(state, inputs, now)?;
+    run_pipeline_with_envelope(
+        state,
+        spec,
+        envelope,
+        raw_ref,
+        inputs,
+        now,
+        preflight_snapshot,
+        trace,
+        true, // spawn_shell: ordinary lanes run the conversational shell
+    )
+    .await
+}
+
+/// Run the synchronous pipeline prefix from a pre-built, pre-verified
+/// `EventEnvelope` (already past the `Verify` / `preflight` stage).
+///
+/// The headless webhook lane verifies the webhook signature itself and mints
+/// the envelope before driving it through the ordinary
+/// `Identify -> Route -> Compose -> Grant -> Run` stages; it calls this
+/// function directly with the verified envelope. The body is identical to the
+/// post-`Verify` path of `run_pipeline`: `run_pipeline` performs the spend
+/// gate + preflight, then delegates here after building the envelope.
+///
+/// `spawn_shell` controls the `Run` stage: the ordinary lanes spawn the
+/// sandboxed conversational shell, but the headless lane passes `false` so no
+/// owner conversation can ever be opened by a webhook — its effect is driven
+/// later through the non-conversational action executor in `headless.rs`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn run_pipeline_with_envelope(
+    state: &AppState,
+    spec: LaneSpec,
+    envelope: EventEnvelope,
+    raw_ref: ArtifactRef,
+    inputs: &EventInputs,
+    now: Timestamp,
+    preflight_snapshot: PreflightSnapshot,
+    trace: &mut Vec<PipelineStage>,
+    spawn_shell: bool,
+) -> anyhow::Result<Option<TaskGrant>> {
     // The audited event envelope is emitted by the driver only after Verify
     // succeeds — preflight failures never reach here, so no `event.received`
     // is ever emitted on a preflight-failure path (preserves both flows'
     // audit surface).
-    let (envelope, raw_ref) = (spec.build_envelope)(state, inputs, now)?;
     if spec.lane == Lane::OwnerControl {
         // AD-034: only the owner-control lane has the authorized plaintext
         // and `owner_control` aggregate required for the manipulation screen.
@@ -89,12 +132,19 @@ pub async fn run_pipeline(
         state.owner_principal_id,
         state.owner_identity_id,
     );
-    let (identity, relationship) = resolver.resolve(
+    let (mut identity, relationship) = resolver.resolve(
         envelope.id,
         spec.channel_trust,
         envelope.actor_hint.channel_user_id.as_deref(),
         inputs.owner_verified.as_ref(),
     )?;
+    // A webhook's verifier is the source-authentication proof. There is no
+    // Telegram owner context to pass to the identity resolver, so preserve
+    // that kernel proof for the authority check without inventing a sender
+    // identity or relationship.
+    if envelope.source == Source::Webhook && envelope.verified_source {
+        identity.source_verified = true;
+    }
     trace.push(PipelineStage::Route);
     let routes = state.registry.read().routes.clone();
     let route_resolution = resolve_route(&envelope, &identity, relationship, &routes);
@@ -127,20 +177,20 @@ pub async fn run_pipeline(
     if (spec.route_containment_guard)(state, &envelope, spec.lane)? {
         return Ok(None);
     }
-    let agent_id = route
-        .agent
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no agent"))?;
-    let workflow_id = route
-        .workflow
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no workflow"))?;
-    let pack_id = route
-        .capability_pack
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
     let (agent, workflow, pack, global_policy) = {
         let registry = state.registry.read();
+        let agent_id = route
+            .agent
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no agent"))?;
+        let workflow_id = route
+            .workflow
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no workflow"))?;
+        let pack_id = route
+            .capability_pack
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
         let agent = registry
             .agents
             .get(agent_id)
@@ -256,6 +306,16 @@ pub async fn run_pipeline(
             return Ok(None);
         }
     };
+    // AD-136: persona binding is kernel machinery, resolved AFTER the
+    // deterministic route/identity match and BEFORE the grant is sealed.
+    // Personas carry no authority (D-094): `persona_id` is an
+    // audit/fronting field only, never an authority composition input.
+    // Because it derives from the matched `route`, a counterparty
+    // reaching an owner-bound number cannot select the owner persona.
+    grant.persona_id = {
+        let personas = &state.registry.read().personas;
+        resolve_persona(&envelope.channel_account, relationship, &route, personas)
+    };
     let Some(key) = crate::grant_hmac_key() else {
         state.store.append_audit(
             "authority.denied",
@@ -339,44 +399,59 @@ pub async fn run_pipeline(
         )?;
     }
 
-    // Run stage — spawn the sandboxed shell. A spawn failure is audited but
-    // does not suppress the already-composed grant.
+    // Run stage — spawn the sandboxed shell (ordinary lanes only). A spawn
+    // failure is audited but does not suppress the already-composed grant.
     trace.push(PipelineStage::Run);
-    let handoff_result = state
-        .sandbox
-        .run_task(&state.kernel_endpoint, &grant.task_token)
-        .await;
-    match handoff_result {
-        Ok(()) => {
-            state.store.append_audit(
-                "task.shell_completed",
-                None,
-                None,
-                None,
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-            if let Some(dispatch_key) = inputs.dispatch_key.as_deref() {
-                state.store.complete_timer_dispatch(
-                    dispatch_key,
-                    "handed_off",
-                    &grant.id.to_string(),
+    if spawn_shell {
+        let handoff_result = state
+            .sandbox
+            .run_task(&state.kernel_endpoint, &grant.task_token)
+            .await;
+        match handoff_result {
+            Ok(()) => {
+                state.store.append_audit(
+                    "task.shell_completed",
+                    None,
+                    None,
+                    None,
+                    Some(grant.id),
+                    &[],
+                    &[],
+                )?;
+                if let Some(dispatch_key) = inputs.dispatch_key.as_deref() {
+                    state.store.complete_timer_dispatch(
+                        dispatch_key,
+                        "handed_off",
+                        &grant.id.to_string(),
+                    )?;
+                }
+            }
+            Err(err) => {
+                tracing::error!(error = %err, grant_id = %grant.id, "worker shell failed");
+                state.store.append_audit(
+                    "task.shell_failed",
+                    None,
+                    None,
+                    Some("worker shell failed"),
+                    Some(grant.id),
+                    &[],
+                    &[],
                 )?;
             }
         }
-        Err(err) => {
-            tracing::error!(error = %err, grant_id = %grant.id, "worker shell failed");
-            state.store.append_audit(
-                "task.shell_failed",
-                None,
-                None,
-                Some("worker shell failed"),
-                Some(grant.id),
-                &[],
-                &[],
-            )?;
-        }
+    } else {
+        // Headless lane: no shell. The effect is driven later through the
+        // non-conversational action executor (`headless::run_headless_hook`),
+        // which cannot open an owner conversation.
+        state.store.append_audit(
+            "task.shell_skipped",
+            None,
+            None,
+            Some("headless lane: no conversational shell"),
+            Some(grant.id),
+            &[],
+            &[],
+        )?;
     }
     Ok(Some(grant))
 }

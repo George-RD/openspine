@@ -12,7 +12,8 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use openspine_schemas::action::{ActionId, ActionRequest};
+use openspine_gate::{gate, ActionOrigin};
+use openspine_schemas::action::{ActionRequest, GateDecision};
 use openspine_schemas::grant::TaskGrant;
 
 use super::approval::create_approved_draft;
@@ -72,6 +73,59 @@ fn handle_resolve_approved_plan<'a>(
     Box::pin(resolve_approved_plan(state, grant, request, chat_id))
 }
 
+fn handle_headless_approved<'a>(
+    state: &'a AppState,
+    grant: &'a TaskGrant,
+    request: &'a ActionRequest,
+    chat_id: i64,
+) -> PostApprovalFuture<'a> {
+    Box::pin(async move {
+        if request.params.get("headless").map(String::as_str) != Some("true") {
+            return handle_unknown_approved_action(state, grant, request, chat_id).await;
+        }
+        let now = jiff::Timestamp::now();
+        let outcome = gate(
+            grant,
+            request,
+            ActionOrigin::Shell,
+            &state.store,
+            &state.action_catalog,
+            &state.connectors,
+            now,
+        );
+        if !matches!(outcome.decision, GateDecision::Allow) {
+            state.store.append_audit(
+                "headless.approval_gate_denied",
+                Some(&request.action),
+                Some(&outcome.decision),
+                Some("approved headless request failed re-gate"),
+                Some(grant.id),
+                &[],
+                &[],
+            )?;
+            return Ok(());
+        }
+        crate::api::connector_breaker::dispatch_allowed_action(
+            state,
+            grant,
+            &request.action,
+            chat_id,
+            None,
+        )
+        .await
+        .map_err(|err| anyhow::anyhow!("headless approved dispatch failed: {err:?}"))?;
+        state.store.append_audit(
+            "headless.approved_dispatched",
+            Some(&request.action),
+            Some(&GateDecision::Allow),
+            None,
+            Some(grant.id),
+            &[],
+            &[],
+        )?;
+        Ok(())
+    })
+}
 fn handle_unknown_approved_action<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
@@ -108,10 +162,13 @@ const POST_APPROVAL_HANDLERS: &[(&str, PostApprovalHandler)] = &[
     ("email.create_draft", handle_create_approved_draft),
 ];
 
-pub(super) fn resolve_post_approval_handler(action: &ActionId) -> PostApprovalHandler {
+pub(super) fn resolve_post_approval_handler(request: &ActionRequest) -> PostApprovalHandler {
+    if request.params.get("headless").map(String::as_str) == Some("true") {
+        return handle_headless_approved;
+    }
     POST_APPROVAL_HANDLERS
         .iter()
-        .find(|(id, _)| *id == action.as_str())
+        .find(|(id, _)| *id == request.action.as_str())
         .map(|(_, handler)| *handler)
         .unwrap_or(handle_unknown_approved_action)
 }

@@ -182,6 +182,7 @@ pub(super) async fn post_actions(
             skill_attribution.as_ref(),
             skill_context_token.map(|(id, _)| id),
             None,
+            false,
         )
         .await
         .map_err(|err| match &err {
@@ -278,6 +279,41 @@ pub(crate) async fn mediate_and_dispatch_action(
         None,
         None,
         fired_pending,
+        false,
+    )
+    .await
+}
+
+/// Headless-lane variant: `headless: true` prevents a standing rule from
+/// downgrading a mandatory owner-approval decision (`ApprovalRequired`) to
+/// `Allow` — the headless lane must always surface escalation rather than
+/// silently self-approve.
+pub(crate) async fn mediate_and_dispatch_action_headless(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: ActionId,
+    bound_chat_id: i64,
+    payload: Option<&Value>,
+) -> Result<
+    (
+        GateDecision,
+        Option<String>,
+        Option<Value>,
+        Option<StandingRuleBudgetInfo>,
+    ),
+    DispatchError,
+> {
+    mediate_and_dispatch_action_with_attribution_and_token(
+        state,
+        grant,
+        action,
+        bound_chat_id,
+        payload,
+        FailureSurface::Detached,
+        None,
+        None,
+        None,
+        true,
     )
     .await
 }
@@ -303,6 +339,7 @@ pub(crate) async fn mediate_and_dispatch_action_with_attribution(
             skill_attribution,
             None,
             None,
+            false,
         )
         .await?;
     Ok((decision, deferral, result))
@@ -319,6 +356,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     skill_attribution: Option<&SkillAttribution>,
     skill_context_token: Option<Ulid>,
     fired_pending: Option<&str>,
+    headless: bool,
 ) -> Result<
     (
         GateDecision,
@@ -482,7 +520,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 }
             }
         }
-    } else if matches!(decision, GateDecision::ApprovalRequired { .. }) {
+    } else if !headless && matches!(decision, GateDecision::ApprovalRequired { .. }) {
         // Normal path: an active, non-expired, non-revoked rule covers this
         // action and still has budget → reserve it atomically and allow
         // without a fresh owner approval; otherwise keep ApprovalRequired and,

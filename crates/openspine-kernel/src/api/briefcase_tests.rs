@@ -60,6 +60,7 @@ fn mint_topup_grant(state: &AppState, allow_topup: bool) -> TaskGrant {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let pending_ref = state

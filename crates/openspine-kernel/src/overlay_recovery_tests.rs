@@ -54,6 +54,7 @@ pub(super) fn overlay_yaml(id: &str, version: u32) -> String {
         agent: None,
         workflow: None,
         capability_pack: None,
+        persona: None,
     };
     serde_yaml::to_string(&route).unwrap()
 }

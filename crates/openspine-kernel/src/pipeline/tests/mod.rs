@@ -10,6 +10,7 @@ mod digest;
 mod draft;
 mod driver;
 mod effect_paths;
+mod headless;
 mod offset;
 mod plan;
 mod secret_intake_integration;

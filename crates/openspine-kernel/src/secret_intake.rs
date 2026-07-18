@@ -125,6 +125,7 @@ fn owner_grant(
         capability_pack_id: "owner".to_string(),
         authority_sources: vec!["verified-owner".to_string()],
         thread_id: None,
+        persona_id: None,
         selection_tokens: vec![],
         allowed_actions: vec![action.clone()],
         approval_required_actions: vec![],

@@ -32,6 +32,7 @@ mod artifact_reconfirmation;
 mod digest_pagination;
 mod driver;
 mod driver_failures;
+pub(crate) mod headless;
 mod lanes;
 mod message_notify;
 mod offset;
@@ -79,6 +80,7 @@ use ulid::Ulid;
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::artifact_loader::ArtifactRegistry;
 use crate::artifact_store::ArtifactStore;
+use crate::connector_reality::WebhookVerifier;
 use crate::connectors::ConnectorRegistry;
 use crate::sandbox::Sandbox;
 use crate::secret_store::SecretStore;
@@ -106,6 +108,10 @@ pub struct AppState {
     pub sandbox: Sandbox,
     pub action_handlers: ActionHandlerRegistry,
     pub connectors: ConnectorRegistry,
+    /// HMAC-SHA256 verifier for inbound webhooks (AD-134/AD-141). Shared
+    /// kernel state so replay dedup is stable across hook deliveries.
+    #[allow(dead_code)]
+    pub webhook_verifier: WebhookVerifier,
     pub owner_user_id: i64,
     pub owner_principal_id: Ulid,
     pub owner_identity_id: Ulid,
@@ -216,6 +222,7 @@ pub(super) fn mint_reconfirm_grant(task_grant_id: Ulid) -> Option<TaskGrant> {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(&key);
     Some(grant)

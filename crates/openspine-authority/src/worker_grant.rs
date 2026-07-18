@@ -250,6 +250,7 @@ mod worker_grant_tests {
             chain: vec![],
             caveat_mac: String::new(),
             thread_id: None,
+            persona_id: None,
         };
         grant.root_grant_id = grant.id;
         grant.seal_root(TEST_KEY);

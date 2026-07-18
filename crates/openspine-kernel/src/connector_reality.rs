@@ -426,9 +426,10 @@ impl ConnectorRuntime {
     }
 }
 
-/// A verified webhook request. The signature covers `signed_at`, the
-/// idempotency key, and payload, preventing key substitution and body replay.
-#[allow(dead_code)] // webhook substrate; no consumer exists yet (AD-141)
+/// A verified webhook request. The legacy signature covers `signed_at`, the
+/// idempotency key, and payload; the headless lane uses `verify_bound` to
+/// additionally authenticate its route selector.
+#[allow(dead_code)] // shared webhook substrate and headless lane
 #[derive(Debug, Clone, Copy)]
 pub struct WebhookEnvelope<'a> {
     pub payload: &'a [u8],
@@ -450,17 +451,28 @@ pub enum WebhookRejection {
     OutsideReplayWindow,
     #[error("webhook idempotency key was already consumed")]
     Replayed,
+    #[error("webhook idempotency key exceeds the length cap")]
+    KeyTooLong,
 }
 
-/// HMAC-SHA256 verifier with a bounded, one-process idempotency cache. A
-/// future durable hook consumer can persist the same key before dispatch; no
-/// consumer exists in this change, so this substrate fails closed in memory.
-#[allow(dead_code)] // webhook substrate; no consumer exists yet (AD-141)
+/// Maximum byte length of an idempotency key accepted by the verifier.
+/// Keys beyond this are rejected before they can touch the replay cache
+/// (a bound on the per-(route, key) cache key size).
+const MAX_IDEMPOTENCY_KEY_LEN: usize = 2048;
+/// in-window entries are evicted first so the cache cannot grow unbounded
+/// across many distinct webhook routes.
+const MAX_REPLAY_CACHE_ENTRIES: usize = 4096;
+type ReplayKey = (String, String, String);
+
+/// HMAC-SHA256 verifier with a bounded, one-process idempotency cache.
+/// Headless consumers persist the verified event and use the bound-MAC
+/// variant; durable cross-process idempotency remains a store concern.
+#[allow(dead_code)] // shared webhook substrate and headless lane
 #[derive(Clone)]
 pub struct WebhookVerifier {
     secret: Arc<[u8]>,
     replay_window: Duration,
-    seen: Arc<Mutex<HashMap<String, Timestamp>>>,
+    seen: Arc<Mutex<HashMap<ReplayKey, Timestamp>>>,
 }
 impl std::fmt::Debug for WebhookVerifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -481,17 +493,71 @@ impl WebhookVerifier {
             seen: Arc::new(Mutex::new(HashMap::new())),
         }
     }
+    /// True when no HMAC secret was configured (an empty/forgeable key).
+    /// Production ingress must refuse webhooks in this state (fail-closed).
+    pub fn is_key_unset(&self) -> bool {
+        self.secret.is_empty()
+    }
 
     pub fn verify(
         &self,
         envelope: WebhookEnvelope<'_>,
         now: Timestamp,
     ) -> Result<(), WebhookRejection> {
+        self.verify_with_message(
+            envelope,
+            now,
+            "",
+            "",
+            signed_at_key_and_payload(
+                envelope.payload,
+                envelope.idempotency_key,
+                envelope.signed_at,
+            ),
+        )
+    }
+
+    /// Verify a delivery whose authenticated route selector is included in
+    /// the MAC preimage. Headless consumers must use this variant so a valid
+    /// delivery cannot be retargeted to another registered hook route.
+    pub fn verify_bound(
+        &self,
+        envelope: WebhookEnvelope<'_>,
+        action: &str,
+        channel_account: &str,
+        now: Timestamp,
+    ) -> Result<(), WebhookRejection> {
+        self.verify_with_message(
+            envelope,
+            now,
+            channel_account,
+            action,
+            signed_at_key_account_and_payload(
+                envelope.payload,
+                envelope.idempotency_key,
+                channel_account,
+                action,
+                envelope.signed_at,
+            ),
+        )
+    }
+
+    fn verify_with_message(
+        &self,
+        envelope: WebhookEnvelope<'_>,
+        now: Timestamp,
+        channel_account: &str,
+        action: &str,
+        message: Vec<u8>,
+    ) -> Result<(), WebhookRejection> {
         if envelope.signature.trim().is_empty() {
             return Err(WebhookRejection::MissingSignature);
         }
         if envelope.idempotency_key.trim().is_empty() {
             return Err(WebhookRejection::MissingIdempotencyKey);
+        }
+        if envelope.idempotency_key.len() > MAX_IDEMPOTENCY_KEY_LEN {
+            return Err(WebhookRejection::KeyTooLong);
         }
         let age = now
             .since(envelope.signed_at)
@@ -500,11 +566,6 @@ impl WebhookVerifier {
         if age.is_none() || age.is_some_and(|value| value > self.replay_window) {
             return Err(WebhookRejection::OutsideReplayWindow);
         }
-        let message = signed_at_key_and_payload(
-            envelope.payload,
-            envelope.idempotency_key,
-            envelope.signed_at,
-        );
         let supplied = envelope
             .signature
             .strip_prefix(SIGNATURE_PREFIX)
@@ -514,6 +575,13 @@ impl WebhookVerifier {
         if !HMAC::verify(&message, &*self.secret, &supplied_bytes) {
             return Err(WebhookRejection::InvalidSignature);
         }
+        // Replay cache is namespaced per (route, action) so a valid delivery
+        // cannot be replay-protected against a different route's key space.
+        let cache_key = (
+            channel_account.to_string(),
+            envelope.idempotency_key.to_string(),
+            action.to_string(),
+        );
         let mut seen = self.seen.lock();
         seen.retain(|_, timestamp| {
             now.since(*timestamp)
@@ -521,10 +589,24 @@ impl WebhookVerifier {
                 .and_then(|duration| Duration::try_from(duration).ok())
                 .is_some_and(|age| age <= self.replay_window)
         });
-        if seen.contains_key(envelope.idempotency_key) {
+        // Replay check BEFORE eviction: a replay of the oldest entry at
+        // full capacity must be detected, never evicted-then-accepted.
+        if seen.contains_key(&cache_key) {
             return Err(WebhookRejection::Replayed);
         }
-        seen.insert(envelope.idempotency_key.to_string(), envelope.signed_at);
+        // Capacity bound: evict the oldest in-window entries first, then
+        // insert the new key (eviction can never remove the key we just
+        // confirmed is absent).
+        if seen.len() >= MAX_REPLAY_CACHE_ENTRIES {
+            let overflow = seen.len() - MAX_REPLAY_CACHE_ENTRIES + 1;
+            let mut entries: Vec<(ReplayKey, Timestamp)> =
+                seen.iter().map(|(k, v)| (k.clone(), *v)).collect();
+            entries.sort_by_key(|(_, v)| *v);
+            for (k, _) in entries.into_iter().take(overflow) {
+                seen.remove(&k);
+            }
+        }
+        seen.insert(cache_key, envelope.signed_at);
         Ok(())
     }
 
@@ -554,6 +636,34 @@ impl WebhookVerifier {
         }
         hex
     }
+    /// Compute a signature with the route selector and action bound into the
+    /// preimage, so a captured valid delivery cannot be retargeted to another
+    /// grant-allowed action.
+    pub fn signature_bound(
+        &self,
+        signed_at: Timestamp,
+        idempotency_key: &str,
+        channel_account: &str,
+        action: &str,
+        payload: &[u8],
+    ) -> String {
+        let tag = HMAC::mac(
+            signed_at_key_account_and_payload(
+                payload,
+                idempotency_key,
+                channel_account,
+                action,
+                signed_at,
+            ),
+            &*self.secret,
+        );
+        let mut hex = String::with_capacity(SIGNATURE_PREFIX.len() + 64);
+        hex.push_str(SIGNATURE_PREFIX);
+        for byte in tag {
+            hex.push_str(&format!("{byte:02x}"));
+        }
+        hex
+    }
 }
 
 /// Build the length-delimited MAC pre-image:
@@ -573,6 +683,28 @@ fn signed_at_key_and_payload(
     message.push(b'.');
     message.extend_from_slice(&(key.len() as u64).to_be_bytes());
     message.extend_from_slice(key);
+    message.extend_from_slice(payload);
+    message
+}
+/// Build the route-bound MAC preimage binding the channel account AND the
+/// action. The length prefixes prevent concatenation ambiguity between
+/// route selector, action, and payload bytes, so a signed delivery can
+/// neither be retargeted to another route nor to another action.
+fn signed_at_key_account_and_payload(
+    payload: &[u8],
+    idempotency_key: &str,
+    channel_account: &str,
+    action: &str,
+    signed_at: Timestamp,
+) -> Vec<u8> {
+    let mut message = signed_at_key_and_payload(&[], idempotency_key, signed_at);
+    let account = channel_account.as_bytes();
+    message.extend_from_slice(&(account.len() as u64).to_be_bytes());
+    message.extend_from_slice(account);
+    let action_bytes = action.as_bytes();
+    message.extend_from_slice(&(action_bytes.len() as u64).to_be_bytes());
+    message.extend_from_slice(action_bytes);
+    message.extend_from_slice(&(payload.len() as u64).to_be_bytes());
     message.extend_from_slice(payload);
     message
 }

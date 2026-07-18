@@ -104,6 +104,7 @@ fn dispatch_state(state: &AppState) -> String {
 fn parent_grant_for_commission() -> TaskGrant {
     let now = Timestamp::now();
     let mut grant = TaskGrant {
+        persona_id: None,
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,

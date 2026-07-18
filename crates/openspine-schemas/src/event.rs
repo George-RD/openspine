@@ -63,6 +63,13 @@ pub enum EventType {
     /// A kernel-owned task reminder firing (AD-090): same path as a deadline.
     #[serde(rename = "timer.reminder.fired")]
     TimerReminderFired,
+    /// A verified webhook delivery (AD-134): rides the ordinary event
+    /// pipeline as a system-hook event source, gated through the full
+    /// verify → identify → route → compose → grant → run → gate → audit
+    /// sequence with no owner conversation when composed authority needs no
+    /// approval.
+    #[serde(rename = "webhook.received")]
+    WebhookReceived,
 }
 
 /// PRD §4.1 `verification_method`.

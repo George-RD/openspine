@@ -279,4 +279,148 @@ mod tests {
             .try_acquire("gmail", cooldown_end)
             .expect("new probe should be admitted after re-cooldown");
     }
+    use crate::connector_reality::{WebhookEnvelope, WebhookRejection, WebhookVerifier};
+    use std::time::Duration;
+    /// Owned buffers behind a borrowing `WebhookEnvelope` (no leak).
+    struct OwnedWebhook {
+        payload: Vec<u8>,
+        signature: String,
+        idempotency_key: String,
+    }
+    impl OwnedWebhook {
+        fn envelope(&self, signed_at: Timestamp) -> WebhookEnvelope<'_> {
+            WebhookEnvelope {
+                payload: &self.payload,
+                signature: &self.signature,
+                idempotency_key: &self.idempotency_key,
+                signed_at,
+            }
+        }
+    }
+    #[test]
+    fn replay_cache_is_namespaced_per_route_and_bounds_key_length() {
+        let now = now();
+        let verifier = WebhookVerifier::new(b"test-secret", Duration::from_secs(300));
+        let sat = now - Duration::from_secs(1);
+        // Same idempotency key on two distinct routes verifies once each;
+        // no cross-route replay collision.
+        let sig_a = verifier.signature_bound(
+            sat,
+            "shared-key",
+            "account-a",
+            "openspine.status.read",
+            b"{}",
+        );
+        let a = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sig_a,
+            idempotency_key: "shared-key".to_string(),
+        };
+        assert!(verifier
+            .verify_bound(a.envelope(sat), "openspine.status.read", "account-a", now)
+            .is_ok());
+        // Replay on the SAME route is rejected.
+        let sig_a2 = verifier.signature_bound(
+            sat,
+            "shared-key",
+            "account-a",
+            "openspine.status.read",
+            b"{}",
+        );
+        let a2 = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sig_a2,
+            idempotency_key: "shared-key".to_string(),
+        };
+        assert!(matches!(
+            verifier.verify_bound(a2.envelope(sat), "openspine.status.read", "account-a", now,),
+            Err(WebhookRejection::Replayed)
+        ));
+        // The other route's identical key is still fresh.
+        let sig_b = verifier.signature_bound(
+            sat,
+            "shared-key",
+            "account-b",
+            "openspine.status.read",
+            b"{}",
+        );
+        let b = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sig_b,
+            idempotency_key: "shared-key".to_string(),
+        };
+        assert!(verifier
+            .verify_bound(b.envelope(sat), "openspine.status.read", "account-b", now)
+            .is_ok());
+        let big = "x".repeat(4096);
+        let sig_big =
+            verifier.signature_bound(sat, &big, "account-a", "openspine.status.read", b"{}");
+        let big_w = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sig_big,
+            idempotency_key: big,
+        };
+        assert!(matches!(
+            verifier.verify_bound(
+                big_w.envelope(sat),
+                "openspine.status.read",
+                "account-a",
+                now,
+            ),
+            Err(WebhookRejection::KeyTooLong)
+        ));
+    }
+    #[test]
+    fn replay_cache_evicts_oldest_entries_at_capacity() {
+        let now = now();
+        let verifier = WebhookVerifier::new(b"test-secret", Duration::from_secs(300));
+        // Monotonically increasing signed_at (all inside the 300s window)
+        // so eviction deterministically removes the oldest entry.
+        for i in 0..4097 {
+            let sat = now - Duration::from_millis((4097 - i) as u64);
+            let key = format!("key-{i}");
+            let sig = verifier.signature_bound(sat, &key, "acct", "openspine.status.read", b"{}");
+            let w = OwnedWebhook {
+                payload: b"{}".to_vec(),
+                signature: sig,
+                idempotency_key: key,
+            };
+            assert!(verifier
+                .verify_bound(w.envelope(sat), "openspine.status.read", "acct", now)
+                .is_ok());
+        }
+        // Oldest entry (key-0, smallest signed_at) was evicted and its
+        // replay is now accepted again.
+        let sat0 = now - Duration::from_millis(4097u64);
+        let sig0 = verifier.signature_bound(sat0, "key-0", "acct", "openspine.status.read", b"{}");
+        let oldest = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sig0,
+            idempotency_key: "key-0".to_string(),
+        };
+        assert!(verifier
+            .verify_bound(oldest.envelope(sat0), "openspine.status.read", "acct", now)
+            .is_ok());
+        let sat_fresh = now - Duration::from_millis(1u64);
+        let sigf = verifier.signature_bound(
+            sat_fresh,
+            "key-fresh",
+            "acct",
+            "openspine.status.read",
+            b"{}",
+        );
+        let fresh = OwnedWebhook {
+            payload: b"{}".to_vec(),
+            signature: sigf,
+            idempotency_key: "key-fresh".to_string(),
+        };
+        assert!(verifier
+            .verify_bound(
+                fresh.envelope(sat_fresh),
+                "openspine.status.read",
+                "acct",
+                now
+            )
+            .is_ok());
+    }
 }

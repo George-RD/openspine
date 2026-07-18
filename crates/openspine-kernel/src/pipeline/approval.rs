@@ -232,7 +232,7 @@ pub(super) async fn handle_draft_approval_callback(
     )?;
     match outcome.decision {
         GateDecision::Allow => {
-            let handler = resolve_post_approval_handler(&request.action);
+            let handler = resolve_post_approval_handler(&request);
             handler(state, &grant, &request, chat_id).await
         }
         other => {

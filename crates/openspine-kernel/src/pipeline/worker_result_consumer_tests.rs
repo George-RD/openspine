@@ -87,6 +87,7 @@ fn parent_grant() -> TaskGrant {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.root_grant_id = grant.id;
     grant.seal_root(&crate::grant_hmac_key().expect("test HMAC key"));

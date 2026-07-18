@@ -31,6 +31,7 @@ pub(crate) mod plan;
 mod proposal;
 mod task;
 mod telegram_truncate;
+mod webhook;
 
 #[cfg(test)]
 mod standing_rule_mediation_tests;
@@ -126,6 +127,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             post(briefcase::post_topup),
         )
         .route("/v1/model/generate", post(generate::post_model_generate))
+        .merge(webhook::webhook_routes())
         .with_state(state)
 }
 

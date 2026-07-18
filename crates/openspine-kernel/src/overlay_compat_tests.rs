@@ -46,6 +46,7 @@ fn dangling_learned_route_is_orphaned_and_excluded() {
         agent: Some("removed-agent".into()),
         workflow: None,
         capability_pack: None,
+        persona: None,
     });
     let (orphans, requests) =
         apply_compatibility(&mut registry, &[learned("route", "learned-route")]);

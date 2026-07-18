@@ -18,13 +18,25 @@ pub struct SourcePool {
 }
 
 fn grant_view(grant: &TaskGrant) -> Value {
-    json!({"schema_version": grant.schema_version, "user": grant.user, "purpose": grant.purpose,
-        "issued_by": grant.issued_by, "route_id": grant.route_id, "agent_id": grant.agent_id,
-        "workflow_id": grant.workflow_id, "capability_pack_id": grant.capability_pack_id,
-        "authority_sources": grant.authority_sources, "allowed_actions": grant.allowed_actions,
-        "approval_required_actions": grant.approval_required_actions, "denied_actions": grant.denied_actions,
+    json!({
+        "schema_version": grant.schema_version,
+        "user": grant.user,
+        "purpose": grant.purpose,
+        "issued_by": grant.issued_by,
+        "route_id": grant.route_id,
+        "agent_id": grant.agent_id,
+        "workflow_id": grant.workflow_id,
+        "capability_pack_id": grant.capability_pack_id,
+        "persona_id": grant.persona_id,
+        "authority_sources": grant.authority_sources,
+        "allowed_actions": grant.allowed_actions,
+        "approval_required_actions": grant.approval_required_actions,
+        "denied_actions": grant.denied_actions,
         "allowed_egress_classes": grant.allowed_egress_classes,
-        "output_channels": grant.output_channels, "limits": grant.limits, "mode": grant.mode})
+        "output_channels": grant.output_channels,
+        "limits": grant.limits,
+        "mode": grant.mode,
+    })
 }
 
 /// Hash a raw email address the same way the identity store hashes
@@ -204,53 +216,65 @@ pub async fn pack_for_pipeline(
     grant: &TaskGrant,
     counterparty_address: Option<&str>,
 ) -> Result<Briefcase, BriefcaseKernelError> {
-    let counterparty = if lane == openspine_schemas::event::Lane::OwnerControl {
-        CounterpartyRef::Bound {
+    let counterparty = match lane {
+        openspine_schemas::event::Lane::OwnerControl => CounterpartyRef::Bound {
             identity_id: state.owner_identity_id,
             relationship: openspine_schemas::identity::RelationshipKind::Owner,
-        }
-    } else {
-        // The email-lane counterparty is the thread's newest non-owner
-        // recipient. The address MUST be carried from the authorized preflight
-        // snapshot (a catalogued, header-only Gmail read) — it is never
-        // derived from the thread id (a thread id is an event Ulid, not a
-        // person). A missing address is a packing failure, never a silent
-        // "unavailable" placeholder (AD-021 truthfulness).
-        let address = counterparty_address.ok_or_else(|| {
-            BriefcaseKernelError::SourceUnavailable(
-                "email counterparty address not carried from authorized preflight snapshot".into(),
-            )
-        })?;
-        let hash = email_address_hash(address);
-        match state
-            .store
-            .resolve_identity_by_identifier_hash(&hash, IdentifierKind::Email)?
-        {
-            Some(identity) => {
-                let relationship = identity
-                    .relationships
-                    .iter()
-                    .find(|r| r.target_id == state.owner_identity_id)
-                    .map(|r| r.kind)
-                    .unwrap_or(RelationshipKind::Unknown);
-                CounterpartyRef::Bound {
-                    identity_id: identity.id,
-                    relationship,
+        },
+        // AD-134 headless hook lane: the counterparty is the hook id
+        // carried on the lane, never a private address. No owner-bound
+        // relationship is asserted for a working-machinery event.
+        openspine_schemas::event::Lane::ExternalCommunication => {
+            // The email-lane counterparty is the thread's newest non-owner
+            // recipient. The address MUST be carried from the authorized preflight
+            // snapshot (a catalogued, header-only Gmail read) — it is never
+            // derived from the thread id (a thread id is an event Ulid, not a
+            // person). A missing address is a packing failure, never a silent
+            // "unavailable" placeholder (AD-021 truthfulness).
+            let address = counterparty_address.ok_or_else(|| {
+                BriefcaseKernelError::SourceUnavailable(
+                    "email counterparty address not carried from authorized preflight snapshot"
+                        .into(),
+                )
+            })?;
+            let hash = email_address_hash(address);
+            match state
+                .store
+                .resolve_identity_by_identifier_hash(&hash, IdentifierKind::Email)?
+            {
+                Some(identity) => {
+                    let relationship = identity
+                        .relationships
+                        .iter()
+                        .find(|r| r.target_id == state.owner_identity_id)
+                        .map(|r| r.kind)
+                        .unwrap_or(RelationshipKind::Unknown);
+                    CounterpartyRef::Bound {
+                        identity_id: identity.id,
+                        relationship,
+                    }
+                }
+                None => {
+                    let digest_str = format!(
+                        "email:{}",
+                        hash.as_str()
+                            .strip_prefix("sha256:")
+                            .unwrap_or(hash.as_str())
+                    );
+                    CounterpartyRef::Unresolved {
+                        channel: "email".to_string(),
+                        identifier: digest_str,
+                    }
                 }
             }
-            None => {
-                let digest_str = format!(
-                    "email:{}",
-                    hash.as_str()
-                        .strip_prefix("sha256:")
-                        .unwrap_or(hash.as_str())
-                );
-                CounterpartyRef::Unresolved {
-                    channel: "email".to_string(),
-                    identifier: digest_str,
-                }
-            }
         }
+        // Every other lane (headless hooks included) is working machinery
+        // with no private counterparty relationship. The hook id travels as
+        // the unresolved counterparty identifier so the briefcase is auditable.
+        _ => CounterpartyRef::Unresolved {
+            channel: "webhook".to_string(),
+            identifier: counterparty_address.unwrap_or("unknown-hook").to_string(),
+        },
     };
     let class = if lane == openspine_schemas::event::Lane::OwnerControl {
         TaskClass::Conversation

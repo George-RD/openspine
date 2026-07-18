@@ -50,6 +50,53 @@ impl Store {
         tx.commit()?;
         Ok(id)
     }
+    /// Record a completed (or escalated) headless webhook run in the owner
+    /// digest (AD-134). The `text_ref` is an encrypted artifact digest
+    /// carrying the non-sensitive run detail; the bounded `summary` is the
+    /// only plaintext the store retains. Persisted alongside the
+    /// `headless.hook_completed` audit so the run surfaces only via the
+    /// digest, never an owner conversation.
+    pub fn record_headless_hook_completion(
+        &self,
+        class: &str,
+        summary: &str,
+        text_ref: &str,
+        task_grant_id: Option<Ulid>,
+    ) -> Result<Ulid, StoreError> {
+        let artifact_ref = ArtifactRef {
+            digest: Digest::parse(text_ref)
+                .map_err(|_| StoreError::BadDigest(text_ref.to_string()))?,
+            schema_version: 1,
+        };
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+        let id = Ulid::new();
+        let now = Timestamp::now();
+        let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
+            summary
+                .chars()
+                .take(MAX_DIGEST_SUMMARY_CHARS)
+                .collect::<String>()
+        } else {
+            summary.to_string()
+        };
+        tx.execute(
+            "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
+            params![id.to_string(), now.to_string(), class, summary, text_ref],
+        )?;
+        Self::append_audit_conn(
+            &tx,
+            "headless.hook_completed",
+            None,
+            None,
+            None,
+            task_grant_id,
+            &[],
+            slice::from_ref(&artifact_ref),
+        )?;
+        tx.commit()?;
+        Ok(id)
+    }
 
     /// Test-only legacy fixture: no ref and no claim that the old summary is
     /// encrypted. Production ingestion always uses `batch_digest_failure`.
