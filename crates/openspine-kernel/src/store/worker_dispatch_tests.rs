@@ -54,7 +54,10 @@ fn minimal_briefcase() -> Briefcase {
 fn commission(store: &Store, parent: &TaskGrant) -> TaskGrant {
     let spec = WorkerCommissionSpec {
         agent_id: "worker_agent".to_string(),
-        allowed_actions: vec![ActionId::new("openspine.status.read")],
+        allowed_actions: vec![
+            ActionId::new("openspine.status.read"),
+            ActionId::new("worker.report_result"),
+        ],
         bound_parameters: vec![],
         expires_before: parent.expires_at,
         purpose: "worker-task".to_string(),
@@ -191,7 +194,10 @@ fn commission_is_receipt_idempotent() {
     let parent = sample_grant("worker-parent-token-idem");
     let spec = WorkerCommissionSpec {
         agent_id: "worker_agent".to_string(),
-        allowed_actions: vec![ActionId::new("openspine.status.read")],
+        allowed_actions: vec![
+            ActionId::new("openspine.status.read"),
+            ActionId::new("worker.report_result"),
+        ],
         bound_parameters: vec![],
         expires_before: parent.expires_at,
         purpose: "worker-task".to_string(),
@@ -255,7 +261,10 @@ fn commission_receipt_binding_rejects_different_parent_or_request() {
         &parent,
         &WorkerCommissionSpec {
             agent_id: "worker_agent".to_string(),
-            allowed_actions: vec![ActionId::new("openspine.status.read")],
+            allowed_actions: vec![
+                ActionId::new("openspine.status.read"),
+                ActionId::new("worker.report_result"),
+            ],
             bound_parameters: vec![],
             expires_before: parent.expires_at,
             purpose: "worker-task".to_string(),

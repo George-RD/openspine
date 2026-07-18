@@ -348,3 +348,6 @@ pub(crate) async fn run_worker_result_consumer(state: &AppState) -> anyhow::Resu
 #[cfg(test)]
 #[path = "worker_result_consumer_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "worker_e2e_tests.rs"]
+mod worker_e2e_tests;

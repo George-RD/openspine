@@ -28,8 +28,12 @@ pub(super) struct TaskViewBody {
     allowed_actions: Vec<String>,
     approval_required_actions: Vec<String>,
     denied_actions: Vec<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Worker grants receive an explicit empty list. The shell wire contract
+    /// requires this field, while the empty value preserves the worker's
+    /// structural no-direct-egress boundary.
     output_channels: Option<Vec<String>>,
+    /// Explicit identity marker: only commissioned sub-grants are workers.
+    is_worker: bool,
     limits: TaskLimitsBody,
     expires_at: String,
     pending_message: String,
@@ -71,7 +75,7 @@ pub(super) async fn get_task(
         approval_required_actions: effective_approval_required,
         denied_actions: effective_denied,
         output_channels: if grant.parent_grant_id.is_some() {
-            None
+            Some(Vec::new())
         } else {
             Some(grant.output_channels)
         },
@@ -83,5 +87,123 @@ pub(super) async fn get_task(
         expires_at: grant.expires_at.to_string(),
         pending_message,
         selection_tokens: grant.selection_tokens.iter().map(Ulid::to_string).collect(),
+        is_worker: grant.parent_grant_id.is_some(),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    use axum::extract::State;
+    use axum::http::header::{HeaderValue, AUTHORIZATION};
+
+    use crate::store::Store;
+    use crate::telegram::TelegramConnector;
+    use crate::test_support::fixtures::build_state_with_store;
+
+    use jiff::Timestamp;
+    use openspine_schemas::artifact::Lifecycle;
+    use openspine_schemas::briefcase::{Briefcase, CounterpartyRef, TaskClass, TaskShape};
+    use openspine_schemas::digest::Digest;
+    use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
+    use ulid::Ulid;
+
+    /// A worker sub-grant: a real `parent_grant_id` (so `get_task` treats it
+    /// as a commissioned worker) but no parent row need exist — the grant is
+    /// stored as opaque `grant_json`, with no foreign-key constraint.
+    fn worker_grant() -> TaskGrant {
+        let now = Timestamp::now();
+        let mut g = TaskGrant {
+            id: Ulid::new(),
+            schema_version: 1,
+            lifecycle_state: Lifecycle::Active,
+            user: "owner".to_string(),
+            purpose: "w".to_string(),
+            issued_by: "kernel".to_string(),
+            issued_at: now,
+            expires_at: now + std::time::Duration::from_secs(600),
+            event_id: Ulid::new(),
+            route_id: "owner_telegram_main_assistant".to_string(),
+            agent_id: "main_assistant_agent".to_string(),
+            workflow_id: "owner_control_conversation".to_string(),
+            capability_pack_id: "owner_control_basic_pack".to_string(),
+            authority_sources: vec![],
+            selection_tokens: vec![],
+            allowed_actions: vec![],
+            approval_required_actions: vec![],
+            denied_actions: vec![],
+            allowed_egress_classes: vec![],
+            output_channels: vec![],
+            limits: GrantLimits {
+                max_model_calls: 8,
+                max_artifacts: 20,
+                max_runtime_seconds: 120,
+            },
+            task_token: "worker-unit-token".to_string(),
+            root_grant_id: Ulid::new(),
+            parent_grant_id: Some(Ulid::new()),
+            mode: GrantMode::Live,
+            chain: vec![],
+            caveat_mac: String::new(),
+            thread_id: None,
+        };
+        g.root_grant_id = g.id;
+        g
+    }
+
+    fn briefcase() -> Briefcase {
+        Briefcase {
+            schema_version: 1,
+            task_shape: TaskShape {
+                route_id: "owner_telegram_main_assistant".to_string(),
+                workflow_id: "owner_control_conversation".to_string(),
+                counterparty: CounterpartyRef::Unresolved {
+                    channel: "worker".to_string(),
+                    identifier: "worker-1".to_string(),
+                },
+            },
+            source_snapshot_id: Digest::parse(format!("sha256:{}", "0".repeat(64))).unwrap(),
+            depth: 1,
+            tier: openspine_schemas::briefcase::RelationshipTier::Stranger,
+            class: TaskClass::Conversation,
+            sections: vec![],
+            top_up_log: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn get_task_emits_empty_output_channels_for_worker_grant() {
+        let store = Store::open_in_memory().unwrap();
+        let state = Arc::new(build_state_with_store(
+            store,
+            TelegramConnector::new("test-token".to_string()),
+            None,
+        ));
+        let grant = worker_grant();
+        let pending = state.artifacts.put(b"w").unwrap();
+        state
+            .store
+            .insert_grant_and_briefcase_atomic(&grant, &pending, state.owner_user_id, &briefcase())
+            .unwrap();
+
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", grant.task_token)).unwrap(),
+        );
+        let res = get_task(State(state.clone()), headers).await;
+        let body = match res {
+            Ok(Json(b)) => b,
+            Err((_, j)) => panic!("get_task failed: {j:?}"),
+        };
+        assert!(body.is_worker);
+        assert_eq!(
+            body.output_channels,
+            Some(vec![]),
+            "worker grant must serialize output_channels as [] (not null) \
+             so openspine-shell's TaskView (Vec<String>) deserializes"
+        );
+    }
 }

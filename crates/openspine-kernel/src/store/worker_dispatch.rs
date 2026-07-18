@@ -52,6 +52,9 @@ pub fn record_worker_commissioned(
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(StoreError::from)?;
+    if !grant.effectively_allows(&ActionId::new("worker.report_result")) {
+        return Err(StoreError::WorkerCannotReportResults);
+    }
     let already_recorded: Option<String> = tx
         .query_row(
             "SELECT grant_id FROM worker_dispatch WHERE receipt_key = ?1 LIMIT 1",

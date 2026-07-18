@@ -13,6 +13,10 @@ cargo fmt --check
 
 echo "== cargo clippy --workspace --all-targets -- -D warnings =="
 cargo clippy --workspace --all-targets -- -D warnings
+# The kernel E2E test spawns the REAL openspine-shell binary; cargo test
+# builds shell *tests* but not the shell *binary*, so build it here.
+echo "== cargo build openspine-shell binary =="
+cargo build -p openspine-shell --bin openspine-shell
 
 echo "== cargo test --workspace =="
 cargo test --workspace
