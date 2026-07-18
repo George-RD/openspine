@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: receipt-bound worker dispatch persistence and idempotency share one transaction boundary
 //! Worker commissioning dispatch state (AD-035 / D-083 / D-073).
 //!
 //! A commissioned worker owns one row here: `dispatched` once its grant +
@@ -15,11 +16,10 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::briefcase::Briefcase;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
-use openspine_schemas::worker::WorkerResult;
+use openspine_schemas::worker::{WorkerIdentity, WorkerResult};
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
-/// Where a commissioned worker's lifecycle stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum WorkerDispatchState {
@@ -31,9 +31,6 @@ pub enum WorkerDispatchState {
 /// one transaction. The explicit receipt key makes commission retries safe
 /// without collapsing intentionally identical commissions.
 ///
-/// Returns the grant id that was persisted (the original on duplicate receipt,
-/// the newly minted one on first commission), so the caller can return the
-/// correct grant to the master rather than a reminted replacement.
 #[allow(clippy::too_many_arguments)]
 pub fn record_worker_commissioned(
     store: &Store,
@@ -45,6 +42,8 @@ pub fn record_worker_commissioned(
     briefcase: &Briefcase,
     receipt: &str,
     request_digest: &Digest,
+    identity: &WorkerIdentity,
+    connector: &str,
 ) -> Result<Ulid, StoreError> {
     let mut redacted = grant.clone();
     redacted.task_token = String::new();
@@ -68,6 +67,39 @@ pub fn record_worker_commissioned(
         return Ulid::from_string(&original_grant_id)
             .map_err(|_| StoreError::BadUlid("worker_dispatch.grant_id".into()));
     }
+    // A worker may commission only while its worker parent is still live.
+    // Master grants do not have a worker_dispatch row and remain valid.
+    let parent_state: Option<String> = tx
+        .query_row(
+            "SELECT state FROM worker_dispatch WHERE grant_id = ?1",
+            params![parent_grant_id.to_string()],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(StoreError::from)?;
+    if matches!(parent_state.as_deref(), Some("terminal")) {
+        return Err(StoreError::WorkerDispatchAlreadyFailed);
+    }
+    // A fresh commission is the only restart/recomposition entry point. Fail
+    // closed once this connector has exhausted the default 3/30s intensity
+    // budget; duplicate receipts above are still idempotent and return their
+    // original grant without creating another dispatch.
+    // Count the connector failures already charged within the sliding window.
+    // The configured limit is the last failure that exhausts continuation: once
+    // `recent_failures >= restart_limit` rows are present, the next fresh
+    // commission is refused (the failed worker's grant is never inherited).
+    let cutoff = (Timestamp::now() - std::time::Duration::from_secs(30)).to_string();
+    let recent_failures: i64 = tx
+        .query_row(
+            "SELECT COUNT(*) FROM connector_restart_ledger \
+             WHERE connector = ?1 AND occurred_at > ?2",
+            params![connector, cutoff],
+            |row| row.get(0),
+        )
+        .map_err(StoreError::from)?;
+    if recent_failures >= 3 {
+        return Err(StoreError::WorkerRestartCapExceeded(connector.to_string()));
+    }
     tx.execute(
         "INSERT INTO task_grants
          (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id)
@@ -87,14 +119,19 @@ pub fn record_worker_commissioned(
     )?;
     tx.execute(
         "INSERT INTO worker_dispatch
-         (grant_id, parent_grant_id, state, receipt_key, request_digest, token_ref, created_at, updated_at)
-         VALUES (?1, ?2, 'dispatched', ?3, ?4, ?5, ?6, ?6)",
+         (grant_id, parent_grant_id, state, receipt_key, request_digest, token_ref,
+          identity_owner, identity_conversation, identity_task, connector, created_at, updated_at)
+         VALUES (?1, ?2, 'dispatched', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
         params![
             grant.id.to_string(),
             parent_grant_id.to_string(),
             receipt,
             request_digest.as_str(),
             serde_json::to_string(token_ref)?,
+            identity.owner,
+            identity.conversation,
+            identity.task,
+            connector,
             jiff::Timestamp::now().to_string(),
         ],
     )?;
@@ -401,6 +438,23 @@ pub fn worker_dispatch_state(
         _ => None,
     })
 }
+
+/// Return whether this worker grant has reached any terminal dispatch state.
+/// Authentication uses this marker so no worker token remains usable after
+/// either a recorded failure or a successfully recorded result.
+pub fn worker_dispatch_failed(store: &Store, worker_grant_id: Ulid) -> Result<bool, StoreError> {
+    let conn = store.conn.lock();
+    let terminal: Option<i64> = conn
+        .query_row(
+            "SELECT 1 FROM worker_dispatch \
+             WHERE grant_id = ?1 AND state = 'terminal'",
+            params![worker_grant_id.to_string()],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(StoreError::from)?;
+    Ok(terminal.is_some())
+}
 /// Read the master (parent) grant id a commissioned worker descends from.
 pub fn worker_parent_grant(
     store: &Store,
@@ -433,16 +487,27 @@ pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreErro
         CREATE INDEX IF NOT EXISTS idx_worker_dispatch_parent
             ON worker_dispatch (parent_grant_id, state, updated_at);",
     )?;
-    // Best-effort additive migration for legacy DBs that predate
-    // receipt_key, request_digest, token_ref, or recovery_claimed_at.
-    for col in [
-        "receipt_key",
-        "request_digest",
-        "token_ref",
-        "recovery_claimed_at",
+    // Best-effort additive migration. Preserves the four legacy dispatch
+    // columns (receipt_key, request_digest, token_ref, recovery_claimed_at)
+    // alongside the new supervision columns (identity tuple, trusted
+    // connector binding, restart counter, failure timestamp). Column types
+    // differ, so each carries its own ADD form; the state CHECK is
+    // intentionally unchanged (('dispatched','terminal')) so existing stores
+    // are never rebuilt.
+    for (col, ty) in [
+        ("receipt_key", "TEXT"),
+        ("request_digest", "TEXT"),
+        ("token_ref", "TEXT"),
+        ("recovery_claimed_at", "TEXT"),
+        ("connector", "TEXT"),
+        ("identity_owner", "TEXT"),
+        ("identity_conversation", "TEXT"),
+        ("identity_task", "TEXT"),
+        ("restart_count", "INTEGER"),
+        ("failed_at", "TEXT"),
     ] {
         if let Err(err) = conn.execute(
-            &format!("ALTER TABLE worker_dispatch ADD COLUMN {col} TEXT"),
+            &format!("ALTER TABLE worker_dispatch ADD COLUMN {col} {ty}"),
             [],
         ) {
             if !matches!(

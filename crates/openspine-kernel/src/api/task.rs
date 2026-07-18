@@ -99,15 +99,18 @@ mod tests {
     use axum::extract::State;
     use axum::http::header::{HeaderValue, AUTHORIZATION};
 
+    use crate::store::worker_dispatch::record_worker_commissioned;
     use crate::store::Store;
     use crate::telegram::TelegramConnector;
     use crate::test_support::fixtures::build_state_with_store;
 
     use jiff::Timestamp;
+    use openspine_schemas::action::ActionId;
     use openspine_schemas::artifact::Lifecycle;
     use openspine_schemas::briefcase::{Briefcase, CounterpartyRef, TaskClass, TaskShape};
     use openspine_schemas::digest::Digest;
     use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
+    use openspine_schemas::worker::WorkerIdentity;
     use ulid::Ulid;
 
     /// A worker sub-grant: a real `parent_grant_id` (so `get_task` treats it
@@ -131,7 +134,7 @@ mod tests {
             capability_pack_id: "owner_control_basic_pack".to_string(),
             authority_sources: vec![],
             selection_tokens: vec![],
-            allowed_actions: vec![],
+            allowed_actions: vec![ActionId::new("worker.report_result")],
             approval_required_actions: vec![],
             denied_actions: vec![],
             allowed_egress_classes: vec![],
@@ -183,10 +186,25 @@ mod tests {
         ));
         let grant = worker_grant();
         let pending = state.artifacts.put(b"w").unwrap();
-        state
-            .store
-            .insert_grant_and_briefcase_atomic(&grant, &pending, state.owner_user_id, &briefcase())
-            .unwrap();
+        let token_ref = state.artifacts.put(b"worker-token").unwrap();
+        record_worker_commissioned(
+            &state.store,
+            grant.parent_grant_id.unwrap(),
+            &grant,
+            &pending,
+            &token_ref,
+            state.owner_user_id,
+            &briefcase(),
+            "task-view-dispatch",
+            &Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            &WorkerIdentity {
+                owner: "owner".to_string(),
+                conversation: "task-view".to_string(),
+                task: grant.id.to_string(),
+            },
+            "telegram_owner_bot",
+        )
+        .unwrap();
 
         let mut headers = axum::http::HeaderMap::new();
         headers.insert(

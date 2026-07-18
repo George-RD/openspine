@@ -40,6 +40,7 @@ use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::briefcase::{Briefcase, CounterpartyRef, TaskClass, TaskShape};
 use openspine_schemas::digest::Digest;
+use openspine_schemas::event::Connector;
 use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
 use ulid::Ulid;
 
@@ -187,6 +188,18 @@ async fn commissioned_worker_reports_and_master_relays_through_real_shell() {
     // Real state, but the sandbox driver spawns the freshly-built shell binary.
     let store = Store::open_in_memory().unwrap();
     let mut state = build_state_with_store(store, connector, None);
+    // Supervision requires a connector-bound route. The production owner
+    // Telegram route is intentionally connector-agnostic, so bind this
+    // isolated e2e registry copy to the Telegram connector.
+    {
+        let mut registry = state.registry.write();
+        let route = registry
+            .routes
+            .iter_mut()
+            .find(|route| route.id == "owner_telegram_main_assistant")
+            .expect("owner Telegram route fixture");
+        route.when.connector = Some(Connector::TelegramOwnerBot);
+    }
     state.sandbox = Sandbox::Process(ProcessDriver {
         shell_binary: worker_shell_binary(),
         scratch_root: std::env::temp_dir().join(format!("openspine-e2e-{}", Ulid::new())),
@@ -271,16 +284,17 @@ async fn commissioned_worker_reports_and_master_relays_through_real_shell() {
     let token_ref: openspine_schemas::artifact::ArtifactRef =
         serde_json::from_str(&token_ref_json).unwrap();
     let worker_token = String::from_utf8(state.artifacts.get(&token_ref).unwrap()).unwrap();
+    // D-111: the shell has already reported a terminal result, so its bearer
+    // token is dead and cannot fetch the task view again.
     let task_view_response = reqwest::Client::new()
         .get(format!("http://{addr}/v1/task"))
         .bearer_auth(worker_token)
         .send()
         .await
         .unwrap();
-    assert_eq!(task_view_response.status(), 200);
-    let task_view: serde_json::Value = task_view_response.json().await.unwrap();
-    assert_eq!(task_view["is_worker"], true);
-    assert_eq!(task_view["output_channels"], json!([]));
+    assert_eq!(task_view_response.status(), 403);
+    let task_rejection: serde_json::Value = task_view_response.json().await.unwrap();
+    assert_eq!(task_rejection["error"], "unauthorized");
     assert_eq!(audit_action_count(&state, "worker.report_result"), 1);
     assert_eq!(
         state

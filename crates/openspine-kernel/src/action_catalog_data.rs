@@ -325,6 +325,13 @@ pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
             },
         ),
         (
+            id("worker.failed"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
+        (
             id("skill.context"),
             ActionEgressDeclaration {
                 output_channels: None,

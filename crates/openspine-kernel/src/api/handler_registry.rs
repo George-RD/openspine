@@ -26,7 +26,7 @@ use super::artifact_propose::dispatch_artifact_propose;
 use super::connector_breaker::call_with_connector_write;
 use super::plan::dispatch_plan_preview;
 use super::skill_context::dispatch_skill_context;
-use super::worker::{handle_worker_commission, handle_worker_report_result};
+use super::worker::{handle_worker_commission, handle_worker_failed, handle_worker_report_result};
 
 /// The boxed future every handler returns. Must be `Send` because dispatch
 /// runs on the axum request task.
@@ -88,6 +88,7 @@ impl ActionHandlerRegistry {
             "worker.report_result",
             handle_worker_report_result as ActionHandler,
         );
+        map.insert("worker.failed", handle_worker_failed as ActionHandler);
         map.insert("skill.context", handle_skill_context as ActionHandler);
         ActionHandlerRegistry { map }
     }

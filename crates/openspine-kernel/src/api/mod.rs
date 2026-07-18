@@ -81,6 +81,7 @@ use serde_json::{json, Value};
 use ulid::Ulid;
 
 use crate::pipeline::AppState;
+use crate::store::worker_dispatch::worker_dispatch_failed;
 use crate::store::Store;
 
 /// [`Store`] backs [`GateContext`] directly. A DB read failure here is
@@ -198,6 +199,20 @@ pub(crate) async fn authenticate(
             None,
             None,
             Some("expired_token"),
+            Some(grant.id),
+            &[],
+            &[],
+        ) {
+            return Err(internal_error(err));
+        }
+        return Err(unauthorized());
+    }
+    if worker_dispatch_failed(&state.store, grant.id).map_err(internal_error)? {
+        if let Err(err) = state.store.append_audit(
+            "auth.rejected",
+            None,
+            None,
+            Some("worker_failed"),
             Some(grant.id),
             &[],
             &[],

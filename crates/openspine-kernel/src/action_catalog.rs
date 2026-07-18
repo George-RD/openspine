@@ -71,6 +71,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         "web.form_submit",
         "worker.commission",
         "worker.report_result",
+        "worker.failed",
         "skill.context",
     ];
     // Every catalog id receives a literal declaration. `None/None` is a
@@ -259,14 +260,15 @@ mod tests {
 
     #[test]
     fn worker_actions_declare_no_egress_and_no_output_channel() {
-        // `worker.commission` / `worker.report_result` must not be
-        // classified as egress endpoints or output-channel deliveries: the
-        // worker can only ever report back via `worker.result` (AD-035 reply
-        // chokepoint), never egress directly.
+        // `worker.commission` / `worker.report_result` / `worker.failed` must
+        // not be classified as egress endpoints or output-channel deliveries:
+        // the worker can only ever report back via `worker.result` (AD-035
+        // reply chokepoint), never egress directly.
         let catalog = canonical_catalog();
         for id in [
             ActionId::new("worker.commission"),
             ActionId::new("worker.report_result"),
+            ActionId::new("worker.failed"),
         ] {
             let decl = catalog
                 .egress_decl_for(&id)

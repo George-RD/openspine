@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: process and Docker worker drivers share one sandbox boundary
 //! Sandbox drivers: spawn `openspine-shell` in isolation for each task.
 //!
 //! Two implementations are provided:
@@ -14,6 +15,39 @@
 use anyhow::Context as _;
 use openspine_schemas::event::Lane;
 use std::path::{Path, PathBuf};
+
+#[derive(Debug)]
+pub enum TaskRunError {
+    Startup(anyhow::Error),
+    ShellExited(std::process::ExitStatus),
+    Crashed(std::process::ExitStatus),
+}
+
+impl std::fmt::Display for TaskRunError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Startup(error) => write!(f, "worker startup failed: {error}"),
+            Self::ShellExited(status) => write!(f, "worker shell exited: {status}"),
+            Self::Crashed(status) => write!(f, "worker crashed: {status}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DockerFailureClass {
+    Startup,
+    Crash,
+    ShellExit,
+}
+
+fn classify_docker_exit_code(code: i32) -> DockerFailureClass {
+    match code {
+        125..=127 => DockerFailureClass::Startup,
+        128..=255 => DockerFailureClass::Crash,
+        _ => DockerFailureClass::ShellExit,
+    }
+}
+impl std::error::Error for TaskRunError {}
 
 // ──────────────────────────────────────────────────────────────────────────
 // ProcessDriver
@@ -48,63 +82,49 @@ impl Default for ProcessDriver {
 
 impl ProcessDriver {
     /// Build a `tokio::process::Command` for the shell invocation.
-    ///
-    /// The command has `env_clear()` applied before setting `KERNEL_ENDPOINT`
-    /// and `TASK_TOKEN`, so no ambient env vars reach the child process.
-    /// `scratch_dir` must already exist; the caller is responsible for creating
-    /// it (see [`Self::run_task`]).
     fn build_command(
         &self,
         scratch_dir: &Path,
         kernel_endpoint: &str,
         task_token: &str,
     ) -> tokio::process::Command {
-        let mut cmd = tokio::process::Command::new(&self.shell_binary);
-        cmd.env_clear()
+        let mut command = tokio::process::Command::new(&self.shell_binary);
+        command
+            .env_clear()
             .env("KERNEL_ENDPOINT", kernel_endpoint)
             .env("TASK_TOKEN", task_token)
-            // CLI flags carry only the endpoint and token — never the
-            // owner's message text, which would otherwise sit in argv,
-            // readable via `ps`/`docker inspect` outside the shell's own
-            // process. The shell fetches its pending message in-process
-            // over the authenticated `GET /v1/task` call instead.
             .args(["--kernel", kernel_endpoint, "--task", task_token])
             .current_dir(scratch_dir);
-        cmd
+        command
     }
 
-    /// Spawn the shell binary for this task and wait for it to exit.
-    ///
-    /// Returns `Ok(())` on exit status 0, an error otherwise (non-zero exit,
-    /// spawn failure, I/O error).  Never panics.
-    pub async fn run_task(&self, kernel_endpoint: &str, task_token: &str) -> anyhow::Result<()> {
-        // Derive a filesystem-safe directory name from the task token.
+    pub async fn run_task(
+        &self,
+        kernel_endpoint: &str,
+        task_token: &str,
+    ) -> Result<(), TaskRunError> {
         let dir_name = task_token.replace(['/', '\\', '.', ':'], "_");
         let scratch_dir = self.scratch_root.join(&dir_name);
-        std::fs::create_dir_all(&scratch_dir).with_context(|| {
-            format!(
-                "ProcessDriver: failed to create scratch dir {}",
-                scratch_dir.display()
-            )
-        })?;
-
+        std::fs::create_dir_all(&scratch_dir)
+            .with_context(|| format!("failed to create scratch dir {}", scratch_dir.display()))
+            .map_err(TaskRunError::Startup)?;
         let status = self
             .build_command(&scratch_dir, kernel_endpoint, task_token)
             .status()
             .await
             .with_context(|| {
                 format!(
-                    "ProcessDriver: failed to spawn shell binary {}",
+                    "failed to spawn shell binary {}",
                     self.shell_binary.display()
                 )
-            })?;
-
+            })
+            .map_err(TaskRunError::Startup)?;
         if status.success() {
             Ok(())
+        } else if status.code().is_some() {
+            Err(TaskRunError::ShellExited(status))
         } else {
-            Err(anyhow::anyhow!(
-                "ProcessDriver: shell exited with non-zero status: {status}"
-            ))
+            Err(TaskRunError::Crashed(status))
         }
     }
 }
@@ -167,24 +187,30 @@ impl DockerDriver {
     }
 
     /// Spawn the shell container for this task and wait for it to exit.
-    ///
-    /// Returns `Ok(())` on exit status 0, an error otherwise (non-zero exit,
-    /// docker spawn failure, I/O error).  Never panics.
-    pub async fn run_task(&self, kernel_endpoint: &str, task_token: &str) -> anyhow::Result<()> {
+    pub async fn run_task(
+        &self,
+        kernel_endpoint: &str,
+        task_token: &str,
+    ) -> Result<(), TaskRunError> {
         let args = self.docker_run_args(kernel_endpoint, task_token);
-
         let status = tokio::process::Command::new("docker")
             .args(&args)
             .status()
             .await
-            .context("DockerDriver: failed to invoke docker CLI")?;
-
+            .context("failed to invoke docker CLI")
+            .map_err(TaskRunError::Startup)?;
         if status.success() {
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!(
-                "DockerDriver: docker run exited with non-zero status: {status}"
-            ))
+            return Ok(());
+        }
+        match status.code() {
+            None => Err(TaskRunError::Crashed(status)),
+            Some(code) => match classify_docker_exit_code(code) {
+                DockerFailureClass::Startup => Err(TaskRunError::Startup(anyhow::anyhow!(
+                    "docker run failed with startup exit code {code}"
+                ))),
+                DockerFailureClass::Crash => Err(TaskRunError::Crashed(status)),
+                DockerFailureClass::ShellExit => Err(TaskRunError::ShellExited(status)),
+            },
         }
     }
 }
@@ -207,13 +233,14 @@ impl Sandbox {
     ///
     /// Returns `Ok(())` if the shell exited 0; returns an error on non-zero
     /// exit, spawn failure, or any I/O error. Never panics. The shell
-    /// fetches its pending message itself over `GET /v1/task` — it is
-    /// never passed here, so it never appears in argv/env visible via
-    /// `ps`/`docker inspect`.
-    pub async fn run_task(&self, kernel_endpoint: &str, task_token: &str) -> anyhow::Result<()> {
+    pub async fn run_task(
+        &self,
+        kernel_endpoint: &str,
+        task_token: &str,
+    ) -> Result<(), TaskRunError> {
         match self {
-            Sandbox::Process(d) => d.run_task(kernel_endpoint, task_token).await,
-            Sandbox::Docker(d) => d.run_task(kernel_endpoint, task_token).await,
+            Sandbox::Process(driver) => driver.run_task(kernel_endpoint, task_token).await,
+            Sandbox::Docker(driver) => driver.run_task(kernel_endpoint, task_token).await,
         }
     }
 }
@@ -494,5 +521,16 @@ mod tests {
             !joined.contains("--env-file"),
             "--env-file must not appear; args: {joined}"
         );
+    }
+    #[test]
+    fn docker_exit_taxonomy_distinguishes_startup_crash_and_shell() {
+        assert_eq!(classify_docker_exit_code(125), DockerFailureClass::Startup);
+        assert_eq!(classify_docker_exit_code(126), DockerFailureClass::Startup);
+        assert_eq!(classify_docker_exit_code(127), DockerFailureClass::Startup);
+        assert_eq!(classify_docker_exit_code(1), DockerFailureClass::ShellExit);
+        assert_eq!(classify_docker_exit_code(128), DockerFailureClass::Crash);
+        assert_eq!(classify_docker_exit_code(129), DockerFailureClass::Crash);
+        assert_eq!(classify_docker_exit_code(137), DockerFailureClass::Crash);
+        assert_eq!(classify_docker_exit_code(143), DockerFailureClass::Crash);
     }
 }
