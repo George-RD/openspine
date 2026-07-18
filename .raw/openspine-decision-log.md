@@ -103,6 +103,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-089 | Reasoning-tier routing stores only explicit overrides and resolves the active provider per call | Accepted |
 | D-090 | Workflow manifests are digest-bound at run start; production driving is deferred to worker-runtime/seed-workflows | Accepted |
 | D-091 | Seed workflows ship as overlay artifacts under distinct seed identities through the standard quarantine path with marker-gated first-boot materialization | Accepted |
+| D-092 | Nerve admission and replay are kernel-owned boundaries with atomic budget debits and gate-visible structured interjections | Accepted |
+| D-093 | Manifest-derived advisee limits seed `ModelTier::Cheap` until agent manifests carry a model-tier ceiling | Accepted |
 
 ---
 
@@ -2222,6 +2224,48 @@ A ratified first-run onboarding ceremony pre-accepts seeds with explicit owner c
 
 ---
 
+# D-092 — Nerve admission and replay are kernel-owned boundaries
+
+## Decision
+
+Nerve threshold and retirement checks may be pure, but an interjection becomes emit-ready only through a kernel store admission that atomically debits the durable window budget. Advisor and Screener interjections are always structured and gate-visible; callers cannot downgrade them to ambient context. Nerve registration transactionally binds its ULID to the archived event-bus checkpoint with the exact declared filter. Registered nerves replay through typed handlers, and checkpoints advance only after successful handling. Reaction decay is durable and retires a class after five ignored reactions.
+
+## Rationale
+
+Keeping admission, budget accounting, replay checkpoints, and decay in kernel-owned transactions makes nerve behavior structural (AD-034/AD-071) rather than advisory; a shell cannot mint, replay, or amplify interjections beyond what the kernel admits.
+
+## Consequences
+
+Every emitted interjection is budget-accounted and auditable; revoking or narrowing a manifest revokes dependent registrations and their queued deliveries.
+
+## Would change if
+
+A ratified multi-agent nerve topology needs cross-kernel admission or delegated budget authorities.
+
+---
+
+
+# D-093 — Seeded nerves default to the Cheap model tier
+
+## Decision
+
+Agent manifests do not yet carry a per-agent model-tier ceiling, so manifest-derived advisee limits MUST seed `ModelTier::Cheap` until that manifest authority exists; this conservative default prevents a registered nerve from selecting a stronger model tier than the kernel can justify.
+
+## Rationale
+
+Fail-conservative defaulting keeps nerve model spend bounded by an explicit kernel rule instead of an absent manifest field.
+
+## Consequences
+
+Nerves wanting stronger tiers require a future manifest ceiling field and its ratified authority semantics.
+
+## Would change if
+
+Agent manifests gain a ratified model-tier ceiling; limits then derive from the manifest.
+
+---
+
+
 
 ## Open Decision Questions — CLOSED (see linked decisions)
 
@@ -2285,4 +2329,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-085 (lane-derived briefcase task classes pending canon ratification) and D-086 (bounded pre-gate email metadata snapshot carrying only the recipient), settled while implementing `implement-briefcase-packing`. |
 | 2026-07-17 | Added D-087 (declarative state machines with digest-bound approval authorization), D-088 (exactly-one advancing step with edge-bound approval semantics), D-089 (per-call active-provider tier resolution), and D-090 (digest-bound manifests at run start; production driving deferred to worker-runtime/seed-workflows), settled while implementing `implement-workflow-state-machines`. |
 | 2026-07-17 | Added D-091 (seed workflows as overlay artifacts through the standard quarantine path with marker-gated first-boot materialization), settled while implementing `implement-seed-workflows`. |
+| 2026-07-18 | Added D-092 (kernel-owned nerve admission/replay boundaries with atomic budget debits) and D-093 (ModelTier::Cheap conservative default for manifest-derived advisee limits), settled while implementing `implement-nerve-subscribers`. |
 

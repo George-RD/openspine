@@ -36,6 +36,8 @@ mod test_support;
 
 #[cfg(test)]
 mod model_swap_recovery_tests;
+#[cfg(test)]
+mod nerve_delivery_tests;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::connectors::ConnectorRegistry;
@@ -84,6 +86,15 @@ struct Cli {
     config: PathBuf,
     #[arg(long)]
     benchmark: bool,
+}
+
+fn nerve_delivery_handoff_complete(outcome: pipeline::NotifyOutcome) -> bool {
+    matches!(
+        outcome,
+        pipeline::NotifyOutcome::Sent
+            | pipeline::NotifyOutcome::OutcomeAuditFailed
+            | pipeline::NotifyOutcome::SendFailed
+    )
 }
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -157,6 +168,11 @@ async fn main() -> anyhow::Result<()> {
     let overlay_dir = overlay_startup.overlay_dir;
     let pending_reconfirm_buttons = overlay_startup.pending_reconfirm_buttons;
     let pending_reconfirm_notices = overlay_startup.pending_reconfirm_notices;
+    // AD-130/AD-132: seed kernel-owned nerve advisee limits from the loaded
+    // active agent-manifest registry before any nerve can register.
+    store
+        .seed_advisee_limits_from_manifests(registry.agents.values())
+        .context("seeding nerve advisee limits from agent manifests")?;
 
     let sandbox = match cfg.sandbox.driver {
         config::SandboxDriverKind::Process => {
@@ -425,12 +441,55 @@ async fn main() -> anyhow::Result<()> {
     // fires due timers, sleeping until the earliest known deadline.
     let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
     let task_timer_consumer = pipeline::run_task_deadline_consumer(&state);
+
+    // AD-130/AD-132/AD-034: kernel-owned nerve dispatcher. Periodically
+    // replays registered nerves (first real handler: the AD-034 screener)
+    // over the audit ledger through their persisted filters.
+    let nerve_dispatcher = store::nerve_dispatch::run_nerve_dispatcher(
+        &state.store,
+        std::time::Duration::from_secs(5),
+    );
+
+    let nerve_delivery = async {
+        loop {
+            match state.store.pending_nerve_deliveries() {
+                Ok(items) => {
+                    for (interjection_id, class_digest) in items {
+                        let outcome = pipeline::notify_owner_with_digest(
+                            &state,
+                            state.owner_user_id,
+                            &format!(
+                                "A governed screener notice is ready (digest {class_digest})."
+                            ),
+                            &[],
+                            None,
+                        )
+                        .await;
+                        if nerve_delivery_handoff_complete(outcome) {
+                            if let Err(err) = state.store.ack_nerve_delivery(&interjection_id) {
+                                tracing::error!("acknowledging nerve delivery: {err}");
+                            }
+                        } else {
+                            tracing::warn!(
+                                ?outcome,
+                                "nerve delivery not durably handed off; retaining for retry"
+                            );
+                        }
+                    }
+                }
+                Err(err) => tracing::error!("loading nerve deliveries: {err}"),
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        }
+    };
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
         res = retry_worker => res.context("dead-letter retry loop failed")?,
         res = timer_driver => res.context("runtime clock/timer driver failed")?,
         () = task_timer_consumer => unreachable!("task timer consumer loops forever"),
+        () = nerve_dispatcher => unreachable!("run_nerve_dispatcher loops forever"),
+        () = nerve_delivery => unreachable!("nerve_delivery loops forever"),
     }
     Ok(())
 }

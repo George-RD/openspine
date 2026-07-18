@@ -5,6 +5,7 @@
 
 use jiff::Timestamp;
 use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
+use openspine_schemas::event::Lane;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::route::RouteResolution;
 use ulid::Ulid;
@@ -62,15 +63,26 @@ pub async fn run_pipeline(
     // is ever emitted on a preflight-failure path (preserves both flows'
     // audit surface).
     let (envelope, raw_ref) = (spec.build_envelope)(state, inputs, now)?;
-    state.store.append_audit(
-        "event.received",
-        None,
-        None,
-        None,
-        None,
-        &[],
-        std::slice::from_ref(&raw_ref),
-    )?;
+    if spec.lane == Lane::OwnerControl {
+        // AD-034: only the owner-control lane has the authorized plaintext
+        // and `owner_control` aggregate required for the manipulation screen.
+        // The event and structured signal commit atomically.
+        state
+            .store
+            .append_event_received_with_screen(&raw_ref, &inputs.text)?;
+    } else {
+        // Other lanes retain their ordinary audited event path; their content
+        // must not be attributed to owner-control screening authority.
+        state.store.append_audit(
+            "event.received",
+            None,
+            None,
+            None,
+            None,
+            &[],
+            std::slice::from_ref(&raw_ref),
+        )?;
+    }
     trace.push(PipelineStage::Identify);
     let resolver = crate::identity::IdentityResolver::new(
         &state.store,

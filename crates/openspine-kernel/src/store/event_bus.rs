@@ -294,6 +294,39 @@ impl Store {
     }
 }
 
+#[allow(dead_code)]
+/// Bind a consumer id to a filter before delivery begins. Nerve registration
+/// uses this on the same SQLite transaction as its declaration row, so every
+/// nerve rides the existing audit-ledger checkpoint substrate.
+pub(crate) fn bind_consumer_conn(
+    conn: &Connection,
+    consumer_id: &str,
+    filter: &EventSubscriptionFilter,
+) -> Result<(), StoreError> {
+    let existing: Option<String> = conn
+        .query_row(
+            "SELECT checkpoint_json FROM consumer_checkpoints WHERE consumer_id = ?1",
+            params![consumer_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if existing.is_some() {
+        return Err(StoreError::CheckpointRegression(consumer_id.to_string()));
+    }
+    let state = PersistedConsumerState {
+        schema_version: 1,
+        checkpoint: ConsumerCheckpoint::default(),
+        filter: filter.clone(),
+    };
+    conn.execute(
+        "INSERT INTO consumer_checkpoints
+         (consumer_id, last_acked_global_seq, checkpoint_json)
+         VALUES (?1, 0, ?2)",
+        params![consumer_id, serde_json::to_string(&state)?],
+    )?;
+    Ok(())
+}
+
 /// Idempotent consumer over a typed filter (AD-105).
 ///
 /// Primary dedup is the global-sequence watermark (`last_acked_global_seq`).
