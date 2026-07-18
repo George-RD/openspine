@@ -83,6 +83,18 @@ impl Store {
         Self::replay_audit_conn(&conn, filter, after_global_seq_i64)
     }
 
+    /// Resolve an event only after validating its row/event/hash coordinates.
+    pub(crate) fn validated_audit_event_by_id(
+        &self,
+        id: Ulid,
+    ) -> Result<Option<AuditEvent>, StoreError> {
+        Ok(self
+            .replay_audit(&EventSubscriptionFilter::all(), 0)?
+            .into_iter()
+            .find(|entry| entry.event.id == id)
+            .map(|entry| entry.event))
+    }
+
     /// Replay the audit ledger over an already-locked `Connection`, applying
     /// the same row/event coordinate and consistency validation as
     /// [`Self::replay_audit`]. Exposed so callers that already hold the lock

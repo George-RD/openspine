@@ -219,6 +219,39 @@ async fn artifact_propose_rejects_template_kind() {
 }
 
 #[tokio::test]
+async fn artifact_propose_rejects_persona_kind() {
+    let state = test_state();
+    let grant = handle_owner_update(&state, &owner_update("hello lyra"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+
+    // AD-080: personas carry no authority, so they are not in the
+    // proposable-kind table and a chat can never propose one — only the
+    // six authority-bearing kinds may enter propose -> approve -> activate.
+    let payload = json!({
+        "kind": "persona",
+        "yaml": "id: injected_persona\nschema_version: 1\n",
+    });
+    let err = dispatch_artifact_propose(&state, &grant, OWNER_CHAT_ID, Some(&payload))
+        .await
+        .unwrap_err();
+    match err {
+        DispatchError::BadRequest(msg) => assert!(
+            msg.contains("route|agent|workflow|pack|policy"),
+            "unexpected message: {msg}"
+        ),
+        DispatchError::Resource(_) | DispatchError::Connector(_) => {
+            panic!("persona kind must be a BadRequest, not infrastructure failure")
+        }
+    }
+    assert!(!state
+        .store
+        .proposed_artifact_exists("persona", "injected_persona", 1)
+        .unwrap());
+}
+
+#[tokio::test]
 async fn artifact_propose_rejects_duplicate_id_version() {
     let server = MockServer::start().await;
     let token = "test-token";

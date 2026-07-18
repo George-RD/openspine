@@ -93,21 +93,45 @@ impl ArtifactStore {
             blob.extend_from_slice(&nonce_bytes);
             blob.extend_from_slice(&ciphertext);
 
-            // Write-then-rename: a crash mid-write leaves only an orphaned
-            // `.tmp.*` file, never a truncated/corrupt blob at the final
-            // content-addressed path (which would otherwise permanently
-            // poison this digest — `put` treats an existing path as
-            // "already stored" and never overwrites it).
+            // Write and fsync the blob before publishing its name, then fsync
+            // the containing directory so the rename survives power loss.
             let tmp_path = path.with_extension(format!("tmp.{}", hex_encode(&nonce_bytes)));
             std::fs::write(&tmp_path, &blob).map_err(|source| ArtifactStoreError::Io {
                 path: tmp_path.clone(),
                 source,
             })?;
+            std::fs::File::open(&tmp_path)
+                .and_then(|file| file.sync_all())
+                .map_err(|source| ArtifactStoreError::Io {
+                    path: tmp_path.clone(),
+                    source,
+                })?;
             std::fs::rename(&tmp_path, &path).map_err(|source| ArtifactStoreError::Io {
                 path: path.clone(),
                 source,
             })?;
+            std::fs::File::open(&self.root)
+                .and_then(|directory| directory.sync_all())
+                .map_err(|source| ArtifactStoreError::Io {
+                    path: self.root.clone(),
+                    source,
+                })?;
         }
+        // Also re-sync an existing blob and directory entry. This closes the
+        // rename-success/directory-fsync-failure retry hole and upgrades blobs
+        // written by older versions of the store.
+        std::fs::File::open(&path)
+            .and_then(|file| file.sync_all())
+            .map_err(|source| ArtifactStoreError::Io {
+                path: path.clone(),
+                source,
+            })?;
+        std::fs::File::open(&self.root)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|source| ArtifactStoreError::Io {
+                path: self.root.clone(),
+                source,
+            })?;
 
         Ok(ArtifactRef {
             digest,

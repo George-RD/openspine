@@ -103,14 +103,7 @@ async fn run_case(
             SpendModelError::Ledger(store_err) => anyhow::anyhow!(store_err),
             SpendModelError::Denied => anyhow::anyhow!("daily model spend cap exceeded"),
         })?;
-    let passed = case
-        .must_contain
-        .iter()
-        .all(|needle| output.contains(needle))
-        && case
-            .must_not_contain
-            .iter()
-            .all(|needle| !output.contains(needle));
+    let passed = golden_case_output_passes(&case.must_contain, &case.must_not_contain, &output);
     Ok(GoldenSetCaseResult {
         case_id: case.id.clone(),
         kind: case.kind,
@@ -131,6 +124,17 @@ fn bounded_excerpt(output: &str) -> String {
         .last()
         .unwrap_or(0);
     output[..end].to_string()
+}
+fn golden_case_output_passes(
+    must_contain: &[String],
+    must_not_contain: &[String],
+    output: &str,
+) -> bool {
+    must_contain.iter().all(|needle| output.contains(needle))
+        && must_not_contain
+            .iter()
+            .all(|needle| !output.contains(needle))
+        && crate::overlay_eval_gate::personality_probes::run_probes(output).is_empty()
 }
 
 /// Activation-time binding check. It must run before any lifecycle, overlay,
@@ -168,6 +172,20 @@ mod tests {
         let excerpt = bounded_excerpt(&output);
         assert!(excerpt.len() <= MAX_OBSERVED_EXCERPT_BYTES);
         assert!(excerpt.is_char_boundary(excerpt.len()));
+    }
+
+    #[test]
+    fn golden_case_output_rejects_personality_probe_violation() {
+        assert!(!golden_case_output_passes(
+            &[],
+            &[],
+            "Just to confirm, did you want me to proceed? I can wait.",
+        ));
+        assert!(golden_case_output_passes(
+            &["Status: ready".to_string()],
+            &[],
+            "Status: ready. The next action is prepared.",
+        ));
     }
 
     #[test]

@@ -91,6 +91,43 @@ async fn nomination_requires_explicit_depersonalized_assertion() {
 }
 
 #[tokio::test]
+async fn nomination_rejects_persona_kind_before_authority_path() {
+    let server = MockServer::start().await;
+    telegram_ok(&server).await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".into(),
+        server.uri().parse().unwrap(),
+    ));
+    let grant = handle_owner_update(&state, &owner_update("hello lyra"))
+        .await
+        .unwrap()
+        .expect("owner grant composed");
+    let err = dispatch_artifact_nominate(
+        &state,
+        &grant,
+        OWNER_CHAT_ID,
+        Some(&json!({
+            "kind": "persona",
+            "artifact_id": "seed",
+            "version": 1,
+            "depersonalized": true
+        })),
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(err, DispatchError::BadRequest(message) if message.contains("not proposable"))
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("artifact.nomination_requested")
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
 async fn nomination_owner_tap_persists_nominated_status_and_audit() {
     let server = MockServer::start().await;
     telegram_ok(&server).await;

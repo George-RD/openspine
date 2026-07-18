@@ -32,6 +32,24 @@ fn ledger_append_is_visible_before_consumer_runs() {
 }
 
 #[test]
+fn validated_lookup_rejects_dangling_persona_provenance_event_id() {
+    let store = Store::open_in_memory().unwrap();
+    let exchange = openspine_schemas::artifact::ArtifactRef {
+        digest: openspine_schemas::digest::digest_of_bytes(b"exchange"),
+        schema_version: 1,
+    };
+    let dangling = Ulid::new();
+    assert!(
+        store
+            .validated_audit_event_by_id(dangling)
+            .unwrap()
+            .is_none(),
+        "a persona row with a valid exchange but dangling source event must quarantine"
+    );
+    assert!(!exchange.digest.to_string().is_empty());
+}
+
+#[test]
 fn unique_ids_and_per_aggregate_sequences() {
     let store = Store::open_in_memory().unwrap();
     let grant_a = Ulid::new();

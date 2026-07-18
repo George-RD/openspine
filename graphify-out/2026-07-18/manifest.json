@@ -1100,8 +1100,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/connectors.rs": {
-    "mtime": 1784362267.272328,
-    "ast_hash": "85e6bca6dbdae501ef6cc5b937ab171c",
+    "mtime": 1784362379.5825388,
+    "ast_hash": "b5aef353ba2701edbe430df228ce139d",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/kernel_tests.rs": {

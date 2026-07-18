@@ -6,7 +6,7 @@ use crate::store::learned_artifacts::{
     CompatibilityStatus, LearnedArtifact, NominationStatus, Provenance,
 };
 
-use crate::artifact_loader::ArtifactRegistry;
+use crate::artifact_loader::{ArtifactRegistry, ArtifactSource};
 use crate::artifact_store::ArtifactStore;
 use crate::store::proposed_artifacts::ProposedArtifact;
 use crate::store::Store;
@@ -238,6 +238,61 @@ fn approved_dangling_recovery_quarantines_and_requests_reconfirm() {
 }
 
 #[test]
+fn persona_with_dangling_source_event_is_excluded_even_with_exchange_blob() {
+    let (store, artifacts, data_dir, overlay_dir) = fixture();
+    let lyra_dir = tempdir().unwrap().keep();
+    let persona = openspine_schemas::persona::PersonaElement {
+        id: "dangling-persona".into(),
+        schema_version: 1,
+        version: 1,
+        lifecycle_state: Lifecycle::Active,
+        guidance: "positive guidance".into(),
+    };
+    let yaml = serde_yaml::to_string(&persona).unwrap();
+    let yaml_digest = digest_of_bytes(yaml.as_bytes()).to_string();
+    let exchange_ref = artifacts.put(b"valid exchange blob").unwrap();
+    std::fs::create_dir_all(overlay_dir.join("personas")).unwrap();
+    std::fs::write(
+        overlay_dir
+            .join("personas")
+            .join(crate::artifact_loader::overlay_filename(
+                &persona.id,
+                persona.version,
+            )),
+        yaml,
+    )
+    .unwrap();
+    store
+        .record_learned_artifact(&LearnedArtifact {
+            kind: "persona".into(),
+            artifact_id: persona.id.clone(),
+            version: persona.version,
+            namespace: ArtifactNamespace::Overlay,
+            provenance: Provenance::ProducedBy {
+                source_event_id: Ulid::new(),
+                source_exchange: exchange_ref,
+            },
+            accepted_via: None,
+            learned_at: Timestamp::now(),
+            compatibility: CompatibilityStatus::Compatible,
+            nomination: NominationStatus::None,
+            pending_reconfirmation_id: None,
+            pending_yaml_digest: Some(yaml_digest),
+            accepted_dependency_fingerprint: None,
+            source_path: None,
+            accepted_base_epoch: None,
+        })
+        .unwrap();
+
+    let startup = crate::overlay_startup::load(&lyra_dir, &data_dir, &store, &artifacts).unwrap();
+
+    assert!(
+        !startup.registry.personas.contains_key(&persona.id),
+        "dangling source event must quarantine persona despite valid exchange bytes"
+    );
+}
+
+#[test]
 fn active_v2_survives_stale_approved_v1_recovery() {
     let (store, artifacts, data_dir, overlay_dir) = fixture();
     let lyra_dir = tempdir().unwrap().keep();
@@ -344,4 +399,59 @@ fn mixed_active_v1_approved_v2_with_v1_file_keeps_v1_live() {
 #[test]
 fn mixed_active_v1_approved_v2_missing_v1_file_republishes_v1() {
     mixed_active_approved_recovery(false);
+}
+
+#[test]
+fn prune_non_highest_active_preserves_persona_typed_and_source_entries() {
+    let store = Store::open_in_memory().unwrap();
+    let mut registry = ArtifactRegistry::default();
+    let persona = openspine_schemas::persona::PersonaElement {
+        id: "seed".to_string(),
+        schema_version: 1,
+        version: 1,
+        lifecycle_state: Lifecycle::Active,
+        guidance: "positive guidance".to_string(),
+    };
+    let bytes = serde_yaml::to_string(&persona).unwrap().into_bytes();
+    let digest = digest_of_bytes(&bytes);
+    registry.personas.insert(persona.id.clone(), persona);
+    registry.sources.insert(
+        ("persona".to_string(), "seed".to_string(), 1),
+        ArtifactSource {
+            path: std::path::PathBuf::from("/tmp/persona-seed.yaml"),
+            bytes,
+        },
+    );
+    store
+        .record_learned_artifact(&LearnedArtifact {
+            kind: "persona".into(),
+            artifact_id: "seed".into(),
+            version: 1,
+            namespace: ArtifactNamespace::Overlay,
+            provenance: Provenance::ProducedBy {
+                source_event_id: Ulid::new(),
+                source_exchange: ArtifactRef {
+                    digest: digest_of_bytes(b"exchange"),
+                    schema_version: 1,
+                },
+            },
+            accepted_via: None,
+            learned_at: Timestamp::now(),
+            compatibility: CompatibilityStatus::Compatible,
+            nomination: NominationStatus::None,
+            pending_reconfirmation_id: None,
+            pending_yaml_digest: Some(digest.to_string()),
+            accepted_dependency_fingerprint: None,
+            source_path: None,
+            accepted_base_epoch: None,
+        })
+        .unwrap();
+
+    let excluded =
+        crate::overlay_recovery::prune_non_highest_active(&mut registry, &store).unwrap();
+    assert!(excluded.is_empty());
+    assert!(registry.personas.contains_key("seed"));
+    assert!(registry
+        .sources
+        .contains_key(&("persona".to_string(), "seed".to_string(), 1)));
 }

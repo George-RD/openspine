@@ -105,6 +105,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-091 | Seed workflows ship as overlay artifacts under distinct seed identities through the standard quarantine path with marker-gated first-boot materialization | Accepted |
 | D-092 | Nerve admission and replay are kernel-owned boundaries with atomic budget debits and gate-visible structured interjections | Accepted |
 | D-093 | Manifest-derived advisee limits seed `ModelTier::Cheap` until agent manifests carry a model-tier ceiling | Accepted |
+| D-094 | Persona is a seventh, addressable overlay artifact kind with no authority: absent from the proposable-kind table and authority composition | Accepted |
+| D-095 | Persona seeding uses a kernel-authored traceable bootstrap ProducedBy event with encrypted exchange blob and digest-bound learned rows; startup admission is provenance-gated | Accepted |
+| D-096 | Personality anti-pattern probes are deterministic eval constraints (no model calls, never prompt text); digest/brief format ships as the learnable default with the correction route owned by implement-reflection-miner | Accepted |
+| D-097 | Persona overlay loading is admission-gated: generic loaders exclude personas; a raw-byte admission gate requires a matching validated learned row before parsing | Accepted |
 
 ---
 
@@ -2266,6 +2270,90 @@ Agent manifests gain a ratified model-tier ceiling; limits then derive from the 
 ---
 
 
+# D-094 — Persona is a seventh overlay artifact kind with no authority
+
+## Decision
+
+Persona is a distinct, addressable, learnable overlay artifact kind. It carries no authority: it is intentionally absent from the proposable-kind table and never enters the authority composition path. Base loading rejects persona fixtures.
+
+## Rationale
+
+AD-136 makes personas overlay artifacts; keeping them out of the authority path preserves the invariant that task grants are the only live authority object (D-007) while personas stay learnable and user-supersedable.
+
+## Consequences
+
+No propose/approve/activate route exists for personas; forging a persona cannot mint authority.
+
+## Would change if
+
+A ratified persona-scoped behavioral authority (e.g. tone ceilings) needs composition-time enforcement.
+
+---
+
+
+# D-095 — Kernel-authored bootstrap provenance for seeded personas
+
+## Decision
+
+Seeding writes a kernel-authored bootstrap audit event pointing at an encrypted exchange blob; every seeded persona row binds to that event and its canonical YAML digest, with fsync/rename/dir-fsync publication before rows commit. Seed and repair validate existing rows (resolvable event, present exchange, digest match) and atomically quarantine-and-reseed invalid ones.
+
+## Rationale
+
+Satisfies D-077's non-null producing event and encrypted exchange requirement without faking a human conversation; validation-on-seed prevents a dangling row from permanently suppressing the trusted seed.
+
+## Consequences
+
+Seeded provenance is a third activation path, distinct from propose→approve→activate and LegacyMigration quarantine; crash windows converge on restart.
+
+## Would change if
+
+A first-run onboarding ceremony records a real owner exchange as the producing event.
+
+---
+
+
+# D-096 — Deterministic personality probes; digest format is a learnable default
+
+## Decision
+
+The ten AD-081/AD-083 anti-patterns ship as deterministic eval probes (no model calls) wired into the golden-set evaluator; negative constraints never appear in persona guidance text. The AD-082 digest/brief format ships as the ninth persona element `digest_brief_default`, a learnable default per AD-135; the owner-correction→miner→proposal route is owned by `implement-reflection-miner`.
+
+## Rationale
+
+Probes as eval constraints keep AD-054's negative guidance out of prompt surfaces; deterministic first-cut heuristics match the D-056 minimal judge posture.
+
+## Consequences
+
+Probe coverage is heuristic, not semantic completeness; the correction route deferral is explicit and tracked by the sequence.
+
+## Would change if
+
+The reflection miner lands and the correction route replaces the static default, or model-based judges supersede the heuristics.
+
+---
+
+
+# D-097 — Persona overlay loading is admission-gated
+
+## Decision
+
+Generic overlay loaders exclude personas. Startup loads persona files only through a raw-byte admission gate that requires a matching learned row whose ProducedBy event resolves, whose payload refs bind exactly to the exchange, and whose YAML digest matches; orphan, malformed, or unbacked higher-version files are quarantined before parsing or version precedence.
+
+## Rationale
+
+Highest-version-wins without provenance admission would let an untracked YAML silently replace a seeded persona (reviewer-verified bypass); gating before parse closes the check-then-load race.
+
+## Consequences
+
+Persona admission fails closed; pruning exemptions apply only to row-backed personas.
+
+## Would change if
+
+All overlay kinds converge on a shared admission gate, subsuming the persona-specific path.
+
+---
+
+
 
 ## Open Decision Questions — CLOSED (see linked decisions)
 
@@ -2330,4 +2418,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-17 | Added D-087 (declarative state machines with digest-bound approval authorization), D-088 (exactly-one advancing step with edge-bound approval semantics), D-089 (per-call active-provider tier resolution), and D-090 (digest-bound manifests at run start; production driving deferred to worker-runtime/seed-workflows), settled while implementing `implement-workflow-state-machines`. |
 | 2026-07-17 | Added D-091 (seed workflows as overlay artifacts through the standard quarantine path with marker-gated first-boot materialization), settled while implementing `implement-seed-workflows`. |
 | 2026-07-18 | Added D-092 (kernel-owned nerve admission/replay boundaries with atomic budget debits) and D-093 (ModelTier::Cheap conservative default for manifest-derived advisee limits), settled while implementing `implement-nerve-subscribers`. |
+| 2026-07-18 | Added D-094 (persona as a no-authority seventh overlay artifact kind), D-095 (kernel-authored bootstrap provenance with validated seed/repair), D-096 (deterministic personality probes; learnable digest default with correction route owned by implement-reflection-miner), and D-097 (admission-gated persona overlay loading), settled while implementing `implement-personality-seed`. |
 

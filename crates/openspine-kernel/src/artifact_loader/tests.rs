@@ -120,3 +120,83 @@ fn kind_table_excludes_templates() {
         "unexpected parse error for template: {msg}"
     );
 }
+
+/// AD-080: personas carry no authority. Unlike `template` (fixture-only,
+/// never an artifact kind at all), `persona` IS a real, loaded artifact
+/// kind — it just never appears in the proposable-kind table, so it can
+/// never enter the propose -> approve -> activate pipeline.
+#[test]
+fn kind_table_excludes_personas() {
+    assert!(find_kind_spec("persona").is_none());
+    assert!(!is_proposable_kind("persona"));
+    let err = parse_proposal("persona", "id: x\nschema_version: 1\n").unwrap_err();
+    let msg = err.to_string();
+    assert!(
+        msg.contains("unknown artifact kind persona"),
+        "unexpected parse error for persona: {msg}"
+    );
+}
+
+#[test]
+fn generic_overlay_loader_excludes_persona_and_base_loader_rejects_fixture() {
+    let dir = tempfile::tempdir().unwrap();
+    let personas_dir = dir.path().join("personas");
+    std::fs::create_dir_all(&personas_dir).unwrap();
+    std::fs::write(
+        personas_dir.join("seed.yaml"),
+        "id: seed\nschema_version: 1\nversion: 1\nlifecycle_state: active\nguidance: positive guidance\n",
+    )
+    .unwrap();
+
+    let overlay_registry = load_registry(dir.path()).unwrap();
+    assert!(overlay_registry.personas.is_empty());
+    let err = load_base_registry(dir.path()).unwrap_err();
+    assert!(matches!(
+        err,
+        ArtifactLoadError::Invalid { kind, .. } if kind == "persona"
+    ));
+}
+
+#[test]
+fn orphan_higher_persona_cannot_hide_row_backed_lower_version() {
+    let dir = tempfile::tempdir().unwrap();
+    let personas_dir = dir.path().join("personas");
+    std::fs::create_dir_all(&personas_dir).unwrap();
+    let v1 = PersonaElement {
+        id: "seed".into(),
+        schema_version: 1,
+        version: 1,
+        lifecycle_state: Lifecycle::Active,
+        guidance: "first".into(),
+    };
+    let v2 = PersonaElement {
+        id: "seed".into(),
+        schema_version: 1,
+        version: 2,
+        lifecycle_state: Lifecycle::Active,
+        guidance: "orphan".into(),
+    };
+    let v1_yaml = serde_yaml::to_string(&v1).unwrap();
+    std::fs::write(personas_dir.join("v1.yaml"), &v1_yaml).unwrap();
+    std::fs::write(
+        personas_dir.join("v2.yaml"),
+        serde_yaml::to_string(&v2).unwrap(),
+    )
+    .unwrap();
+
+    std::fs::write(personas_dir.join("malformed.yaml"), "not: [valid").unwrap();
+    let mut registry = load_registry_without_personas(dir.path()).unwrap();
+    let admitted = std::collections::HashMap::from([(
+        ("seed".to_string(), 1),
+        openspine_schemas::digest::digest_of_bytes(v1_yaml.as_bytes()).to_string(),
+    )]);
+    load_admitted_personas(&mut registry, dir.path(), &admitted).unwrap();
+
+    assert_eq!(registry.personas.get("seed").unwrap().version, 1);
+    assert!(registry
+        .sources
+        .contains_key(&("persona".into(), "seed".into(), 1)));
+    assert!(!registry
+        .sources
+        .contains_key(&("persona".into(), "seed".into(), 2)));
+}

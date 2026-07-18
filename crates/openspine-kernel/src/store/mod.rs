@@ -573,6 +573,7 @@ mod migrations;
 pub(crate) mod nerve;
 pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
+pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
 pub(crate) mod spend;
 pub(crate) mod task_board;
