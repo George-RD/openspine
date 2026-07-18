@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: action mediation and dispatch (gate, handler dispatch, lyra preview, approval flow, failure surfacing)
 use super::authenticate;
 use super::connector_breaker::call_with_connector;
 use super::proposal::{propose_draft_creation, ProposalError};
@@ -137,6 +138,17 @@ pub(crate) async fn mediate_and_dispatch_action(
         .and_then(|value| value.get("selection_token_id"))
         .and_then(Value::as_str)
         .and_then(|value| Ulid::from_str(value).ok());
+    let params = payload
+        .map(|v| {
+            v.as_object()
+                .map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect::<std::collections::BTreeMap<String, String>>()
+                })
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
     let request = ActionRequest {
         id: Ulid::new(),
         task_grant_id: grant.id,
@@ -145,6 +157,7 @@ pub(crate) async fn mediate_and_dispatch_action(
         payload_ref: payload_ref.clone(),
         target_digest: None,
         selection_token_id,
+        params,
         requested_at: now,
         schema_version: 1,
     };

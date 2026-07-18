@@ -122,10 +122,10 @@ pub fn gate(
     origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
-    egress: &dyn EgressClassifier,
+    _egress: &dyn EgressClassifier,
     now: Timestamp,
 ) -> GateOutcome {
-    let mut decision = resolve(grant, req, origin, ctx, catalog, egress, now);
+    let mut decision = resolve(grant, req, origin, ctx, catalog, _egress, now);
     if grant.mode == openspine_schemas::grant::GrantMode::Shadow
         && matches!(
             decision,
@@ -148,8 +148,9 @@ pub fn gate(
 }
 
 fn chain_valid(grant: &TaskGrant, ctx: &dyn GateContext) -> bool {
-    // Spec: every TaskGrant MUST carry an authenticated chain. Empty tip,
-    // missing key, structural mismatch, or unsupported caveats all fail closed.
+    // Every TaskGrant carries an authenticated chain. The generic verifier
+    // rejects gate-specific caveats, but this upgraded gate explicitly
+    // handles both allowlist caveats below and may declare them supported.
     if grant.caveat_mac.is_empty() {
         return false;
     }
@@ -158,7 +159,13 @@ fn chain_valid(grant: &TaskGrant, ctx: &dyn GateContext) -> bool {
     };
     grant.verify_mac(&key)
         && openspine_schemas::grant_chain::chain_structurally_valid(grant)
-        && !openspine_schemas::grant_chain::has_unsupported_caveats(grant)
+        && !openspine_schemas::grant_chain::has_unsupported_caveats_except(
+            grant,
+            &[
+                openspine_schemas::grant_chain::SupportedCaveatKind::OutputChannelAllowlist,
+                openspine_schemas::grant_chain::SupportedCaveatKind::EgressClassAllowlist,
+            ],
+        )
 }
 
 fn resolve(
@@ -167,7 +174,7 @@ fn resolve(
     origin: ActionOrigin,
     ctx: &dyn GateContext,
     catalog: &ActionCatalog,
-    egress: &dyn EgressClassifier,
+    _egress: &dyn EgressClassifier,
     now: Timestamp,
 ) -> GateDecision {
     // D-004: authority/MAC failures classify as CaveatWidening even when the
@@ -205,21 +212,59 @@ fn resolve(
         };
     }
 
-    // AD-060: egress-class enforcement runs before the kernel-origin
-    // early return, on purpose. If a future action were ever both
-    // kernel-origin-trusted AND a rated egress endpoint, the trusted-origin
-    // branch below must not be able to bypass the MAC-bound class
-    // restriction — endpoint typing is a structural property of the
-    // action, not part of the grant-list "granting decision" kernel-origin
-    // is defined to skip. The gate resolves the class from the trusted
-    // classifier (never from the request), and denies if the grant does
-    // not cover it. A pack granted search-class egress cannot submit a
-    // web form, whether the request is shell-origin or kernel-origin.
-    if let Some(class) = egress.classify(&req.action) {
-        if !grant.allowed_egress_classes.contains(&class) {
-            return GateDecision::Deny {
-                reason: DenialReason::EgressClassNotGranted,
-            };
+    // AD-060 / AD-035: egress metadata is catalog-owned (blocker 1). The gate
+    // reads the mandatory per-action declaration and fails closed when it is
+    // absent; connector metadata is never consulted. Egress-class enforcement
+    // runs before the kernel-origin early return on purpose: endpoint typing
+    // is a structural property of the action, not part of the grant-list
+    // "granting decision" kernel-origin is defined to skip. The gate resolves
+    // the class from the trusted catalog (never from the request), and denies
+    // if the grant does not cover it. A pack granted search-class egress
+    // cannot submit a web form, whether the request is shell-origin or
+    // kernel-origin.
+    if let Some(decl) = catalog.egress_decl_for(&req.action) {
+        if let Some(class) = decl.egress_class {
+            if !openspine_schemas::grant_chain::effectively_allows_egress_class(grant, &class) {
+                return GateDecision::Deny {
+                    reason: DenialReason::EgressClassNotGranted,
+                };
+            }
+        }
+        if let Some(channels) = &decl.output_channels {
+            if channels.is_empty()
+                || channels.iter().any(|channel| {
+                    !openspine_schemas::grant_chain::effectively_allows_output_channel(
+                        grant, channel,
+                    )
+                })
+            {
+                return GateDecision::Deny {
+                    reason: DenialReason::OutputChannelNotGranted,
+                };
+            }
+        }
+    } else if catalog.contains(&req.action) {
+        // Registered action with no mandatory egress declaration: catalog
+        // integrity violation → fail closed rather than treat as unrated.
+        return GateDecision::Deny {
+            reason: DenialReason::CaveatWidening,
+        };
+    }
+
+    // AD-036: a `BoundParameter` caveat locks a request parameter name to a
+    // value. The gate enforces it against the ACTUAL request params (blocker
+    // 2); a bound name absent from the request or carrying a different value
+    // is a caveat violation, fail closed.
+    for caveat in openspine_schemas::grant_chain::flattened_caveats(&grant.chain) {
+        if let openspine_schemas::grant_chain::Caveat::BoundParameter { name, value } = caveat {
+            match req.params.get(name) {
+                Some(actual) if actual == value => {}
+                _ => {
+                    return GateDecision::Deny {
+                        reason: DenialReason::CaveatWidening,
+                    };
+                }
+            }
         }
     }
 

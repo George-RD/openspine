@@ -151,6 +151,7 @@ pub fn denial_reason_code(reason: DenialReason) -> &'static str {
         DenialReason::UnknownAction => "unknown_action",
         DenialReason::CaveatWidening => "caveat_widening",
         DenialReason::EgressClassNotGranted => "egress_class_not_granted",
+        DenialReason::OutputChannelNotGranted => "output_channel_not_granted",
     }
 }
 
@@ -216,6 +217,7 @@ mod tests {
         DenialReason::UnknownAction,
         DenialReason::CaveatWidening,
         DenialReason::EgressClassNotGranted,
+        DenialReason::OutputChannelNotGranted,
     ];
 
     #[test]

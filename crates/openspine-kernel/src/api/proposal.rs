@@ -146,6 +146,7 @@ pub(super) async fn propose_draft_creation(
         payload_ref: Some(payload_ref),
         target_digest: Some(target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: jiff::Timestamp::now(),
         schema_version: 1,
     };

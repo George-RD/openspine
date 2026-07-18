@@ -239,6 +239,7 @@ pub(super) async fn activate_approved_artifact(
             payload_ref: Some(review_ref.clone()),
             target_digest: Some(target_digest),
             selection_token_id: None,
+            params: std::collections::BTreeMap::new(),
             requested_at: Timestamp::now(),
             schema_version: 1,
         };

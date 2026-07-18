@@ -307,3 +307,29 @@ fn identity_field_tamper_invalidates_mac() {
         );
     }
 }
+
+#[test]
+fn gate_specific_caveats_are_explicitly_supported_only_by_upgraded_verifier() {
+    let mut grant = sample_root();
+    grant.chain[0]
+        .added_caveats
+        .push(Caveat::OutputChannelAllowlist { channels: vec![] });
+    assert!(has_unsupported_caveats(&grant));
+    assert!(!has_unsupported_caveats_except(
+        &grant,
+        &[SupportedCaveatKind::OutputChannelAllowlist]
+    ));
+}
+
+#[test]
+fn effective_egress_class_intersects_every_caveat() {
+    let mut grant = sample_root();
+    grant.allowed_egress_classes = vec![crate::egress::EgressClass::Search];
+    grant.chain[0]
+        .added_caveats
+        .push(Caveat::EgressClassAllowlist { classes: vec![] });
+    assert!(!effectively_allows_egress_class(
+        &grant,
+        &crate::egress::EgressClass::Search
+    ));
+}

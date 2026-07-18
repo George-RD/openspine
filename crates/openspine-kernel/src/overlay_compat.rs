@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: overlay compatibility checks (dangling reference detection, version resolution)
 #[path = "overlay_convergence.rs"]
 mod overlay_convergence;
 pub use overlay_convergence::converge_owner_accepted_dependencies;
@@ -488,6 +489,7 @@ pub fn ensure_reconfirm_request(
         payload_ref: Some(review_ref),
         target_digest: Some(target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: jiff::Timestamp::now(),
         schema_version: 1,
     };

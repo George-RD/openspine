@@ -1,13 +1,13 @@
+// openspine:allow-large-module reason: token and gate regression fixtures share one focused test module.
 use std::collections::HashMap;
 
+use super::tests::{grant_with, request_for};
+use super::*;
+use openspine_schemas::action::{ActionEgressDeclaration, ActionId};
 use openspine_schemas::event::{AccountRole, Connector};
 use openspine_schemas::selection::{
     SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod,
 };
-
-use super::tests::{grant_with, request_for};
-use super::*;
-
 #[derive(Default)]
 struct MockContext {
     tokens: HashMap<Ulid, SelectionToken>,
@@ -130,6 +130,86 @@ fn kernel_origin_unknown_action_is_unknown_not_trusted() {
     );
 }
 
+#[test]
+fn empty_declared_output_channels_fail_closed() {
+    let action = ActionId::new("test.output");
+    let grant = grant_with(&["test.output"], &[], &[]);
+    let req = request_for("test.output");
+    let catalog = ActionCatalog::new([action.clone()]).with_output_channels([(action, Vec::new())]);
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &MockContext::default(),
+        &catalog,
+        &NoEgress,
+        Timestamp::now(),
+    );
+    assert_eq!(
+        outcome.decision,
+        GateDecision::Deny {
+            reason: DenialReason::OutputChannelNotGranted
+        }
+    );
+}
+
+#[test]
+fn worker_caveats_deny_output_but_allow_result_event() {
+    let mut worker = grant_with(
+        &["telegram.reply:owner_channel", "worker.report_result"],
+        &[],
+        &[],
+    );
+    worker.output_channels = vec!["telegram.owner.reply".to_string()];
+    worker.chain[0]
+        .added_caveats
+        .push(openspine_schemas::grant_chain::Caveat::OutputChannelAllowlist { channels: vec![] });
+    worker.chain[0]
+        .added_caveats
+        .push(openspine_schemas::grant_chain::Caveat::EgressClassAllowlist { classes: vec![] });
+    worker.caveat_mac = openspine_schemas::grant_chain::compute_mac_hex(
+        b"openspine-test-grant-hmac-key-v1",
+        &openspine_schemas::grant_chain::RootAuthority::from_grant(&worker),
+        &worker.chain,
+    );
+    let telegram = ActionId::new("telegram.reply:owner_channel");
+    let report = ActionId::new("worker.report_result");
+    let catalog = ActionCatalog::new([telegram.clone(), report.clone()])
+        .with_egress_declarations([(
+            report.clone(),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        )])
+        .with_output_channels([(telegram.clone(), vec!["telegram.owner.reply".to_string()])]);
+    let ctx = MockContext::default();
+    let output = gate(
+        &worker,
+        &request_for("telegram.reply:owner_channel"),
+        ActionOrigin::Shell,
+        &ctx,
+        &catalog,
+        &NoEgress,
+        Timestamp::now(),
+    );
+    assert_eq!(
+        output.decision,
+        GateDecision::Deny {
+            reason: DenialReason::OutputChannelNotGranted
+        }
+    );
+    let result = gate(
+        &worker,
+        &request_for("worker.report_result"),
+        ActionOrigin::Shell,
+        &ctx,
+        &catalog,
+        &NoEgress,
+        Timestamp::now(),
+    );
+    assert_eq!(result.decision, GateDecision::Allow);
+}
 #[test]
 fn token_requiring_action_denied_without_token() {
     let grant = grant_with_token(&["email.read_thread:selected_no_attachments"], Ulid::new());
@@ -328,12 +408,31 @@ pub(crate) fn test_catalog() -> ActionCatalog {
         "coolify.delete_resource",
         "owner.notify",
     ];
+    let decls: Vec<(ActionId, ActionEgressDeclaration)> = ids
+        .iter()
+        .map(|s| {
+            let id = ActionId::new(*s);
+            let output_channels = if id == ActionId::new("telegram.reply:owner_channel") {
+                Some(vec!["telegram.owner.reply".to_string()])
+            } else {
+                None
+            };
+            (
+                id,
+                ActionEgressDeclaration {
+                    output_channels,
+                    egress_class: None,
+                },
+            )
+        })
+        .collect();
     ActionCatalog::new(ids.iter().map(|s| ActionId::new(*s)))
         .with_kernel_origin([ActionId::new("owner.notify")])
         .with_token_requiring([(
             ActionId::new("email.read_thread:selected_no_attachments"),
             SelectionTokenType::email_thread_selection(),
         )])
+        .with_egress_declarations(decls)
 }
 
 #[test]

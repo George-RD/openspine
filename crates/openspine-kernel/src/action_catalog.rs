@@ -5,14 +5,12 @@
 //! referenced anywhere in `artifacts/lyra/` (agents / workflows / packs /
 //! policies) plus the dispatch/stub ids the kernel actually mediates belongs
 //! here; it is the review surface for "what actions exist".
-//!
-//! Composition ([`openspine_authority::compose_authority`]) and the gate
-//! ([`openspine_gate::gate`]) both consult this catalog to fail-fast on an
-//! id outside the universe.
 
 use openspine_schemas::action::{ActionCatalog, ActionId, EffectPath, EffectPathClass};
 use openspine_schemas::selection::SelectionTokenType;
 
+#[path = "action_catalog_data.rs"]
+mod action_catalog_data;
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
 }
@@ -27,141 +25,141 @@ fn id(s: &str) -> ActionId {
 /// `capability_pack.change`, `policy.change_proposal`, `connector.enable`)
 /// so composition accepts them and the gate denies them only when ungranted.
 pub fn canonical_catalog() -> ActionCatalog {
-    ActionCatalog::new([
-        // --- fixtures: main_assistant_agent ---
-        id("openspine.status.read"),
-        id("workflow.invoke:approved"),
-        id("artifact.propose"),
-        id("plan.propose"),
-        id("plan.execute"),
-        id("setup.workflow.start"),
-        id("secret.intake"),
-        id("secret.rotate"),
-        id("memory.read:owner_preferences_limited"),
-        id("model.generate:approved_provider"),
-        id("lyra.ui.preview"),
-        id("telegram.reply:owner_channel"),
-        id("connector.enable"),
-        id("route.activate"),
-        id("capability_pack.change"),
-        id("workflow.activate"),
-        id("policy.change_proposal"),
-        // --- fixtures: main_assistant_agent denied_tools ---
-        id("email.read_inbox"),
-        id("email.read_thread:unselected"),
-        id("email.send"),
-        id("email.read_attachment"),
-        id("network.raw_egress"),
-        id("vault.secret_read"),
-        id("policy.modify_direct"),
-        id("filesystem.host_read"),
-        id("filesystem.host_write"),
-        id("coolify.deploy"),
-        id("coolify.rollback"),
-        id("coolify.secret_modify"),
-        // --- fixtures: email_reply_drafter designed_tools ---
-        id("email.read_thread:selected_no_attachments"),
-        id("memory.read:writing_preferences_scoped"),
-        id("artifact.write:task_scratch"),
-        id("email.create_draft"),
-        // --- fixtures: owner_control_basic_pack approval_required ---
-        id("artifact.activate"),
-        id("artifact.reconfirm"),
-        id("artifact.nominate_upstream"),
-        id("coolify.delete_resource"),
-        id("owner.notify"),
-        id("briefcase.topup"),
-        // --- AD-060: egress-class rated web endpoints ---
-        id("web.search"),
-        id("web.forum_browse"),
-        id("web.form_submit"),
-    ])
-    .with_kernel_origin([id("owner.notify")])
-    .with_counterparty_facing([
-        // email.send is the sole existing counterparty-facing action:
-        // a denial faces the external recipient the worker was replying
-        // to. Kernel-owned classification; shell cannot spoof (AD-151).
-        id("email.send"),
-    ])
-    .with_token_requiring([(
-        id("email.read_thread:selected_no_attachments"),
-        SelectionTokenType::email_thread_selection(),
-    )])
-    .with_effect_paths([
-        EffectPath {
-            name: "notify_owner_best_effort".to_string(),
-            classification: EffectPathClass::KernelOriginGated,
-        },
-        EffectPath {
-            name: "notify_owner_required".to_string(),
-            classification: EffectPathClass::KernelOriginGated,
-        },
-        EffectPath {
-            name: "create_approved_draft".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "activate_approved_artifact".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "resolve_email_counterparty".to_string(),
-            classification: EffectPathClass::PreGateOwnerSelectedRead,
-        },
-        EffectPath {
-            name: "briefcase.topup".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "dispatch_read_selected_thread".to_string(),
-            classification: EffectPathClass::GatedShell,
-        },
-        EffectPath {
-            name: "dispatch_lyra_preview/propose_draft_creation".to_string(),
-            classification: EffectPathClass::GatedShell,
-        },
-        EffectPath {
-            name: "dispatch_artifact_propose".to_string(),
-            classification: EffectPathClass::GatedShell,
-        },
-        EffectPath {
-            name: "run_model_swap_golden_set".to_string(),
-            classification: EffectPathClass::GatedShell,
-        },
-        EffectPath {
-            name: "apply_model_swap_activation".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "dispatch_plan_preview".to_string(),
-            classification: EffectPathClass::GatedShell,
-        },
-        EffectPath {
-            name: "resolve_approved_plan".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "secret_intake::capture".to_string(),
-            classification: EffectPathClass::PostGateApprovedEffect,
-        },
-        EffectPath {
-            name: "sweep_expired_grants".to_string(),
-            classification: EffectPathClass::InternalMaintenanceNonEffect,
-        },
-        EffectPath {
-            name: "answer_callback_query".to_string(),
-            classification: EffectPathClass::InternalMaintenanceNonEffect,
-        },
-        EffectPath {
-            name: "fire_due_workflow_timers".to_string(),
-            classification: EffectPathClass::InternalMaintenanceNonEffect,
-        },
-    ])
+    let ids: &[&str] = &[
+        "openspine.status.read",
+        "workflow.invoke:approved",
+        "artifact.propose",
+        "plan.propose",
+        "plan.execute",
+        "setup.workflow.start",
+        "secret.intake",
+        "secret.rotate",
+        "memory.read:owner_preferences_limited",
+        "model.generate:approved_provider",
+        "lyra.ui.preview",
+        "telegram.reply:owner_channel",
+        "connector.enable",
+        "route.activate",
+        "capability_pack.change",
+        "workflow.activate",
+        "policy.change_proposal",
+        "email.read_inbox",
+        "email.read_thread:unselected",
+        "email.send",
+        "email.read_attachment",
+        "network.raw_egress",
+        "vault.secret_read",
+        "policy.modify_direct",
+        "filesystem.host_read",
+        "filesystem.host_write",
+        "coolify.deploy",
+        "coolify.rollback",
+        "coolify.secret_modify",
+        "email.read_thread:selected_no_attachments",
+        "memory.read:writing_preferences_scoped",
+        "artifact.write:task_scratch",
+        "email.create_draft",
+        "artifact.activate",
+        "artifact.reconfirm",
+        "artifact.nominate_upstream",
+        "coolify.delete_resource",
+        "owner.notify",
+        "briefcase.topup",
+        "web.search",
+        "web.forum_browse",
+        "web.form_submit",
+        "worker.commission",
+        "worker.report_result",
+    ];
+    // Every catalog id receives a literal declaration. `None/None` is a
+    // deliberate classification for non-egress actions, not an auto-default;
+    // adding an id without adding its row is a review-visible completeness
+    // failure and the gate fails closed on the missing entry.
+    let decls = action_catalog_data::egress_declarations();
+    ActionCatalog::new(ids.iter().map(|s| id(s)))
+        .with_kernel_origin([id("owner.notify")])
+        .with_counterparty_facing([id("email.send")])
+        .with_token_requiring([(
+            id("email.read_thread:selected_no_attachments"),
+            SelectionTokenType::email_thread_selection(),
+        )])
+        .with_egress_declarations(decls)
+        .with_effect_paths([
+            EffectPath {
+                name: "notify_owner_best_effort".to_string(),
+                classification: EffectPathClass::KernelOriginGated,
+            },
+            EffectPath {
+                name: "notify_owner_required".to_string(),
+                classification: EffectPathClass::KernelOriginGated,
+            },
+            EffectPath {
+                name: "create_approved_draft".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "activate_approved_artifact".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "resolve_email_counterparty".to_string(),
+                classification: EffectPathClass::PreGateOwnerSelectedRead,
+            },
+            EffectPath {
+                name: "briefcase.topup".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "dispatch_read_selected_thread".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "dispatch_lyra_preview/propose_draft_creation".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "dispatch_artifact_propose".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "run_model_swap_golden_set".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "apply_model_swap_activation".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "dispatch_plan_preview".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "resolve_approved_plan".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "secret_intake::capture".to_string(),
+                classification: EffectPathClass::PostGateApprovedEffect,
+            },
+            EffectPath {
+                name: "sweep_expired_grants".to_string(),
+                classification: EffectPathClass::InternalMaintenanceNonEffect,
+            },
+            EffectPath {
+                name: "answer_callback_query".to_string(),
+                classification: EffectPathClass::InternalMaintenanceNonEffect,
+            },
+            EffectPath {
+                name: "fire_due_workflow_timers".to_string(),
+                classification: EffectPathClass::InternalMaintenanceNonEffect,
+            },
+        ])
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openspine_schemas::egress::EgressClass;
     #[test]
     fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
         let catalog = canonical_catalog();
@@ -205,5 +203,71 @@ mod tests {
         assert!(catalog.is_counterparty_facing(&id("email.send")));
         assert!(!catalog.is_counterparty_facing(&id("telegram.reply:owner_channel")));
         assert!(!catalog.is_counterparty_facing(&id("unknown.future_action")));
+    }
+
+    #[test]
+    fn handler_registry_requires_explicit_classification() {
+        // Enumerate the independent handler registry and require an explicit
+        // catalog declaration plus exact axis values for every dispatchable
+        // id. A side-set omission must fail this test, never default to
+        // None/None silently.
+        let catalog = canonical_catalog();
+        let registry = crate::api::handler_registry::ActionHandlerRegistry::default_registrations();
+        for action in registry.registered_action_ids() {
+            let decl = catalog
+                .egress_decl_for(&action)
+                .unwrap_or_else(|| panic!("dispatchable action {action} lacks catalog entry"));
+            let expected_channels: Option<Vec<&str>> = match action.as_str() {
+                "telegram.reply:owner_channel"
+                | "lyra.ui.preview"
+                | "plan.propose"
+                | "artifact.propose"
+                | "artifact.nominate_upstream" => Some(vec!["telegram.owner.reply"]),
+                _ => None,
+            };
+            let actual_channels = decl
+                .output_channels
+                .as_ref()
+                .map(|channels| channels.iter().map(String::as_str).collect::<Vec<_>>());
+            assert_eq!(
+                actual_channels, expected_channels,
+                "dispatchable action {action} has the wrong output-channel classification"
+            );
+            let expected_class = match action.as_str() {
+                "web.search" => Some(EgressClass::Search),
+                "web.forum_browse" => Some(EgressClass::ForumBrowse),
+                "web.form_submit" => Some(EgressClass::WebFormPost),
+                _ => None,
+            };
+            assert_eq!(
+                decl.egress_class, expected_class,
+                "dispatchable action {action} has the wrong egress classification"
+            );
+        }
+    }
+
+    #[test]
+    fn worker_actions_declare_no_egress_and_no_output_channel() {
+        // `worker.commission` / `worker.report_result` must not be
+        // classified as egress endpoints or output-channel deliveries: the
+        // worker can only ever report back via `worker.result` (AD-035 reply
+        // chokepoint), never egress directly.
+        let catalog = canonical_catalog();
+        for id in [
+            ActionId::new("worker.commission"),
+            ActionId::new("worker.report_result"),
+        ] {
+            let decl = catalog
+                .egress_decl_for(&id)
+                .expect("worker action declared");
+            assert_eq!(
+                decl.egress_class, None,
+                "{id} must not be a rated egress endpoint"
+            );
+            assert_eq!(
+                decl.output_channels, None,
+                "{id} must not name an output channel"
+            );
+        }
     }
 }

@@ -43,6 +43,7 @@ pub(crate) async fn notify_owner_with_digest(
         payload_ref: None,
         target_digest: None,
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: now,
         schema_version: 1,
     };

@@ -82,6 +82,7 @@ fn sample_action_request() -> ActionRequest {
         }),
         target_digest: Some(Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap()),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     }

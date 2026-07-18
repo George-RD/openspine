@@ -115,6 +115,7 @@ async fn reconfirm_tap_restores_orphaned_artifact() {
         payload_ref: Some(review_ref.clone()),
         target_digest: Some(target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -230,6 +231,7 @@ async fn reconfirm_tap_refuses_tampered_yaml() {
             &json!({"kind":"route","artifact_id":"tamper_target_route","version":1}),
         )),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -320,6 +322,7 @@ async fn orphaned_reconfirm_fixture(
         payload_ref: Some(review_ref.clone()),
         target_digest: Some(target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     };
@@ -470,6 +473,7 @@ async fn reconfirm_legacy_migration_establishes_produced_by_and_proposal() {
         payload_ref: Some(review_ref.clone()),
         target_digest: Some(target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

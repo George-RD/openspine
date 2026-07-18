@@ -156,6 +156,7 @@ pub(super) async fn post_model_generate(
         payload_ref: Some(payload_ref.clone()),
         target_digest: None,
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: now,
         schema_version: 1,
     };

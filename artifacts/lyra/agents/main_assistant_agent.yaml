@@ -23,6 +23,8 @@ designed_tools:
   - "model.generate:approved_provider"
   - lyra.ui.preview
   - "telegram.reply:owner_channel"
+  - worker.commission
+  - worker.report_result
 approval_required_tools:
   - connector.enable
   - route.activate

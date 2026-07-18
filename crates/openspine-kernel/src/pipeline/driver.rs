@@ -366,11 +366,12 @@ pub async fn run_pipeline(
             }
         }
         Err(err) => {
+            tracing::error!(error = %err, grant_id = %grant.id, "worker shell failed");
             state.store.append_audit(
                 "task.shell_failed",
                 None,
                 None,
-                Some(&err.to_string()),
+                Some("worker shell failed"),
                 Some(grant.id),
                 &[],
                 &[],
