@@ -3,18 +3,13 @@ title: Threat model
 description: What OpenSpine claims to defend against, what it doesn't, and the tests that prove each claim.
 ---
 
-This page lists the security promises OpenSpine makes and shows how we test them.
+A security claim nobody can falsify is marketing, not engineering. This page is the falsifiable kind: every promise below maps to a named `cargo test` — or, where a claim genuinely isn't assertable inside a test (a Docker network topology fact, say), to a documented `manual:` justification instead of a stretched mapping.
 
-## Claims vs exclusions, honestly
-
-A security claim nobody can falsify is marketing, not engineering. Every
-claim below maps to a named `cargo test` — or, where a claim genuinely
-isn't assertable inside a test (a Docker network topology fact, say), to a
-documented `manual:` justification instead of a stretched mapping. The
-source of truth is
+The source of truth is
 [`docs/threat-claims.md`](https://github.com/George-RD/openspine/blob/main/docs/threat-claims.md)
 in the repository; `scripts/check-claims.sh` fails the build if a claimed
-test doesn't exist, or if the register is ever gutted to zero rows.
+test doesn't exist, or if the register is ever gutted to zero rows. Delete
+a test and the build tells on you.
 
 ## Claims
 
@@ -41,6 +36,8 @@ test doesn't exist, or if the register is ever gutted to zero rows.
 | System-operations actions (host filesystem, raw network egress) are high-impact and denied by default | `host_filesystem_read_and_write_are_denied_for_owner_control_grant` |
 
 ## What the current phases do not claim to defend against
+
+Honesty about the edges is part of the model. Out of scope today:
 
 - A malicious root user on the host.
 - A compromised kernel process or a compromised host OS.
