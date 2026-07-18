@@ -3,13 +3,13 @@ title: Roadmap
 description: What has shipped, what was backfilled, and what's deliberately deferred.
 ---
 
-This page shows what we have built so far and what we plan to build next.
-
-Phase-honest, no dates — see
-[`openspec/openspine-change-sequence.md`](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)
-for the underlying OpenSpec change sequence and
+No dates, no promises about quarters — just what exists, what was
+back-filled with specs after the fact, and what is deferred on purpose.
+The live source of truth is
+[`openspec/openspine-change-sequence.md`](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md),
+the change ledger every merge updates; and
 [`docs/threat-claims.md`](https://github.com/George-RD/openspine/blob/main/docs/threat-claims.md)
-for what's actually proven, not just planned.
+records what is actually proven, not just planned.
 
 ## Shipped
 
@@ -39,6 +39,12 @@ for what's actually proven, not just planned.
 - **Threat-claims register** — every security claim mapped to a real test
   (or an honest `manual:` justification), gated deterministically on every
   change.
+
+Beyond these founding slices, the agent-OS sequence is landing steadily —
+grant chains, workflow state machines, the task board, seed workflows, and
+more. The [change ledger](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)
+lists every archived change with the decisions it ratified; that file, not
+this page, is where to check whether something has landed.
 
 ## Backfilled
 

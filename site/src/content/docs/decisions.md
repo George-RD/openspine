@@ -3,25 +3,19 @@ title: Decisions
 description: How the decision-log practice keeps the architecture's reasoning legible and catches real bugs.
 ---
 
-This page records the architectural decisions we made and the reasons behind them.
-
-## Why a decision log
-
-Code shows *what* the system does. A decision log records *why* it does
+Code shows *what* the system does. The decision log records *why* it does
 that instead of the alternative — the trade-off considered, the rejected
-option, and the condition under which the choice would be revisited. The
-practice matters because "why" is exactly what a future change needs to
-know before it can safely touch something, and exactly what a code review
-alone cannot recover once the original reasoning is gone from working
-memory.
+option, and the condition under which the choice would be revisited. That
+"why" is exactly what a future change needs before it can safely touch
+something, and exactly what a code review alone cannot recover once the
+original reasoning has left working memory.
 
 OpenSpine's log
 ([`.raw/openspine-decision-log.md`](https://github.com/George-RD/openspine/blob/main/.raw/openspine-decision-log.md))
-has grown to 49 entries (D-001–D-049) across the design and implementation
-of every slice shipped so far. Every entry follows the same shape:
-**Decision**, **Rationale**, **Consequences**, **Would change if** — that
-last section is the part most decision logs skip, and the part that turns
-a historical note into something a future author can actually act on.
+has grown alongside every slice shipped so far, and every entry follows the
+same shape: **Decision**, **Rationale**, **Consequences**, **Would change
+if**. That last section is the part most decision logs skip, and the part
+that turns a historical note into something a future author can act on.
 
 ## A worked example: catching a real approval bypass
 

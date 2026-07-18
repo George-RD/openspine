@@ -3,7 +3,7 @@ title: Architecture
 description: The event-to-audit pipeline, the crate map, and the kernel/shell trust boundary.
 ---
 
-This page explains how OpenSpine is built and how data flows through it.
+OpenSpine is small on purpose: one fixed pipeline, five crates, one trust boundary. This page walks the spine from an inbound event to its audit record.
 
 ## The pipeline
 
@@ -41,6 +41,10 @@ flowchart LR
 - **Audit / memory** — every decision is appended to a hash-chained audit
   log; memory only ever updates through policy, never freely.
 
+The order is the security model. Authority is settled before any agent code
+runs, so nothing the model generates can reach back and renegotiate what it
+was granted.
+
 ## Crate map
 
 - `openspine-schemas` — versioned, `deny_unknown_fields` object kinds for every runtime concept (event, identity, route, grant, action, approval, artifact, audit) plus the canonical-JSON digest functions. Pure data, no I/O.
@@ -48,6 +52,11 @@ flowchart LR
 - `openspine-gate` — the `gate()` mediation boundary every effectful action passes through before a connector runs it.
 - `openspine-kernel` (bin `openspine`) — the trusted process: storage, artifact store, connectors (Telegram, Gmail), model gateway, audit chain, and the kernel HTTP API.
 - `openspine-shell` (bin `openspine-shell`) — the contained per-task worker that runs agent/workflow logic; its only I/O is the kernel API.
+
+The split mirrors the trust argument: schemas and authority are pure
+functions you can read in an afternoon; the kernel is the only process that
+holds secrets; the shell is the only place model-driven code runs, and it
+holds nothing.
 
 ## The kernel/shell trust boundary
 

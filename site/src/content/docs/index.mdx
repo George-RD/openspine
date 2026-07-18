@@ -1,9 +1,9 @@
 ---
 title: Give your agent a backbone.
-description: OpenSpine is a self-hostable runtime substrate for governed agents.
+description: OpenSpine is a self-hostable runtime for governed agents. The runtime decides what an agent may do — never the model — and proves it with tests.
 template: splash
 hero:
-  tagline: Most tools ask what your AI agent <em>can</em> do. OpenSpine asks what it's <em>allowed</em> to do — and proves it.
+  tagline: You want an assistant in your real life — email, messages, the boring admin. You don't want to hand an LLM the keys and hope. OpenSpine is the runtime that decides what an agent is <em>allowed</em> to do, and proves it.
   actions:
     - text: Quickstart
       link: /openspine/quickstart/
@@ -16,16 +16,22 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Three pillars
+## One spine, every signal
+
+Every event — a Telegram message, an email, a timer — travels the same path, in the same order, every time: verify → identify → route → compose → grant → run → gate → audit. Nothing skips a stage. The model reasons; the spine decides.
 
 <CardGrid stagger>
-	<Card title="Composed authority" icon="code-branch">
-		An agent has no trust by default. The safety layer (substrate) combines all rules. It decides exactly what the agent is allowed to do. It issues a temporary permission for each task.
+	<Card title="Authority is composed, not assumed" icon="code-branch">
+		An agent starts with nothing. Routes, manifests, packs, and policies intersect — deterministically, deny-by-default — into one short-lived task grant. That grant is the only authority the agent ever holds.
 	</Card>
-	<Card title="One gate" icon="forward-slash">
-		The agent must pass through a single gateway for any action. This checks what the agent does in the real world (effectful action). We write every decision to a tamper-evident log (hash-chain audited).
+	<Card title="One gate on every effect" icon="forward-slash">
+		Before any connector touches the world, the action passes a single gate: allow, deny, or ask you first. Every decision is appended to a hash-chained audit log that references encrypted artifacts, never plaintext.
 	</Card>
-	<Card title="Provable claims" icon="approve-check">
-		We do not just say OpenSpine is safe. Every security claim maps to a real test. Our check script runs all tests on every change.
+	<Card title="Claims you can falsify" icon="approve-check">
+		Every documented security claim maps to a named test, and the build fails if a claimed test disappears. If we say the agent can't send email, there's a test you can run that proves it.
 	</Card>
 </CardGrid>
+
+## Trust grows at the speed of your approvals
+
+Agents on OpenSpine can propose new rules, routes, and capabilities — and can never activate them. What you approve is digest-bound: byte-for-byte what runs. No tool store, no silent capability creep, no agent deciding it needs more access.

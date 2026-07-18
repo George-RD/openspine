@@ -1,44 +1,45 @@
 # OpenSpine
 
-OpenSpine is a safety layer for AI agents. It decides what your agent is **allowed** to do, and proves it.
+**The backbone for agents you can actually trust with your life admin.**
+
+OpenSpine is a self-hostable runtime for governed agents. The runtime decides what an agent is allowed to do — never the model, never the prompt. Every decision lands in a tamper-evident audit log, and every documented security claim maps to a named test the build enforces.
 
 [![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/george_builds)
 
-## What is this?
+## Who this is for
 
-AI agents today can do too much. They often access files or run commands without permission. OpenSpine sits under the agent to check every action. Everything is off until you turn it on (deny-by-default). Every decision is written to a tamper-evident log (hash-chain audited). Lyra is the first app built on OpenSpine. It is a Telegram assistant that drafts Gmail replies but can never send them.
+**You want an assistant that touches your real life** — your email, your messages — but handing an LLM your Gmail key and a prompt that says "be careful" is not a security model. OpenSpine is the alternative: the agent runs inside a runtime that structurally cannot send your email, read threads you didn't select, or touch your filesystem, no matter what the model decides or what a poisoned email tells it.
 
-## Why it's different
+**You build agent products** and you're tired of safety being a paragraph in the system prompt. OpenSpine makes authority a runtime property: you declare what an agent may do, the kernel composes and enforces it, and the agent operates inside that boundary. A prompt injection can change what the model *wants*; it cannot change what the runtime *permits*.
 
-Other tools focus on what an AI agent can do. They add more tools, more connectors, and more freedom. This leads to security failures. A bad prompt can make the agent take actions you did not want.
+## How it works
 
-OpenSpine puts safety first. The base layer (substrate) owns the rules, not the AI model. An agent has no trust by default. It can only do what you explicitly allow.
+Every event travels the same spine, in the same order, every time:
 
-To keep things safe, OpenSpine does three things on purpose:
-* We do not have a store to download new tools.
-* The agent cannot earn more trust over time.
-* The agent is blocked from sending emails. Lyra can only draft emails, never send them.
-
-## Try it in 5 minutes
-
-```sh
-git clone https://github.com/George-RD/openspine.git
-cd openspine
-npm ci # dev tools used by the check script
-cargo build --workspace
-./scripts/check.sh # runs every test and check - same as CI
+```
+event → verify → identify → route → compose → grant → run → gate → audit
 ```
 
-To run a real server, you need to set up some secrets as environment variables:
-* `OPENSPINE_TELEGRAM_BOT_TOKEN`: Your Telegram bot token.
-* `OPENSPINE_ARTIFACT_KEY`: A random 32-byte hex key. You can make one by running `openssl rand -hex 32`.
-* Your model provider API key (like OpenAI or Anthropic).
+- The source is **verified** before anything else happens. A sender ID is checked, not believed.
+- Identity is resolved, but **identity is never authority**. Knowing who you are grants nothing by itself.
+- Authority is **composed** by deterministic intersection of routes, agent manifests, workflows, capability packs, and policies. Deny by default: no rule allows it, it doesn't happen.
+- The agent receives one **task grant** — short-lived, scoped, budgeted. That grant is the only live authority object in the system.
+- Every effect passes through one **gate** before any connector runs it: allow, deny, or ask you first.
+- Everything is **audited** into a hash-chained log that references encrypted artifacts, never plaintext.
 
-See the docs below to set up Telegram and Gmail.
+The agent itself runs in a contained shell with exactly two environment variables and no route to the internet. It never sees a credential. Its only door back into the world is the kernel API — and the gate is in the doorframe.
+
+## Trust grows, but only through you
+
+An agent on OpenSpine can propose new routes, rules, and capabilities. It can never activate them. Every proposal is shown to you exactly as it will run — digest-bound, so what you approve is byte-for-byte what activates — and nothing turns itself on. There is no tool store, no silent capability creep, no "the agent decided it needed more access." Capability grows exactly as fast as your approvals, and no faster.
+
+## Lyra, the first product
+
+Lyra is a personal assistant built on OpenSpine: you talk to it on Telegram (verified against your owner ID), it reads the Gmail threads you select, and it drafts replies for your approval. It cannot send email — not as a setting, but as policy the runtime enforces regardless of grant or approval state. The draft it creates is the draft you approved, verified by digest.
 
 ## Every claim has a test
 
-We do not just say OpenSpine is safe. Each row below links to a test you can run yourself.
+A safety claim nobody can falsify is marketing. Each row links to a test you can run yourself; `scripts/check-claims.sh` fails the build if a claimed test stops existing.
 
 | Claim | Proof |
 | --- | --- |
@@ -59,26 +60,42 @@ We do not just say OpenSpine is safe. Each row below links to a test you can run
 | Kernel replies are channel-bound to the grant-bound owner chat | `lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat` |
 | System-operations actions (host filesystem, raw network egress) are denied by default | `host_filesystem_read_and_write_are_denied_for_owner_control_grant` |
 
+## Try it in 5 minutes
+
+```sh
+git clone https://github.com/George-RD/openspine.git
+cd openspine
+npm ci                # dev tools used by the check script
+cargo build --workspace
+./scripts/check.sh    # runs every test and check - same as CI
+```
+
+To run a real server you need three secrets as environment variables:
+
+- `OPENSPINE_TELEGRAM_BOT_TOKEN` — your Telegram bot token.
+- `OPENSPINE_ARTIFACT_KEY` — a random 32-byte hex key (`openssl rand -hex 32`). Every private message, email, and prompt is stored encrypted with it.
+- Your model provider API key (Anthropic, OpenAI, or compatible).
+
+The [quickstart](https://george-rd.github.io/openspine/quickstart/) walks through Telegram and Gmail setup.
+
 ## Docs
 
-You can read our full documentation at [george-rd.github.io/openspine](https://george-rd.github.io/openspine/).
+Full documentation lives at [george-rd.github.io/openspine](https://george-rd.github.io/openspine/).
 
-Below is a map of the documents in this repository:
+Inside the repository:
 
 | Document | What it covers |
 | --- | --- |
 | [`.raw/openspine-prd-v9.md`](.raw/openspine-prd-v9.md) | The product/architecture spec: envelope shapes, artifact examples, phase exit criteria. |
-| [`.raw/openspine-decision-log.md`](.raw/openspine-decision-log.md) | Why the architecture is shaped the way it is (48 decisions, D-001–D-049), and closed open questions (O-001–O-008). |
+| [`.raw/openspine-decision-log.md`](.raw/openspine-decision-log.md) | Why the architecture is shaped the way it is — every decision with its rationale, consequences, and the condition that would reverse it. |
 | [`docs/threat-claims.md`](docs/threat-claims.md) | Every security claim mapped to the test (or documented manual justification) that proves it. |
-| [`openspec/`](openspec/) | The OpenSpec-driven development process: 11 applied capability specs, in-flight changes, and the implementation sequence in [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md). |
+| [`openspec/`](openspec/) | The OpenSpec-driven development process: applied capability specs, in-flight changes, and the implementation sequence in [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md). |
 | [`openspec/conventions.md`](openspec/conventions.md) | Per-change ceremony: proposal → spec → design → tasks → archive. |
 
 ## Status
 
-This project is in Alpha. We have finished the first three phases of our plan. This includes checked actions (gate-mediated action API), Telegram control, Gmail draft previews, and basic rule updates.
-
-We have deferred some work for later. This includes safe secret storage, a thread selector, and per-kind rules.
+Alpha, and honest about it. The substrate and Lyra run end to end: gated actions, Telegram owner control, Gmail draft previews with digest-bound approval, and a governed artifact lifecycle for rules and routes. The [change sequence](openspec/openspine-change-sequence.md) records exactly what has landed and what hasn't; the [roadmap](https://george-rd.github.io/openspine/roadmap/) records what is deferred on purpose.
 
 ## License
 
-Free to use. MIT or Apache 2.0 - pick whichever suits you.
+Free to use. MIT or Apache 2.0 — pick whichever suits you.
