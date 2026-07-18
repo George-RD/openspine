@@ -72,6 +72,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-personality-seed` (D-094..D-097)
 - `implement-connector-reality` (D-098..D-099)
 - `implement-worker-runtime` (D-100..D-103)
+- `implement-skill-artifact-class` (D-104..D-106)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

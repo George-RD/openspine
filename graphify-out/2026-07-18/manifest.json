@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784387561.2395394,
-    "ast_hash": "71f1e902598cd300b8226cf2aad3f302",
+    "mtime": 1784389116.070436,
+    "ast_hash": "a76dde73e36d5deb07c73763b15ab230",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -2662,11 +2662,6 @@
   "crates/openspine-schemas/src/skill.rs": {
     "mtime": 1784387562.0567565,
     "ast_hash": "250737345b1d2a86c88594648df293c4",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784377818.2044432,
-    "ast_hash": "2b0839e657dac567aeca870f18823049",
     "semantic_hash": ""
   },
   "openspec/changes/implement-skill-artifact-class/design.md": {
