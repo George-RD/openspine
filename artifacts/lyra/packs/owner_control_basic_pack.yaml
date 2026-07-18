@@ -18,6 +18,8 @@ candidate_allowed_actions:
   - "model.generate:approved_provider"
   - "telegram.reply:owner_channel"
   - briefcase.topup
+  - worker.commission
+  - worker.report_result
 # D-048: `artifact.activate` is the single canonical activation action id
 # (D-034 precedent); the PRD's per-kind ids below stay verbatim/unwired.
 approval_required:

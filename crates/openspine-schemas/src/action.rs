@@ -7,12 +7,13 @@
 //! one vocabulary instead of two parallel enums.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use ulid::Ulid;
 
 use crate::selection::SelectionTokenType;
 
 use crate::artifact::ArtifactRef;
+use crate::egress::EgressClass;
 use crate::event::TargetRef;
 
 /// Dotted action identifier, exact-match only (D-033) — e.g. `email.send`,
@@ -72,13 +73,27 @@ pub enum EffectPathClass {
     /// makes (e.g. resolving an email thread's recipient before packing).
     PreGateOwnerSelectedRead,
 }
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct EffectPath {
     pub name: String,
     pub classification: EffectPathClass,
 }
 
+/// The catalog-owned egress metadata for one registered action (blocker 1).
+///
+/// Both axes are *declared* per action and owned by the kernel catalog, never
+/// derived from optional connector metadata. `None` on an axis means the
+/// action carries no requirement on that axis (e.g. a non-egress action has
+/// `egress_class: None`; a non-output action has `output_channels: None`).
+/// An empty `Some(vec![])` on `output_channels` is a deliberate,
+/// fail-closed declaration (the action is classified as delivering to a
+/// channel but names none — the gate must deny).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ActionEgressDeclaration {
+    pub output_channels: Option<Vec<String>>,
+    pub egress_class: Option<EgressClass>,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ActionCatalog {
     ids: HashSet<ActionId>,
@@ -97,6 +112,10 @@ pub struct ActionCatalog {
     /// all other denials return ordinary enum outcomes only. Kernel-owned
     /// catalog metadata — never shell-spoofable, never on TaskGrant.
     counterparty_facing_actions: HashSet<ActionId>,
+    /// Catalog-owned egress metadata for every registered action (blocker 1):
+    /// mandatory output-channel + egress-class declaration. Enforcement reads
+    /// ONLY this map; connector metadata is never consulted.
+    egress_declarations: HashMap<ActionId, ActionEgressDeclaration>,
 }
 
 impl ActionCatalog {
@@ -107,6 +126,7 @@ impl ActionCatalog {
             token_requiring_actions: HashMap::new(),
             effect_paths: Vec::new(),
             counterparty_facing_actions: HashSet::new(),
+            egress_declarations: HashMap::new(),
         }
     }
 
@@ -120,6 +140,12 @@ impl ActionCatalog {
     pub fn with_kernel_origin(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
         self.kernel_origin_actions = actions.into_iter().collect();
         self
+    }
+
+    /// Every action id the catalog recognizes. Used by the completeness test
+    /// to assert each carries a mandatory egress declaration (blocker 1).
+    pub fn action_ids(&self) -> &HashSet<ActionId> {
+        &self.ids
     }
 
     /// Mark the given actions as requiring a selection token of the expected type (D-055.1):
@@ -147,6 +173,38 @@ impl ActionCatalog {
         self
     }
 
+    /// Mark the given actions as delivering to a specific named output
+    /// channel. `gate()` denies the action unless the grant's caveat chain
+    /// effectively allows that channel. Stored as the catalog-owned egress
+    /// declaration (blocker 1); connector metadata is never consulted.
+    pub fn with_output_channels(
+        mut self,
+        actions: impl IntoIterator<Item = (ActionId, Vec<String>)>,
+    ) -> Self {
+        for (id, channels) in actions {
+            self.egress_declarations.insert(
+                id,
+                ActionEgressDeclaration {
+                    output_channels: Some(channels),
+                    egress_class: None,
+                },
+            );
+        }
+        self
+    }
+
+    /// Declare the catalog-owned egress metadata for a set of actions
+    /// (blocker 1). Every registered action MUST have an explicit declaration
+    /// (use `None` on an axis when the action carries no requirement there);
+    /// the gate fails closed on any registered action missing its declaration.
+    pub fn with_egress_declarations(
+        mut self,
+        declarations: impl IntoIterator<Item = (ActionId, ActionEgressDeclaration)>,
+    ) -> Self {
+        self.egress_declarations = declarations.into_iter().collect();
+        self
+    }
+
     /// True if a denial of `id` faces an external counterparty and must
     /// surface the canonical deferral + owner escalation (AD-151).
     /// Unknown/unclassified actions return false (fail closed).
@@ -163,6 +221,24 @@ impl ActionCatalog {
     /// If `id` requires a selection token, returns the expected token type (D-055.1).
     pub fn requires_selection_token(&self, id: &ActionId) -> Option<&SelectionTokenType> {
         self.token_requiring_actions.get(id)
+    }
+
+    /// If `id` carries a catalog egress declaration, returns it. A registered
+    /// action WITHOUT a declaration is a catalog-integrity violation (blocker 1);
+    /// the gate fails closed on its absence rather than treating it as unknown.
+    pub fn egress_decl_for(&self, id: &ActionId) -> Option<&ActionEgressDeclaration> {
+        self.egress_declarations.get(id)
+    }
+
+    /// If `id` is declared as a rated egress endpoint, returns its class.
+    pub fn egress_class_for(&self, id: &ActionId) -> Option<EgressClass> {
+        self.egress_decl_for(id).and_then(|d| d.egress_class)
+    }
+
+    /// If `id` delivers to one or more named output channels, returns them.
+    pub fn output_channel_for(&self, id: &ActionId) -> Option<&[String]> {
+        self.egress_decl_for(id)
+            .and_then(|d| d.output_channels.as_deref())
     }
 
     pub fn effect_paths(&self) -> &[EffectPath] {
@@ -189,6 +265,9 @@ pub enum DenialReason {
     /// AD-060: the action targets a rated egress endpoint whose class is not
     /// covered by the grant's allowed egress classes.
     EgressClassNotGranted,
+    /// The action delivers to a named output channel not effectively
+    /// allowed by the grant's caveat chain (AD-035 reply chokepoint).
+    OutputChannelNotGranted,
 }
 
 /// The typed outcome of mediating one action request.
@@ -224,6 +303,12 @@ pub struct ActionRequest {
     pub target_digest: Option<crate::digest::Digest>,
     #[serde(default)]
     pub selection_token_id: Option<Ulid>,
+    /// Actual request parameters submitted with the action (blocker 2). The
+    /// gate enforces any `BoundParameter` caveats on the grant against these
+    /// exact values; a bound name missing here or carrying a different value
+    /// is a caveat violation, not a silent pass.
+    #[serde(default)]
+    pub params: BTreeMap<String, String>,
     pub requested_at: jiff::Timestamp,
     pub schema_version: u32,
 }

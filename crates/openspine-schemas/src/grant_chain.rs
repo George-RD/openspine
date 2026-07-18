@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: grant-chain serialization, verification, and policy helpers are kept together to preserve the authenticated-chain implementation.
 //! Macaroons-simple grant chain (AD-101): parent-derived HMAC hops, offline
 //! verification, no parent DB lookup.
 //!
@@ -22,11 +23,31 @@ use crate::grant::{GrantLimits, GrantMode, TaskGrant};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Caveat {
-    ActionAllowlist { actions: Vec<ActionId> },
-    BoundParameter { name: String, value: String },
-    ExpiresBefore { at: jiff::Timestamp },
-    ModelTier { max_tier: String },
-    OutputChannelAllowlist { channels: Vec<String> },
+    ActionAllowlist {
+        actions: Vec<ActionId>,
+    },
+    BoundParameter {
+        name: String,
+        value: String,
+    },
+    ExpiresBefore {
+        at: jiff::Timestamp,
+    },
+    ModelTier {
+        max_tier: String,
+    },
+    OutputChannelAllowlist {
+        channels: Vec<String>,
+    },
+    /// AD-060 / AD-035: narrows effective `allowed_egress_classes` to the
+    /// intersection of every such caveat in the chain. A worker sub-grant
+    /// is minted with an empty list unconditionally, so its effective
+    /// egress classes are provably empty regardless of what the root or
+    /// parent carried — append-only narrowing, never a root-field mutation
+    /// (which would desync `seal_child_from_parent_tip` from `verify_mac`).
+    EgressClassAllowlist {
+        classes: Vec<EgressClass>,
+    },
 }
 
 /// One hop in the parent-derived chain. Roots use a single step with
@@ -184,6 +205,11 @@ fn caveat_bytes(caveat: &Caveat) -> Vec<u8> {
             let mut c = channels.clone();
             c.sort();
             serde_json::json!({"kind":"output_channel_allowlist","channels":c})
+        }
+        Caveat::EgressClassAllowlist { classes } => {
+            let mut c: Vec<&str> = classes.iter().map(EgressClass::as_str).collect();
+            c.sort_unstable();
+            serde_json::json!({"kind":"egress_class_allowlist","classes":c})
         }
     };
     canonical_json(&v).into_bytes()
@@ -368,11 +394,57 @@ pub fn bindings_valid(grant: &TaskGrant) -> bool {
 /// [`effectively_allows_output_channel`]) — the first runtime consumer is
 /// `implement-worker-runtime`'s sub-grant minting (AD-101/AD-033).
 pub fn has_unsupported_caveats(grant: &TaskGrant) -> bool {
-    flattened_caveats(&grant.chain)
-        .iter()
-        .any(|c| matches!(c, Caveat::ModelTier { .. }))
+    has_unsupported_caveats_except(grant, &[])
 }
 
+/// Caveat kinds a verifier explicitly enforces at its request boundary.
+/// Any caveat not listed here remains fail-closed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SupportedCaveatKind {
+    OutputChannelAllowlist,
+    EgressClassAllowlist,
+}
+
+/// Reject caveats this verifier does not understand or enforce.
+///
+/// The match is deliberately exhaustive: adding a future `Caveat` variant
+/// requires explicitly deciding whether every verifier supports it, rather
+/// than silently defaulting to acceptance.
+pub fn has_unsupported_caveats_except(
+    grant: &TaskGrant,
+    supported: &[SupportedCaveatKind],
+) -> bool {
+    flattened_caveats(&grant.chain)
+        .iter()
+        .any(|caveat| match caveat {
+            Caveat::ActionAllowlist { .. } => false,
+            Caveat::BoundParameter { .. } => false,
+            Caveat::ExpiresBefore { .. } => false,
+            Caveat::ModelTier { .. } => true,
+            Caveat::OutputChannelAllowlist { .. } => {
+                !supported.contains(&SupportedCaveatKind::OutputChannelAllowlist)
+            }
+            Caveat::EgressClassAllowlist { .. } => {
+                !supported.contains(&SupportedCaveatKind::EgressClassAllowlist)
+            }
+        })
+}
+
+/// Effective AD-060 egress-class membership: the class must be in the
+/// root's allowlist and in every `EgressClassAllowlist` caveat in the chain.
+pub fn effectively_allows_egress_class(grant: &TaskGrant, class: &EgressClass) -> bool {
+    if !grant.allowed_egress_classes.contains(class) {
+        return false;
+    }
+    for caveat in flattened_caveats(&grant.chain) {
+        if let Caveat::EgressClassAllowlist { classes } = caveat {
+            if !classes.contains(class) {
+                return false;
+            }
+        }
+    }
+    true
+}
 pub fn flattened_caveats(chain: &[ChainStep]) -> Vec<&Caveat> {
     chain.iter().flat_map(|s| s.added_caveats.iter()).collect()
 }

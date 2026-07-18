@@ -43,6 +43,7 @@ pub use polling::run_telegram_poll_loop;
 mod plan_approval;
 mod stages;
 mod timer_dispatch;
+mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;
 #[cfg(test)]
 pub(crate) use offset::{
@@ -54,6 +55,7 @@ pub(crate) use timer_dispatch::run_task_deadline_consumer;
 pub(crate) use timer_dispatch::{
     dispatch_task_timer_event, dispatch_task_wake, recover_timer_dispatches, TimerDispatchOutcome,
 };
+pub(crate) use worker_result_consumer::run_worker_result_consumer;
 mod post_approval;
 mod selection;
 #[cfg(test)]

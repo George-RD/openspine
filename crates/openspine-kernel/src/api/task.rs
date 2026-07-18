@@ -28,15 +28,11 @@ pub(super) struct TaskViewBody {
     allowed_actions: Vec<String>,
     approval_required_actions: Vec<String>,
     denied_actions: Vec<String>,
-    output_channels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    output_channels: Option<Vec<String>>,
     limits: TaskLimitsBody,
     expires_at: String,
     pending_message: String,
-    /// Build plan Step 5: which selection token(s) this grant may spend
-    /// (PRD §15 — "only usable inside matching task grant"). Empty for
-    /// every Phase 1 grant; populated by the email-preview lane's grant-binding
-    /// hook (`pipeline::lanes::email_grant_binding`) for a selected-thread
-    /// email task.
     selection_tokens: Vec<String>,
 }
 
@@ -48,19 +44,37 @@ pub(super) async fn get_task(
     let pending_bytes = state.artifacts.get(&pending_ref).map_err(internal_error)?;
     let pending_message = String::from_utf8_lossy(&pending_bytes).into_owned();
 
+    let effective_actions: Vec<String> = grant
+        .allowed_actions
+        .iter()
+        .filter(|a| grant.effectively_allows(a))
+        .map(|a| a.0.clone())
+        .collect();
+    let effective_approval_required: Vec<String> = grant
+        .approval_required_actions
+        .iter()
+        .filter(|a| grant.effectively_approval_required(a))
+        .map(|a| a.0.clone())
+        .collect();
+    let effective_denied: Vec<String> = grant
+        .denied_actions
+        .iter()
+        .filter(|a| !grant.effectively_allows(a))
+        .map(|a| a.0.clone())
+        .collect();
     Ok(Json(TaskViewBody {
         task_grant_id: grant.id.to_string(),
         agent_id: grant.agent_id,
         workflow_id: grant.workflow_id,
         purpose: grant.purpose,
-        allowed_actions: grant.allowed_actions.into_iter().map(|a| a.0).collect(),
-        approval_required_actions: grant
-            .approval_required_actions
-            .into_iter()
-            .map(|a| a.0)
-            .collect(),
-        denied_actions: grant.denied_actions.into_iter().map(|a| a.0).collect(),
-        output_channels: grant.output_channels,
+        allowed_actions: effective_actions,
+        approval_required_actions: effective_approval_required,
+        denied_actions: effective_denied,
+        output_channels: if grant.parent_grant_id.is_some() {
+            None
+        } else {
+            Some(grant.output_channels)
+        },
         limits: TaskLimitsBody {
             max_model_calls: grant.limits.max_model_calls,
             max_artifacts: grant.limits.max_artifacts,

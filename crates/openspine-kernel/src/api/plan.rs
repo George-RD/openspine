@@ -100,6 +100,7 @@ pub(crate) async fn dispatch_plan_preview(
         payload_ref: Some(payload_ref),
         target_digest: Some(question.target_digest),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     };

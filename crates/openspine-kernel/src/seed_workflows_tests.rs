@@ -226,6 +226,7 @@ fn insert_request_and_approval(store: &Store, action: &str) -> Ulid {
         }),
         target_digest: Some(target_digest.clone()),
         selection_token_id: None,
+        params: std::collections::BTreeMap::new(),
         requested_at: jiff::Timestamp::now(),
         schema_version: 1,
     };

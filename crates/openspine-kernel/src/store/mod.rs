@@ -147,6 +147,8 @@ pub enum StoreError {
     Serde(#[from] serde_json::Error),
     #[error("stored digest {0} failed to parse")]
     BadDigest(String),
+    #[error("stored ulid {0} failed to parse")]
+    BadUlid(String),
     #[error("proposed artifact lifecycle error: {0}")]
     ProposedArtifactLifecycle(String),
     #[error("unauthorized owner assertion: {0}")]
@@ -173,6 +175,10 @@ pub enum StoreError {
     OwnerNotificationFailed(String),
     #[error("failure-routing invariant violation: {0}")]
     FailureRouting(String),
+    #[error("worker dispatch not found")]
+    WorkerDispatchNotFound,
+    #[error("worker result already recorded (receipt-keyed idempotency)")]
+    WorkerResultAlreadyRecorded,
     #[error("artifact store error during failure surfacing: {0}")]
     ArtifactStore(#[source] ArtifactStoreError),
     #[error("audit ledger chain failed verification")]
@@ -583,6 +589,8 @@ pub(crate) mod task_dispatch;
 mod test_hooks;
 #[cfg(test)]
 mod tests;
+pub(crate) mod worker_dispatch;
+pub(crate) mod worker_result_relay;
 pub(crate) mod workflow_timers;
 
 impl Store {

@@ -25,10 +25,12 @@ use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::connector_breaker::call_with_connector;
 use super::plan::dispatch_plan_preview;
+use super::worker::{handle_worker_commission, handle_worker_report_result};
 
 /// The boxed future every handler returns. Must be `Send` because dispatch
 /// runs on the axum request task.
-type HandlerFuture<'a> = Pin<Box<dyn Future<Output = Result<Value, DispatchError>> + Send + 'a>>;
+pub(crate) type HandlerFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<Value, DispatchError>> + Send + 'a>>;
 
 /// A kernel action handler: given the bound app state, the grant that
 /// authorized the action, the action id, the grant-bound chat id, and the
@@ -76,6 +78,14 @@ impl ActionHandlerRegistry {
             "setup.workflow.start",
             handle_setup_workflow_start as ActionHandler,
         );
+        map.insert(
+            "worker.commission",
+            handle_worker_commission as ActionHandler,
+        );
+        map.insert(
+            "worker.report_result",
+            handle_worker_report_result as ActionHandler,
+        );
         ActionHandlerRegistry { map }
     }
 
@@ -83,6 +93,13 @@ impl ActionHandlerRegistry {
     /// catalog entry with no Step 4 kernel-side implementation yet.
     pub(crate) fn lookup(&self, id: &str) -> Option<ActionHandler> {
         self.map.get(id).copied()
+    }
+    /// Return every action id that has a registered handler (the independent
+    /// dispatchable set). Used by the catalog completeness test to assert
+    /// every dispatchable action carries an explicit egress declaration.
+    #[allow(dead_code)]
+    pub(crate) fn registered_action_ids(&self) -> Vec<ActionId> {
+        self.map.keys().map(|s| ActionId::new(*s)).collect()
     }
 }
 
@@ -225,7 +242,6 @@ fn handle_workflow_invoke<'a>(
         async move { Ok(json!({"stub": true, "note": "workflow.invoke not yet implemented"})) },
     )
 }
-
 fn handle_setup_workflow_start<'a>(
     _state: &'a AppState,
     _grant: &'a TaskGrant,

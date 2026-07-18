@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: startup wiring for all kernel subsystems (worker result consumer, nerve dispatcher, timer driver, telegram poll, retry worker, HTTP server)
 mod action_catalog;
 mod api;
 mod artifact_loader;
@@ -97,6 +98,11 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
     let cli = Cli::parse();
+    // Fixed boot timestamp captured at process start. Startup stranded-worker
+    // recovery selects only dispatches created BEFORE this instant, so a
+    // commission accepted just after boot can never be falsely surfaced as
+    // stranded (WkFinalSec P2 cutoff race).
+    let boot_started_at = jiff::Timestamp::now();
     if cli.benchmark {
         benchmark::run_benchmarks()?;
         return Ok(());
@@ -474,6 +480,108 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let nerve_delivery = nerve_delivery::run(state.clone());
+    // AD-100/AD-035: recovery runs after the HTTP service has had a chance to
+    // bind and poll. Per D-083, a dispatched/handed_off row WITHOUT a
+    // completion receipt is NEVER rerun — it is surfaced for owner attention
+    // via failure_surfacing and left terminal.
+    let recovery_state = state.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let result: anyhow::Result<()> = async {
+            for (grant_id, _token_ref) in
+                store::worker_dispatch::pending_worker_dispatches(&recovery_state.store, boot_started_at)
+                    .context("loading stranded worker rows")?
+            {
+                let Some(bound_chat_id) = store::worker_dispatch::worker_parent_grant(
+                    &recovery_state.store,
+                    grant_id,
+                )
+                .ok()
+                .flatten()
+                .and_then(|parent_id| {
+                    recovery_state
+                        .store
+                        .find_task_grant_by_id(parent_id)
+                        .ok()
+                        .flatten()
+                        .map(|(_, _, chat_id)| chat_id)
+                })
+                .filter(|chat_id| *chat_id != 0)
+                else {
+                    tracing::error!(%grant_id, "cannot resolve owner chat for stranded worker; skipping notification");
+                    continue;
+                };
+                let text = format!("Worker {grant_id} was dispatched but never reported a result. The worker's shell may have exited without reporting. No further action is taken automatically.");
+                let text_ref = match recovery_state.artifacts.put(text.as_bytes()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(%grant_id, error = %e, "storing stranded worker notification text; retrying on next restart");
+                        continue;
+                    }
+                };
+                if let Err(e) = store::worker_dispatch::surface_stranded_worker(
+                    &recovery_state.store,
+                    bound_chat_id,
+                    text_ref.digest.as_str(),
+                    grant_id,
+                    "stranded worker dispatch (no result recorded)",
+                ) {
+                    tracing::error!(%grant_id, error = %e, "enqueuing/marking stranded worker notification; retrying on next restart");
+                }
+            }
+            Ok(())
+        }
+        .await;
+        if let Err(err) = result {
+            tracing::error!(error = %err, "worker recovery task failed");
+        }
+    });
+    // Periodic watchdog: detect workers whose shell exited without reporting
+    // a result and surface them for owner attention.
+    let watchdog_state = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            let Ok(stranded) = store::worker_dispatch::stranded_worker_timeouts(
+                &watchdog_state.store,
+                std::time::Duration::from_secs(7200),
+            ) else {
+                continue;
+            };
+            for (grant_id, parent_grant_id) in stranded {
+                let Some(bound_chat_id) = watchdog_state
+                    .store
+                    .find_task_grant_by_id(parent_grant_id)
+                    .ok()
+                    .flatten()
+                    .map(|(_, _, chat_id)| chat_id)
+                    .filter(|chat_id| *chat_id != 0)
+                else {
+                    tracing::error!(%grant_id, %parent_grant_id, "cannot resolve owner chat for watchdog notification; retrying");
+                    continue;
+                };
+                let text = format!("Worker {grant_id} (parent {parent_grant_id}) has not reported a result within 2 hours. The worker's shell may have exited without reporting.");
+                let text_ref = match watchdog_state.artifacts.put(text.as_bytes()) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(%grant_id, error = %e, "storing watchdog notification text; retrying next sweep");
+                        continue;
+                    }
+                };
+                if let Err(e) = store::worker_dispatch::surface_stranded_worker(
+                    &watchdog_state.store,
+                    bound_chat_id,
+                    text_ref.digest.as_str(),
+                    grant_id,
+                    "stranded worker timeout (no result within 2h)",
+                ) {
+                    tracing::error!(%grant_id, error = %e, "enqueuing/marking watchdog notification; retrying next sweep");
+                }
+            }
+        }
+    });
+    let worker_result_consumer = pipeline::run_worker_result_consumer(&state);
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
@@ -482,6 +590,7 @@ async fn main() -> anyhow::Result<()> {
         () = task_timer_consumer => unreachable!("task timer consumer loops forever"),
         () = nerve_dispatcher => unreachable!("run_nerve_dispatcher loops forever"),
         () = nerve_delivery => unreachable!("nerve_delivery loops forever"),
+        res = worker_result_consumer => res.context("worker result consumer failed")?,
     }
     Ok(())
 }

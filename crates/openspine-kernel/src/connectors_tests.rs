@@ -3,7 +3,7 @@ mod tests {
     use jiff::Timestamp;
     use openspine_gate::{gate, ActionOrigin, GateContext, NoEgress};
     use openspine_schemas::action::{
-        ActionCatalog, ActionId, ActionRequest, DenialReason, GateDecision,
+        ActionCatalog, ActionEgressDeclaration, ActionId, ActionRequest, DenialReason, GateDecision,
     };
     use openspine_schemas::approval::ApprovalRecord;
     use openspine_schemas::artifact::Lifecycle;
@@ -149,6 +149,22 @@ mod tests {
         let catalog = ActionCatalog::new([
             ActionId::new("web.search"),
             ActionId::new("web.form_submit"),
+        ])
+        .with_egress_declarations([
+            (
+                ActionId::new("web.search"),
+                ActionEgressDeclaration {
+                    output_channels: None,
+                    egress_class: Some(EgressClass::Search),
+                },
+            ),
+            (
+                ActionId::new("web.form_submit"),
+                ActionEgressDeclaration {
+                    output_channels: None,
+                    egress_class: Some(EgressClass::WebFormPost),
+                },
+            ),
         ]);
         let ctx = EmptyGateContext;
         let now = Timestamp::now();
@@ -162,6 +178,7 @@ mod tests {
             payload_ref: None,
             target_digest: None,
             selection_token_id: None,
+            params: std::collections::BTreeMap::new(),
             requested_at: now,
             schema_version: 1,
         };
@@ -190,6 +207,7 @@ mod tests {
             payload_ref: None,
             target_digest: None,
             selection_token_id: None,
+            params: std::collections::BTreeMap::new(),
             requested_at: now,
             schema_version: 1,
         };
@@ -261,7 +279,14 @@ mod tests {
             thread_id: None,
         };
         grant.seal_root(b"openspine-test-grant-hmac-key-v1");
-        let catalog = ActionCatalog::new([ActionId::new("openspine.status.read")]);
+        let catalog = ActionCatalog::new([ActionId::new("openspine.status.read")])
+            .with_egress_declarations([(
+                ActionId::new("openspine.status.read"),
+                ActionEgressDeclaration {
+                    output_channels: None,
+                    egress_class: None,
+                },
+            )]);
         let req = ActionRequest {
             id: Ulid::new(),
             task_grant_id: grant.id,
@@ -270,6 +295,7 @@ mod tests {
             payload_ref: None,
             target_digest: None,
             selection_token_id: None,
+            params: std::collections::BTreeMap::new(),
             requested_at: Timestamp::now(),
             schema_version: 1,
         };

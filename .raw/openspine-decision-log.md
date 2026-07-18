@@ -111,6 +111,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-097 | Persona overlay loading is admission-gated: generic loaders exclude personas; a raw-byte admission gate requires a matching validated learned row before parsing | Accepted |
 | D-098 | Gmail draft writes keep durable pending evidence: rows inserted before the call resolve only on a confirmed provider response; no automatic resend | Accepted |
 | D-099 | Connector breakers use sliding-window failure accounting; successes close probes but never erase recorded failures | Accepted |
+| D-100 | Worker commissioning mints an append-only caveat-chain child of the master grant; worker output fields are untrusted presentation and direct worker egress is structurally impossible | Accepted |
+| D-101 | Worker dispatch is receipt-bound and fail-closed: commissioning is single-tx receipt-idempotent, and recovery never reruns a dispatched row without a completion receipt — it surfaces it for owner attention | Accepted |
+| D-102 | Worker results relay through the master lane under the nerve-delivery ack policy with durable event-id dedupe, bounded retries, and owner-visible dead-letters | Accepted |
+| D-103 | Action egress declarations are a literal catalog-owned table (including explicit no-egress rows); connector metadata is never authority classification | Accepted |
 
 ---
 
@@ -2398,6 +2402,91 @@ Per-operation-class breakers replace the per-connector breaker.
 ---
 
 
+# D-100 — Worker commissioning is an append-only caveat-chain child
+
+## Decision
+
+A commissioned worker's grant is a macaroon-style caveat-chain child extending the master grant's sealed tip append-only; each sub-grant only ADDs caveats and is offline-verifiable. Worker result fields (`offered_slots`, `requests`, notes/detail refs) are untrusted presentation; detail payloads are bounded `ArtifactRef`s, never inline text. The root `TaskGrant.output_channels` field is retained literally but effectively emptied by an appended empty `OutputChannelAllowlist` caveat plus the worker-facing serialized view (no `output_channels` key), so `effectively_allows_output_channel` denies every direct worker egress.
+
+## Rationale
+
+AD-030/033/035/101: authority derives by narrowing, never widening; structural denial beats field surgery on a MAC-sealed grant.
+
+## Consequences
+
+Workers reach effects only through the master relay; a forged or widened child fails offline chain verification.
+
+## Would change if
+
+A ratified re-rooting ceremony lets workers hold independent grants.
+
+---
+
+
+# D-101 — Receipt-bound, fail-closed worker dispatch
+
+## Decision
+
+Commissioning mints grant/briefcase, dispatch row, and `authority.granted` audit in one BEGIN IMMEDIATE transaction with receipt-keyed idempotency bound to the parent grant and canonical request digest; duplicate receipts return the original persisted result. `token_ref` persists as an encrypted `ArtifactRef`. Recovery NEVER reruns a dispatched row lacking a completion receipt (D-083): stranded rows are surfaced for owner attention atomically (enqueue + mark in one tx, real owner chat only, fixed boot-start cutoff), and a watchdog surfaces shell-exit-without-report rows.
+
+## Rationale
+
+A dispatched-without-receipt row may have executed its effect; rerunning risks duplicate real-world actions, while silent loss hides owner-approved work.
+
+## Consequences
+
+Crash recovery is attention-driven, not automatic re-execution; false stranded claims are prevented by the boot cutoff.
+
+## Would change if
+
+Sandbox effects become idempotent end-to-end with provider dedupe keys.
+
+---
+
+
+# D-102 — Worker results relay under the delivery ack policy
+
+## Decision
+
+`worker.result` bus events are consumed by the master-lane relay: a durable delivered marker keyed by the worker-result event id commits in the same transaction as the checkpoint advance; delivery acks only on confirmed send; checkpoint parse/load errors fail closed; transient relay failures retry up to five attempts then dead-letter with an owner-visible notification whose enqueue is atomic with the dead-letter commit; artifact-put failures stay retryable and unresolvable-owner rows never dead-letter.
+
+## Rationale
+
+Mirrors the D-092/nerve delivery ack policy; checkpoint-before-send loses results, send-before-marker duplicates them.
+
+## Consequences
+
+Provider-send success followed by crash before marker persistence is delivery-unknown and may retry; exactly-once is not claimed.
+
+## Would change if
+
+A transactional outbox with provider idempotency keys lands.
+
+---
+
+
+# D-103 — Catalog-owned literal egress declarations
+
+## Decision
+
+Every dispatchable action's output channels and egress class live in a literal catalog-owned table, including deliberate no-egress rows; a completeness test enumerates the handler registry and fails on omissions. Connector runtime metadata is never consulted for authority classification.
+
+## Rationale
+
+Extends D-053 registry ownership: enforcement metadata must be declared where it is enforced, not inferred from optional runtime state that silently skips when missing.
+
+## Consequences
+
+Adding an action without an explicit classification fails CI; egress enforcement cannot silently no-op.
+
+## Would change if
+
+Typed registration makes unclassified actions unrepresentable, subsuming the test.
+
+---
+
+
+
 
 
 ## Open Decision Questions — CLOSED (see linked decisions)
@@ -2465,4 +2554,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-092 (kernel-owned nerve admission/replay boundaries with atomic budget debits) and D-093 (ModelTier::Cheap conservative default for manifest-derived advisee limits), settled while implementing `implement-nerve-subscribers`. |
 | 2026-07-18 | Added D-094 (persona as a no-authority seventh overlay artifact kind), D-095 (kernel-authored bootstrap provenance with validated seed/repair), D-096 (deterministic personality probes; learnable digest default with correction route owned by implement-reflection-miner), and D-097 (admission-gated persona overlay loading), settled while implementing `implement-personality-seed`. |
 | 2026-07-18 | Added D-098 (durable pending evidence for Gmail draft writes; no automatic resend) and D-099 (sliding-window breaker failure accounting with RAII probe permits), settled while implementing `implement-connector-reality`. |
+| 2026-07-18 | Added D-100 (append-only worker caveat-chain child with structural egress denial), D-101 (receipt-bound fail-closed worker dispatch/recovery), D-102 (master-lane worker result relay under the delivery ack policy), and D-103 (catalog-owned literal egress declarations), settled while implementing `implement-worker-runtime`. |
 

@@ -36,4 +36,5 @@ pub mod principal;
 pub mod route;
 pub mod selection;
 pub mod task;
+pub mod worker;
 pub mod workflow;

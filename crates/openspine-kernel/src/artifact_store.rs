@@ -43,6 +43,8 @@ pub enum ArtifactStoreError {
 pub struct ArtifactStore {
     root: PathBuf,
     cipher: Aes256Gcm,
+    #[cfg(test)]
+    fault_put: std::sync::atomic::AtomicBool,
 }
 
 impl ArtifactStore {
@@ -52,7 +54,12 @@ impl ArtifactStore {
             source,
         })?;
         let cipher = Aes256Gcm::new_from_slice(&key).expect("key is exactly 32 bytes");
-        Ok(Self { root, cipher })
+        Ok(Self {
+            root,
+            cipher,
+            #[cfg(test)]
+            fault_put: std::sync::atomic::AtomicBool::new(false),
+        })
     }
 
     fn blob_path(&self, digest_hex: &str) -> PathBuf {
@@ -77,6 +84,13 @@ impl ArtifactStore {
     /// storing the same plaintext twice is a no-op the second time (the
     /// blob is content-addressed, so nothing new needs writing).
     pub fn put(&self, plaintext: &[u8]) -> Result<ArtifactRef, ArtifactStoreError> {
+        #[cfg(test)]
+        if self.fault_put.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(ArtifactStoreError::Io {
+                path: self.root.clone(),
+                source: std::io::Error::other("injected artifact put failure (test)"),
+            });
+        }
         let digest = digest_of_bytes(plaintext);
         let path = self.blob_path(Self::digest_hex(&digest));
 
@@ -193,6 +207,13 @@ impl ArtifactStore {
         blob.extend_from_slice(&ciphertext);
         std::fs::write(&path, &blob).map_err(|source| ArtifactStoreError::Io { path, source })?;
         Ok(())
+    }
+    /// Test-only: make subsequent `put` calls fail with an I/O error, so a
+    /// caller can exercise retryable-on-artifact-failure paths. Per-instance,
+    /// so concurrent tests using other stores are unaffected.
+    pub(crate) fn set_fault_put_for_test(&self, fail: bool) {
+        self.fault_put
+            .store(fail, std::sync::atomic::Ordering::SeqCst);
     }
 }
 

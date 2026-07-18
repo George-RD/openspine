@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord};
@@ -77,6 +78,7 @@ pub(crate) fn request_for(action: &str) -> ActionRequest {
         }),
         target_digest: Some(digest('b')),
         selection_token_id: None,
+        params: BTreeMap::new(),
         requested_at: Timestamp::now(),
         schema_version: 1,
     }
