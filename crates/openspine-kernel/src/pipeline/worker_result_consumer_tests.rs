@@ -67,6 +67,7 @@ fn parent_grant() -> TaskGrant {
         allowed_actions: vec![
             ActionId::new("openspine.status.read"),
             ActionId::new("telegram.reply:owner_channel"),
+            ActionId::new("worker.report_result"),
         ],
         approval_required_actions: vec![],
         denied_actions: vec![],
@@ -105,7 +106,10 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         .unwrap();
     let spec = WorkerCommissionSpec {
         agent_id: "worker_agent".to_string(),
-        allowed_actions: vec![ActionId::new("openspine.status.read")],
+        allowed_actions: vec![
+            ActionId::new("openspine.status.read"),
+            ActionId::new("worker.report_result"),
+        ],
         bound_parameters: vec![],
         expires_before: parent.expires_at,
         purpose: "worker-task".to_string(),

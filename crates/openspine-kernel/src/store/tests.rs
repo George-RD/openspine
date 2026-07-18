@@ -28,7 +28,10 @@ pub(super) fn sample_grant(task_token: &str) -> TaskGrant {
         capability_pack_id: "owner_control_basic_pack".to_string(),
         authority_sources: vec![],
         selection_tokens: vec![],
-        allowed_actions: vec![ActionId::new("openspine.status.read")],
+        allowed_actions: vec![
+            ActionId::new("openspine.status.read"),
+            ActionId::new("worker.report_result"),
+        ],
         approval_required_actions: vec![],
         denied_actions: vec![],
         allowed_egress_classes: vec![],

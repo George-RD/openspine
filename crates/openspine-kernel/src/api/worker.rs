@@ -202,7 +202,13 @@ pub(crate) fn handle_worker_commission<'a>(
 
         let worker = mint_worker_grant(grant, &spec, &key)
             .map_err(|e| DispatchError::BadRequest(format!("worker.commission rejected: {e}")))?;
-
+        if !worker.effectively_allows(&openspine_schemas::action::ActionId::new(
+            "worker.report_result",
+        )) {
+            return Err(DispatchError::BadRequest(
+                "worker cannot report results".to_string(),
+            ));
+        }
         // D-085: the worker receives a packed briefcase, not the board.
         let counterparty = match (&spec.counterparty_channel, &spec.counterparty_identifier) {
             (Some(channel), Some(identifier)) => CounterpartyRef::Unresolved {
@@ -245,6 +251,11 @@ pub(crate) fn handle_worker_commission<'a>(
         );
         let persisted_grant_id = match persisted {
             Ok(id) => id,
+            Err(StoreError::WorkerCannotReportResults) => {
+                return Err(DispatchError::BadRequest(
+                    "worker cannot report results".to_string(),
+                ));
+            }
             Err(StoreError::Sqlite(rusqlite::Error::SqliteFailure(_, Some(msg))))
                 if msg.contains("UNIQUE constraint failed") =>
             {

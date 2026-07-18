@@ -119,6 +119,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-105 | Skill-context attribution is kernel-bound: opaque single-use selection tokens (grant/agent/skill/version/task-class/expiry) drive Causal attribution atomically with the action audit; live selections give bounded Contextual digest notices; caller-supplied attribution does not exist | Accepted |
 | D-106 | Mined-skill promotion decisions are digest-bound to the exactly-rendered owner preview: the bounded provenance+diff summary the owner saw is persisted and consumed by approve/reject; approval without a delivered preview fails | Accepted |
 | D-107 | Standing rules concretize AD-012 dark-window defaults (resolving its leaning status): timer-boxed conditional grants whose fired default re-runs the normal gate consuming a digest-bound one-use pending authorization; reservations are fail-closed (ambiguous outcomes finalize; only proven pre-effect failures cancel-then-rearm) | Accepted |
+| D-108 | A commissioned worker must be effectively able to report: worker.commission rejects specs whose composed chain lacks worker.report_result (pre-persist and in-transaction); the shell reports only for an authenticated is_worker view AND effective report authority | Accepted |
 
 ---
 
@@ -2575,6 +2576,27 @@ Owner-response semantics move to an interactive surface with delivery acknowledg
 
 
 
+# D-108 — Commissioned workers must be effectively able to report
+
+## Decision
+
+`worker.commission` rejects a spec whose composed caveat chain lacks effective `worker.report_result` — checked immediately after mint before any briefcase/pending/token artifact writes, and re-checked inside the commissioning BEGIN IMMEDIATE transaction. The worker-facing task view carries an authenticated `is_worker` marker; the shell attempts a terminal report only when `is_worker` AND the effective allowed actions contain `worker.report_result` (absent lists fail closed). Root grants that merely hold the action never report.
+
+## Rationale
+
+A worker structurally unable to report is a stranded dispatch row by construction; action possession is authority, not identity — gating on it alone made ordinary root runs fail at terminal reporting.
+
+## Consequences
+
+No orphan token artifacts from rejected commissions; stranded-row watchdog attention is reserved for genuine failures.
+
+## Would change if
+
+A ratified non-reporting worker class (fire-and-forget effects) is introduced with its own terminal semantics.
+
+---
+
+
 
 
 
@@ -2647,4 +2669,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-100 (append-only worker caveat-chain child with structural egress denial), D-101 (receipt-bound fail-closed worker dispatch/recovery), D-102 (master-lane worker result relay under the delivery ack policy), and D-103 (catalog-owned literal egress declarations), settled while implementing `implement-worker-runtime`. |
 | 2026-07-18 | Added D-104 (runtime skills on the gate-containment guarantee, revisiting D-048), D-105 (kernel-bound skill-context attribution with Causal/Contextual digest semantics), and D-106 (digest-bound promotion previews), settled while implementing `implement-skill-artifact-class`. |
 | 2026-07-18 | Added D-107 (standing rules concretize AD-012 dark-window defaults with fail-closed reservation accounting), settled while implementing `implement-standing-rules`. |
+| 2026-07-18 | Added D-108 (commissioned workers must be effectively able to report; authenticated is_worker view marker gates shell reporting), settled while fixing the worker/shell contract post-merge. |
 

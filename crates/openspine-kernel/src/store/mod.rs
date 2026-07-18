@@ -200,6 +200,8 @@ pub enum StoreError {
     FailureRouting(String),
     #[error("worker dispatch not found")]
     WorkerDispatchNotFound,
+    #[error("worker cannot report results")]
+    WorkerCannotReportResults,
     #[error("worker result already recorded (receipt-keyed idempotency)")]
     WorkerResultAlreadyRecorded,
     #[error("artifact store error during failure surfacing: {0}")]
