@@ -74,6 +74,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-worker-runtime` (D-100..D-103)
 - `implement-skill-artifact-class` (D-104..D-106)
 - `implement-standing-rules` (D-107)
+- `implement-authority-equivalence-matcher` (D-109..D-110; production
+  adoption deferred to `wire-authority-equivalence-selection` below)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
