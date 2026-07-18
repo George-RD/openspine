@@ -71,6 +71,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-nerve-subscribers` (D-092..D-093)
 - `implement-personality-seed` (D-094..D-097)
 - `implement-connector-reality` (D-098..D-099)
+- `implement-worker-runtime` (D-100..D-103)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

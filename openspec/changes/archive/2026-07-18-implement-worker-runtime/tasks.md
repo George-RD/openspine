@@ -1,0 +1,34 @@
+# Tasks
+
+- [x] Implement caveat-chain worker sub-grant minting (`openspine-authority::worker_grant::mint_worker_grant`) with offline-verifiable MAC, narrowing-only caveats, and unconditional empty `OutputChannelAllowlist`
+- [x] Add `worker_dispatch` store module + `worker_dispatch` table schema (idempotent `ensure_schema`, wired into ad-hoc migrations)
+- [x] Record commissioned workers atomically (grant + briefcase + dispatch row + `authority.granted` bus event)
+- [x] Record worker results as `worker.result` bus events with structured payload, `ArtifactRef` note/detail refs, payload refs, and receipt-keyed fail-closed terminal flip
+- [x] Define worker runtime domain types (`WorkerCommissionSpec`, `WorkerResult`, `WorkerOutcome`, `WorkerRequest`, `WorkerSlot`, `WorkerBoundParameter`) with digest-bearing refs
+- [x] Wire `worker.commission` / `worker.report_result` handlers (master interpret/commission/relay) and register them in the action-handler registry
+- [x] Pack the worker's briefcase for its own grant (D-085), never the shared board
+- [x] Persist and validate commission receipt binding by parent grant id plus canonical request digest
+- [x] Run startup recovery for dispatched worker rows using their durable `token_ref` artifact
+- [x] Make worker-result consumption a parent-grant-gated master relay, not kernel-direct `owner.notify`
+- [x] Load worker-result checkpoints fail closed and advance only after confirmed relay or durable terminal skip
+- [x] Enumerate handler registry ids and assert exact explicit catalog egress classifications, including deliberate `None/None` rows
+- [x] Acceptance test: offline chain verify (multi-level) → `offline_chain_verify_multi_level`
+- [x] Acceptance test: child action widening rejected (`child_cannot_widen_parent_action`)
+- [x] Acceptance test: child expiry widening rejected (`child_cannot_widen_parent_expiry`)
+- [x] Acceptance test: worker result consumed as a bus event with payload refs and post-replay count → `result_is_consumed_bus_event`
+- [x] Acceptance test: direct worker egress impossible (effective output channels empty) → `classified_empty_output_channel_denial`
+- [x] Acceptance test: classified-empty channel denies the action → `empty_declared_output_channels_fail_closed`
+- [x] Acceptance test: parent allows but worker denies the narrowed action → `worker_denied_outside_narrowed_allowlist`; worker report action remains allowed → `worker_allowed_exact_report_action`
+- [x] Acceptance test: commissioning persists a worker briefcase and never a task-board row → `commissioning_persists_briefcase_without_board_row`
+- [x] Acceptance test: checkpoint parse/load failure is surfaced without sequence reset or replay
+- [x] Acceptance test: handler registry catalog completeness and exact class/channel values
+- [x] Author OpenSpec change artifacts (proposal, design, tasks, `core-runtime-schemas` spec deltas)
+- [x] Pass `openspec validate implement-worker-runtime --strict`
+- [x] Pass unmasked `./scripts/check.sh implement-worker-runtime` and record literal final line (`All checks passed.`)
+- [x] Regression test: delivered marker prevents duplicate relay on replay (`worker_result_relay_is_idempotent_on_replay`)
+- [x] Regression test: terminal (receipted) dispatch excluded from recovery (`receipted_worker_dispatch_is_not_recovered`)
+- [x] Regression test: 5-attempt retry then dead-letter (`worker_result_relay_retries_then_dead_letters`)
+- [x] Durable relay dedupe + checkpoint atomicity: marker keyed by event id, claimed in BEGIN IMMEDIATE before send, committed with checkpoint after confirmed handoff
+- [x] Receipt-guarded recovery: `pending_worker_dispatches` selects only `state='dispatched'` rows (terminal/receipted excluded)
+- [x] Bounded retries with dead-letter: 5-attempt durable counter, dead-letter row + audit on exhaustion, non-final failure stops loop
+- [x] Obtain independent WkFinalSec and WkFinalFit final re-review after the stabilized diff (requested via hub)
