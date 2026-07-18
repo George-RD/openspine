@@ -328,6 +328,7 @@ pub fn compose_authority(
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
 
     AuthorityOutcome::Granted(Box::new(grant))

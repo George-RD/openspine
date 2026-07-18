@@ -70,7 +70,6 @@ pub struct ProcessDriver {
     /// Each task gets `<scratch_root>/<sanitized_task_token>/`.
     pub scratch_root: PathBuf,
 }
-
 impl Default for ProcessDriver {
     fn default() -> Self {
         Self {

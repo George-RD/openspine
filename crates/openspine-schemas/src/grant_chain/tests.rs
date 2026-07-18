@@ -42,6 +42,7 @@ fn sample_root() -> TaskGrant {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     seal_root(&mut grant, TEST_GRANT_HMAC_KEY);
     grant

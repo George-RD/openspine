@@ -83,6 +83,13 @@ pub struct TaskGrant {
     /// pre-thread grant compatibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
+    /// AD-136: the kernel-resolved persona that fronts the conversation
+    /// this grant was composed for. Additive and audit-only; personas
+    /// carry no authority (D-094). `None` means no persona was bound
+    /// (an unbound or invalid binding yields no fronting persona, never
+    /// the agent's choice). Never set by the shell.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub persona_id: Option<String>,
 }
 
 impl TaskGrant {
@@ -150,6 +157,7 @@ mod tests {
                 max_runtime_seconds: 60,
             },
             task_token: "a".repeat(64),
+            persona_id: None,
             root_grant_id: id,
             parent_grant_id: None,
             mode: GrantMode::Live,

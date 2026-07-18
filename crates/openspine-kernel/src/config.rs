@@ -230,6 +230,19 @@ pub fn artifact_key_bytes() -> Result<[u8; 32], ConfigError> {
         .map_err(|_| ConfigError::MissingEnv("OPENSPINE_ARTIFACT_KEY".to_string()))?;
     parse_hex_key(&hex)
 }
+/// The required `OPENSPINE_WEBHOOK_HMAC_KEY` env var: the shared HMAC-SHA256
+/// secret the kernel uses to verify inbound webhook signatures (AD-134/AD-141).
+/// Absent in development/test, where a fixed test key is wired directly.
+pub fn webhook_hmac_secret() -> Result<Vec<u8>, ConfigError> {
+    let secret = std::env::var("OPENSPINE_WEBHOOK_HMAC_KEY")
+        .map_err(|_| ConfigError::MissingEnv("OPENSPINE_WEBHOOK_HMAC_KEY".to_string()))?;
+    if secret.trim().is_empty() {
+        return Err(ConfigError::MissingEnv(
+            "OPENSPINE_WEBHOOK_HMAC_KEY".to_string(),
+        ));
+    }
+    Ok(secret.into_bytes())
+}
 
 /// Resolve a [`GmailConfig`]'s OAuth client secret from its configured env var.
 pub fn gmail_client_secret(cfg: &GmailConfig) -> Result<String, ConfigError> {

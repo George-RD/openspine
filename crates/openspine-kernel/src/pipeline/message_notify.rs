@@ -290,6 +290,7 @@ fn kernel_notify_grant() -> Option<TaskGrant> {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(&key);
     Some(grant)

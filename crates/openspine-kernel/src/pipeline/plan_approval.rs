@@ -190,7 +190,7 @@ pub(super) async fn handle_plan_approval_callback(
     .decision
     {
         GateDecision::Allow => {
-            resolve_post_approval_handler(&request.action)(state, &grant, &request, chat_id).await
+            resolve_post_approval_handler(&request)(state, &grant, &request, chat_id).await
         }
         decision => {
             state.store.append_audit(

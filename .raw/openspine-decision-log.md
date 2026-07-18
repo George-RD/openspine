@@ -126,6 +126,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-112 | A worker crash competes atomically with a worker result for the dispatched-to-terminal transition; exactly one terminal outcome is accepted, and sandbox exits are classified Startup (125-127) / Crash (128-255) / ShellExit | Accepted |
 | D-113 | Restart intensity is capped per validated connector (three failures in thirty seconds), the cap precheck serializes with durable dispatch insertion before any grant or token is minted, exhaustion surfaces a best-effort owner escalation and never auto-retries, and legacy NULL-connector rows terminalize into a structured failure event without a synthetic connector identity | Accepted |
 | D-114 | Worker addressing is the identity tuple (owner, conversation, task) with at most one in-flight message per (owner, conversation) and grant-conditional stale cleanup; a worker child commissions only while its parent remains dispatched; a durable worker-failure consumer routes failures to the escalation surface before checkpointing | Accepted |
+| D-115 | Persona binding is an additive grant field and route reference: invalid or absent persona references resolve to no persona (never an agent-manifest fallback), and the counterparty guarantee is enforced structurally by route selection before persona resolution | Accepted |
+| D-116 | Webhook admission is fail-closed HMAC: a missing or empty key refuses ingress, the MAC preimage binds payload, channel_account (route selector), timestamp, and action identity, and the replay cache is scoped (channel_account, idempotency_key, action) with key-length and capacity bounds | Accepted |
+| D-117 | The headless hook lane runs the full pipeline without a conversational shell: no-approval flows complete digest-only with zero owner conversation, ApprovalRequired is never standing-rule-downgraded and escalates as a persisted digest-bound ActionRequest resumable by owner approval | Accepted |
 
 ---
 
@@ -2722,6 +2725,66 @@ Multi-conversation worker fan-out required a richer addressing scheme.
 
 ---
 
+# D-115 — Persona binding is additive, no-fallback, and structurally contained
+
+## Decision
+
+Persona binding is an additive grant field and route reference. Invalid or absent persona references resolve to no persona rather than falling back to an agent manifest. The counterparty guarantee is enforced by route selection before persona resolution: the resolver consumes only the winning route, so a counterparty route structurally cannot reference the owner-facing persona. The resolved persona id is threaded to the briefcase boundary explicitly, with None kept explicit.
+
+## Rationale
+
+AD-136/D-094: personas are no-authority overlay artifacts; a manifest fallback or post-hoc filter would turn persona exposure into a policy check instead of a path property.
+
+## Consequences
+
+Owner surfaces render the seeded owner-facing persona (D-095 production route binding); forging or omitting a persona reference cannot widen what a counterparty receives.
+
+## Would change if
+
+Multi-persona routing required per-message persona selection below the route boundary.
+
+---
+
+# D-116 — Fail-closed bound-MAC webhook admission
+
+## Decision
+
+Webhook ingress is fail-closed HMAC: a missing or empty `OPENSPINE_WEBHOOK_HMAC_KEY` refuses ingress (and startup config rejects empty/whitespace keys). The MAC preimage binds the payload, the route-selecting `channel_account`, the timestamp, and the requested action identity, so deliveries cannot be retargeted across routes or actions within a grant allowlist. Replay detection is scoped to (channel_account, idempotency_key, action) with a key-length cap and bounded capacity eviction.
+
+## Rationale
+
+An unsigned selector or action would let an authenticated payload choose a different route or effect; an unscoped or unbounded replay cache is a cross-hook denial and memory-exhaustion vector.
+
+## Consequences
+
+Verified webhooks are cryptographically pinned to route and effect; independent hooks with colliding provider-local delivery ids cannot suppress each other.
+
+## Would change if
+
+Per-hook keys or provider-native signature schemes replace the shared-key HMAC envelope.
+
+---
+
+# D-117 — The headless lane is digest-only with non-downgradable approvals
+
+## Decision
+
+The headless hook lane drives verified webhook events through the full pipeline (verify -> identify -> route -> compose -> grant -> run -> gate) without launching the conversational shell (`spawn_shell=false`; the Run stage audits `task.shell_skipped`). No-approval flows complete digest-only with zero owner conversation. Headless mediation preserves `ApprovalRequired`: standing rules can never downgrade it to Allow, and the escalation persists a digest-bound `ActionRequest` with a registered post-approval handler so owner approval re-dispatches exactly once through the normal path.
+
+## Rationale
+
+AD-134: hooks are ordinary event sources, not a privileged side door; a conversational shell or standing-rule substitution would let a webhook manufacture owner conversation or bypass mandatory approval.
+
+## Consequences
+
+Headless flows are structurally silent unless authority demands attention; approvals from hooks are resumable through the same owner ceremony as any other pending action.
+
+## Would change if
+
+A ratified headless worker execution model replaced the skipped-shell run stage.
+
+---
+
 
 
 
@@ -2798,4 +2861,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-108 (commissioned workers must be effectively able to report; authenticated is_worker view marker gates shell reporting), settled while fixing the worker/shell contract post-merge. |
 | 2026-07-18 | Added D-109 (kernel-computed equivalence classes with pure five-field identity) and D-110 (within-class-only selection; cross-class ambiguity escalates), settled while implementing `implement-authority-equivalence-matcher`. |
 | 2026-07-18 | Added D-111 (no grant inheritance; terminal tokens dead), D-112 (exactly one terminal outcome; sandbox exit taxonomy), D-113 (fail-closed per-connector restart caps), and D-114 (tuple worker addressing with durable failure consumer), settled while implementing `implement-worker-supervision`. |
+| 2026-07-18 | Added D-115 (additive, no-fallback, structurally contained persona binding), D-116 (fail-closed bound-MAC webhook admission), and D-117 (digest-only headless lane with non-downgradable resumable approvals), settled while implementing `implement-persona-binding-and-headless-lanes`. |
 

@@ -54,6 +54,7 @@ pub(crate) fn approval_fixture_grant() -> TaskGrant {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     grant

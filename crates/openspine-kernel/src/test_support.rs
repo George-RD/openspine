@@ -9,10 +9,12 @@
 #[cfg(test)]
 pub(crate) mod fixtures {
     use std::path::Path;
+    use std::time::Duration;
 
     use crate::api::handler_registry::ActionHandlerRegistry;
     use crate::artifact_store::ArtifactStore;
     use crate::config::{ProviderAuth, ProviderConfig, ProviderKind};
+    use crate::connector_reality::WebhookVerifier;
     use crate::connectors::ConnectorRegistry;
     use crate::gmail::GmailConnector;
     use crate::model_gateway::ProviderClient;
@@ -65,6 +67,10 @@ pub(crate) mod fixtures {
             sandbox: Sandbox::Process(ProcessDriver::default()),
             connectors: ConnectorRegistry::new(telegram, gmail)
                 .expect("built-in egress ratings are conflict-free"),
+            webhook_verifier: WebhookVerifier::new(
+                b"openspine-test-webhook-hmac-key-v1".to_vec(),
+                Duration::from_secs(300),
+            ),
             action_handlers: ActionHandlerRegistry::default_registrations(),
             owner_user_id: 42,
             owner_principal_id: owner_principal.id,

@@ -16,3 +16,4 @@ when:
 agent: main_assistant_agent
 workflow: owner_control_conversation
 capability_pack: owner_control_basic_pack
+persona: honest_counsel_with_recommendation

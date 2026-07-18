@@ -438,6 +438,7 @@ async fn recovery_refuses_receiptless_handed_off_redispatch() {
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(crate::grant_hmac_key().as_ref().unwrap());
     let token_ref = state.artifacts.put(grant.task_token.as_bytes()).unwrap();

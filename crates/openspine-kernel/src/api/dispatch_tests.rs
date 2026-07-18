@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: persona grant field update kept dispatch coverage together
 //! End-to-end tests for `email.read_thread:selected_no_attachments`
 //! (build plan Step 5). These exercises go through the real axum router and
 //! the real SQLite store to prove the single-use selection token, grant
@@ -148,6 +149,7 @@ pub(crate) fn mint_grant_with_selection_token(
         chain: vec![],
         caveat_mac: String::new(),
         thread_id: None,
+        persona_id: None,
     };
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let pending_ref = state.artifacts.put(b"test pending".as_slice()).unwrap();

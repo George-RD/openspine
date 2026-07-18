@@ -56,6 +56,11 @@ fn matches(
             return false;
         }
     }
+    if let Some(wanted) = &when.channel_account {
+        if event.channel_account != *wanted {
+            return false;
+        }
+    }
     if let Some(actor) = &when.actor {
         if let Some(wanted) = actor.relationship {
             if relationship != Some(wanted) {
@@ -225,6 +230,7 @@ mod tests {
             agent: Some("main_assistant_agent".to_string()),
             workflow: Some("owner_control_conversation".to_string()),
             capability_pack: Some("owner_control_basic_pack".to_string()),
+            persona: None,
         }
     }
 

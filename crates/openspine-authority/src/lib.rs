@@ -6,8 +6,10 @@
 
 mod compose;
 mod equivalence;
+mod persona_binding;
 mod route;
 pub mod worker_grant;
+pub use persona_binding::resolve_persona;
 
 pub use compose::{compose_authority, AuthorityInput, AuthorityOutcome};
 pub use equivalence::{

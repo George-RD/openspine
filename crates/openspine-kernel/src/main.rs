@@ -46,6 +46,7 @@ mod model_swap_recovery_tests;
 mod nerve_delivery_tests;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
+use crate::connector_reality::WebhookVerifier;
 use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
 use clap::Parser;
@@ -387,6 +388,10 @@ async fn main() -> anyhow::Result<()> {
         action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail)?,
+        webhook_verifier: WebhookVerifier::new(
+            config::webhook_hmac_secret()?,
+            Duration::from_secs(300),
+        ),
         owner_user_id: cfg.owner.telegram_user_id,
         provider_config_digests,
         owner_principal_id: owner_principal.id,

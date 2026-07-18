@@ -142,6 +142,7 @@ mod tests {
             chain: vec![],
             caveat_mac: String::new(),
             thread_id: thread_id.map(str::to_string),
+            persona_id: None,
         };
         g.seal_root(b"openspine-test-grant-hmac-key-v1");
         g

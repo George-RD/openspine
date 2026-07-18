@@ -119,6 +119,7 @@ mod tests {
     fn worker_grant() -> TaskGrant {
         let now = Timestamp::now();
         let mut g = TaskGrant {
+            persona_id: None,
             id: Ulid::new(),
             schema_version: 1,
             lifecycle_state: Lifecycle::Active,
