@@ -199,6 +199,7 @@ impl Store {
         let mut conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
+        nerve::ensure_schema(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -213,6 +214,7 @@ impl Store {
         let mut conn = Connection::open_in_memory()?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
+        nerve::ensure_schema(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -568,6 +570,9 @@ mod lineage_tests;
 #[cfg(test)]
 mod migration_tests;
 mod migrations;
+pub(crate) mod nerve;
+pub(crate) mod nerve_dispatch;
+pub(crate) mod nerve_reactions;
 pub(crate) mod proposed_artifacts;
 pub(crate) mod spend;
 pub(crate) mod task_board;
