@@ -21,6 +21,7 @@ candidate_allowed_actions:
   - worker.commission
   - worker.report_result
   - skill.context
+  - artifact.revoke
 # D-048: `artifact.activate` is the single canonical activation action id
 # (D-034 precedent); the PRD's per-kind ids below stay verbatim/unwired.
 approval_required:

@@ -33,6 +33,8 @@ mod task;
 mod telegram_truncate;
 
 #[cfg(test)]
+mod standing_rule_mediation_tests;
+#[cfg(test)]
 pub(crate) mod tests;
 
 #[cfg(test)]

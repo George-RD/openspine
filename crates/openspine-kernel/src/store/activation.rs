@@ -19,6 +19,10 @@ pub struct ActivationCommit {
     pub payload_ref: Option<openspine_schemas::artifact::ArtifactRef>,
     pub dangling: bool,
     pub superseded_old_version: Option<u32>,
+    pub standing_rule: Option<(
+        openspine_schemas::standing_rule::StandingRuleManifest,
+        Option<Ulid>,
+    )>,
 }
 impl Store {
     /// Atomically persist an activation's durable disposition (learned row +
@@ -32,11 +36,20 @@ impl Store {
             payload_ref,
             dangling,
             superseded_old_version,
+            standing_rule,
         } = input;
         let provenance_json = serde_json::to_string(&learned.provenance)
             .map_err(|err| StoreError::LearnedArtifact(format!("provenance json: {err}")))?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        if let Some((manifest, rule_grant_id)) = standing_rule.as_ref() {
+            Self::activate_standing_rule_in_tx(
+                &tx,
+                manifest,
+                *rule_grant_id,
+                jiff::Timestamp::now(),
+            )?;
+        }
         let learned_rows = tx.execute(
             "INSERT OR REPLACE INTO learned_artifacts \
              (kind, artifact_id, version, namespace, provenance, accepted_via, learned_at, \

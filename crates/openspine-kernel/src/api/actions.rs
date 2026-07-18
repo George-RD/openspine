@@ -5,6 +5,7 @@ use super::proposal::{propose_draft_creation, ProposalError};
 use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
 use crate::failure_surfacing::{batch_failure, FailureClass};
 use crate::pipeline::AppState;
+use crate::store::standing_rules::{standing_rule_fingerprint, PendingScheduleCtx};
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
@@ -53,15 +54,15 @@ pub(super) struct TelegramReplyPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ReadThreadPayload {
-    selection_token_id: String,
+pub(super) struct PreviewPayload {
+    pub(super) subject: String,
+    pub(super) body: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct PreviewPayload {
-    pub(super) subject: String,
-    pub(super) body: String,
+pub(super) struct ReadThreadPayload {
+    pub(super) selection_token_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +72,21 @@ pub(super) struct ActionResponseBody {
     counterparty_deferral: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    standing_rule_budget: Option<StandingRuleBudgetInfo>,
+}
+
+/// Remaining standing-rule budget returned in the gate response so agents
+/// self-adjust without extra round-trips (AD-013 calibration / AD-106).
+#[derive(Debug, Serialize)]
+pub struct StandingRuleBudgetInfo {
+    pub(crate) quota_remaining: u32,
+    pub(crate) rate_remaining: u32,
+    /// Whether a dark-window timer was scheduled for this consultation
+    /// (AD-012 leaning): the owner's silence will apply the rule's
+    /// pre-agreed default. Surfaced so the agent can report the pending
+    /// default rather than retrying a saturated window.
+    dark_window_scheduled: bool,
 }
 
 pub(super) async fn post_actions(
@@ -155,7 +171,7 @@ pub(super) async fn post_actions(
             }
         }
     };
-    let (decision, counterparty_deferral, result) =
+    let (decision, counterparty_deferral, result, standing_rule_budget) =
         mediate_and_dispatch_action_with_attribution_and_token(
             &state,
             &grant,
@@ -165,6 +181,7 @@ pub(super) async fn post_actions(
             FailureSurface::DirectResponse,
             skill_attribution.as_ref(),
             skill_context_token.map(|(id, _)| id),
+            None,
         )
         .await
         .map_err(|err| match &err {
@@ -186,8 +203,53 @@ pub(super) async fn post_actions(
         decision,
         counterparty_deferral,
         result,
+        standing_rule_budget,
     }))
 }
+
+fn cleanup_pre_effect_reservations(
+    state: &AppState,
+    consult_reservation: Option<&(String, u32, String)>,
+    fired_reservation: Option<&(String, u32, String)>,
+    fired_pending_id: Option<&str>,
+) {
+    if let Some((_, _, reservation_id)) = consult_reservation {
+        if let Err(err) = state.store.cancel_standing_rule_reservation(reservation_id) {
+            tracing::error!(
+                error = %err,
+                reservation_id,
+                "standing-rule reservation cancel failed before effect"
+            );
+        }
+    }
+    if let Some((_, _, reservation_id)) = fired_reservation {
+        // Rearm the fired one-use token ONLY after the reserved budget was
+        // actually cancelled. A cancel failure must leave the row in its
+        // pre-cleanup `claimed` state so recovery surfaces it fail-closed
+        // (never silently re-run, never rearm a double-spent token).
+        match state.store.cancel_standing_rule_reservation(reservation_id) {
+            Ok(()) => {
+                if let Some(pending_id) = fired_pending_id {
+                    if let Err(err) = state.store.rearm_standing_rule_fired_pending(pending_id) {
+                        tracing::error!(
+                            error = %err,
+                            pending_id,
+                            "standing-rule fired pending rearm failed before effect"
+                        );
+                    }
+                }
+            }
+            Err(err) => {
+                tracing::error!(
+                    error = %err,
+                    reservation_id,
+                    "standing-rule fired reservation cancel failed before effect"
+                );
+            }
+        }
+    }
+}
+
 /// Shared mediation boundary for HTTP and durable workflow actions.
 pub(crate) async fn mediate_and_dispatch_action(
     state: &AppState,
@@ -196,8 +258,17 @@ pub(crate) async fn mediate_and_dispatch_action(
     bound_chat_id: i64,
     payload: Option<&Value>,
     surface: FailureSurface,
-) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
-    mediate_and_dispatch_action_with_attribution(
+    fired_pending: Option<&str>,
+) -> Result<
+    (
+        GateDecision,
+        Option<String>,
+        Option<Value>,
+        Option<StandingRuleBudgetInfo>,
+    ),
+    DispatchError,
+> {
+    mediate_and_dispatch_action_with_attribution_and_token(
         state,
         grant,
         action,
@@ -205,10 +276,13 @@ pub(crate) async fn mediate_and_dispatch_action(
         payload,
         surface,
         None,
+        None,
+        fired_pending,
     )
     .await
 }
 
+#[cfg(test)]
 pub(crate) async fn mediate_and_dispatch_action_with_attribution(
     state: &AppState,
     grant: &TaskGrant,
@@ -218,17 +292,20 @@ pub(crate) async fn mediate_and_dispatch_action_with_attribution(
     surface: FailureSurface,
     skill_attribution: Option<&SkillAttribution>,
 ) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
-    mediate_and_dispatch_action_with_attribution_and_token(
-        state,
-        grant,
-        action,
-        bound_chat_id,
-        payload,
-        surface,
-        skill_attribution,
-        None,
-    )
-    .await
+    let (decision, deferral, result, _budget) =
+        mediate_and_dispatch_action_with_attribution_and_token(
+            state,
+            grant,
+            action,
+            bound_chat_id,
+            payload,
+            surface,
+            skill_attribution,
+            None,
+            None,
+        )
+        .await?;
+    Ok((decision, deferral, result))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -241,7 +318,16 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     surface: FailureSurface,
     skill_attribution: Option<&SkillAttribution>,
     skill_context_token: Option<Ulid>,
-) -> Result<(GateDecision, Option<String>, Option<Value>), DispatchError> {
+    fired_pending: Option<&str>,
+) -> Result<
+    (
+        GateDecision,
+        Option<String>,
+        Option<Value>,
+        Option<StandingRuleBudgetInfo>,
+    ),
+    DispatchError,
+> {
     let now = Timestamp::now();
     let spend_lane = crate::spend::SpendLane::from_grant(grant);
     if !crate::spend::admit_spend(state, spend_lane, now)
@@ -349,7 +435,158 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
     }
 
-    let decision = outcome.decision;
+    let mut decision = outcome.decision;
+    // Standing-rule consultation (AD-010/AD-106/AD-012): a fired dark-window
+    // default and a normal consultation are mutually exclusive — at most one
+    // reserves budget for this effect, so a re-dispatched default never also
+    // consumes a fresh normal reservation (P1-6 double-charge guard).
+    let mut standing_budget: Option<StandingRuleBudgetInfo> = None;
+    let mut consult_reservation: Option<(String, u32, String)> = None;
+    let mut fired_reservation: Option<(String, u32, String)> = None;
+    if let Some(token) = fired_pending {
+        // Fired dark-window default (owner silence): re-dispatch this action
+        // with a digest-bound, one-use token. Consume it *before* the effect
+        // so the re-dispatch is over-budget only against the fired waiver; the
+        // effective Allow is audited only after the token is admitted, and the
+        // reservation is finalized on success or cancelled on failure
+        // (P1-5/P1-6/P1-11).
+        if matches!(decision, GateDecision::ApprovalRequired { .. }) {
+            if let Ok(Some((rule_id, version, reservation_id))) =
+                state.store.consume_standing_rule_fired_pending(
+                    token,
+                    &action,
+                    grant.id,
+                    bound_chat_id,
+                    &payload_ref,
+                    now,
+                )
+            {
+                decision = GateDecision::Allow;
+                fired_reservation = Some((rule_id, version, reservation_id));
+                if let Err(err) = state.store.append_audit(
+                    "action.gated",
+                    Some(&action),
+                    Some(&GateDecision::Allow),
+                    Some("fired dark-window default admitted (effective Allow audited before effect)"),
+                    Some(grant.id),
+                    &[],
+                    payload_ref.as_slice(),
+                ) {
+                    cleanup_pre_effect_reservations(
+                        state,
+                        consult_reservation.as_ref(),
+                        fired_reservation.as_ref(),
+                        Some(token),
+                    );
+                    return Err(DispatchError::Resource(anyhow::Error::new(err)));
+                }
+            }
+        }
+    } else if matches!(decision, GateDecision::ApprovalRequired { .. }) {
+        // Normal path: an active, non-expired, non-revoked rule covers this
+        // action and still has budget → reserve it atomically and allow
+        // without a fresh owner approval; otherwise keep ApprovalRequired and,
+        // if a dark window is configured, let the gate schedule its timer.
+        let ctx = PendingScheduleCtx {
+            bound_chat_id,
+            grant_id: grant.id,
+            payload_ref: payload_ref.clone(),
+            fingerprint: standing_rule_fingerprint(&action, grant.id, bound_chat_id, &payload_ref),
+        };
+        let consult = crate::standing_rules_gate::consult_standing_rule_gate(
+            &state.store,
+            &action,
+            now,
+            Some(&ctx),
+        )
+        .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        if let (Some(rule), Some(reservation_id)) =
+            (consult.rule.clone(), consult.reservation_id.clone())
+        {
+            consult_reservation = Some((rule.rule_id, rule.version, reservation_id));
+        }
+        if consult.allow {
+            decision = GateDecision::Allow;
+            if let Err(err) = state.store.append_audit(
+                "action.gated",
+                Some(&action),
+                Some(&GateDecision::Allow),
+                Some("standing-rule effective Allow admitted before effect"),
+                Some(grant.id),
+                &[],
+                payload_ref.as_slice(),
+            ) {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            }
+        }
+        if consult.matched {
+            // Headroom is only returned on an authorized Allow (AD-013/AD-106):
+            // a denial must not expose remaining-capacity metadata, so a
+            // saturated/expired consult yields `None` budget info.
+            if consult.allow {
+                let (q, r) = consult.budget_info().unwrap_or((0, 0));
+                standing_budget = Some(StandingRuleBudgetInfo {
+                    quota_remaining: q,
+                    rate_remaining: r,
+                    dark_window_scheduled: consult.dark_window_scheduled,
+                });
+            }
+            if consult.dark_window_scheduled {
+                if let Some(rule) = consult.rule.as_ref() {
+                    let pending_id = match state.store.pending_id_for_fingerprint(
+                        &rule.rule_id,
+                        rule.version,
+                        &ctx.fingerprint,
+                    ) {
+                        Ok(pending_id) => pending_id,
+                        Err(err) => {
+                            cleanup_pre_effect_reservations(
+                                state,
+                                consult_reservation.as_ref(),
+                                fired_reservation.as_ref(),
+                                fired_pending,
+                            );
+                            return Err(DispatchError::Resource(anyhow::Error::new(err)));
+                        }
+                    };
+                    if let Some(pending_id) = pending_id {
+                        if let Ok(pending_ulid) = pending_id.parse() {
+                            if let Err(err) = guard_connector_dispatch(state, grant).await {
+                                tracing::warn!(
+                                    error = ?err,
+                                    pending_id,
+                                    "connector guard blocked standing-rule resolution buttons"
+                                );
+                            } else if let Err(err) = state
+                                .connectors
+                                .telegram()
+                                .send_reply_with_standing_rule_buttons(
+                                    bound_chat_id,
+                                    "Standing-rule budget is exhausted. Choose the pending action's Allow or Deny outcome.",
+                                    pending_ulid,
+                                )
+                                .await
+                            {
+                                tracing::warn!(
+                                    error = %err,
+                                    pending_id,
+                                    "failed to send standing-rule resolution buttons"
+                                );
+                            }
+                        } else {
+                            tracing::warn!(pending_id, "malformed standing-rule pending id");
+                        }
+                    }
+                }
+            }
+        }
+    }
     if !matches!(decision, GateDecision::Allow) {
         if state.action_catalog.is_counterparty_facing(&action) {
             if let Some((deferral, notice)) = surface_denial(grant, &action, &decision, None, now) {
@@ -388,10 +625,15 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                     .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
                 }
 
-                return Ok((decision, Some(deferral.text.to_string()), None));
+                return Ok((
+                    decision,
+                    Some(deferral.text.to_string()),
+                    None,
+                    standing_budget,
+                ));
             }
         }
-        return Ok((decision, None, None));
+        return Ok((decision, None, None, standing_budget));
     }
 
     // AD-103/AD-141: every connector effect runs through its breaker + bounded
@@ -407,8 +649,90 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     )
     .await;
     match dispatched {
-        Ok(result) => Ok((GateDecision::Allow, None, Some(result))),
+        Ok(result) => {
+            if let Some((rule_id, version, reservation_id)) = &consult_reservation {
+                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "standing-rule reservation finalize failed after successful dispatch");
+                }
+            }
+            if let Some((rule_id, version, reservation_id)) = &fired_reservation {
+                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "standing-rule fired reservation finalize failed after successful dispatch");
+                }
+                let receipt = format!("fired-effect:{reservation_id}:{now}");
+                if let Err(err) = state
+                    .store
+                    .mark_fired_effect_attempted(reservation_id, &receipt)
+                {
+                    tracing::error!(error = %err, reservation_id, "standing-rule fired effect attempt not recorded");
+                }
+            }
+            Ok((GateDecision::Allow, None, Some(result), standing_budget))
+        }
         Err(err) => {
+            // DeliveryUnknown means the provider may have acted before the
+            // response was lost. Keep the budget consumed and fence retries;
+            // releasing either reservation would permit a duplicate effect.
+            let retain_reservation = match &err {
+                // Ambiguous provider outcome: retain budget and fence any retry.
+                DispatchError::DeliveryUnknown(_) => true,
+                // Only these variants are proven pre-effect failures here.
+                DispatchError::BadRequest(_)
+                | DispatchError::Connector(_)
+                | DispatchError::ConnectorUnavailable(_) => false,
+                // Resource includes persistence/recording failures whose
+                // effect ordering may be unknown; retain budget fail-closed.
+                DispatchError::Resource(_) => true,
+            };
+            if retain_reservation {
+                if let Some((rule_id, version, reservation_id)) = &consult_reservation {
+                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
+                        rule_id,
+                        *version,
+                        reservation_id,
+                        now,
+                    ) {
+                        tracing::error!(error = %finalize_err, reservation_id, "standing-rule reservation finalize failed after delivery-unknown dispatch");
+                    }
+                }
+                if let Some((rule_id, version, reservation_id)) = &fired_reservation {
+                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
+                        rule_id,
+                        *version,
+                        reservation_id,
+                        now,
+                    ) {
+                        tracing::error!(error = %finalize_err, reservation_id, "standing-rule fired reservation finalize failed after delivery-unknown dispatch");
+                    }
+                    let receipt = format!("delivery-unknown:{reservation_id}:{now}");
+                    if let Err(mark_err) = state
+                        .store
+                        .mark_fired_effect_attempted(reservation_id, &receipt)
+                    {
+                        tracing::error!(error = %mark_err, reservation_id, "standing-rule fired delivery-unknown attempt not recorded");
+                    }
+                }
+            } else {
+                // Confirmed pre-effect failures release the reservation and,
+                // for fired defaults, rearm the one-use token only after the
+                // cancellation succeeds.
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+            }
             // AD-103: a `ConnectorUnavailable` (Open/HalfOpen breaker) already
             // appended the distinct `connector_unavailable` audit; do not also
             // record `action.dispatch_failed` or batch it (that would

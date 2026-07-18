@@ -152,6 +152,14 @@ pub struct Store {
     #[cfg(test)]
     fail_next_skill_promotion_tx: Arc<AtomicBool>,
     pub(crate) fail_next_owner_reconfirmation: Arc<AtomicBool>,
+    /// Test-only: when set, the next `standing_rule_remaining` read fails with
+    /// a synthetic error (proves the post-reservation headroom read cannot
+    /// leak reserved quota/rate on DB failure — SrFinalSec retraction fix).
+    pub(crate) fail_next_standing_rule_remaining: Arc<AtomicBool>,
+    /// Test-only: when set, the next effective-Allow `action.gated` audit
+    /// append fails (proves a failed effective-Allow audit cancels the
+    /// reserved budget rather than leaking it).
+    pub(crate) fail_next_effective_allow_audit: Arc<AtomicBool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -241,6 +249,8 @@ impl Store {
             #[cfg(test)]
             fail_next_skill_promotion_tx: Arc::new(AtomicBool::new(false)),
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
+            fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
+            fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -258,11 +268,30 @@ impl Store {
             #[cfg(test)]
             fail_next_skill_promotion_tx: Arc::new(AtomicBool::new(false)),
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
+            fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
+            fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
         })
     }
     #[cfg(test)]
     pub(crate) fn fail_next_activation_tx_for_test(&self) {
         self.activation_tx_failure
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    #[cfg(test)]
+    /// Test-only: arm a one-shot failure of the next `standing_rule_remaining`
+    /// read so a regression can prove the post-reservation headroom read
+    /// cannot leak reserved quota/rate on DB failure (SrFinalSec retraction).
+    pub(crate) fn fail_next_standing_rule_remaining_for_test(&self) {
+        self.fail_next_standing_rule_remaining
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+    #[cfg(test)]
+    /// Test-only: arm a one-shot failure of the next effective-Allow
+    /// `action.gated` audit append so a regression can prove a failed
+    /// effective-Allow audit cancels the reserved budget rather than leaking
+    /// it.
+    pub(crate) fn fail_next_effective_allow_audit_for_test(&self) {
+        self.fail_next_effective_allow_audit
             .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
@@ -626,6 +655,16 @@ pub(crate) mod skill_promotion_decisions;
 pub(crate) mod skill_read_queries;
 pub(crate) mod skill_store;
 pub(crate) mod spend;
+#[cfg(test)]
+mod standing_rule_scheduling_tests;
+pub(crate) mod standing_rules;
+pub(crate) mod standing_rules_budget;
+pub(crate) mod standing_rules_pending;
+pub(crate) mod standing_rules_recovery;
+#[cfg(test)]
+pub(crate) mod standing_rules_scenario_tests;
+#[cfg(test)]
+pub(crate) mod standing_rules_tests;
 pub(crate) mod task_board;
 pub(crate) mod task_dispatch;
 #[cfg(test)]

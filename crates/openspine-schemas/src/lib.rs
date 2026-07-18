@@ -36,6 +36,7 @@ pub mod principal;
 pub mod route;
 pub mod selection;
 pub mod skill;
+pub mod standing_rule;
 pub mod task;
 pub mod worker;
 pub mod workflow;

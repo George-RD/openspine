@@ -144,6 +144,21 @@ impl Store {
         target_refs: &[ArtifactRef],
         payload_refs: &[ArtifactRef],
     ) -> Result<AuditEvent, StoreError> {
+        // Test-only one-shot failure: when armed, the next effective-Allow
+        // `action.gated` audit append fails so a regression can prove a failed
+        // effective-Allow audit cancels the reserved budget rather than
+        // leaking it. The initial (ApprovalRequired) gate audit is never
+        // targeted — only an effective Allow carries budget. The swap is
+        // gated behind the kind/decision predicates so a prior non-Allow
+        // `action.gated` audit cannot consume the one-shot flag.
+        if kind == "action.gated"
+            && matches!(decision, Some(GateDecision::Allow))
+            && self
+                .fail_next_effective_allow_audit
+                .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let event = Self::append_audit_conn(

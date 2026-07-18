@@ -181,6 +181,27 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // AD-143: durable global per-day spend ledger (kernel-wide admission boundary).
     super::spend::ensure_schema(conn)?;
     super::briefcase_support::ensure_schema(conn)?;
+    // `implement-standing-rules`: standing-rule runtime + usage log + timer
+    // links (additive; idempotent CREATE TABLE IF NOT EXISTS per AD-139
+    // ad-hoc lane; the versioned lane is reserved for the first destructive
+    // change).
+    super::standing_rules::ensure_schema(conn)?;
+    // implement-standing-rules: `owner_attention_since` records one-time
+    // surfacing of a claimed-but-unattempted fired dark-window default for
+    // owner attention (fail closed; never auto-rerun). Additive, idempotent.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rule_pending_actions ADD COLUMN owner_attention_since INTEGER",
+    )?;
+    // implement-standing-rules: re-key the pending-fingerprint uniqueness to
+    // include `rule_version` so a reactivated version with the same stable
+    // request identity gets its own pending row/timer (idempotency is now
+    // per `(rule_id, rule_version, request_fingerprint)`).
+    conn.execute_batch(
+        "DROP INDEX IF EXISTS idx_standing_rule_pending_fingerprint;
+         CREATE UNIQUE INDEX IF NOT EXISTS idx_standing_rule_pending_fingerprint
+            ON standing_rule_pending_actions (rule_id, rule_version, request_fingerprint);",
+    )?;
     add_column_if_missing(
         conn,
         "ALTER TABLE daily_spend ADD COLUMN alert_state INTEGER NOT NULL DEFAULT 0",

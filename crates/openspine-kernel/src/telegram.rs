@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: Telegram protocol adapters and callback parsers share one connector boundary.
 //! Telegram connector (build plan 4b): long-polling, owner-id verification,
 //! and the reply dispatcher.
 //!
@@ -195,6 +196,20 @@ pub fn parse_approve_plan_callback(data: &str) -> Option<Ulid> {
     data.strip_prefix(APPROVE_PLAN_CALLBACK_PREFIX)?
         .parse()
         .ok()
+}
+
+/// Parse owner resolution callbacks for a specific standing-rule pending
+/// action. The action is explicit in the callback (`sr_allow:` or `sr_deny:`)
+/// and the suffix must be a valid ULID; malformed/foreign data fails closed.
+pub fn parse_standing_rule_callback(data: &str) -> Option<(Ulid, bool)> {
+    let (prefix, allow) = if let Some(id) = data.strip_prefix("sr_allow:") {
+        (id, true)
+    } else if let Some(id) = data.strip_prefix("sr_deny:") {
+        (id, false)
+    } else {
+        return None;
+    };
+    Some((prefix.parse().ok()?, allow))
 }
 
 /// PRD §21.1 step 1 / D-036: the Phase-2 thread-selection trigger is this
@@ -444,6 +459,25 @@ impl TelegramConnector {
             format!("{APPROVE_CALLBACK_PREFIX}{action_request_id}"),
         );
         let markup = InlineKeyboardMarkup::default().append_row(vec![button]);
+        self.current_bot()
+            .await?
+            .send_message(ChatId(chat_id), text)
+            .reply_markup(markup)
+            .await?;
+        Ok(())
+    }
+
+    /// Send a standing-rule pending-action prompt with explicit Allow/Deny
+    /// owner controls bound to the pending action identity.
+    pub async fn send_reply_with_standing_rule_buttons(
+        &self,
+        chat_id: i64,
+        text: &str,
+        pending_id: Ulid,
+    ) -> anyhow::Result<()> {
+        let allow = InlineKeyboardButton::callback("Allow", format!("sr_allow:{pending_id}"));
+        let deny = InlineKeyboardButton::callback("Deny", format!("sr_deny:{pending_id}"));
+        let markup = InlineKeyboardMarkup::default().append_row(vec![allow, deny]);
         self.current_bot()
             .await?
             .send_message(ChatId(chat_id), text)

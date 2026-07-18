@@ -287,13 +287,14 @@ async fn containment_gate_denies_denied_action_regardless_of_malicious_skill() {
         .store
         .count_audit_events_of_kind("action.gated")
         .unwrap();
-    let (first, _, _) = mediate_and_dispatch_action(
+    let (first, _, _, _) = mediate_and_dispatch_action(
         &state,
         &grant,
         action.clone(),
         OWNER_CHAT,
         None,
         FailureSurface::DirectResponse,
+        None,
     )
     .await
     .unwrap();
@@ -326,13 +327,14 @@ async fn containment_gate_denies_denied_action_regardless_of_malicious_skill() {
         SkillState::Installed
     );
 
-    let (second, _, _) = mediate_and_dispatch_action(
+    let (second, _, _, _) = mediate_and_dispatch_action(
         &state,
         &grant,
         action.clone(),
         OWNER_CHAT,
         None,
         FailureSurface::DirectResponse,
+        None,
     )
     .await
     .unwrap();

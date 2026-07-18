@@ -118,6 +118,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-104 | Runtime skills are permitted on the gate-containment guarantee (revisits D-048): skills shape competence only, install via a dedicated ceremony distinct from artifact.propose, mined skills need the AD-110 one-tap promotion review; the AD-043 external import pipeline stays deferred | Accepted |
 | D-105 | Skill-context attribution is kernel-bound: opaque single-use selection tokens (grant/agent/skill/version/task-class/expiry) drive Causal attribution atomically with the action audit; live selections give bounded Contextual digest notices; caller-supplied attribution does not exist | Accepted |
 | D-106 | Mined-skill promotion decisions are digest-bound to the exactly-rendered owner preview: the bounded provenance+diff summary the owner saw is persisted and consumed by approve/reject; approval without a delivered preview fails | Accepted |
+| D-107 | Standing rules concretize AD-012 dark-window defaults (resolving its leaning status): timer-boxed conditional grants whose fired default re-runs the normal gate consuming a digest-bound one-use pending authorization; reservations are fail-closed (ambiguous outcomes finalize; only proven pre-effect failures cancel-then-rearm) | Accepted |
 
 ---
 
@@ -2552,6 +2553,28 @@ An interactive review surface replaces Telegram message previews.
 ---
 
 
+# D-107 — Standing rules concretize AD-012 dark-window defaults
+
+## Decision
+
+Standing rules are versioned, revocable, expiring composition-input artifacts consulted at gate/compose time: quota (volume) and rate (velocity) sliding windows checked atomically with budget reservation in one immediate transaction; drift triggers surface re-review; the dark-window default is a timer-boxed conditional grant whose fired default RE-RUNS the normal gate consuming a digest-bound one-use pending authorization (satisfying only the ApprovalRequired branch — Deny/EffectSuppressed always stand). Reservation accounting is fail-closed: ambiguous dispatch outcomes (delivery-unknown and similar) finalize the reservation and fence the fired token with a delivery-unknown receipt — this records budget consumption and retry fencing, NOT external effect success; only proven pre-effect failures cancel the reservation and rearm the fired token (cancel-before-rearm, exactly-once retry). Recovery surfaces claimed-but-unattempted rows for owner attention; revocation is a production owner action. This resolves AD-012's *leaning* status.
+
+## Rationale
+
+AD-012 is the highest-scrutiny audit case: pre-agreed defaults must never bypass the live gate, silently lose approved work, or double-consume budget across crashes and ambiguous provider outcomes.
+
+## Consequences
+
+A fired default is at-most-once dispatched per authorization (ambiguous provider outcomes are fenced, not resolved); owner silence is visible as available budget; every branch (allow, deny, ambiguous, pre-effect failure, crash) has a durable audited disposition.
+
+## Would change if
+
+Owner-response semantics move to an interactive surface with delivery acknowledgements, or provider idempotency keys make ambiguous outcomes resolvable.
+
+---
+
+
+
 
 
 
@@ -2623,4 +2646,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-098 (durable pending evidence for Gmail draft writes; no automatic resend) and D-099 (sliding-window breaker failure accounting with RAII probe permits), settled while implementing `implement-connector-reality`. |
 | 2026-07-18 | Added D-100 (append-only worker caveat-chain child with structural egress denial), D-101 (receipt-bound fail-closed worker dispatch/recovery), D-102 (master-lane worker result relay under the delivery ack policy), and D-103 (catalog-owned literal egress declarations), settled while implementing `implement-worker-runtime`. |
 | 2026-07-18 | Added D-104 (runtime skills on the gate-containment guarantee, revisiting D-048), D-105 (kernel-bound skill-context attribution with Causal/Contextual digest semantics), and D-106 (digest-bound promotion previews), settled while implementing `implement-skill-artifact-class`. |
+| 2026-07-18 | Added D-107 (standing rules concretize AD-012 dark-window defaults with fail-closed reservation accounting), settled while implementing `implement-standing-rules`. |
 

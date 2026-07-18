@@ -57,7 +57,7 @@ pub(super) async fn dispatch_artifact_propose(
     })?;
     if !is_proposable_kind(&req.kind) {
         return Err(DispatchError::BadRequest(
-            "artifact.propose kind must be one of route|agent|workflow|pack|policy|model_swap"
+            "artifact.propose kind must be one of route|agent|workflow|pack|policy|model_swap|standing_rule"
                 .to_string(),
         ));
     }
@@ -105,6 +105,13 @@ pub(super) async fn dispatch_artifact_propose(
             return Err(DispatchError::BadRequest(
                 "trusted golden set is not authorized for this model role".to_string(),
             ));
+        }
+    }
+    if let ParsedProposal::StandingRule(rule) = &parsed {
+        if let Err(reason) = rule.validate() {
+            return Err(DispatchError::BadRequest(format!(
+                "standing_rule manifest invalid: {reason}"
+            )));
         }
     }
     let kind = parsed.kind().to_string();

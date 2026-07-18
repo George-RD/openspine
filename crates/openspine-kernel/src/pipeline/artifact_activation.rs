@@ -104,6 +104,12 @@ pub(super) async fn activate_approved_artifact(
     };
 
     parsed.activate();
+    let standing_rule_manifest =
+        if let crate::artifact_loader::ParsedProposal::StandingRule(rule) = &parsed {
+            Some(rule.clone())
+        } else {
+            None
+        };
     let yaml_text = parsed
         .to_yaml()
         .expect("a value this crate just deserialized always re-serializes");
@@ -204,6 +210,11 @@ pub(super) async fn activate_approved_artifact(
                 proposed_id: row.id,
                 grant_id: Some(grant.id),
                 payload_ref: Some(payload_ref.clone()),
+                standing_rule: dangling
+                    .is_empty()
+                    .then_some(())
+                    .and(standing_rule_manifest.clone())
+                    .map(|manifest| (manifest, Some(grant.id))),
                 dangling: !dangling.is_empty(),
                 superseded_old_version,
             })?;
@@ -287,6 +298,16 @@ pub(super) async fn activate_approved_artifact(
         if let Err(err) = parsed.insert_into(&mut registry) {
             anyhow::bail!("activation publication failed after durable commit: {err}");
         }
+    }
+    if standing_rule_manifest.is_some() {
+        drop(_activation_guard);
+        notify_owner_best_effort(
+            state,
+            chat_id,
+            &format!("Standing rule {} v{} is now active.", artifact_id, version),
+        )
+        .await;
+        return Ok(());
     }
     if let Some((role, provider_id)) = model_swap_target {
         state

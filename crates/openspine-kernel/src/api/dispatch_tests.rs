@@ -447,6 +447,7 @@ async fn open_gmail_breaker_blocks_effect_with_connector_unavailable_event() {
         OWNER_CHAT_ID,
         Some(&payload),
         FailureSurface::Detached,
+        None,
     )
     .await;
 

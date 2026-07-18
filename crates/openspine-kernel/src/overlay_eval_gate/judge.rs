@@ -87,6 +87,12 @@ pub(super) fn evaluate(
             declared.extend(policy.approval_required.iter());
             denied.extend(policy.denied_actions.iter());
         }
+        ParsedProposal::StandingRule(rule) => {
+            // A standing rule authorizes exactly one action (composition
+            // input, never a live authority source) — the judge only needs
+            // to confirm that action is a known catalog id.
+            declared.push(&rule.action_id);
+        }
         ParsedProposal::ModelSwap(swap) => {
             let result = swap
                 .golden_set_result

@@ -43,6 +43,7 @@ pub(crate) use message_notify::{
 pub use polling::run_telegram_poll_loop;
 mod plan_approval;
 mod stages;
+pub(crate) mod standing_rule_timer;
 mod timer_dispatch;
 mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;
@@ -51,6 +52,7 @@ pub(crate) use offset::{
     dispatch_polled_updates_for_test, initialize_telegram_bot_id, resolve_telegram_offset_for_test,
 };
 pub(crate) use offset::{is_already_processed, resolve_telegram_offset};
+pub(crate) use standing_rule_timer::run_standing_rule_dark_window_consumer;
 pub(crate) use timer_dispatch::run_task_deadline_consumer;
 #[cfg(test)]
 pub(crate) use timer_dispatch::{
@@ -386,7 +388,29 @@ pub async fn handle_owner_update(
             data,
             context: _,
         } => {
-            if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
+            if let Some((pending_id, allow)) = telegram::parse_standing_rule_callback(&data) {
+                let changed = state.store.resolve_pending_action(
+                    &pending_id.to_string(),
+                    allow,
+                    jiff::Timestamp::now(),
+                )?;
+                crate::spend::guard_connector(state, true).await?;
+                state
+                    .connectors
+                    .telegram()
+                    .answer_callback_query(&callback_query_id)
+                    .await?;
+                crate::pipeline::notify_owner_best_effort(
+                    state,
+                    chat_id,
+                    if changed {
+                        "Standing-rule request resolved."
+                    } else {
+                        "Standing-rule request was already resolved."
+                    },
+                )
+                .await;
+            } else if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
                 handle_draft_approval_callback(
                     state,
                     chat_id,

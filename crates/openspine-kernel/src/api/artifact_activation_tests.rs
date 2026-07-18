@@ -23,12 +23,15 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::standing_rule::BudgetWindow;
 
 use super::actions::DispatchError;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::artifact_propose_tests::route_yaml;
 use super::dispatch_tests::OWNER_CHAT_ID;
 use crate::pipeline::handle_owner_update;
+use crate::standing_rules_gate::consult_standing_rule_gate;
+use crate::store::standing_rules_tests::manifest;
 use crate::telegram::{CallbackQueryUpdate, TelegramConnector, TelegramUpdate};
 use crate::test_support::fixtures::{owner_update, seed_owner_history, test_state_with_telegram};
 
@@ -149,6 +152,78 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
             .unwrap(),
         1,
         "Expected exactly one artifact.activated audit event"
+    );
+}
+
+#[tokio::test]
+async fn standing_rule_activation_ceremony_reaches_live_consultation() {
+    // Production ceremony: dispatch_artifact_propose runs the eval gate and
+    // persists the reviewed proposal, then the verified owner callback routes
+    // through pipeline::artifact_activation. The resulting standing rule is
+    // live at the gate while the task grant remains the authority object.
+    let server = MockServer::start().await;
+    mount_send_message_ok(&server).await;
+    let state = test_state_with_telegram(telegram_stub(&server));
+    let grant = handle_owner_update(&state, &owner_update("hello lyra"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
+
+    let mut rule = manifest(
+        "ceremony-standing-rule",
+        "connector.enable",
+        3600,
+        BudgetWindow {
+            max: 3,
+            window_secs: 3600,
+        },
+        BudgetWindow {
+            max: 2,
+            window_secs: 3600,
+        },
+        None,
+    );
+    rule.lifecycle_state = Lifecycle::Proposed;
+    let yaml = serde_yaml::to_string(&rule).unwrap();
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        OWNER_CHAT_ID,
+        Some(&json!({"kind": "standing_rule", "yaml": yaml})),
+    )
+    .await
+    .expect("standing-rule proposal must pass the eval gate");
+    let action_request_id: Ulid = result["action_request_id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    handle_owner_update(&state, &approve_callback_update(action_request_id))
+        .await
+        .expect("verified owner approval must activate the standing rule");
+
+    let now = jiff::Timestamp::now();
+    let outcome = consult_standing_rule_gate(
+        &state.store,
+        &openspine_schemas::action::ActionId::new("connector.enable"),
+        now,
+        None,
+    )
+    .expect("live standing-rule consultation must succeed");
+    assert!(outcome.matched && outcome.allow);
+    assert_eq!(
+        outcome.rule.as_ref().map(|r| r.rule_id.as_str()),
+        Some("ceremony-standing-rule")
+    );
+    assert!(
+        state
+            .store
+            .count_audit_events_of_kind("artifact.activated")
+            .unwrap()
+            >= 1
     );
 }
 

@@ -31,6 +31,7 @@ mod secret_store;
 mod seed_workflows;
 mod skill;
 mod spend;
+mod standing_rules_gate;
 mod store;
 mod telegram;
 mod workflow;
@@ -465,11 +466,12 @@ async fn main() -> anyhow::Result<()> {
         axum::serve(listener, api::router(state.clone())).with_graceful_shutdown(shutdown_signal());
     let telegram_poll = pipeline::run_telegram_poll_loop(&state);
     let retry_worker = failure_surfacing::retry_worker::run_retry_loop(&state);
+    // AD-104: fires due workflow/dark-window timers, sleeping until the
+    // earliest known deadline.
+    let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
     // AD-104/AD-012: the kernel-owned dark-window timer driver. Consumers
     // only schedule (`WorkflowCtx::schedule_timer`) and subscribe (poll or
     // ledger replay of `workflow.timer_fired`); this loop is what actually
-    // fires due timers, sleeping until the earliest known deadline.
-    let timer_driver = workflow::run_timer_driver(&state.store, std::time::Duration::from_secs(5));
     let task_timer_consumer = pipeline::run_task_deadline_consumer(&state);
 
     // AD-130/AD-132/AD-034: kernel-owned nerve dispatcher. Periodically
@@ -583,6 +585,8 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     let worker_result_consumer = pipeline::run_worker_result_consumer(&state);
+    let standing_rule_dark_window_consumer =
+        pipeline::run_standing_rule_dark_window_consumer(&state);
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,
@@ -592,6 +596,9 @@ async fn main() -> anyhow::Result<()> {
         () = nerve_dispatcher => unreachable!("run_nerve_dispatcher loops forever"),
         () = nerve_delivery => unreachable!("nerve_delivery loops forever"),
         res = worker_result_consumer => res.context("worker result consumer failed")?,
+        () = standing_rule_dark_window_consumer => {
+            unreachable!("standing-rule dark-window consumer loops forever")
+        }
     }
     Ok(())
 }

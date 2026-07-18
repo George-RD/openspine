@@ -363,6 +363,7 @@ async fn bad_request_batches_for_detached_surface_only() {
         crate::api::dispatch_tests::OWNER_CHAT_ID,
         Some(&payload),
         FailureSurface::DirectResponse,
+        None,
     )
     .await;
     assert!(matches!(
@@ -385,6 +386,7 @@ async fn bad_request_batches_for_detached_surface_only() {
         crate::api::dispatch_tests::OWNER_CHAT_ID,
         Some(&payload),
         FailureSurface::Detached,
+        None,
     )
     .await;
     assert!(matches!(
@@ -481,6 +483,7 @@ async fn spend_dispatch_denial_precedes_connector_effect() {
         crate::api::dispatch_tests::OWNER_CHAT_ID,
         Some(&json!({"text": "hello"})),
         FailureSurface::DirectResponse,
+        None,
     )
     .await;
     assert!(matches!(

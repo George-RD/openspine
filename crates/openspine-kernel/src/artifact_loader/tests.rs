@@ -73,7 +73,7 @@ fn non_yaml_files_are_ignored() {
 /// `overlay_subdir()` agree with the table entry — and the public
 /// `parse_proposal` entry point must agree too (D-048).
 #[test]
-fn kind_table_round_trips_all_six_kinds() {
+fn kind_table_round_trips_all_seven_kinds() {
     let base = repo_lyra_dir();
     let fixtures = [
         ("route", "routes/owner_telegram_main_assistant.yaml"),
@@ -86,6 +86,9 @@ fn kind_table_round_trips_all_six_kinds() {
         let owned_yaml;
         let yaml = if spec.name == "model_swap" {
             owned_yaml = "id: base\nversion: 1\nlifecycle_state: proposed\nrole: base\ntarget_provider_id: test-provider\ngolden_set_id: model_swap_default\ngolden_set_result: null\n".to_string();
+            owned_yaml.as_str()
+        } else if spec.name == "standing_rule" {
+            owned_yaml = "id: appointment_booking\nschema_version: 1\nversion: 1\nlifecycle_state: proposed\naction_id: calendar.book_appointment\ndescription: Always approve appointment bookings, up to 5/week\nquota: {max: 5, window_secs: 604800}\nrate: {max: 1, window_secs: 3600}\nexpires_after_secs: 7776000\n".to_string();
             owned_yaml.as_str()
         } else {
             let (_, rel) = fixtures
