@@ -234,6 +234,11 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     super::worker_dispatch::ensure_schema(conn)?;
     super::worker_supervision::ensure_schema(conn)?;
     super::worker_result_relay::ensure_schema(conn)?;
+    // implement-disclosure-policy: per-scope disclosure policies keyed by
+    // (relationship × disclosure-class), recoverable by the deterministic
+    // egress gate and carrying the owner-approved carve-outs (AD-002/AD-146,
+    // AD-133 answer → D-107 standing rule with carve-outs).
+    super::disclosure_policies::ensure_schema(conn)?;
     Ok(())
 }
 

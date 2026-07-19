@@ -7,6 +7,7 @@ use serde_json::json;
 use ulid::Ulid;
 
 use super::*;
+use crate::disclosure_policy::DisclosureClass;
 use crate::identity::RelationshipKind;
 
 pub(super) fn shape(counterparty_id: Ulid) -> TaskShape {
@@ -250,6 +251,7 @@ fn worker_default_visibility_excludes_returned_output_and_kernel_bound() {
         kind: SectionKind::CounterpartySlice,
         visibility: VisibilityClass::ReturnedOutput,
         depth: 1,
+        disclosure_class: Some(DisclosureClass::Public),
         payload: json!({"outcome": "done"}),
     });
     let visibility = WorkerVisibility::worker_default(Ulid::new());

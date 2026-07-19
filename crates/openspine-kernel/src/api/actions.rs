@@ -14,7 +14,9 @@ use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{
     ActionId, ActionRequest, GateDecision, SkillAttribution, SkillAttributionKind,
 };
+use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::digest::canonical_json;
+use openspine_schemas::disclosure_policy::PreparedQueryRef;
 use openspine_schemas::escalation::{surface_denial, EscalationEvent};
 use openspine_schemas::grant::TaskGrant;
 use serde::{Deserialize, Serialize};
@@ -481,6 +483,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     let mut standing_budget: Option<StandingRuleBudgetInfo> = None;
     let mut consult_reservation: Option<(String, u32, String)> = None;
     let mut fired_reservation: Option<(String, u32, String)> = None;
+    let mut disclosure_reservations: Vec<crate::disclosure::DisclosureReservation> = Vec::new();
     if let Some(token) = fired_pending {
         // Fired dark-window default (owner silence): re-dispatch this action
         // with a digest-bound, one-use token. Consume it *before* the effect
@@ -676,14 +679,289 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
 
     // AD-103/AD-141: every connector effect runs through its breaker + bounded
     // timeout via the handler's `call_with_connector`. An Open breaker blocks
-    // the effect with the distinct `connector_unavailable` audit event
-    // (operational, not policy) — emitted inside the helper, never here.
+    let mut prepared_payload = payload.cloned();
+    if let Some(egress_class) = state
+        .action_catalog
+        .egress_decl_for(&action)
+        .and_then(|decl| decl.egress_class)
+    {
+        let briefcase = match state.store.find_briefcase(grant.id) {
+            Ok(Some(briefcase)) => briefcase,
+            Ok(None) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::BadRequest(
+                    "rated disclosure was blocked by kernel policy".into(),
+                ));
+            }
+            Err(err) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            }
+        };
+        let relationship = match briefcase.task_shape.counterparty {
+            CounterpartyRef::Bound { relationship, .. } => relationship,
+            CounterpartyRef::Unresolved { .. } => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::BadRequest(
+                    "rated disclosure was blocked by kernel policy".into(),
+                ));
+            }
+        };
+        let selected_keys = payload
+            .and_then(|value| value.get("briefcase_sections"))
+            .and_then(Value::as_array)
+            .map(|keys| {
+                keys.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect::<std::collections::BTreeSet<_>>()
+            })
+            .unwrap_or_default();
+        if selected_keys.is_empty() {
+            cleanup_pre_effect_reservations(
+                state,
+                consult_reservation.as_ref(),
+                fired_reservation.as_ref(),
+                fired_pending,
+            );
+            return Err(DispatchError::BadRequest(
+                "rated disclosure was blocked by kernel policy".into(),
+            ));
+        }
+        let selected_sections = briefcase
+            .sections
+            .iter()
+            .filter(|section| selected_keys.contains(&section.key))
+            .cloned()
+            .collect::<Vec<_>>();
+        if selected_sections.is_empty() {
+            cleanup_pre_effect_reservations(
+                state,
+                consult_reservation.as_ref(),
+                fired_reservation.as_ref(),
+                fired_pending,
+            );
+            return Err(DispatchError::BadRequest(
+                "rated disclosure was blocked by kernel policy".into(),
+            ));
+        }
+        let kernel_provenance =
+            match crate::disclosure::provenance_from_sections(&briefcase.sections) {
+                Ok(provenance) => provenance,
+                Err(crate::disclosure::DisclosureError::Store(err)) => {
+                    cleanup_pre_effect_reservations(
+                        state,
+                        consult_reservation.as_ref(),
+                        fired_reservation.as_ref(),
+                        fired_pending,
+                    );
+                    return Err(DispatchError::Resource(anyhow::Error::new(err)));
+                }
+                Err(_) => {
+                    // Unclassified worker-visible section: fail closed with the
+                    // generic denial; detail stays kernel-side.
+                    cleanup_pre_effect_reservations(
+                        state,
+                        consult_reservation.as_ref(),
+                        fired_reservation.as_ref(),
+                        fired_pending,
+                    );
+                    return Err(DispatchError::BadRequest(
+                        "rated disclosure was blocked by kernel policy".into(),
+                    ));
+                }
+            };
+        // A composed payload may carry a previously minted token. Otherwise
+        // this kernel boundary mints it from the selected, classified sections;
+        // caller-supplied sensitivity terms are never accepted. Redaction is
+        // always derived from every private/sensitive section in the grant.
+        let prepared_ref = match payload
+            .and_then(|value| value.get("prepared_query"))
+            .and_then(|value| serde_json::from_value::<PreparedQueryRef>(value.clone()).ok())
+        {
+            Some(reference) => reference,
+            None => {
+                let raw_query = match payload
+                    .and_then(|value| value.get("query"))
+                    .and_then(Value::as_str)
+                {
+                    Some(query) => query,
+                    None => {
+                        cleanup_pre_effect_reservations(
+                            state,
+                            consult_reservation.as_ref(),
+                            fired_reservation.as_ref(),
+                            fired_pending,
+                        );
+                        return Err(DispatchError::BadRequest(
+                            "rated disclosure requires a kernel-prepared generalized query".into(),
+                        ));
+                    }
+                };
+                match crate::disclosure::prepare_disclosure_query(
+                    state,
+                    grant.id,
+                    action.clone(),
+                    raw_query.to_string(),
+                    relationship,
+                    egress_class,
+                    &briefcase.sections,
+                )
+                .await
+                {
+                    Ok(reference) => reference,
+                    Err(crate::disclosure::DisclosureError::Store(err)) => {
+                        cleanup_pre_effect_reservations(
+                            state,
+                            consult_reservation.as_ref(),
+                            fired_reservation.as_ref(),
+                            fired_pending,
+                        );
+                        // DB failure during preparation is infrastructure,
+                        // not caller input: keep it in the kernel error lane.
+                        return Err(DispatchError::Resource(anyhow::Error::new(err)));
+                    }
+                    Err(_) => {
+                        cleanup_pre_effect_reservations(
+                            state,
+                            consult_reservation.as_ref(),
+                            fired_reservation.as_ref(),
+                            fired_pending,
+                        );
+                        return Err(DispatchError::BadRequest(
+                            "rated disclosure preparation was rejected by kernel policy".into(),
+                        ));
+                    }
+                }
+            }
+        };
+        let prepared = match state.store.consume_prepared_query(&prepared_ref) {
+            Ok(Some(prepared)) => prepared,
+            Ok(None) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::BadRequest(
+                    "prepared disclosure query is missing, stale, or already consumed".into(),
+                ));
+            }
+            Err(err) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            }
+        };
+        if !prepared.binding_matches(
+            &action,
+            relationship,
+            egress_class,
+            grant.id,
+            &kernel_provenance,
+        ) {
+            cleanup_pre_effect_reservations(
+                state,
+                consult_reservation.as_ref(),
+                fired_reservation.as_ref(),
+                fired_pending,
+            );
+            return Err(DispatchError::BadRequest(
+                "prepared disclosure query binding mismatch".into(),
+            ));
+        }
+        if prepared.digest != prepared_ref.digest {
+            cleanup_pre_effect_reservations(
+                state,
+                consult_reservation.as_ref(),
+                fired_reservation.as_ref(),
+                fired_pending,
+            );
+            return Err(DispatchError::BadRequest(
+                "prepared disclosure query digest mismatch".into(),
+            ));
+        }
+        let enforced = match crate::disclosure::enforce_disclosure_egress(
+            state,
+            grant,
+            crate::disclosure::DisclosureRequest {
+                raw_query: prepared.generalized_query.clone(),
+                sensitive_terms: Default::default(),
+                action_id: action.clone(),
+                relationship,
+                provenance: kernel_provenance,
+            },
+        )
+        .await
+        {
+            Ok(enforced) => enforced,
+            Err(crate::disclosure::DisclosureError::Store(err)) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                // Infrastructure failure, not caller input: keep it in the
+                // kernel error lane so failure batching sees it.
+                return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            }
+            Err(crate::disclosure::DisclosureError::BudgetExhausted(_)) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                // AD-151 policy-free outcome: the worker must not learn that a
+                // standing policy exists or its budget state. Exhaustion detail
+                // lives only in the disclosure.budget_exhausted audit.
+                return Err(DispatchError::BadRequest(
+                    "rated disclosure was blocked by kernel policy".into(),
+                ));
+            }
+            Err(_) => {
+                cleanup_pre_effect_reservations(
+                    state,
+                    consult_reservation.as_ref(),
+                    fired_reservation.as_ref(),
+                    fired_pending,
+                );
+                return Err(DispatchError::BadRequest(
+                    "rated disclosure was blocked by kernel policy".into(),
+                ));
+            }
+        };
+        disclosure_reservations = enforced.reservations;
+        prepared_payload = Some(json!({ "generalized_query": enforced.query.generalized_query }));
+    }
+
     let dispatched = super::connector_breaker::dispatch_allowed_action(
         state,
         grant,
         &action,
         bound_chat_id,
-        payload,
+        prepared_payload.as_ref(),
     )
     .await;
     match dispatched {
@@ -696,6 +974,16 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                     now,
                 ) {
                     tracing::error!(error = %err, reservation_id, "standing-rule reservation finalize failed after successful dispatch");
+                }
+            }
+            for (rule_id, version, reservation_id) in &disclosure_reservations {
+                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "disclosure reservation finalize failed after successful dispatch");
                 }
             }
             if let Some((rule_id, version, reservation_id)) = &fired_reservation {
@@ -760,6 +1048,16 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                         tracing::error!(error = %mark_err, reservation_id, "standing-rule fired delivery-unknown attempt not recorded");
                     }
                 }
+                for (rule_id, version, reservation_id) in &disclosure_reservations {
+                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
+                        rule_id,
+                        *version,
+                        reservation_id,
+                        now,
+                    ) {
+                        tracing::error!(error = %finalize_err, reservation_id, "disclosure reservation finalize failed after delivery-unknown dispatch");
+                    }
+                }
             } else {
                 // Confirmed pre-effect failures release the reservation and,
                 // for fired defaults, rearm the one-use token only after the
@@ -770,6 +1068,13 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                     fired_reservation.as_ref(),
                     fired_pending,
                 );
+                for (_, _, reservation_id) in &disclosure_reservations {
+                    if let Err(cancel_err) =
+                        state.store.cancel_standing_rule_reservation(reservation_id)
+                    {
+                        tracing::error!(error = %cancel_err, reservation_id, "disclosure reservation cancel failed after pre-effect dispatch failure");
+                    }
+                }
             }
             // AD-103: a `ConnectorUnavailable` (Open/HalfOpen breaker) already
             // appended the distinct `connector_unavailable` audit; do not also

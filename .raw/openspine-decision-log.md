@@ -129,6 +129,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-115 | Persona binding is an additive grant field and route reference: invalid or absent persona references resolve to no persona (never an agent-manifest fallback), and the counterparty guarantee is enforced structurally by route selection before persona resolution | Accepted |
 | D-116 | Webhook admission is fail-closed HMAC: a missing or empty key refuses ingress, the MAC preimage binds payload, channel_account (route selector), timestamp, and action identity, and the replay cache is scoped (channel_account, idempotency_key, action) with key-length and capacity bounds | Accepted |
 | D-117 | The headless hook lane runs the full pipeline without a conversational shell: no-approval flows complete digest-only with zero owner conversation, ApprovalRequired is never standing-rule-downgraded and escalates as a persisted digest-bound ActionRequest resumable by owner approval | Accepted |
+| D-118 | Disclosure policies are keyed by RelationshipKind x DisclosureClass with one independent D-107 standing-rule envelope per (relationship, disclosure_class, egress_class) scope under distinct disclosure.egress:* action identities; revoking one scope never touches siblings, same-scope re-answers merge carve-outs and bump the envelope version so lapsed authorization can reactivate | Accepted |
+| D-119 | Every rated egress effect is kernel-prepared: a one-use prepared-query token binds action/relationship/egress/grant and kernel-derived provenance and is consume-verified fail-closed with zero connector calls; provenance derives kernel-side from ALL worker-visible non-public sections (unclassified sections fail closed, KernelBound excluded) and redaction walks nested JSON in every private/sensitive section | Accepted |
+| D-120 | An uncovered disclosure blocks into a durable pending owner question carrying a kernel-derived blocked-query digest; owners answer by pending-question id (allow / allow-with-carve-out / deny) and no human-supplied digest is ever accepted; scoped answers never broaden unrelated approvals | Accepted |
+| D-121 | Disclosure envelope budgets reserve atomically and finalize only after the connector effect succeeds with all-or-nothing rollback across classes; budget exhaustion is a distinct kernel audit (disclosure.budget_exhausted) while the worker sees only the generic policy denial (AD-151), and store failures travel the kernel Resource lane, never a caller-input denial | Accepted |
 
 ---
 
@@ -2785,6 +2789,86 @@ A ratified headless worker execution model replaced the skipped-shell run stage.
 
 ---
 
+# D-118 — Scope-keyed disclosure policies with independent envelopes
+
+## Decision
+
+Disclosure policies are keyed by concrete RelationshipKind x DisclosureClass; each egress class bound by a policy owns its own D-107 standing-rule envelope under a distinct `disclosure.egress:*` action identity (one envelope per (relationship, disclosure_class, egress_class) scope). Revoking or letting one scope lapse never revokes or resets sibling scopes; repeated owner answers for one relationship/class merge egress classes and carve-outs into one recoverable policy row; re-answering a lapsed or revoked envelope bumps the envelope version (equal-version activation is a store no-op).
+
+## Rationale
+
+AD-002/AD-146: disclosure authority must be scoped and independently revocable; sharing one envelope across scopes let one answer reset sibling windows, and reusing connector action identities let disclosure activation revoke real standing rules.
+
+## Consequences
+
+Scope revocation is surgical; expiry recovery is a deliberate owner act with a version bump, never silent reuse.
+
+## Would change if
+
+Disclosure scopes moved into a generalized policy-composition engine with its own envelope semantics.
+
+---
+
+# D-119 — Kernel-prepared one-use disclosure queries over kernel provenance
+
+## Decision
+
+Every rated egress effect must be kernel-prepared before dispatch: `prepare_disclosure_query` generalizes the raw query from classified provenance, binds it to (action, relationship, egress class, grant, kernel-derived provenance), computes a one-way digest, and persists a one-use token; the dispatch hook consumes and verifies that token and fails closed — zero connector calls — when it is missing, consumed, replayed under another grant, or mismatched. Enforcement provenance derives kernel-side from ALL worker-visible non-public sections (Internal included): a worker-visible section without a disclosure classification fails closed, KernelBound sections are excluded, and caller-named sections can never shrink the enforced set. Sensitive-term redaction walks every nested JSON object/array/string in all private and sensitive sections.
+
+## Rationale
+
+Caller-supplied provenance or sensitivity terms are an evasion channel (omission-by-naming, empty-terms raw dispatch); binding the token to grant and provenance closes replay under thinner context.
+
+## Consequences
+
+Private context cannot reach a connector unredacted or unverified; legacy unclassified briefcases block rather than silently bypass.
+
+## Would change if
+
+Briefcase sections gained kernel-verifiable derivation causality, allowing narrower provenance.
+
+---
+
+# D-120 — Pending-question owner answers with kernel digests
+
+## Decision
+
+An uncovered disclosure block creates a durable pending owner question carrying a kernel-derived blocked-query digest; the owner answers by pending-question id (`/disclosure allow <id>`, `/disclosure allow-with-carve-out <id>`, `/disclosure deny <id>`). No human-supplied digest is accepted; scoped answers consume the stored digest and never broaden unrelated approvals.
+
+## Rationale
+
+WYSIWYS (D-045) extended to disclosure: authorization must bind exactly the blocked content the kernel recorded, and asking a human to transcribe a sha256 is not an honest ceremony.
+
+## Consequences
+
+Carve-outs provably cover the blocked query; answer UX is one-tap-shaped and audit-bound.
+
+## Would change if
+
+An interactive review surface replaces command-based owner answers (AD-145 direction).
+
+---
+
+# D-121 — Fail-closed disclosure budget accounting with policy-free worker outcomes
+
+## Decision
+
+The disclosure gate consults and reserves each scoped envelope's quota/rate budget atomically; reservations finalize only after the connector effect succeeds, and any pre-effect failure — including a later class's consult error — cancels every reservation taken (all-or-nothing). An active-but-exhausted envelope is a distinct kernel surface: it appends a `disclosure.budget_exhausted` audit and never mints a new owner allow-question, while the worker receives only the generic policy denial (AD-151 policy-free outcome). Store failures propagate through the kernel Resource lane, never as caller-input denials.
+
+## Rationale
+
+Budget leaks on blocked paths drain quota without effects; exhaustion masquerading as a missing policy invites lazy re-authorization; detailed denials leak policy existence to workers.
+
+## Consequences
+
+Quota accounting is exact under failure; owners see honest exhaustion in the audit ledger; workers learn nothing about policy shape.
+
+## Would change if
+
+D-107 reservations move into a transactional gate-integrated budget engine.
+
+---
+
 
 
 
@@ -2862,4 +2946,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-109 (kernel-computed equivalence classes with pure five-field identity) and D-110 (within-class-only selection; cross-class ambiguity escalates), settled while implementing `implement-authority-equivalence-matcher`. |
 | 2026-07-18 | Added D-111 (no grant inheritance; terminal tokens dead), D-112 (exactly one terminal outcome; sandbox exit taxonomy), D-113 (fail-closed per-connector restart caps), and D-114 (tuple worker addressing with durable failure consumer), settled while implementing `implement-worker-supervision`. |
 | 2026-07-18 | Added D-115 (additive, no-fallback, structurally contained persona binding), D-116 (fail-closed bound-MAC webhook admission), and D-117 (digest-only headless lane with non-downgradable resumable approvals), settled while implementing `implement-persona-binding-and-headless-lanes`. |
+| 2026-07-18 | Added D-118 (scope-keyed disclosure policies with independent envelopes), D-119 (kernel-prepared one-use disclosure queries over kernel provenance), D-120 (pending-question owner answers with kernel digests), and D-121 (fail-closed disclosure budget accounting with policy-free worker outcomes), settled while implementing `implement-disclosure-policy`. |
 

@@ -9,6 +9,7 @@ mod briefcase_visibility;
 mod config;
 mod connector_reality;
 mod connectors;
+pub(crate) mod disclosure;
 mod escalation;
 mod failure_surfacing;
 mod gmail;

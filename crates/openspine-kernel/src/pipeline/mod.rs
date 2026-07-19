@@ -535,6 +535,81 @@ pub async fn handle_owner_update(
         }
         return Ok(None);
     }
+    if let Some(answer) = telegram::parse_disclosure_command(&text) {
+        let (pending_id, mode) = match answer {
+            telegram::DisclosureAnswer::Allow(id) => (id, 0u8),
+            telegram::DisclosureAnswer::AllowWithCarveOut(id) => (id, 1u8),
+            telegram::DisclosureAnswer::Deny(id) => (id, 2u8),
+        };
+        let now = jiff::Timestamp::now();
+        match state.store.load_disclosure_pending_question(&pending_id) {
+            Ok(Some(question)) => {
+                let result = if mode == 2 {
+                    Ok(())
+                } else {
+                    let carve_outs = if mode == 1 {
+                        vec![openspine_schemas::disclosure_policy::DisclosureCarveOut {
+                            egress_class: question.egress_class,
+                            query_shape: question.blocked_query_digest.clone(),
+                        }]
+                    } else {
+                        Vec::new()
+                    };
+                    crate::disclosure::record_owner_answer(
+                        &state.store,
+                        openspine_schemas::disclosure_policy::DisclosurePolicyKey {
+                            relationship: question.relationship,
+                            disclosure_class: question.disclosure_class,
+                        },
+                        question.egress_class,
+                        carve_outs,
+                        now,
+                    )
+                    .map(|_| ())
+                };
+                match result {
+                    Ok(()) => {
+                        if let Err(err) = state
+                            .store
+                            .resolve_disclosure_pending_question(&pending_id, now)
+                        {
+                            notify_owner_best_effort(state, chat_id, "Disclosure answer was recorded, but cleanup failed; retry is required.").await;
+                            tracing::error!(error = %err, %pending_id, "disclosure pending-question cleanup failed");
+                        } else {
+                            notify_owner_best_effort(
+                                state,
+                                chat_id,
+                                match mode {
+                                    0 => "Disclosure authorized for this relationship and channel.",
+                                    1 => "Disclosure authorized for this query only.",
+                                    _ => "Disclosure denied for this relationship and channel.",
+                                },
+                            )
+                            .await;
+                        }
+                    }
+                    Err(err) => {
+                        tracing::error!(error = %err, %pending_id, "disclosure owner answer failed");
+                        notify_owner_best_effort(
+                            state,
+                            chat_id,
+                            "Disclosure answer could not be recorded; the question remains open.",
+                        )
+                        .await;
+                    }
+                }
+            }
+            Ok(None) => {
+                notify_owner_best_effort(state, chat_id, "Unknown or expired disclosure question.")
+                    .await;
+            }
+            Err(_) => {
+                notify_owner_best_effort(state, chat_id, "Could not resolve disclosure question.")
+                    .await;
+            }
+        }
+        return Ok(None);
+    }
 
     if let Some(args) = telegram::parse_digest_namespace(&text) {
         if !args.is_empty() && telegram::parse_digest_detail_command(&text).is_none() {

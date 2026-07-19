@@ -446,6 +446,25 @@ impl Store {
             .optional()?;
         Ok(found.is_some())
     }
+    /// Highest activated version for a standing rule bound to `action_id`, or
+    /// `None` when no such rule has ever been activated. Used to bump the
+    /// version on re-answer so reactivation is not a no-op (equal-version
+    /// activation returns early).
+    pub fn standing_rule_version_for_action(
+        &self,
+        action_id: &ActionId,
+    ) -> Result<Option<u32>, StoreError> {
+        let conn = self.conn.lock();
+        let version: Option<i64> = conn
+            .query_row(
+                "SELECT version FROM standing_rules WHERE action_id = ?1 \
+                 ORDER BY version DESC LIMIT 1",
+                params![action_id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(version.map(|v| v as u32))
+    }
 }
 
 pub(super) fn timestamp_to_epoch_nanos(timestamp: Timestamp) -> Result<i64, StoreError> {

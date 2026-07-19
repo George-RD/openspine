@@ -15,6 +15,7 @@ pub fn owner_escalation_message(event: &EscalationEvent) -> String {
     let (kind, summary) = match &event.payload {
         EscalationPayload::GateDenial { summary, .. } => ("gate_denial", summary),
         EscalationPayload::WorkerConfidence { summary } => ("worker_confidence", summary),
+        EscalationPayload::OwnerQuestion { summary } => ("owner_question", summary),
     };
     format!(
         "Escalation: task {} [{}] {}",
@@ -65,6 +66,7 @@ pub(crate) async fn route_escalation(
             Some(denial_reason_code(*reason)),
         ),
         EscalationPayload::WorkerConfidence { .. } => ("worker.escalated", None, None, None),
+        EscalationPayload::OwnerQuestion { .. } => ("owner.question", None, None, None),
     };
     state
         .store
