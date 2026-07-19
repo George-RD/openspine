@@ -78,6 +78,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   adoption deferred to `wire-authority-equivalence-selection` below)
 - `implement-worker-supervision` (D-111..D-114)
 - `implement-persona-binding-and-headless-lanes` (D-115..D-117)
+- `implement-disclosure-policy` (D-118..D-121)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
