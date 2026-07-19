@@ -266,6 +266,10 @@ pub struct BriefcaseSection {
     pub kind: SectionKind,
     pub visibility: VisibilityClass,
     pub depth: u8,
+    /// Kernel-classified provenance for deterministic disclosure checks.
+    /// `None` is legacy/unknown and must fail closed for rated egress.
+    #[serde(default)]
+    pub disclosure_class: Option<crate::disclosure_policy::DisclosureClass>,
     pub payload: Value,
 }
 
@@ -322,6 +326,7 @@ pub fn pack(
         kind: SectionKind::Grant,
         visibility: VisibilityClass::KernelBound,
         depth: depth_val,
+        disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
         payload: sources.grant_view.clone(),
     }];
     let mut eligible: Vec<(SectionKind, &SourceSlice)> = sources
@@ -342,6 +347,7 @@ pub fn pack(
             kind,
             visibility: VisibilityClass::WorkerScratch,
             depth: depth_val,
+            disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
             payload: source.payload.clone(),
         });
     }
@@ -350,6 +356,7 @@ pub fn pack(
         kind: SectionKind::CounterpartySlice,
         visibility: VisibilityClass::WorkerScratch,
         depth: depth_val,
+        disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Internal),
         payload: sources.counterparty_slice.clone(),
     });
     sections.sort_by(|a, b| a.key.cmp(&b.key));

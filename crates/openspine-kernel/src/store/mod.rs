@@ -638,6 +638,7 @@ mod budget_support_tests;
 #[cfg(test)]
 mod day2_tests;
 mod digest_store;
+pub(crate) mod disclosure_policies;
 pub(crate) mod eval_verdict_store;
 #[cfg(test)]
 mod eval_verdict_store_tests;

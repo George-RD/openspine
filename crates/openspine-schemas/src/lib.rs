@@ -16,6 +16,7 @@ pub mod artifact;
 pub mod audit;
 pub mod briefcase;
 pub mod digest;
+pub mod disclosure_policy;
 pub mod egress;
 pub mod escalation;
 pub mod event;

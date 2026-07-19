@@ -212,6 +212,34 @@ pub fn parse_standing_rule_callback(data: &str) -> Option<(Ulid, bool)> {
     Some((prefix.parse().ok()?, allow))
 }
 
+/// Owner answer to a durable disclosure question. `AllowWithCarveOut` uses the
+/// kernel-stored blocked-query digest; the owner never supplies one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisclosureAnswer {
+    Allow(Ulid),
+    AllowWithCarveOut(Ulid),
+    Deny(Ulid),
+}
+
+/// Parse `/disclosure allow <id>`, `/disclosure allow-with-carve-out <id>`, or
+/// `/disclosure deny <id>`. Extra arguments, including caller-supplied
+/// digests, fail closed.
+pub fn parse_disclosure_command(text: &str) -> Option<DisclosureAnswer> {
+    let rest = text.trim().strip_prefix("/disclosure")?;
+    let mut parts = rest.split_whitespace();
+    let verb = parts.next()?;
+    let id = parts.next()?.parse().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    match verb {
+        "allow" => Some(DisclosureAnswer::Allow(id)),
+        "allow-with-carve-out" => Some(DisclosureAnswer::AllowWithCarveOut(id)),
+        "deny" => Some(DisclosureAnswer::Deny(id)),
+        _ => None,
+    }
+}
+
 /// PRD §21.1 step 1 / D-036: the Phase-2 thread-selection trigger is this
 /// exact structured command, recognized by the kernel itself before any
 /// shell/agent ever sees the message — the shell can never claim on the

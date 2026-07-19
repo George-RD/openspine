@@ -176,6 +176,7 @@ impl Briefcase {
             kind: decision.request.kind,
             visibility: VisibilityClass::WorkerScratch,
             depth: decision.request.requested_depth,
+            disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Sensitive),
             payload: section_source.payload,
         };
         if let Some(existing) = self.sections.iter_mut().find(|s| s.key == key) {

@@ -12,10 +12,17 @@ use ulid::Ulid;
 use crate::action::{ActionId, DenialReason, GateDecision};
 use crate::grant::TaskGrant;
 
-/// The ONE canonical policy-free refusal a counterparty ever sees (AD-151).
-///
-/// Phrasing is learnable presentation (AD-135); the invariant that this is
-/// the only human-facing refusal text is kernel.
+pub fn owner_escalation_message(event: &EscalationEvent) -> String {
+    let (kind, summary) = match &event.payload {
+        EscalationPayload::GateDenial { summary, .. } => ("gate_denial", summary),
+        EscalationPayload::WorkerConfidence { summary } => ("worker_confidence", summary),
+        EscalationPayload::OwnerQuestion { summary } => ("owner_question", summary),
+    };
+    format!(
+        "Escalation: task {} [{}] {}",
+        event.task_grant_id, kind, summary
+    )
+}
 pub const CANONICAL_DEFERRAL: &str = "I need to check on that — I'll get back to you";
 
 /// Owner-only escalation record. Carries the real [`DenialReason`] so the
@@ -53,6 +60,11 @@ pub enum EscalationPayload {
         /// Owner-only summary. Never copied into the worker-facing response.
         summary: String,
     },
+    OwnerQuestion {
+        /// Owner-only summary of a deterministic disclosure block. Never copied
+        /// into the worker-facing response.
+        summary: String,
+    },
 }
 
 /// The owner-routed escalation envelope shared by all producers. The worker
@@ -87,8 +99,25 @@ impl EscalationEvent {
             schema_version: 1,
         }
     }
-}
 
+    /// Build an owner-question escalation (AD-133 surface) for a deterministic
+    /// disclosure block. The summary is owner-only; it never rides on a
+    /// counterparty-facing response.
+    pub fn owner_question(
+        task_grant_id: Ulid,
+        summary: String,
+        thread_id: Option<String>,
+        occurred_at: Timestamp,
+    ) -> Self {
+        Self {
+            task_grant_id,
+            payload: EscalationPayload::OwnerQuestion { summary },
+            thread_id,
+            occurred_at,
+            schema_version: 1,
+        }
+    }
+}
 /// Worker/counterparty-facing deferral. Always the canonical constant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WorkerFacingDeferral {
@@ -327,6 +356,24 @@ mod tests {
         assert_eq!(value["payload"]["kind"], "worker_confidence");
         assert!(value["payload"].get("reason").is_none());
         assert!(value["payload"].get("decision").is_none());
+        let back: EscalationEvent = serde_json::from_value(value).unwrap();
+        assert_eq!(event, back);
+    }
+
+    #[test]
+    fn owner_question_escalation_is_deliverable_on_owner_channel() {
+        let event = EscalationEvent::owner_question(
+            Ulid::new(),
+            "disclosure block requires owner answer".to_string(),
+            None,
+            Timestamp::now(),
+        );
+        let value = serde_json::to_value(&event).unwrap();
+        assert_eq!(value["payload"]["kind"], "owner_question");
+        assert_eq!(
+            value["payload"]["summary"],
+            "disclosure block requires owner answer"
+        );
         let back: EscalationEvent = serde_json::from_value(value).unwrap();
         assert_eq!(event, back);
     }
