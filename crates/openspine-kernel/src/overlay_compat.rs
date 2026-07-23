@@ -285,6 +285,55 @@ pub fn exclude_orphans(registry: &mut ArtifactRegistry, orphans: &[OrphanedArtif
             registry.templates.remove(&orphan.artifact_id);
         }
     }
+    for orphan in orphans.iter().filter(|orphan| orphan.kind == "model_swap") {
+        if registry
+            .model_swaps
+            .get(&orphan.artifact_id)
+            .is_some_and(|swap| swap.version == orphan.version)
+        {
+            registry.model_swaps.remove(&orphan.artifact_id);
+        }
+    }
+    for orphan in orphans
+        .iter()
+        .filter(|orphan| orphan.kind == "standing_rule")
+    {
+        if registry
+            .standing_rules
+            .get(&orphan.artifact_id)
+            .is_some_and(|rule| rule.version == orphan.version)
+        {
+            registry.standing_rules.remove(&orphan.artifact_id);
+        }
+    }
+    for orphan in orphans.iter().filter(|orphan| orphan.kind == "persona") {
+        if registry
+            .personas
+            .get(&orphan.artifact_id)
+            .is_some_and(|persona| persona.version == orphan.version)
+        {
+            registry.personas.remove(&orphan.artifact_id);
+        }
+    }
+}
+
+pub fn exclude_erased(registry: &mut ArtifactRegistry, learned: &[LearnedArtifact]) {
+    let erased: Vec<_> = learned
+        .iter()
+        .filter(|item| item.compatibility == CompatibilityStatus::Erased)
+        .map(|item| OrphanedArtifact {
+            kind: item.kind.clone(),
+            artifact_id: item.artifact_id.clone(),
+            version: item.version,
+            dangling_references: vec!["erased".into()],
+        })
+        .collect();
+    exclude_orphans(registry, &erased);
+    for item in erased {
+        registry
+            .sources
+            .remove(&(item.kind, item.artifact_id, item.version));
+    }
 }
 
 fn registry_entry_active_at(

@@ -43,6 +43,7 @@ use ulid::Ulid;
 
 use crate::artifact_loader;
 use crate::artifact_store::ArtifactStore;
+use crate::counterparty_keys::SYSTEM_SCOPE;
 use crate::store::learned_artifacts::{
     CompatibilityStatus, LearnedArtifact, NominationStatus, Provenance,
 };
@@ -189,6 +190,7 @@ fn stage_persona(
         provenance: Provenance::ProducedBy {
             source_event_id,
             source_exchange: exchange_ref.clone(),
+            source_scope: SYSTEM_SCOPE,
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -222,6 +224,7 @@ fn valid_seed_provenance(
     let Provenance::ProducedBy {
         source_event_id,
         source_exchange,
+        source_scope,
     } = &row.provenance
     else {
         return Ok(false);
@@ -236,7 +239,7 @@ fn valid_seed_provenance(
         .payload_refs
         .iter()
         .any(|reference| reference == source_exchange)
-        && artifacts.get(source_exchange).is_ok())
+        && artifacts.get_scoped(*source_scope, source_exchange).is_ok())
 }
 
 /// Idempotently seed the Donna×Leo personality elements into the overlay.
@@ -254,6 +257,7 @@ pub(crate) fn seed_if_missing(
         .context("loading learned artifact provenance for personality seed")?;
     let definitions = seed_definitions();
     let mut valid_rows = std::collections::HashMap::new();
+    let mut terminal_rows = std::collections::HashSet::new();
     for element in &definitions {
         let canonical_bytes = serde_yaml::to_string(element)
             .context("serializing canonical personality seed element")?
@@ -263,6 +267,10 @@ pub(crate) fn seed_if_missing(
             .iter()
             .filter(|item| item.kind == "persona" && item.artifact_id == element.id)
         {
+            if row.compatibility == CompatibilityStatus::Erased {
+                terminal_rows.insert((row.artifact_id.as_str(), row.version));
+                continue;
+            }
             let valid = row.version == element.version
                 && row.pending_yaml_digest.as_deref() == Some(canonical_digest.as_str())
                 && valid_seed_provenance(store, artifacts, row)?;
@@ -290,6 +298,9 @@ pub(crate) fn seed_if_missing(
     let mut needs_stage = Vec::new();
     let mut needs_repair = Vec::new();
     for element in definitions {
+        if terminal_rows.contains(&(element.id.as_str(), element.version)) {
+            continue;
+        }
         let expected_path = personas_dir.join(artifact_loader::overlay_filename(
             &element.id,
             element.version,

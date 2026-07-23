@@ -196,6 +196,7 @@ pub(super) async fn activate_approved_artifact(
                     provenance: crate::store::learned_artifacts::Provenance::ProducedBy {
                         source_event_id: grant.event_id,
                         source_exchange,
+                        source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
                     },
                     accepted_via: None,
                     learned_at: Timestamp::now(),

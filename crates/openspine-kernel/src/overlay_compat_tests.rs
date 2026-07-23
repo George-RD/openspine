@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: cohesive overlay compatibility fixed-point and registry-exclusion matrix shares artifact fixtures across every registered kind.
 use super::*;
 use crate::store::learned_artifacts::{dependency_fingerprint, NominationStatus, Provenance};
 use jiff::Timestamp;
@@ -19,6 +20,7 @@ fn learned(kind: &str, id: &str) -> LearnedArtifact {
                 digest: openspine_schemas::digest::digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
+            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -337,4 +339,234 @@ fn transitive_chain_owner_accepted_invalidated_to_fixed_point() {
         "owner-accepted B invalidated: {invalid:?}"
     );
     assert_eq!(invalid.len(), 1);
+}
+fn insert_source(registry: &mut ArtifactRegistry, kind: &str, id: &str, version: u32) {
+    registry.sources.insert(
+        (kind.into(), id.into(), version),
+        crate::artifact_loader::ArtifactSource {
+            path: std::path::PathBuf::from(format!("/tmp/{kind}-{id}-v{version}.yaml")),
+            bytes: format!("{kind}:{id}:v{version}").into_bytes(),
+        },
+    );
+}
+
+fn erased(kind: &str, id: &str, version: u32) -> LearnedArtifact {
+    let mut item = learned(kind, id);
+    item.version = version;
+    item.compatibility = CompatibilityStatus::Erased;
+    item
+}
+
+/// Every learnable kind that can land in the live registry and must honor
+/// exact-version erase exclusion at startup (proposable ARTIFACT_KIND_SPECS
+/// plus template/persona overlays).
+const ERASE_EXCLUSION_KINDS: &[&str] = &[
+    "route",
+    "agent",
+    "workflow",
+    "pack",
+    "policy",
+    "model_swap",
+    "standing_rule",
+    "template",
+    "persona",
+];
+
+#[test]
+fn exclude_erased_covers_registered_kinds_and_exact_version_model_swaps() {
+    use crate::artifact_loader::ARTIFACT_KIND_SPECS;
+    use crate::model_gateway::PromptTemplate;
+    use openspine_schemas::action::ActionId;
+    use openspine_schemas::model_swap::{ModelRole, ModelSwapManifest};
+    use openspine_schemas::persona::PersonaElement;
+    use openspine_schemas::standing_rule::{BudgetWindow, StandingRuleManifest};
+
+    // Guard: every proposable kind is covered by the erase matrix.
+    for spec in ARTIFACT_KIND_SPECS {
+        assert!(
+            ERASE_EXCLUSION_KINDS.contains(&spec.name),
+            "registered kind {} missing from erase exclusion coverage",
+            spec.name
+        );
+    }
+
+    let mut registry = ArtifactRegistry::default();
+
+    // route (erased v1)
+    registry.routes.push(Route {
+        id: "erased-route".into(),
+        schema_version: 1,
+        version: 1,
+        lifecycle_state: Lifecycle::Active,
+        priority: None,
+        effect: RouteEffect::Allow,
+        when: Default::default(),
+        agent: None,
+        workflow: None,
+        capability_pack: None,
+        persona: None,
+    });
+    insert_source(&mut registry, "route", "erased-route", 1);
+
+    // agent/workflow/pack from fixture YAML, remapped to erased ids.
+    let mut agent: openspine_schemas::agent::AgentManifest =
+        serde_yaml::from_str(MAIN_AGENT).unwrap();
+    agent.id = "erased-agent".into();
+    agent.version = 1;
+    registry.agents.insert(agent.id.clone(), agent);
+    insert_source(&mut registry, "agent", "erased-agent", 1);
+
+    let mut pack: openspine_schemas::pack::CapabilityPack =
+        serde_yaml::from_str(OWNER_PACK).unwrap();
+    pack.id = "erased-pack".into();
+    pack.version = 1;
+    registry.packs.insert(pack.id.clone(), pack);
+    insert_source(&mut registry, "pack", "erased-pack", 1);
+
+    let workflow_yaml = workflow_yaml("erased-workflow", "erased-agent", "erased-pack");
+    insert_workflow(&mut registry, &workflow_yaml);
+    insert_source(&mut registry, "workflow", "erased-workflow", 1);
+
+    let mut policy: openspine_schemas::policy::Policy =
+        serde_yaml::from_str(include_str!("../../../artifacts/lyra/policies/global.yaml")).unwrap();
+    policy.id = "erased-policy".into();
+    policy.version = 1;
+    registry.policies.insert(policy.id.clone(), policy);
+    insert_source(&mut registry, "policy", "erased-policy", 1);
+
+    // model_swap: erased v1 must leave, same-id v2 (live) must stay.
+    // HashMap keeps one entry per id, so the live map holds v2 while the
+    // erased learned row names v1 — exact-version match refuses removal.
+    registry.model_swaps.insert(
+        "base".into(),
+        ModelSwapManifest {
+            id: "base".into(),
+            version: 2,
+            lifecycle_state: Lifecycle::Active,
+            role: ModelRole::Base,
+            target_provider_id: "provider-live".into(),
+            golden_set_id: "model_swap_default".into(),
+            golden_set_result: None,
+        },
+    );
+    insert_source(&mut registry, "model_swap", "base", 1);
+    insert_source(&mut registry, "model_swap", "base", 2);
+
+    // Separate erased model_swap identity that is present at matching version.
+    registry.model_swaps.insert(
+        "matcher".into(),
+        ModelSwapManifest {
+            id: "matcher".into(),
+            version: 1,
+            lifecycle_state: Lifecycle::Active,
+            role: ModelRole::Matcher,
+            target_provider_id: "provider-erased".into(),
+            golden_set_id: "model_swap_default".into(),
+            golden_set_result: None,
+        },
+    );
+    insert_source(&mut registry, "model_swap", "matcher", 1);
+
+    registry.standing_rules.insert(
+        "erased-rule".into(),
+        StandingRuleManifest {
+            id: "erased-rule".into(),
+            schema_version: 1,
+            version: 1,
+            lifecycle_state: Lifecycle::Active,
+            action_id: ActionId::new("calendar.book_appointment"),
+            description: "erased standing rule".into(),
+            quota: BudgetWindow {
+                max: 5,
+                window_secs: 604_800,
+            },
+            rate: BudgetWindow {
+                max: 1,
+                window_secs: 3_600,
+            },
+            expires_after_secs: 7_776_000,
+            dark_window: None,
+        },
+    );
+    insert_source(&mut registry, "standing_rule", "erased-rule", 1);
+
+    registry.templates.insert(
+        "erased-template".into(),
+        PromptTemplate {
+            id: "erased-template".into(),
+            schema_version: 1,
+            version: 1,
+            lifecycle_state: Lifecycle::Active,
+            system_preamble: "erased".into(),
+            untrusted_data_preamble: None,
+        },
+    );
+    insert_source(&mut registry, "template", "erased-template", 1);
+
+    registry.personas.insert(
+        "erased-persona".into(),
+        PersonaElement {
+            id: "erased-persona".into(),
+            schema_version: 1,
+            version: 1,
+            lifecycle_state: Lifecycle::Active,
+            guidance: "erased".into(),
+        },
+    );
+    insert_source(&mut registry, "persona", "erased-persona", 1);
+
+    let learned = vec![
+        erased("route", "erased-route", 1),
+        erased("agent", "erased-agent", 1),
+        erased("workflow", "erased-workflow", 1),
+        erased("pack", "erased-pack", 1),
+        erased("policy", "erased-policy", 1),
+        // wrong-version erase must not drop live base v2
+        erased("model_swap", "base", 1),
+        erased("model_swap", "matcher", 1),
+        erased("standing_rule", "erased-rule", 1),
+        erased("template", "erased-template", 1),
+        erased("persona", "erased-persona", 1),
+    ];
+
+    exclude_erased(&mut registry, &learned);
+
+    assert!(registry.routes.is_empty());
+    assert!(!registry.agents.contains_key("erased-agent"));
+    assert!(!registry.workflows.contains_key("erased-workflow"));
+    assert!(!registry.packs.contains_key("erased-pack"));
+    assert!(!registry.policies.contains_key("erased-policy"));
+    assert!(!registry.standing_rules.contains_key("erased-rule"));
+    assert!(!registry.templates.contains_key("erased-template"));
+    assert!(!registry.personas.contains_key("erased-persona"));
+
+    // Exact-version model_swap: matcher v1 erased; base remains because live
+    // registry holds v2 while the erased row named v1.
+    assert!(!registry.model_swaps.contains_key("matcher"));
+    assert_eq!(registry.model_swaps["base"].version, 2);
+    assert!(!registry
+        .sources
+        .contains_key(&("model_swap".into(), "matcher".into(), 1)));
+    assert!(!registry
+        .sources
+        .contains_key(&("model_swap".into(), "base".into(), 1)));
+    assert!(registry
+        .sources
+        .contains_key(&("model_swap".into(), "base".into(), 2)));
+
+    for (kind, id) in [
+        ("route", "erased-route"),
+        ("agent", "erased-agent"),
+        ("workflow", "erased-workflow"),
+        ("pack", "erased-pack"),
+        ("policy", "erased-policy"),
+        ("standing_rule", "erased-rule"),
+        ("template", "erased-template"),
+        ("persona", "erased-persona"),
+    ] {
+        assert!(
+            !registry.sources.contains_key(&(kind.into(), id.into(), 1)),
+            "source for erased {kind}:{id} v1 must be removed"
+        );
+    }
 }

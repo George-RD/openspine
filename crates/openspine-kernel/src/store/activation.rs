@@ -5,7 +5,7 @@
 //! consistent, recoverable state (startup republishes from the committed
 //! `pending_yaml_digest`).
 
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 use super::learned_artifacts::LearnedArtifact;
@@ -50,6 +50,24 @@ impl Store {
                 jiff::Timestamp::now(),
             )?;
         }
+        // Erased is terminal for the identity (kind, artifact_id, version),
+        // not just for the producing scope. INSERT OR REPLACE would otherwise
+        // delete the erased row and reinsert under a different source_scope.
+        let existing_status: Option<String> = tx
+            .query_row(
+                "SELECT compatibility FROM learned_artifacts
+                  WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                params![learned.kind, learned.artifact_id, learned.version as i64],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(StoreError::from)?;
+        if existing_status.as_deref() == Some("erased") {
+            tx.rollback()?;
+            return Err(StoreError::LearnedArtifact(
+                "cannot replace an erased learned artifact identity".into(),
+            ));
+        }
         let learned_rows = tx.execute(
             "INSERT OR REPLACE INTO learned_artifacts \
              (kind, artifact_id, version, namespace, provenance, accepted_via, learned_at, \
@@ -80,6 +98,9 @@ impl Store {
                         "reconfirmation_required",
                     super::learned_artifacts::CompatibilityStatus::OwnerAccepted =>
                         "owner_accepted",
+                    // Erased artifacts can never be activated (AD-140): their
+                    // source exchange is undecryptable.
+                    super::learned_artifacts::CompatibilityStatus::Erased => "erased",
                 },
                 match learned.nomination {
                     super::learned_artifacts::NominationStatus::None => "none",

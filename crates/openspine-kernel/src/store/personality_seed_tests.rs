@@ -109,11 +109,15 @@ fn seed_if_missing_loads_overlay_artifacts_with_real_traceable_provenance() {
             Provenance::ProducedBy {
                 source_event_id,
                 source_exchange,
+                source_scope,
             } => {
                 assert_eq!(source_event_id.to_string(), bootstrap_event_id);
                 assert!(!source_exchange.digest.to_string().is_empty());
+                assert_eq!(*source_scope, SYSTEM_SCOPE);
                 assert_eq!(
-                    artifacts.get(source_exchange).unwrap(),
+                    artifacts
+                        .get_scoped(*source_scope, source_exchange)
+                        .unwrap(),
                     b"openspine personality seed bootstrap: kernel-authored exchange \
 establishing ProducedBy provenance for the pre-populated Donna x Leo persona \
 overlay artifacts (AD-080). Not a human conversation; a traceable bootstrap event."
@@ -316,6 +320,7 @@ fn dangling_seed_row_is_quarantined_and_reseeded() {
         provenance: Provenance::ProducedBy {
             source_event_id: Ulid::new(),
             source_exchange: exchange_ref,
+            source_scope: SYSTEM_SCOPE,
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -377,4 +382,55 @@ fn audit_failure_rolls_back_learned_row_and_seeded_receipt() {
     // The file was already durably published before the transaction; retry
     // can safely reuse it because the DB row was rolled back.
     assert!(overlay_dir.join("personas").is_dir());
+}
+
+#[test]
+fn erased_seed_identity_is_not_quarantined_or_reseeded() {
+    let tmp = tempdir().unwrap();
+    let overlay_dir = tmp.path().join("artifacts.d");
+    let store = Store::open_in_memory().unwrap();
+    let artifacts = ArtifactStore::open(tmp.path().join("artifacts"), [17u8; 32]).unwrap();
+    let element = seed_definitions().into_iter().next().unwrap();
+    let source_scope = Ulid::new();
+    let source_exchange = artifacts
+        .put_scoped(source_scope, b"erased persona source")
+        .unwrap();
+    let row = LearnedArtifact {
+        kind: "persona".to_string(),
+        artifact_id: element.id.clone(),
+        version: element.version,
+        namespace: ArtifactNamespace::Overlay,
+        provenance: Provenance::ProducedBy {
+            source_event_id: Ulid::new(),
+            source_exchange,
+            source_scope,
+        },
+        accepted_via: None,
+        learned_at: Timestamp::now(),
+        compatibility: CompatibilityStatus::Erased,
+        nomination: NominationStatus::None,
+        pending_reconfirmation_id: None,
+        pending_yaml_digest: Some(
+            digest_of_bytes(serde_yaml::to_string(&element).unwrap().as_bytes()).to_string(),
+        ),
+        accepted_dependency_fingerprint: None,
+        source_path: None,
+        accepted_base_epoch: None,
+    };
+    store.record_learned_artifact(&row).unwrap();
+
+    seed_if_missing(&store, &artifacts, &overlay_dir).unwrap();
+
+    let retained = store
+        .list_learned_artifacts()
+        .unwrap()
+        .into_iter()
+        .find(|item| item.kind == "persona" && item.artifact_id == element.id)
+        .unwrap();
+    assert_eq!(retained.compatibility, CompatibilityStatus::Erased);
+    let path = persona_overlay_dir(&overlay_dir).join(artifact_loader::overlay_filename(
+        &element.id,
+        element.version,
+    ));
+    assert!(!path.exists(), "terminal erased seed must not be repaired");
 }

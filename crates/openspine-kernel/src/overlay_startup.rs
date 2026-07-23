@@ -102,6 +102,7 @@ pub(crate) fn load(
         &learned,
         &mut overlay_registry,
     )?;
+    crate::overlay_compat::exclude_erased(&mut overlay_registry, &learned);
     for (kind, subdir) in [
         ("route", "routes"),
         ("agent", "agents"),

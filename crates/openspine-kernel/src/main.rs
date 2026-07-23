@@ -9,6 +9,8 @@ mod briefcase_visibility;
 mod config;
 mod connector_reality;
 mod connectors;
+mod counterparty_erasure;
+mod counterparty_keys;
 pub(crate) mod disclosure;
 mod escalation;
 mod failure_surfacing;
@@ -118,6 +120,9 @@ async fn main() -> anyhow::Result<()> {
     let artifacts =
         artifact_store::ArtifactStore::open(cfg.data_dir.join("artifacts"), artifact_key)
             .context("opening artifact store")?;
+    // AD-140: re-key any pre-AD-140 single-global-key blobs into the new
+    // per-counterparty format under SYSTEM_SCOPE before serving anything.
+    artifacts.migrate_legacy_blobs(artifact_key)?;
     let secrets = Arc::new(
         secret_store::SecretStore::open(cfg.data_dir.join("credentials"), artifact_key)
             .context("opening secret store")?,
@@ -136,6 +141,19 @@ async fn main() -> anyhow::Result<()> {
     };
     let store =
         store::Store::open(&cfg.data_dir.join("kernel.db")).context("opening kernel store")?;
+    // Close the DB-commit-before-key-tombstone crash window: the durable
+    // SQLite marker is authoritative, so every recorded erasure is replayed
+    // into the key ring before any payload can be served.
+    for counterparty_id in store
+        .erased_counterparty_ids()
+        .context("loading erased counterparty markers")?
+    {
+        artifacts
+            .erase_counterparty_key(counterparty_id)
+            .with_context(|| {
+                format!("reconciling erased counterparty key {counterparty_id} at startup")
+            })?;
+    }
     let now_ms = jiff::Timestamp::now().as_millisecond();
     match store
         .validate_boot_clock(now_ms)
