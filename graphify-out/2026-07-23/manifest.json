@@ -2974,11 +2974,6 @@
     "ast_hash": "175188a0269849193a9941a4ca07e2a3",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784813930.7422245,
-    "ast_hash": "3c851e86914c2c8762f061345815a817",
-    "semantic_hash": ""
-  },
   "openspec/changes/implement-counterparty-key-model/design.md": {
     "mtime": 1784813382.814611,
     "ast_hash": "a928582de654c478aaa1df92f643c9e7",
