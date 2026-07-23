@@ -1,4 +1,4 @@
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 use super::learned_artifacts::{Provenance, ReconfirmAnchor};
@@ -63,11 +63,29 @@ impl Store {
             tx.rollback()?;
             return Ok(false);
         }
+        // Erased is terminal for the identity itself. A replacement that only
+        // changes source_scope must still fail closed rather than revive the row.
+        let existing_status: Option<String> = tx
+            .query_row(
+                "SELECT compatibility FROM learned_artifacts
+                  WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                params![kind, artifact_id, version as i64],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(StoreError::from)?;
+        if existing_status.as_deref() == Some("erased") {
+            tx.rollback()?;
+            return Err(StoreError::LearnedArtifact(
+                "cannot replace an erased learned artifact identity".into(),
+            ));
+        }
         let learned_rows = tx.execute(
             "UPDATE learned_artifacts SET compatibility = 'owner_accepted', provenance = ?1,
              accepted_via = ?2, accepted_base_epoch = ?3,
              accepted_dependency_fingerprint = ?7, pending_reconfirmation_id = NULL
-             WHERE kind = ?4 AND artifact_id = ?5 AND version = ?6",
+             WHERE kind = ?4 AND artifact_id = ?5 AND version = ?6
+               AND compatibility != 'erased'",
             params![
                 provenance_json,
                 accepted_via_json,

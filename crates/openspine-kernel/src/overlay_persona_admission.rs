@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::artifact_loader::{self, ArtifactRegistry};
 use crate::artifact_store::ArtifactStore;
-use crate::store::learned_artifacts::{LearnedArtifact, Provenance};
+use crate::store::learned_artifacts::{CompatibilityStatus, LearnedArtifact, Provenance};
 use crate::store::Store;
 
 /// Admit only persona YAML whose learned row, validated ledger event, exchange,
@@ -19,10 +19,14 @@ pub(crate) fn admit(
     registry: &mut ArtifactRegistry,
 ) -> anyhow::Result<()> {
     let mut admitted = HashMap::new();
-    for row in learned.iter().filter(|item| item.kind == "persona") {
+    for row in learned
+        .iter()
+        .filter(|item| item.kind == "persona" && item.compatibility != CompatibilityStatus::Erased)
+    {
         let Provenance::ProducedBy {
             source_event_id,
             source_exchange,
+            source_scope,
         } = &row.provenance
         else {
             tracing::warn!(artifact_id = %row.artifact_id, version = row.version,
@@ -51,7 +55,10 @@ pub(crate) fn admit(
                 "excluding persona with unbound provenance exchange");
             continue;
         }
-        if artifacts.get(source_exchange).is_err() {
+        if artifacts
+            .get_scoped(*source_scope, source_exchange)
+            .is_err()
+        {
             tracing::warn!(artifact_id = %row.artifact_id, version = row.version,
                 "excluding persona with unavailable provenance exchange");
             continue;

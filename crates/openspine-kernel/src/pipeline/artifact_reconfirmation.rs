@@ -306,6 +306,7 @@ pub(super) async fn reinstate_artifact(
             crate::store::learned_artifacts::Provenance::ProducedBy {
                 source_event_id: grant.event_id,
                 source_exchange: payload_ref.clone(),
+                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
             }
         }
         other => other.clone(),

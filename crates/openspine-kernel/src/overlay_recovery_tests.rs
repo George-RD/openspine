@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: one cohesive crash-recovery matrix shares fixtures and ordering invariants across overlay startup, persona admission, and republishing.
 //! Focused crash-recovery tests for the overlay activation pipeline (AD-070).
 //!
 //! Mirrors the model-swap recovery windows against `overlay_startup::load`
@@ -71,6 +72,7 @@ pub(super) fn learned_row(id: &str, version: u32, digest: &str) -> LearnedArtifa
                 digest: digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
+            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -272,6 +274,7 @@ fn persona_with_dangling_source_event_is_excluded_even_with_exchange_blob() {
             provenance: Provenance::ProducedBy {
                 source_event_id: Ulid::new(),
                 source_exchange: exchange_ref,
+                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
@@ -435,6 +438,7 @@ fn prune_non_highest_active_preserves_persona_typed_and_source_entries() {
                     digest: digest_of_bytes(b"exchange"),
                     schema_version: 1,
                 },
+                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
@@ -455,4 +459,132 @@ fn prune_non_highest_active_preserves_persona_typed_and_source_entries() {
     assert!(registry
         .sources
         .contains_key(&("persona".to_string(), "seed".to_string(), 1)));
+}
+
+#[test]
+fn startup_excludes_erased_artifacts() {
+    let (store, artifacts, data_dir, overlay_dir) = fixture();
+    let lyra_dir = tempdir().unwrap().keep();
+    std::fs::create_dir_all(overlay_dir.join("routes")).unwrap();
+
+    let yaml = overlay_yaml("r-erased", 1);
+    let digest = digest_of_bytes(yaml.as_bytes()).to_string();
+    std::fs::write(overlay_file(&overlay_dir, "route", "r-erased", 1), &yaml).unwrap();
+
+    let mut row = learned_row("r-erased", 1, &digest);
+    row.compatibility = CompatibilityStatus::Erased;
+    store.record_learned_artifact(&row).unwrap();
+
+    let startup = crate::overlay_startup::load(&lyra_dir, &data_dir, &store, &artifacts).unwrap();
+
+    assert!(
+        startup
+            .registry
+            .routes
+            .iter()
+            .find(|r| r.id == "r-erased")
+            .is_none(),
+        "erased artifact must be excluded from startup registry"
+    );
+}
+
+#[test]
+fn persona_admission_excludes_erased_and_uses_recorded_source_scope() {
+    let (store, artifacts, _data_dir, overlay_dir) = fixture();
+    let custom_scope = Ulid::new();
+
+    let persona = openspine_schemas::persona::PersonaElement {
+        id: "scoped-persona".into(),
+        schema_version: 1,
+        version: 1,
+        lifecycle_state: Lifecycle::Active,
+        guidance: "positive guidance".into(),
+    };
+    let yaml = serde_yaml::to_string(&persona).unwrap();
+    let yaml_digest = digest_of_bytes(yaml.as_bytes()).to_string();
+    // Put exchange under custom_scope, NOT SYSTEM_SCOPE.
+    let exchange_ref = artifacts
+        .put_scoped(custom_scope, b"scoped exchange blob")
+        .unwrap();
+
+    let bootstrap_event = store
+        .append_audit(
+            "test.bootstrap",
+            None,
+            None,
+            Some("bootstrap"),
+            None,
+            &[],
+            std::slice::from_ref(&exchange_ref),
+        )
+        .unwrap();
+
+    std::fs::create_dir_all(overlay_dir.join("personas")).unwrap();
+    std::fs::write(
+        overlay_dir
+            .join("personas")
+            .join(crate::artifact_loader::overlay_filename(
+                &persona.id,
+                persona.version,
+            )),
+        &yaml,
+    )
+    .unwrap();
+
+    let row = LearnedArtifact {
+        kind: "persona".into(),
+        artifact_id: persona.id.clone(),
+        version: persona.version,
+        namespace: ArtifactNamespace::Overlay,
+        provenance: Provenance::ProducedBy {
+            source_event_id: bootstrap_event.id,
+            source_exchange: exchange_ref,
+            source_scope: custom_scope,
+        },
+        accepted_via: None,
+        learned_at: Timestamp::now(),
+        compatibility: CompatibilityStatus::Compatible,
+        nomination: NominationStatus::None,
+        pending_reconfirmation_id: None,
+        pending_yaml_digest: Some(yaml_digest),
+        accepted_dependency_fingerprint: None,
+        source_path: None,
+        accepted_base_epoch: None,
+    };
+    store.record_learned_artifact(&row).unwrap();
+
+    let mut registry = ArtifactRegistry::default();
+    crate::overlay_persona_admission::admit(
+        &store,
+        &artifacts,
+        &overlay_dir,
+        std::slice::from_ref(&row),
+        &mut registry,
+    )
+    .unwrap();
+
+    assert!(
+        registry.personas.contains_key(&persona.id),
+        "persona with valid custom_scope exchange must be admitted"
+    );
+
+    // Now test Erased persona is excluded
+    let mut erased_row = row;
+    erased_row.artifact_id = "erased-persona".into();
+    erased_row.compatibility = CompatibilityStatus::Erased;
+
+    let mut registry2 = ArtifactRegistry::default();
+    crate::overlay_persona_admission::admit(
+        &store,
+        &artifacts,
+        &overlay_dir,
+        &[erased_row],
+        &mut registry2,
+    )
+    .unwrap();
+
+    assert!(
+        !registry2.personas.contains_key("erased-persona"),
+        "erased persona must be excluded during admission"
+    );
 }

@@ -1,4 +1,3 @@
-use crate::failure_surfacing::FailureClass;
 use crate::pipeline::{AppState, NotifyOutcome};
 use crate::store::failure_surfacing_types::{DetailReceipt, DigestItem};
 use openspine_schemas::artifact::ArtifactRef;
@@ -72,7 +71,13 @@ pub(crate) async fn handle_detail_command(
     };
     let (body, total, detail_ref, unavailable) = match item.text_ref.as_deref() {
         None => {
-            record_unavailable(state)?;
+            // Canonical unavailable markers are themselves terminal NULL-ref
+            // rows. Viewing them must re-surface the non-secret message without
+            // recursively inserting another marker/audit. Legacy NULL-ref rows
+            // may still record one terminal marker via record_unavailable.
+            if !state.store.is_canonical_unavailable_failure(&item) {
+                record_unavailable(state)?;
+            }
             (
                 format!("detail unavailable [{}]", item.class),
                 1,
@@ -128,12 +133,13 @@ pub(crate) async fn handle_detail_command(
 }
 
 fn record_unavailable(state: &AppState) -> anyhow::Result<()> {
-    crate::failure_surfacing::batch_failure(
-        state,
-        FailureClass::Resource,
-        "failure digest detail unavailable",
-        "failure digest detail unavailable",
-    )?;
+    // The "detail unavailable" marker is a non-secret constant; record it
+    // directly without encrypting an artifact. This keeps surfacing the
+    // unavailable state independent of the artifact store, which may be
+    // inoperable (e.g. a crypto-erased counterparty or a key the kernel
+    // cannot unwrap) -- the owner still learns the detail is unavailable and
+    // nothing about the cause leaks.
+    state.store.record_unavailable_failure("resource")?;
     Ok(())
 }
 
@@ -181,14 +187,18 @@ pub(crate) async fn handle_command(state: &AppState, chat_id: i64) -> anyhow::Re
 
 #[cfg(test)]
 mod tests {
-    use super::{detail_pages, render_page, TELEGRAM_DIGEST_CAP};
+    use super::{detail_pages, handle_detail_command, render_page, TELEGRAM_DIGEST_CAP};
     use crate::failure_surfacing::{batch_failure, FailureClass};
     use crate::store::failure_surfacing_types::{DigestItem, MAX_DIGEST_SUMMARY_CHARS};
-    use crate::test_support::fixtures::test_state;
+    use crate::telegram::TelegramConnector;
+    use crate::test_support::fixtures::{test_state, test_state_with_telegram};
     use jiff::Timestamp;
     use openspine_schemas::artifact::ArtifactRef;
     use openspine_schemas::digest::Digest;
+    use serde_json::json;
     use ulid::Ulid;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     fn item(summary: &str) -> DigestItem {
         DigestItem {
@@ -301,5 +311,160 @@ mod tests {
         assert!(pages
             .iter()
             .all(|page| page.len() <= TELEGRAM_DIGEST_CAP - 128));
+    }
+
+    const TEST_GRANT_KEY: &str = "openspine-test-grant-hmac-key-v1";
+
+    async fn mount_send_ok(server: &MockServer) {
+        Mock::given(method("POST"))
+            .and(path("/bottest-token/SendMessage"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "result": {
+                    "message_id": 1,
+                    "date": 0,
+                    "chat": {"id": 555, "type": "private"},
+                    "text": "sent"
+                }
+            })))
+            .mount(server)
+            .await;
+    }
+
+    fn telegram(server: &MockServer) -> TelegramConnector {
+        TelegramConnector::with_api_url("test-token".to_string(), server.uri().parse().unwrap())
+    }
+
+    #[tokio::test]
+    async fn canonical_unavailable_marker_view_does_not_grow_items_or_audits() {
+        std::env::set_var("OPENSPINE_GRANT_HMAC_KEY", TEST_GRANT_KEY);
+        let server = MockServer::start().await;
+        mount_send_ok(&server).await;
+        let state = test_state_with_telegram(telegram(&server));
+
+        let marker_id = state
+            .store
+            .record_unavailable_failure("resource")
+            .expect("canonical marker");
+        let items_before = state.store.owner_digest_items().expect("items");
+        assert_eq!(items_before.len(), 1);
+        assert!(state
+            .store
+            .is_canonical_unavailable_failure(&items_before[0]));
+        let marker_audits_before = state
+            .store
+            .count_audit_events_of_kind("failure.digest_unavailable")
+            .expect("marker audits");
+        assert_eq!(marker_audits_before, 1);
+
+        for _ in 0..3 {
+            handle_detail_command(&state, 555, marker_id, 1)
+                .await
+                .expect("view canonical marker");
+        }
+
+        // Recursive-marker contract: repeated views must not create more
+        // digest items or more failure.digest_unavailable audits.
+        assert_eq!(
+            state.store.owner_digest_items().expect("items after").len(),
+            items_before.len(),
+            "canonical marker re-view must not insert more digest items"
+        );
+        assert_eq!(
+            state
+                .store
+                .count_audit_events_of_kind("failure.digest_unavailable")
+                .expect("marker audits after"),
+            marker_audits_before,
+            "canonical marker re-view must not append more unavailable marker audits"
+        );
+        // Non-secret NULL-ref contract is preserved: the same marker remains
+        // and the owner still receives the unavailable surface (3 deliveries).
+        let viewed = state
+            .store
+            .owner_digest_item(marker_id)
+            .expect("lookup")
+            .expect("marker still present");
+        assert!(viewed.text_ref.is_none());
+        assert!(state.store.is_canonical_unavailable_failure(&viewed));
+        assert_eq!(viewed.summary, "[resource] detail unavailable");
+        assert_eq!(
+            server.received_requests().await.expect("requests").len(),
+            3,
+            "repeated views must still deliver the non-secret unavailable message"
+        );
+    }
+
+    #[tokio::test]
+    async fn legacy_null_ref_records_one_terminal_marker_then_stabilizes() {
+        std::env::set_var("OPENSPINE_GRANT_HMAC_KEY", TEST_GRANT_KEY);
+        let server = MockServer::start().await;
+        mount_send_ok(&server).await;
+        let state = test_state_with_telegram(telegram(&server));
+
+        let legacy_id = state
+            .store
+            .insert_legacy_digest_failure("connector", "legacy summary without ref")
+            .expect("legacy row");
+        assert_eq!(state.store.owner_digest_items().expect("items").len(), 1);
+        assert_eq!(
+            state
+                .store
+                .count_audit_events_of_kind("failure.digest_unavailable")
+                .expect("marker audits"),
+            0
+        );
+
+        // First legacy view may create exactly one terminal marker.
+        handle_detail_command(&state, 555, legacy_id, 1)
+            .await
+            .expect("first legacy view");
+        let after_first = state.store.owner_digest_items().expect("items");
+        assert_eq!(
+            after_first.len(),
+            2,
+            "legacy view records one terminal marker"
+        );
+        assert_eq!(
+            state
+                .store
+                .count_audit_events_of_kind("failure.digest_unavailable")
+                .expect("marker audits"),
+            1
+        );
+        let marker = after_first
+            .iter()
+            .find(|item| state.store.is_canonical_unavailable_failure(item))
+            .expect("canonical marker present");
+        assert!(marker.text_ref.is_none());
+
+        let items_stable = state.store.owner_digest_items().expect("items").len();
+        let marker_audits_stable = state
+            .store
+            .count_audit_events_of_kind("failure.digest_unavailable")
+            .expect("marker audits");
+
+        // Repeated legacy views and marker views must not grow items/marker audits.
+        handle_detail_command(&state, 555, legacy_id, 1)
+            .await
+            .expect("second legacy view");
+        handle_detail_command(&state, 555, marker.id, 1)
+            .await
+            .expect("marker view");
+        handle_detail_command(&state, 555, marker.id, 1)
+            .await
+            .expect("marker re-view");
+
+        assert_eq!(
+            state.store.owner_digest_items().expect("items").len(),
+            items_stable
+        );
+        assert_eq!(
+            state
+                .store
+                .count_audit_events_of_kind("failure.digest_unavailable")
+                .expect("marker audits"),
+            marker_audits_stable
+        );
     }
 }
