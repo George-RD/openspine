@@ -93,7 +93,7 @@ pub enum RouteEffect {
     Deny,
 }
 
-// A declarative route artifact (PRD §6.1).
+/// A declarative route artifact (PRD §6.1).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Route {
@@ -121,7 +121,13 @@ pub struct Route {
 
 /// The result of resolving one or more candidate routes against an event
 /// (PRD §6.4). `Ambiguous` never grants widened authority — it always falls
-/// back to `low_authority_triage`.
+/// back to `low_authority_triage` if a caller chooses to use it. Since
+/// D-109/D-110, a caller may instead resolve the tie deterministically by
+/// composing `candidate_route_ids` (the tied winners, sorted and deduped)
+/// through `AuthorityEquivalenceClasses`: a single resulting class picks
+/// within itself, more than one class escalates to the owner. Adoption only
+/// — this field does not change `resolve_route`'s own deterministic
+/// conflict-resolution algorithm (D-008).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RouteResolution {
@@ -134,6 +140,9 @@ pub enum RouteResolution {
     Ambiguous {
         fallback_route: ArtifactId,
         reason: String,
+        /// The tied route ids `resolve_route` could not order
+        /// deterministically, sorted and deduplicated.
+        candidate_route_ids: Vec<ArtifactId>,
     },
 }
 
@@ -199,10 +208,12 @@ mod tests {
         let resolution = RouteResolution::Ambiguous {
             fallback_route: "low_authority_triage".to_string(),
             reason: "multiple_matching_routes_no_deterministic_winner".to_string(),
+            candidate_route_ids: vec!["a".to_string(), "b".to_string()],
         };
         let value = serde_json::to_value(&resolution).unwrap();
         assert_eq!(value["status"], "ambiguous");
         assert_eq!(value["fallback_route"], "low_authority_triage");
+        assert_eq!(value["candidate_route_ids"], serde_json::json!(["a", "b"]));
     }
 
     #[test]

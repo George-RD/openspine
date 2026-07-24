@@ -37,6 +37,7 @@ mod lanes;
 mod message_notify;
 mod offset;
 mod polling;
+mod route_ambiguity;
 pub(crate) use message_notify::{
     notify_owner_best_effort, notify_owner_required, notify_owner_required_outcome,
     notify_owner_with_digest,

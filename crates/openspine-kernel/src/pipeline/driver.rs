@@ -15,6 +15,7 @@ use ulid::Ulid;
 
 use super::driver_failures::emit_preflight_failure;
 use super::lanes::{EventInputs, LaneSpec, PreflightSnapshot};
+use super::route_ambiguity::resolve_ambiguous_route;
 pub use super::stages::PipelineStage;
 use super::{empty_session_policy, AppState};
 
@@ -148,164 +149,188 @@ pub(crate) async fn run_pipeline_with_envelope(
     trace.push(PipelineStage::Route);
     let routes = state.registry.read().routes.clone();
     let route_resolution = resolve_route(&envelope, &identity, relationship, &routes);
-    let route_id = match route_resolution {
-        RouteResolution::Success { route_id } => route_id,
+    let (route, precomposed_grant) = match route_resolution {
+        RouteResolution::Success { route_id } => {
+            let route = routes
+                .iter()
+                .find(|route| route.id == route_id)
+                .cloned()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("resolved route {route_id} not found in registry")
+                })?;
+            (route, None)
+        }
         RouteResolution::Denied { reason } => {
             state
                 .store
                 .append_audit("route.denied", None, None, Some(&reason), None, &[], &[])?;
             return Ok(None);
         }
-        RouteResolution::Ambiguous { reason, .. } => {
-            state.store.append_audit(
-                "route.ambiguous",
-                None,
-                None,
-                Some(&reason),
-                None,
-                &[],
-                &[],
-            )?;
-            return Ok(None);
+        RouteResolution::Ambiguous {
+            candidate_route_ids,
+            ..
+        } => {
+            let principal_id = identity
+                .principal_id
+                .or(inputs.principal_override)
+                .ok_or_else(|| anyhow::anyhow!("no principal resolved for event"))?;
+            let Some(selection) = resolve_ambiguous_route(
+                state,
+                &candidate_route_ids,
+                &routes,
+                &envelope,
+                &identity,
+                relationship,
+                &state.action_catalog,
+                principal_id,
+                spec.purpose,
+                now,
+                inputs.chat_id,
+            )
+            .await?
+            else {
+                return Ok(None);
+            };
+            (selection.route, Some(selection.grant))
         }
     };
-    let route = routes
-        .iter()
-        .find(|r| r.id == route_id)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("resolved route {route_id} not found in registry"))?;
     if (spec.route_containment_guard)(state, &envelope, spec.lane)? {
         return Ok(None);
     }
-    let (agent, workflow, pack, global_policy) = {
-        let registry = state.registry.read();
-        let agent_id = route
-            .agent
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no agent"))?;
-        let workflow_id = route
-            .workflow
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no workflow"))?;
-        let pack_id = route
-            .capability_pack
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("route {route_id} names no capability_pack"))?;
-        let agent = registry
-            .agents
-            .get(agent_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
-        let workflow = registry
-            .workflows
-            .get(workflow_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
-        let pack = registry
-            .packs
-            .get(pack_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("capability_pack {pack_id} not in registry"))?;
-        let global_policy = registry
-            .policies
-            .get("global")
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
-        (agent, workflow, pack, global_policy)
-    };
-    if !pack.applies_to.matches(&envelope, relationship) {
-        state.store.append_audit(
-            "authority.pack_not_applicable",
-            None,
-            None,
-            Some(pack.id.as_str()),
-            None,
-            &[],
-            &[],
-        )?;
-        return Ok(None);
-    }
-    trace.push(PipelineStage::Compose);
-    let principal_id = identity
-        .principal_id
-        .or(inputs.principal_override)
-        .ok_or_else(|| anyhow::anyhow!("no principal resolved for event"))?;
-    let session = empty_session_policy();
-    let input = AuthorityInput {
-        event: &envelope,
-        identity: &identity,
-        route: &route,
-        global_policy: &global_policy,
-        agent: &agent,
-        workflow: &workflow,
-        pack: &pack,
-        session: &session,
-        principal_id,
-        purpose: spec.purpose,
-    };
-    let mut grant = match compose_authority(&input, &state.action_catalog, now) {
-        AuthorityOutcome::Granted(grant) => *grant,
-        AuthorityOutcome::Denied { reason } => {
-            state.store.append_audit(
-                "authority.denied",
-                None,
-                None,
-                Some(&reason),
-                None,
-                &[],
-                &[],
-            )?;
-            crate::failure_surfacing::notify_immediate_failure(
-                state,
-                inputs.chat_id,
-                crate::failure_surfacing::FailureClass::Authority,
-                &format!("Authority denied: {reason}"),
-            )
-            .await?;
-            return Ok(None);
-        }
-        AuthorityOutcome::UnknownActionId { id, source } => {
-            let summary = format!("Unknown action id {id} in {source}");
-            state.store.append_audit(
-                "authority.unknown_action_id",
-                None,
-                None,
-                Some(&summary),
-                None,
-                &[],
-                &[],
-            )?;
-            crate::failure_surfacing::notify_immediate_failure(
-                state,
-                inputs.chat_id,
-                crate::failure_surfacing::FailureClass::Authority,
-                &summary,
-            )
-            .await?;
-            return Ok(None);
-        }
-        AuthorityOutcome::Ambiguous { .. } => {
-            let summary =
-                "compose_authority returned Ambiguous, which it is not expected to produce";
-            state.store.append_audit(
-                "authority.ambiguous",
-                None,
-                None,
-                Some(summary),
-                None,
-                &[],
-                &[],
-            )?;
-            crate::failure_surfacing::notify_immediate_failure(
-                state,
-                inputs.chat_id,
-                crate::failure_surfacing::FailureClass::Escalation,
-                summary,
-            )
-            .await?;
-            return Ok(None);
-        }
-    };
+    let mut grant =
+        if let Some(grant) = precomposed_grant {
+            trace.push(PipelineStage::Compose);
+            grant
+        } else {
+            let route_id = &route.id;
+            let (agent, workflow, pack, global_policy) =
+                {
+                    let registry = state.registry.read();
+                    let agent_id = route
+                        .agent
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no agent"))?;
+                    let workflow_id = route
+                        .workflow
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("route {route_id} names no workflow"))?;
+                    let pack_id = route.capability_pack.as_ref().ok_or_else(|| {
+                        anyhow::anyhow!("route {route_id} names no capability_pack")
+                    })?;
+                    let agent = registry
+                        .agents
+                        .get(agent_id)
+                        .cloned()
+                        .ok_or_else(|| anyhow::anyhow!("agent {agent_id} not in registry"))?;
+                    let workflow = registry
+                        .workflows
+                        .get(workflow_id)
+                        .cloned()
+                        .ok_or_else(|| anyhow::anyhow!("workflow {workflow_id} not in registry"))?;
+                    let pack = registry.packs.get(pack_id).cloned().ok_or_else(|| {
+                        anyhow::anyhow!("capability_pack {pack_id} not in registry")
+                    })?;
+                    let global_policy = registry
+                        .policies
+                        .get("global")
+                        .cloned()
+                        .ok_or_else(|| anyhow::anyhow!("global policy not in registry"))?;
+                    (agent, workflow, pack, global_policy)
+                };
+            if !pack.applies_to.matches(&envelope, relationship) {
+                state.store.append_audit(
+                    "authority.pack_not_applicable",
+                    None,
+                    None,
+                    Some(pack.id.as_str()),
+                    None,
+                    &[],
+                    &[],
+                )?;
+                return Ok(None);
+            }
+            trace.push(PipelineStage::Compose);
+            let principal_id = identity
+                .principal_id
+                .or(inputs.principal_override)
+                .ok_or_else(|| anyhow::anyhow!("no principal resolved for event"))?;
+            let session = empty_session_policy();
+            let input = AuthorityInput {
+                event: &envelope,
+                identity: &identity,
+                route: &route,
+                global_policy: &global_policy,
+                agent: &agent,
+                workflow: &workflow,
+                pack: &pack,
+                session: &session,
+                principal_id,
+                purpose: spec.purpose,
+            };
+            match compose_authority(&input, &state.action_catalog, now) {
+                AuthorityOutcome::Granted(grant) => *grant,
+                AuthorityOutcome::Denied { reason } => {
+                    state.store.append_audit(
+                        "authority.denied",
+                        None,
+                        None,
+                        Some(&reason),
+                        None,
+                        &[],
+                        &[],
+                    )?;
+                    crate::failure_surfacing::notify_immediate_failure(
+                        state,
+                        inputs.chat_id,
+                        crate::failure_surfacing::FailureClass::Authority,
+                        &format!("Authority denied: {reason}"),
+                    )
+                    .await?;
+                    return Ok(None);
+                }
+                AuthorityOutcome::UnknownActionId { id, source } => {
+                    let summary = format!("Unknown action id {id} in {source}");
+                    state.store.append_audit(
+                        "authority.unknown_action_id",
+                        None,
+                        None,
+                        Some(&summary),
+                        None,
+                        &[],
+                        &[],
+                    )?;
+                    crate::failure_surfacing::notify_immediate_failure(
+                        state,
+                        inputs.chat_id,
+                        crate::failure_surfacing::FailureClass::Authority,
+                        &summary,
+                    )
+                    .await?;
+                    return Ok(None);
+                }
+                AuthorityOutcome::Ambiguous { .. } => {
+                    let summary =
+                        "compose_authority returned Ambiguous, which it is not expected to produce";
+                    state.store.append_audit(
+                        "authority.ambiguous",
+                        None,
+                        None,
+                        Some(summary),
+                        None,
+                        &[],
+                        &[],
+                    )?;
+                    crate::failure_surfacing::notify_immediate_failure(
+                        state,
+                        inputs.chat_id,
+                        crate::failure_surfacing::FailureClass::Escalation,
+                        summary,
+                    )
+                    .await?;
+                    return Ok(None);
+                }
+            }
+        };
     // AD-136: persona binding is kernel machinery, resolved AFTER the
     // deterministic route/identity match and BEFORE the grant is sealed.
     // Personas carry no authority (D-094): `persona_id` is an
