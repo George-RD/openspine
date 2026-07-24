@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784887035.748177,
-    "ast_hash": "06a3f0b5ef152d290f75a50a04730691",
+    "mtime": 1784890498.6237576,
+    "ast_hash": "b42d957b17bfe17144a73c304380613f",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -3324,11 +3324,6 @@
     "ast_hash": "0636e48b50adcaa4a565bdc29ae252c6",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784888838.5316715,
-    "ast_hash": "817b2215498a72a715032c0f827af840",
-    "semantic_hash": ""
-  },
   "artifacts/lyra/agents/reflection_miner_agent.yaml": {
     "mtime": 1784887895.783386,
     "ast_hash": "0160c356dd5d95b0995ce9281c752a9a",
@@ -3385,8 +3380,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/implement-reflection-miner/tasks.md": {
-    "mtime": 1784887036.4812403,
-    "ast_hash": "0c881009c9110fa47d1822848dc567e7",
+    "mtime": 1784890455.1359959,
+    "ast_hash": "4571acaff8265c31972feb2c84d87c34",
     "semantic_hash": ""
   }
 }
