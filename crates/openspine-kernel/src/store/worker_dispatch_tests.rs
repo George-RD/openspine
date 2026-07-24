@@ -68,7 +68,13 @@ fn commission(store: &Store, parent: &TaskGrant) -> TaskGrant {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let worker = mint_worker_grant(parent, &spec, &test_key()).expect("mint worker");
+    let worker = mint_worker_grant(
+        parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &test_key(),
+    )
+    .expect("mint worker");
     record_worker_commissioned(
         store,
         parent.id,
@@ -181,7 +187,13 @@ fn worker_grant_verifies_offline() {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let deeper = mint_worker_grant(&worker, &deeper_spec, &test_key()).expect("mint deeper");
+    let deeper = mint_worker_grant(
+        &worker,
+        &deeper_spec,
+        &crate::action_catalog::canonical_catalog(),
+        &test_key(),
+    )
+    .expect("mint deeper");
     assert!(
         deeper.verify_mac(&test_key()),
         "worker-of-worker verifies offline"
@@ -214,7 +226,13 @@ fn commission_is_receipt_idempotent() {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let worker = mint_worker_grant(&parent, &spec, &test_key()).expect("mint worker");
+    let worker = mint_worker_grant(
+        &parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &test_key(),
+    )
+    .expect("mint worker");
     let receipt = format!("receipt-{}", parent.id);
 
     record_worker_commissioned(
@@ -293,6 +311,7 @@ fn commission_receipt_binding_rejects_different_parent_or_request() {
             counterparty_identifier: None,
             task_class: TaskClass::Conversation,
         },
+        &crate::action_catalog::canonical_catalog(),
         &test_key(),
     )
     .unwrap();
@@ -353,7 +372,13 @@ fn narrowed_gate_worker(parent: &TaskGrant) -> TaskGrant {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    mint_worker_grant(&parent, &spec, &test_key()).expect("mint worker")
+    mint_worker_grant(
+        &parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &test_key(),
+    )
+    .expect("mint worker")
 }
 /// A child is denied an action outside its narrowed allowlist.
 #[test]
@@ -426,7 +451,13 @@ fn classified_empty_output_channel_denial() {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let worker = mint_worker_grant(&parent, &spec, &test_key()).expect("mint worker");
+    let worker = mint_worker_grant(
+        &parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &test_key(),
+    )
+    .expect("mint worker");
     assert!(
         !openspine_schemas::grant_chain::effectively_allows_output_channel(
             &worker,

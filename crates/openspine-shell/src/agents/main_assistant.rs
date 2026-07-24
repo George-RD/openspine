@@ -8,6 +8,8 @@
 //!   `/status`      → action `openspine.status.read`
 //!   `/setup`       → action `setup.workflow.start`  (stub)
 //!   `/propose <kind>\n<yaml>` → action `artifact.propose` (implemented)
+//!   `/export <bundle-name>` → action `openspine.overlay.export`
+//!   `/restore <bundle-name>` → action `openspine.overlay.restore`
 //!   (anything else)→ `POST /v1/model/generate`, then reply with model text
 
 use crate::client::{KernelClient, ModelOutcome};
@@ -35,6 +37,18 @@ pub async fn run(client: &KernelClient, message: &str) -> Result<()> {
     }
     if let Some(proposal) = message.strip_prefix("/propose ") {
         return cmd_propose(client, proposal).await;
+    }
+    if let Some(name) = message.strip_prefix("/export ") {
+        return cmd_overlay_bundle(client, "openspine.overlay.export", name).await;
+    }
+    if message == "/export" {
+        return cmd_overlay_bundle(client, "openspine.overlay.export", "").await;
+    }
+    if let Some(name) = message.strip_prefix("/restore ") {
+        return cmd_overlay_bundle(client, "openspine.overlay.restore", name).await;
+    }
+    if message == "/restore" {
+        return cmd_overlay_bundle(client, "openspine.overlay.restore", "").await;
     }
     cmd_freeform(client, message).await
 }
@@ -165,6 +179,41 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
     }
 }
 
+async fn cmd_overlay_bundle(client: &KernelClient, action: &str, bundle_name: &str) -> Result<()> {
+    let bundle_name = bundle_name.trim();
+    if bundle_name.is_empty() || bundle_name.split_whitespace().nth(1).is_some() {
+        let usage = if action.ends_with("export") {
+            "Usage: /export <bundle-name>"
+        } else {
+            "Usage: /restore <bundle-name>"
+        };
+        return send_reply(client, usage).await;
+    }
+    let payload = json!({ "bundle_name": bundle_name });
+    let outcome = client.submit_action(action, Some(payload), None).await?;
+    match outcome.decision {
+        GateDecision::Allow => {
+            let text = stub_note(
+                &outcome.result,
+                "Overlay operation staged; restart required.",
+            );
+            send_reply(client, &text).await
+        }
+        GateDecision::Deny { reason } => {
+            eprintln!("[openspine-shell] WARN: {action} denied: {reason:?}");
+            Ok(())
+        }
+        GateDecision::ApprovalRequired { ref approval_type } => {
+            eprintln!("[openspine-shell] WARN: {action} requires approval: {approval_type}");
+            Ok(())
+        }
+        GateDecision::EffectSuppressed => {
+            eprintln!("[openspine-shell] WARN: {action} effect suppressed");
+            Ok(())
+        }
+    }
+}
+
 async fn cmd_freeform(client: &KernelClient, message: &str) -> Result<()> {
     let model_outcome: ModelOutcome = client
         .generate(MODEL_PURPOSE, message, None, MAX_TOKENS)
@@ -206,246 +255,5 @@ fn stub_note(result: &Option<Value>, default: &str) -> String {
 // ── Context import needed in tests ───────────────────────────────────────────
 use anyhow::Context as _;
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use wiremock::matchers::{body_json, header, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
-
-    /// Shared task token used across tests.
-    const TOKEN: &str = "test-task-token";
-
-    fn allow_result(result: serde_json::Value) -> ResponseTemplate {
-        ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "decision": {"outcome": "allow"},
-            "result": result
-        }))
-    }
-
-    fn allow_reply() -> ResponseTemplate {
-        ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "decision": {"outcome": "allow"},
-            "result": {"sent": true}
-        }))
-    }
-
-    fn deny_response() -> ResponseTemplate {
-        ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "decision": {"outcome": "deny", "reason": "explicit_deny"}
-        }))
-    }
-
-    /// (a) `/status` submits `openspine.status.read` then replies via
-    /// `telegram.reply:owner_channel` with the result JSON.
-    #[tokio::test]
-    async fn status_command_submits_correct_action_then_replies() {
-        let server = MockServer::start().await;
-
-        // Expect status.read action with exact body
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .and(header("Authorization", format!("Bearer {TOKEN}")))
-            .and(body_json(serde_json::json!({
-                "action": "openspine.status.read",
-                "payload": null,
-                "target": null
-            })))
-            .respond_with(allow_result(serde_json::json!({"status": "ok"})))
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        // Expect the reply action (body contains telegram.reply action)
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .and(header("Authorization", format!("Bearer {TOKEN}")))
-            .and(body_json(serde_json::json!({
-                "action": "telegram.reply:owner_channel",
-                "payload": {"text": "{\n  \"status\": \"ok\"\n}"},
-                "target": null
-            })))
-            .respond_with(allow_reply())
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "/status").await.expect("should succeed");
-    }
-
-    /// (b) Unknown text triggers `POST /v1/model/generate` then
-    /// `telegram.reply:owner_channel` with the model's text as payload.
-    #[tokio::test]
-    async fn freeform_calls_generate_then_replies_with_model_text() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/model/generate"))
-            .and(header("Authorization", format!("Bearer {TOKEN}")))
-            .and(body_json(serde_json::json!({
-                "purpose": MODEL_PURPOSE,
-                "user_message": "hello lyra",
-                "max_tokens": MAX_TOKENS
-            })))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "decision": {"outcome": "allow"},
-                "text": "Hello! How can I help?"
-            })))
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .and(header("Authorization", format!("Bearer {TOKEN}")))
-            .and(body_json(serde_json::json!({
-                "action": "telegram.reply:owner_channel",
-                "payload": {"text": "Hello! How can I help?"},
-                "target": null
-            })))
-            .respond_with(allow_reply())
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "hello lyra").await.expect("should succeed");
-    }
-
-    /// (c) A `deny` gate outcome on the initiating action does NOT crash the
-    /// shell — it returns `Ok(())` and does NOT attempt the reply action.
-    #[tokio::test]
-    async fn deny_on_primary_action_exits_ok_no_reply_attempt() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .respond_with(deny_response())
-            .expect(1) // only the primary action; no second call for reply
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        // Must return Ok — a deny is not a shell crash
-        run(&client, "/status")
-            .await
-            .expect("deny outcome must not cause Err");
-        // wiremock verifies expect(1) on drop — a second call would cause a mismatch
-    }
-
-    /// (c) Same guarantee for `approval_required`.
-    #[tokio::test]
-    async fn approval_required_on_primary_action_exits_ok_no_reply() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "decision": {
-                    "outcome": "approval_required",
-                    "approval_type": "setup.workflow.start"
-                }
-            })))
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "/setup")
-            .await
-            .expect("approval_required must not cause Err");
-    }
-
-    /// `/propose <kind>\n<yaml>` posts `artifact.propose` with
-    /// `{"kind": kind, "yaml": yaml}`.
-    #[tokio::test]
-    async fn propose_command_sends_correct_payload() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .and(body_json(serde_json::json!({
-                "action": "artifact.propose",
-                "payload": {"kind": "route", "yaml": "id: dark_mode_route\nversion: 1"},
-                "target": null
-            })))
-            .respond_with(allow_result(serde_json::json!({
-                "proposed": true,
-                "action_request_id": "01JZZZZZZZZZZZZZZZZZZZZZZZ"
-            })))
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        // The reply mock (any body) — just needs to not error
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .respond_with(allow_reply())
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "/propose route\nid: dark_mode_route\nversion: 1")
-            .await
-            .expect("propose should succeed");
-    }
-
-    /// A missing kind, or a body that is empty (or all whitespace) after
-    /// the kind line, never reaches the kernel — only the usage-text reply
-    /// is sent. Exercises both halves of `cmd_propose`'s
-    /// `kind.is_empty() || yaml.trim().is_empty()` guard independently, so
-    /// a regression that dropped either half would still redden this test.
-    #[tokio::test]
-    async fn propose_without_body_replies_usage_and_calls_nothing() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/actions"))
-            .and(body_json(serde_json::json!({
-                "action": "telegram.reply:owner_channel",
-                "payload": {"text": "Usage: /propose <route|agent|workflow|pack|policy>\n<yaml>"},
-                "target": null
-            })))
-            .respond_with(allow_reply())
-            .expect(2)
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        // Kind present ("route") but no YAML body on a second line —
-        // exercises `yaml.trim().is_empty()`.
-        run(&client, "/propose route")
-            .await
-            .expect("missing body must not cause Err");
-        // An empty first line (no kind) with a non-empty body on the
-        // second — exercises `kind.is_empty()` in isolation, proving the
-        // guard does not rely solely on the body being empty too.
-        run(&client, "/propose \nid: x\nversion: 1")
-            .await
-            .expect("missing kind must not cause Err");
-        // wiremock's `.expect(2)` on the exact reply body above is verified
-        // on drop — an `artifact.propose` call would 500 (unmocked) and
-        // fail this test outright, and a differently-shaped reply would
-        // fail the exact `body_json` match.
-    }
-
-    /// A `deny` on the MODEL generate call also exits `Ok(())`.
-    #[tokio::test]
-    async fn deny_on_model_generate_exits_ok() {
-        let server = MockServer::start().await;
-
-        Mock::given(method("POST"))
-            .and(path("/v1/model/generate"))
-            .respond_with(deny_response())
-            .expect(1)
-            .mount(&server)
-            .await;
-
-        let client = KernelClient::new(server.uri(), TOKEN.to_string());
-        run(&client, "what is the weather")
-            .await
-            .expect("model deny must not cause Err");
-    }
-}
+mod tests;

@@ -1003,7 +1003,7 @@ impl<'a> WorkflowCtx<'a> {
                     ordinal: entry.pending_seq,
                     expected: "matching workflow receipt".to_string(),
                     actual: "conflicting workflow receipt".to_string(),
-                })
+                });
             }
         };
         self.steps[entry_index].receipt = Some(receipt);
@@ -1336,7 +1336,7 @@ impl<'a> WorkflowCtx<'a> {
                             ordinal: handle.pending_seq,
                             expected: "matching timer completion".to_string(),
                             actual: "conflicting timer completion".to_string(),
-                        })
+                        });
                     }
                 };
                 self.steps[entry_index].completed = Some(Outcome::Ok(serde_json::to_value(&spec)?));

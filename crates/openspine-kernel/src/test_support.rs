@@ -38,13 +38,20 @@ pub(crate) mod fixtures {
     ) -> AppState {
         let registry = crate::artifact_loader::load_registry(&repo_lyra_dir()).unwrap();
         let key = [7u8; 32];
-        let artifacts_dir = tempfile::tempdir().unwrap().keep();
-        // 5a/5d: a per-test overlay dir so activation tests can assert the
-        // on-disk overlay file without touching the real fixture tree.
-        let overlay_dir = tempfile::tempdir().unwrap().keep();
-        let secrets = std::sync::Arc::new(
-            SecretStore::open(tempfile::tempdir().unwrap().keep(), key).unwrap(),
+        let data_root = tempfile::tempdir().unwrap().keep();
+        let overlay_operations = std::sync::Arc::new(
+            crate::overlay_export_restore::acquire(&data_root, &key)
+                .expect("test overlay operations acquire"),
         );
+        let canonical = overlay_operations.canonical_data_root().to_path_buf();
+        let artifacts_dir = canonical.join("artifacts");
+        std::fs::create_dir_all(&artifacts_dir).unwrap();
+        let credentials_dir = canonical.join("credentials");
+        std::fs::create_dir_all(&credentials_dir).unwrap();
+        // Overlay dir under the same canonical data root as production.
+        let overlay_dir = canonical.join("artifacts.d");
+        std::fs::create_dir_all(&overlay_dir).unwrap();
+        let secrets = std::sync::Arc::new(SecretStore::open(credentials_dir, key).unwrap());
         let owner_principal = store.bootstrap_owner_principal(42, "George").unwrap();
         let test_provider_config = ProviderConfig {
             id: "test-provider".to_string(),
@@ -111,6 +118,7 @@ pub(crate) mod fixtures {
                 connector_calls_per_day: i64::MAX as u64,
             },
             conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            overlay_operations,
         }
     }
 

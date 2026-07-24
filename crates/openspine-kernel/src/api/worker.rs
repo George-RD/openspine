@@ -231,7 +231,7 @@ pub(crate) fn handle_worker_commission<'a>(
             None => {
                 return Err(DispatchError::BadRequest(
                     "worker.commission requires a payload".to_string(),
-                ))
+                ));
             }
         };
         // Blocker 3: bind the receipt to THIS commissioning parent grant and
@@ -317,7 +317,7 @@ pub(crate) fn handle_worker_commission<'a>(
             Err(e) => {
                 return Err(DispatchError::BadRequest(format!(
                     "worker.commission: invalid expires_before: {e}"
-                )))
+                )));
             }
         };
         let key = crate::grant_hmac_key().ok_or_else(|| {
@@ -366,7 +366,7 @@ pub(crate) fn handle_worker_commission<'a>(
             task_class: derived,
         };
 
-        let worker = mint_worker_grant(grant, &spec, &key)
+        let worker = mint_worker_grant(grant, &spec, &state.action_catalog, &key)
             .map_err(|e| DispatchError::BadRequest(format!("worker.commission rejected: {e}")))?;
         if !worker.effectively_allows(&openspine_schemas::action::ActionId::new(
             "worker.report_result",
@@ -659,7 +659,7 @@ pub(crate) fn handle_worker_report_result<'a>(
             None => {
                 return Err(DispatchError::BadRequest(
                     "worker.report_result requires a payload".to_string(),
-                ))
+                ));
             }
         };
         let outcome = match p.outcome.as_deref() {
@@ -669,12 +669,12 @@ pub(crate) fn handle_worker_report_result<'a>(
             Some(other) => {
                 return Err(DispatchError::BadRequest(format!(
                     "worker.report_result: unknown outcome {other:?}"
-                )))
+                )));
             }
             None => {
                 return Err(DispatchError::BadRequest(
                     "worker.report_result: outcome is required".to_string(),
-                ))
+                ));
             }
         };
         // `notes_ref` is already a typed `ArtifactRef` (digest), never a bare
@@ -728,7 +728,7 @@ pub(crate) fn handle_worker_failed<'a>(
             None => {
                 return Err(DispatchError::BadRequest(
                     "worker.failed requires a payload".to_string(),
-                ))
+                ));
             }
         };
         // The failure target is the authenticated worker grant: `worker.failed`
@@ -744,7 +744,7 @@ pub(crate) fn handle_worker_failed<'a>(
             other => {
                 return Err(DispatchError::BadRequest(format!(
                     "worker.failed: unknown reason {other:?}"
-                )))
+                )));
             }
         };
         // AD-100: record the structured failure event and charge the

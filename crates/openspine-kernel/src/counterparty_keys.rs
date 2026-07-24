@@ -245,6 +245,28 @@ impl CounterpartyKeyRing {
         self.key_pending_path(counterparty_id)
     }
 
+    pub(super) fn require_regular_file_or_absent(
+        &self,
+        path: &Path,
+    ) -> Result<bool, CounterpartyKeyError> {
+        let _ = self;
+        match std::fs::symlink_metadata(path) {
+            Ok(meta) if meta.file_type().is_file() => Ok(true),
+            Ok(_) => Err(CounterpartyKeyError::Io {
+                path: path.to_path_buf(),
+                source: std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "counterparty key/tombstone path must be a regular file",
+                ),
+            }),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(source) => Err(CounterpartyKeyError::Io {
+                path: path.to_path_buf(),
+                source,
+            }),
+        }
+    }
+
     pub(crate) fn with_scope_lock<T, E>(
         &self,
         counterparty_id: Ulid,
@@ -287,11 +309,11 @@ impl CounterpartyKeyRing {
         if self.scope_is_closed(counterparty_id) {
             return Err(CounterpartyKeyError::Erased(counterparty_id));
         }
-        if self.tombstone_path(counterparty_id).exists() {
+        if self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))? {
             return Err(CounterpartyKeyError::Erased(counterparty_id));
         }
         let path = self.key_path(counterparty_id);
-        if path.exists() {
+        if self.require_regular_file_or_absent(&path)? {
             let (key, is_legacy) = self.unwrap_file(&path, counterparty_id)?;
             if is_legacy {
                 self.migrate_legacy_key_to_v1_locked(&path, counterparty_id, &key)?;
@@ -398,7 +420,9 @@ impl CounterpartyKeyRing {
 
         let tombstone_path = self.tombstone_path(counterparty_id);
 
-        if !tombstone_path.exists() {
+        // Tombstones must be regular files. A directory/symlink at the
+        // `.erased` path is not a valid tombstone and must fail closed.
+        if !self.require_regular_file_or_absent(&tombstone_path)? {
             let f = std::fs::File::create(&tombstone_path).map_err(|source| {
                 CounterpartyKeyError::Io {
                     path: tombstone_path.clone(),
@@ -419,7 +443,7 @@ impl CounterpartyKeyRing {
                 return Err(CounterpartyKeyError::Io {
                     path: key_path,
                     source,
-                })
+                });
             }
         };
 

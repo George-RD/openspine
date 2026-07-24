@@ -94,7 +94,7 @@ impl CounterpartyKeyRing {
         key: &[u8; KEY_LEN],
     ) -> Result<(), CounterpartyKeyError> {
         // Check tombstone under scope lock: do NOT resurrect if erased concurrently
-        if self.tombstone_path(counterparty_id).exists() {
+        if self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))? {
             return Ok(());
         }
 
@@ -128,7 +128,7 @@ impl CounterpartyKeyRing {
             });
         }
 
-        if self.tombstone_path(counterparty_id).exists() {
+        if self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))? {
             guard.remove().map_err(|source| CounterpartyKeyError::Io {
                 path: tmp_path,
                 source,
@@ -164,11 +164,13 @@ impl CounterpartyKeyRing {
         &self,
         counterparty_id: Ulid,
     ) -> Result<Option<[u8; KEY_LEN]>, CounterpartyKeyError> {
-        if self.scope_is_closed(counterparty_id) || self.tombstone_path(counterparty_id).exists() {
+        if self.scope_is_closed(counterparty_id)
+            || self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))?
+        {
             return Ok(None);
         }
         let path = self.key_path(counterparty_id);
-        if !path.exists() {
+        if !self.require_regular_file_or_absent(&path)? {
             return Ok(None);
         }
         let (key, is_legacy) = self.unwrap_file(&path, counterparty_id)?;

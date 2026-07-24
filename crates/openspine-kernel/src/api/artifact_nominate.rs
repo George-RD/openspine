@@ -120,11 +120,7 @@ pub(super) async fn dispatch_artifact_nominate(
         .map_err(|err| DispatchError::Resource(err.into()))?;
     let summary = format!(
         "Nominate upstream\nKind: {}\nId: {} v{}\nDepersonalized: true\nContent digest: {}\nApproval digest: {}\n\nApprove to nominate.",
-        req.kind,
-        req.artifact_id,
-        req.version,
-        content_digest,
-        target_digest,
+        req.kind, req.artifact_id, req.version, content_digest, target_digest,
     );
     crate::spend::guard_connector_for(state, grant)
         .await

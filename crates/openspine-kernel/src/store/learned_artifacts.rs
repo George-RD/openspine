@@ -502,7 +502,7 @@ impl Store {
                 other => {
                     return Err(rusqlite::Error::InvalidParameterName(format!(
                         "namespace {other}"
-                    )))
+                    )));
                 }
             };
             Ok(LearnedArtifact {

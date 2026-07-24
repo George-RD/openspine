@@ -310,12 +310,12 @@ pub(super) fn email_preflight<'a>(
             Ok(crate::gmail::ThreadRecipient::ThreadNotFound) => {
                 return Err(PreflightFailure::ThreadNotFound {
                     thread_id: thread_id.to_string(),
-                })
+                });
             }
             Ok(crate::gmail::ThreadRecipient::Unavailable) => {
                 return Err(PreflightFailure::CounterpartyUnavailable {
                     thread_id: thread_id.to_string(),
-                })
+                });
             }
             Err(crate::api::connector_breaker::PreflightConnectorError::Connector(err)) => {
                 let (status, class) = err
@@ -325,16 +325,16 @@ pub(super) fn email_preflight<'a>(
                 return Err(PreflightFailure::GmailError { status, class });
             }
             Err(crate::api::connector_breaker::PreflightConnectorError::Unavailable { .. }) => {
-                return Err(PreflightFailure::ConnectorUnavailable)
+                return Err(PreflightFailure::ConnectorUnavailable);
             }
             Err(crate::api::connector_breaker::PreflightConnectorError::RateLimited { .. }) => {
-                return Err(PreflightFailure::ConnectorRateLimited)
+                return Err(PreflightFailure::ConnectorRateLimited);
             }
             Err(crate::api::connector_breaker::PreflightConnectorError::Timeout { .. }) => {
-                return Err(PreflightFailure::ConnectorTimeout)
+                return Err(PreflightFailure::ConnectorTimeout);
             }
             Err(crate::api::connector_breaker::PreflightConnectorError::Resource { .. }) => {
-                return Err(PreflightFailure::ConnectorResource)
+                return Err(PreflightFailure::ConnectorResource);
             }
         };
         // The recipient resolution is an enumerated effect; record it without

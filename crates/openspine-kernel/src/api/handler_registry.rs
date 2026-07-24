@@ -24,6 +24,7 @@ use super::actions::{
 use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::connector_breaker::call_with_connector_write;
+use super::overlay_export_restore::{handle_overlay_export, handle_overlay_restore};
 use super::plan::dispatch_plan_preview;
 use super::skill_context::dispatch_skill_context;
 use super::worker::{handle_worker_commission, handle_worker_failed, handle_worker_report_result};
@@ -90,6 +91,14 @@ impl ActionHandlerRegistry {
         );
         map.insert("worker.failed", handle_worker_failed as ActionHandler);
         map.insert("skill.context", handle_skill_context as ActionHandler);
+        map.insert(
+            "openspine.overlay.export",
+            handle_overlay_export as ActionHandler,
+        );
+        map.insert(
+            "openspine.overlay.restore",
+            handle_overlay_restore as ActionHandler,
+        );
         ActionHandlerRegistry { map }
     }
 

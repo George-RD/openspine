@@ -54,7 +54,7 @@ impl Store {
                 return Err(StoreError::FailureRouting(
                     "schedule_standing_rule_dark_window requires a configured dark_window"
                         .to_string(),
-                ))
+                ));
             }
         };
         let pending_id = Ulid::new().to_string();
@@ -140,7 +140,9 @@ impl Store {
                         "workflow.timer_scheduled",
                         Some(&rule.action_id),
                         None,
-                        Some("standing rule dark-window timer scheduled for a specific pending action"),
+                        Some(
+                            "standing rule dark-window timer scheduled for a specific pending action",
+                        ),
                         Some(grant_id),
                         &[],
                         &[],

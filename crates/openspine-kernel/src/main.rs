@@ -24,6 +24,7 @@ mod model_swap_recovery;
 mod nerve_delivery;
 mod overlay_compat;
 mod overlay_eval_gate;
+mod overlay_export_restore;
 mod overlay_persona_admission;
 mod overlay_recovery;
 mod overlay_startup;
@@ -44,9 +45,13 @@ pub mod workflow_state_machine;
 mod test_support;
 
 #[cfg(test)]
+mod export_restore_e2e_tests;
+#[cfg(test)]
 mod model_swap_recovery_tests;
 #[cfg(test)]
 mod nerve_delivery_tests;
+#[cfg(test)]
+mod overlay_startup_tests;
 
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::connector_reality::WebhookVerifier;
@@ -54,7 +59,7 @@ use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
 use clap::Parser;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 pub(crate) fn grant_hmac_key() -> Option<Vec<u8>> {
@@ -82,20 +87,65 @@ pub(crate) fn commit_post_bind_clock(
         );
     }
     let commit_ms = pre_setup_ms.max(commit_now_ms);
-    match store.commit_boot_clock(commit_ms).context("committing boot clock high-water")? {
+    match store
+        .commit_boot_clock(commit_ms)
+        .context("committing boot clock high-water")?
+    {
         store::BootClockCheck::Ok { .. } => Ok(()),
-        store::BootClockCheck::Regressed { high_water_ms, now_ms } => anyhow::bail!(
+        store::BootClockCheck::Regressed {
+            high_water_ms,
+            now_ms,
+        } => anyhow::bail!(
             "wall clock regressed during startup: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms)"
         ),
     }
 }
+
+/// Fail closed on startup integrity checks before replaying the authenticated
+/// terminal-erasure ledger into the opened database generation.
+pub(crate) fn validate_startup_and_reconcile_overlay_terminal_erasures(
+    store: &store::Store,
+    artifacts: &artifact_store::ArtifactStore,
+    overlay_operations: &overlay_export_restore::OverlayOperations,
+    data_root: &Path,
+    now_ms: i64,
+) -> anyhow::Result<()> {
+    match store
+        .validate_boot_clock(now_ms)
+        .context("checking boot clock high-water")?
+    {
+        store::BootClockCheck::Ok { .. } => {}
+        store::BootClockCheck::Regressed {
+            high_water_ms,
+            now_ms,
+        } => {
+            anyhow::bail!(
+                "wall clock regressed at boot: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms) beyond the 60s tolerance — refusing to start on a regressed clock; restore the clock or the backup before retrying"
+            );
+        }
+    }
+    if !store
+        .verify_audit_chain()
+        .context("verifying audit chain")?
+    {
+        anyhow::bail!(
+            "audit_log hash chain is broken in {} — refusing to start on an untrustworthy audit trail",
+            data_root.join("kernel.db").display()
+        );
+    }
+    counterparty_erasure::reconcile_overlay_terminal_erasures(store, artifacts, overlay_operations)
+        .context("reconciling overlay terminal-erasure ledger at startup")
+}
 #[derive(Debug, Parser)]
 #[command(name = "openspine")]
-struct Cli {
+pub(crate) struct Cli {
     #[arg(long, default_value = "openspine.yaml")]
     config: PathBuf,
     #[arg(long)]
     benchmark: bool,
+    /// Reinstall the retained pre-restore generation for the pending signed restore.
+    #[arg(long)]
+    rollback_pending_restore: bool,
 }
 
 #[tokio::main]
@@ -117,14 +167,24 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("loading {}", cli.config.display()))?;
 
     let artifact_key = config::artifact_key_bytes()?;
-    let artifacts =
-        artifact_store::ArtifactStore::open(cfg.data_dir.join("artifacts"), artifact_key)
-            .context("opening artifact store")?;
+    // Acquire the exclusive data-root lifetime lock and process any pending
+    // export/restore before any store opens. Stores and overlay load use only
+    // the controller's canonical data-root identity.
+    let overlay_operations = Arc::new(
+        overlay_export_restore::acquire(&cfg.data_dir, &artifact_key)
+            .context("acquiring overlay operations lifetime lock")?,
+    );
+    let data_root = overlay_operations.canonical_data_root().to_path_buf();
+    let pending_overlay_finalization = overlay_operations
+        .process_pre_open(cli.rollback_pending_restore, jiff::Timestamp::now())
+        .context("processing pre-open overlay export/restore")?;
+    let artifacts = artifact_store::ArtifactStore::open(data_root.join("artifacts"), artifact_key)
+        .context("opening artifact store")?;
     // AD-140: re-key any pre-AD-140 single-global-key blobs into the new
     // per-counterparty format under SYSTEM_SCOPE before serving anything.
     artifacts.migrate_legacy_blobs(artifact_key)?;
     let secrets = Arc::new(
-        secret_store::SecretStore::open(cfg.data_dir.join("credentials"), artifact_key)
+        secret_store::SecretStore::open(data_root.join("credentials"), artifact_key)
             .context("opening secret store")?,
     );
     let bot_token = if let Some(value) = secrets
@@ -139,8 +199,7 @@ async fn main() -> anyhow::Result<()> {
             .context("seeding Telegram bot token")?;
         value
     };
-    let store =
-        store::Store::open(&cfg.data_dir.join("kernel.db")).context("opening kernel store")?;
+    let store = store::Store::open(&data_root.join("kernel.db")).context("opening kernel store")?;
     // Close the DB-commit-before-key-tombstone crash window: the durable
     // SQLite marker is authoritative, so every recorded erasure is replayed
     // into the key ring before any payload can be served.
@@ -155,34 +214,22 @@ async fn main() -> anyhow::Result<()> {
             })?;
     }
     let now_ms = jiff::Timestamp::now().as_millisecond();
-    match store
-        .validate_boot_clock(now_ms)
-        .context("checking boot clock high-water")?
-    {
-        store::BootClockCheck::Ok { .. } => {}
-        store::BootClockCheck::Regressed {
-            high_water_ms,
-            now_ms,
-        } => {
-            anyhow::bail!(
-                "wall clock regressed at boot: now ({now_ms} ms) is behind the persisted high-water ({high_water_ms} ms) beyond the 60s tolerance — refusing to start on a regressed clock; restore the clock or the backup before retrying"
-            );
-        }
-    }
-    // Bootstrap the owner principal at startup (idempotent, transactional, fail-closed)
+    // Validate both startup integrity boundaries before the terminal-erasure
+    // replay can append DB rows or audit events. Reconciliation still precedes
+    // overlay loading and serving.
+    validate_startup_and_reconcile_overlay_terminal_erasures(
+        &store,
+        &artifacts,
+        overlay_operations.as_ref(),
+        &data_root,
+        now_ms,
+    )?;
+    // Bootstrap only after audit verification so a broken chain leaves the
+    // database and audit trail untouched.
     let owner_principal = store
         .bootstrap_owner_principal(cfg.owner.telegram_user_id, &cfg.owner.display_name)
         .context("bootstrapping owner principal failed")?;
-    if !store
-        .verify_audit_chain()
-        .context("verifying audit chain")?
-    {
-        anyhow::bail!(
-            "audit_log hash chain is broken in {} — refusing to start on an untrustworthy audit trail",
-            cfg.data_dir.join("kernel.db").display()
-        );
-    }
-    let overlay_dir = cfg.data_dir.join("artifacts.d");
+    let overlay_dir = data_root.join("artifacts.d");
     model_swap_recovery::reconcile_model_swap_overlay(&store, &artifacts, &overlay_dir)?;
     // Pre-populate the Donna×Leo personality seed as learnable overlay
     // artifacts (AD-080). Idempotent: safe to run every boot; only seeds the
@@ -190,7 +237,7 @@ async fn main() -> anyhow::Result<()> {
     // overlay_startup::load so the seeded YAML is discovered into the registry.
     store::personality_seed::seed_if_missing(&store, &artifacts, &overlay_dir)
         .context("seeding personality seed overlay artifacts")?;
-    let overlay_startup = overlay_startup::load(&cfg.lyra_dir, &cfg.data_dir, &store, &artifacts)?;
+    let overlay_startup = overlay_startup::load(&cfg.lyra_dir, &data_root, &store, &artifacts)?;
     let registry = overlay_startup.registry;
     let base_artifact_ids = overlay_startup.base_artifact_ids;
     let base_compatibility_epoch = overlay_startup.base_compatibility_epoch;
@@ -231,22 +278,7 @@ async fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
-    let mut provider_pool = HashMap::new();
-    for provider_config in &cfg.providers {
-        let provider_key = config::provider_api_key(provider_config)?;
-        let provider = model_gateway::ProviderClient::from_config(provider_config, provider_key);
-        if provider_pool
-            .insert(provider_config.id.clone(), provider)
-            .is_some()
-        {
-            anyhow::bail!("duplicate provider id {}", provider_config.id);
-        }
-    }
-    let default_provider_id = cfg
-        .providers
-        .first()
-        .map(|provider| provider.id.clone())
-        .ok_or_else(|| anyhow::anyhow!("openspine.yaml must configure at least one provider"))?;
+    let (provider_pool, default_provider_id) = build_provider_pool(&cfg.providers)?;
     let mut active_model_providers = HashMap::from([
         (
             openspine_schemas::model_swap::ModelRole::Base,
@@ -432,7 +464,18 @@ async fn main() -> anyhow::Result<()> {
         connector_call_timeout: Duration::from_secs(30),
         overlay_dir,
         conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
+        overlay_operations: overlay_operations.clone(),
     });
+    let listener = bind_clock_and_finalize_overlay(
+        &cfg.kernel.bind_addr,
+        &state.store,
+        now_ms,
+        || jiff::Timestamp::now().as_millisecond(),
+        overlay_operations.as_ref(),
+        pending_overlay_finalization.as_ref(),
+    )
+    .await?;
+
     for (request_id, summary) in &pending_reconfirm_buttons {
         let guard = crate::spend::guard_connector(&state, true).await;
         if let Err(err) = guard {
@@ -478,12 +521,6 @@ async fn main() -> anyhow::Result<()> {
     // AD-143 F1: Recover pending breach alerts that crashed in_flight.
     crate::spend::recover_pending_breach_alerts(&state).await;
 
-    let listener = tokio::net::TcpListener::bind(&cfg.kernel.bind_addr)
-        .await
-        .with_context(|| format!("binding {}", cfg.kernel.bind_addr))?;
-    commit_post_bind_clock(&state.store, now_ms, || {
-        jiff::Timestamp::now().as_millisecond()
-    })?;
     tracing::info!(addr = %cfg.kernel.bind_addr, owner = cfg.owner.telegram_user_id, "openspine kernel starting");
 
     let http_server =
@@ -588,7 +625,9 @@ async fn main() -> anyhow::Result<()> {
                     tracing::error!(%grant_id, %parent_grant_id, "cannot resolve owner chat for watchdog notification; retrying");
                     continue;
                 };
-                let text = format!("Worker {grant_id} (parent {parent_grant_id}) has not reported a result within 2 hours. The worker's shell may have exited without reporting.");
+                let text = format!(
+                    "Worker {grant_id} (parent {parent_grant_id}) has not reported a result within 2 hours. The worker's shell may have exited without reporting."
+                );
                 let text_ref = match watchdog_state.artifacts.put(text.as_bytes()) {
                     Ok(r) => r,
                     Err(e) => {
@@ -627,6 +666,141 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Append digest-safe requested + completed/rolled-back audit for a finalized
+/// overlay operation. Uses the workflow-step registry so retries after a crash
+/// between audit and durable cleanup remain idempotent.
+pub(crate) fn append_overlay_finalization_audits(
+    store: &store::Store,
+    meta: &overlay_export_restore::CompletionMetadata,
+) -> anyhow::Result<()> {
+    use overlay_export_restore::{FinalizationOutcome, OverlayOperationKind};
+
+    let (requested_kind, terminal_kind) = match (meta.kind, meta.outcome) {
+        (OverlayOperationKind::Export, FinalizationOutcome::Completed) => {
+            ("overlay.export_requested", "overlay.export_completed")
+        }
+        (OverlayOperationKind::Restore, FinalizationOutcome::Completed) => {
+            ("overlay.restore_requested", "overlay.restore_completed")
+        }
+        (OverlayOperationKind::Restore, FinalizationOutcome::RolledBack) => {
+            ("overlay.restore_requested", "overlay.restore_rolled_back")
+        }
+        (OverlayOperationKind::Export, FinalizationOutcome::RolledBack) => {
+            anyhow::bail!("export finalization cannot be rolled back")
+        }
+    };
+
+    // Aggregate by request id so the restored chain can re-bind authorization
+    // evidence without plaintext paths or key bytes.
+    let run_id = format!("overlay-op:{}", meta.request_id);
+    let payload = serde_json::json!({
+        "request_id": meta.request_id,
+        "action_id": meta.action_id,
+        "owner_principal_id": meta.owner_principal_id,
+        "grant_id": meta.grant_id,
+        "path_digest": meta.path_digest,
+        "requested_at": meta.requested_at,
+        "completed_at": meta.completed_at,
+    });
+    let payload_json = serde_json::to_string(&payload).context("encoding overlay audit payload")?;
+
+    store
+        .append_workflow_step_if_absent(
+            &run_id,
+            requested_kind,
+            &payload_json,
+            &format!("{}:requested", meta.request_id),
+        )
+        .context("appending overlay requested audit")?;
+    store
+        .append_workflow_step_if_absent(
+            &run_id,
+            terminal_kind,
+            &payload_json,
+            &format!("{}:terminal:{terminal_kind}", meta.request_id),
+        )
+        .context("appending overlay terminal audit")?;
+    Ok(())
+}
+
+/// Post-bind overlay finalization: audit then durable cleanup. Called only after
+/// listener bind and post-bind clock commit succeed.
+pub(crate) fn finalize_overlay_after_bind(
+    store: &store::Store,
+    overlay_operations: &overlay_export_restore::OverlayOperations,
+    pending: Option<&overlay_export_restore::PendingFinalization>,
+    now: jiff::Timestamp,
+) -> anyhow::Result<()> {
+    let Some(pending) = pending else {
+        return Ok(());
+    };
+    let meta = overlay_operations
+        .begin_finalization(pending, now)
+        .context("beginning overlay operation finalization")?;
+    append_overlay_finalization_audits(store, &meta)
+        .context("appending overlay finalization audit events")?;
+    overlay_operations
+        .complete_finalization(&meta)
+        .context("completing overlay operation finalization")?;
+    Ok(())
+}
+
+/// Production provider-pool construction used after overlay install and before bind.
+/// Resolves each provider API key and rejects empty or duplicate provider ids.
+/// Failure retains any pending overlay finalization (callers have not finalized yet).
+pub(crate) fn build_provider_pool(
+    providers: &[config::ProviderConfig],
+) -> anyhow::Result<(HashMap<String, model_gateway::ProviderClient>, String)> {
+    let mut provider_pool = HashMap::new();
+    for provider_config in providers {
+        let provider_key = config::provider_api_key(provider_config)?;
+        let provider = model_gateway::ProviderClient::from_config(provider_config, provider_key);
+        if provider_pool
+            .insert(provider_config.id.clone(), provider)
+            .is_some()
+        {
+            anyhow::bail!("duplicate provider id {}", provider_config.id);
+        }
+    }
+    let default_provider_id = select_default_provider_id(providers)?;
+    Ok((provider_pool, default_provider_id))
+}
+
+/// Production default provider selector, used after provider validation.
+pub(crate) fn select_default_provider_id(
+    providers: &[config::ProviderConfig],
+) -> anyhow::Result<String> {
+    providers
+        .first()
+        .map(|provider| provider.id.clone())
+        .ok_or_else(|| anyhow::anyhow!("openspine.yaml must configure at least one provider"))
+}
+
+/// Production listener bind used after provider validation and before post-bind clock.
+pub(crate) async fn bind_kernel_listener(
+    bind_addr: &str,
+) -> anyhow::Result<tokio::net::TcpListener> {
+    tokio::net::TcpListener::bind(bind_addr)
+        .await
+        .with_context(|| format!("binding {bind_addr}"))
+}
+
+/// Production late-startup continuation: bind → post-bind clock → overlay finalization.
+/// Injectable clock supports regression tests without mocking the bind path.
+pub(crate) async fn bind_clock_and_finalize_overlay(
+    bind_addr: &str,
+    store: &store::Store,
+    pre_setup_ms: i64,
+    clock: impl Fn() -> i64,
+    overlay_operations: &overlay_export_restore::OverlayOperations,
+    pending: Option<&overlay_export_restore::PendingFinalization>,
+) -> anyhow::Result<tokio::net::TcpListener> {
+    let listener = bind_kernel_listener(bind_addr).await?;
+    commit_post_bind_clock(store, pre_setup_ms, clock)?;
+    finalize_overlay_after_bind(store, overlay_operations, pending, jiff::Timestamp::now())?;
+    Ok(listener)
 }
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;

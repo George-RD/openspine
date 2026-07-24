@@ -36,6 +36,7 @@
 //!   is `worker.report_result`, which records a bus event; the master
 //!   relays through its own separately-gated reply path.
 
+use openspine_schemas::action::ActionCatalog;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::grant_chain::{self, Caveat, ChainStep};
 use openspine_schemas::worker::WorkerCommissionSpec;
@@ -54,6 +55,9 @@ pub enum MintError {
     /// effectively allow — a widening attempt.
     #[error("worker action {0} is not granted by the parent authority")]
     ActionNotInParentAuthority(String),
+    /// `spec.allowed_actions` named a catalogued non-delegable action.
+    #[error("worker action {0} is non-delegable")]
+    ActionNonDelegable(String),
     /// `spec.expires_before` is later than the parent's effective expiry.
     #[error("worker expiry widens parent authority")]
     ExpiryWidens,
@@ -80,6 +84,7 @@ fn mint_task_token() -> String {
 pub fn mint_worker_grant(
     parent: &TaskGrant,
     spec: &WorkerCommissionSpec,
+    catalog: &ActionCatalog,
     key: &[u8],
 ) -> Result<TaskGrant, MintError> {
     // The parent must itself be a valid, verified chain — a worker can only
@@ -89,8 +94,12 @@ pub fn mint_worker_grant(
     }
 
     // Narrowing checks against the parent's EFFECTIVE authority (root lists
-    // intersected with the parent's own caveats).
+    // intersected with the parent's own caveats). Catalog-owned non-delegable
+    // actions are rejected before any durable worker grant is constructed.
     for action in &spec.allowed_actions {
+        if catalog.is_non_delegable(action) {
+            return Err(MintError::ActionNonDelegable(action.as_str().to_string()));
+        }
         if !parent.effectively_allows(action) {
             return Err(MintError::ActionNotInParentAuthority(
                 action.as_str().to_string(),
@@ -273,6 +282,19 @@ mod worker_grant_tests {
         }
     }
 
+    fn test_catalog() -> ActionCatalog {
+        ActionCatalog::new([
+            ActionId::new("openspine.status.read"),
+            ActionId::new("email.send_draft"),
+            ActionId::new("openspine.overlay.export"),
+            ActionId::new("openspine.overlay.restore"),
+        ])
+        .with_non_delegable([
+            ActionId::new("openspine.overlay.export"),
+            ActionId::new("openspine.overlay.restore"),
+        ])
+    }
+
     /// Offline chain verify: a multi-level caveat chain verifies against only
     /// the HMAC key + the child's embedded chain — no parent/root DB lookup.
     #[test]
@@ -280,12 +302,17 @@ mod worker_grant_tests {
         let root = root_grant();
         assert!(root.verify_mac(TEST_KEY), "root must seal under the key");
 
-        let worker = mint_worker_grant(&root, &commission_spec(&root), TEST_KEY)
+        let worker = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
             .expect("first-level mint must succeed");
         assert!(worker.verify_mac(TEST_KEY), "worker must verify offline");
 
-        let deeper = mint_worker_grant(&worker, &commission_spec(&worker), TEST_KEY)
-            .expect("second-level mint must succeed");
+        let deeper = mint_worker_grant(
+            &worker,
+            &commission_spec(&worker),
+            &test_catalog(),
+            TEST_KEY,
+        )
+        .expect("second-level mint must succeed");
         assert!(
             deeper.verify_mac(TEST_KEY),
             "grandchild must verify offline"
@@ -303,7 +330,7 @@ mod worker_grant_tests {
         let mut widen_actions = commission_spec(&root);
         widen_actions.allowed_actions = vec![ActionId::new("email.send_draft")];
         assert_eq!(
-            mint_worker_grant(&root, &widen_actions, TEST_KEY),
+            mint_worker_grant(&root, &widen_actions, &test_catalog(), TEST_KEY),
             Err(MintError::ActionNotInParentAuthority(
                 "email.send_draft".to_string()
             ))
@@ -317,11 +344,11 @@ mod worker_grant_tests {
         let mut widen_expiry = commission_spec(&root);
         widen_expiry.expires_before = root.expires_at + std::time::Duration::from_secs(60);
         assert_eq!(
-            mint_worker_grant(&root, &widen_expiry, TEST_KEY),
+            mint_worker_grant(&root, &widen_expiry, &test_catalog(), TEST_KEY),
             Err(MintError::ExpiryWidens)
         );
-        let narrow =
-            mint_worker_grant(&root, &commission_spec(&root), TEST_KEY).expect("narrow spec mints");
+        let narrow = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
+            .expect("narrow spec mints");
         assert!(narrow.verify_mac(TEST_KEY));
     }
 
@@ -331,8 +358,8 @@ mod worker_grant_tests {
     #[test]
     fn direct_worker_egress_impossible() {
         let root = root_grant();
-        let worker =
-            mint_worker_grant(&root, &commission_spec(&root), TEST_KEY).expect("worker mints");
+        let worker = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
+            .expect("worker mints");
         // The empty OutputChannelAllowlist caveat wins, regardless of root:
         // effective output channels are provably empty (AD-035 reply
         // chokepoint), verifiable offline without a DB lookup.
@@ -347,9 +374,13 @@ mod worker_grant_tests {
         let mut egress_root = root_grant();
         egress_root.allowed_egress_classes = vec![openspine_schemas::egress::EgressClass::Search];
         egress_root.seal_root(TEST_KEY);
-        let egress_worker =
-            mint_worker_grant(&egress_root, &commission_spec(&egress_root), TEST_KEY)
-                .expect("worker with egress parent mints");
+        let egress_worker = mint_worker_grant(
+            &egress_root,
+            &commission_spec(&egress_root),
+            &test_catalog(),
+            TEST_KEY,
+        )
+        .expect("worker with egress parent mints");
         assert!(
             !grant_chain::effectively_allows_egress_class(
                 &egress_worker,
@@ -367,11 +398,26 @@ mod worker_grant_tests {
     #[test]
     fn minted_worker_has_empty_output_channels_despite_parent() {
         let root = root_grant();
-        let worker =
-            mint_worker_grant(&root, &commission_spec(&root), TEST_KEY).expect("worker mints");
+        let worker = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
+            .expect("worker mints");
         assert!(
             !grant_chain::effectively_allows_output_channel(&worker, "telegram:owner"),
             "worker's empty output-channel caveat must not regain the parent's channel"
         );
+    }
+
+    #[test]
+    fn non_delegable_actions_rejected_even_if_parent_allows() {
+        for action in ["openspine.overlay.export", "openspine.overlay.restore"] {
+            let mut root = root_grant();
+            root.allowed_actions = vec![ActionId::new(action)];
+            root.seal_root(TEST_KEY);
+            let mut spec = commission_spec(&root);
+            spec.allowed_actions = vec![ActionId::new(action)];
+            assert_eq!(
+                mint_worker_grant(&root, &spec, &test_catalog(), TEST_KEY),
+                Err(MintError::ActionNonDelegable(action.to_string()))
+            );
+        }
     }
 }
