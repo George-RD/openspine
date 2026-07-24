@@ -134,6 +134,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-120 | An uncovered disclosure blocks into a durable pending owner question carrying a kernel-derived blocked-query digest; owners answer by pending-question id (allow / allow-with-carve-out / deny) and no human-supplied digest is ever accepted; scoped answers never broaden unrelated approvals | Accepted |
 | D-121 | Disclosure envelope budgets reserve atomically and finalize only after the connector effect succeeds with all-or-nothing rollback across classes; budget exhaustion is a distinct kernel audit (disclosure.budget_exhausted) while the worker sees only the generic policy denial (AD-151), and store failures travel the kernel Resource lane, never a caller-input denial | Accepted |
 | D-122 | Overlay export/restore is a restart-bound, non-delegable root-owner ceremony: one canonical data-root lifetime lock guards exact HMAC-authenticated directory bundles, while a signed external continuity lineage carries terminal counterparty erasures across restore | Accepted |
+| D-142 | Native OAuth 2.0 PKCE authentication for model providers (Google Antigravity, OpenAI Codex, Anthropic Claude) | Accepted |
+| D-143 | Encrypted vault storage in SecretStore for OAuth refresh/access tokens and identity metadata | Accepted |
+| D-144 | Preemptive single-flight background token refresher (`OAuthRefresher`) with 300s expiration skew window and credential disabling | Accepted |
+| D-145 | Model gateway bearer token resolution with automatic single-retry on HTTP 401 Unauthorized after inline token refresh | Accepted |
 
 ---
 
@@ -3307,6 +3311,120 @@ Potential areas to research before implementation decisions:
 
 ---
 
+# D-142 — Native OAuth 2.0 PKCE authentication for model providers
+
+## Decision
+
+Model provider authentication in `openspine-kernel` supports native OAuth 2.0 PKCE (`RFC 7636`) authorization flows for Google Antigravity, OpenAI Codex, and Anthropic Claude, as well as an interactive onboarding setup wizard (`openspine setup` / `openspine provider login`).
+
+## Rationale
+
+Manual environment variable configuration (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) is frictionful and insecure for operators. Native OAuth PKCE allows secure browser-based or device-code authorization without exposing raw API keys.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| API key env vars only | Simpler initial implementation | Higher risk of key leakage, manual rotation burden |
+| Native OAuth 2.0 PKCE engine | Secure, standard, automatic rotation | Requires loopback callback listener and token refresher |
+
+## Consequences
+
+- ProviderAuth::Oauth is recognized as a valid authentication mode without failing on startup.
+- Loopback HTTP callback listener binds local ports (51121, 1455, 54545) with fallback to dynamic ports.
+- Remote SSH / headless environments support manual authorization code paste and Device Code polling (`RFC 8628`).
+
+## Would change if
+
+A provider deprecates OAuth 2.0 or requires specialized enterprise auth mechanics.
+
+---
+
+# D-143 — Encrypted vault storage in SecretStore for OAuth tokens
+
+## Decision
+
+OAuth refresh tokens, access tokens, expiration timestamps, and identity metadata are stored encrypted at rest in `SecretStore` (`data_root/credentials`) using AES-256-GCM under key namespace `provider.<id>.*`.
+
+## Rationale
+
+Unencrypted OAuth tokens or refresh tokens stored on disk pose severe security risks. Storing them encrypted in `SecretStore` maintains alignment with D-014 and D-025 secret vault invariants.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Plaintext config files | Easy to inspect | Severe security exposure |
+| AES-256-GCM encrypted vault | Cryptographic privacy at rest | Requires secret key derivation |
+
+## Consequences
+
+- SecretStore helpers (`store_oauth_tokens`, `get_oauth_tokens`, `update_access_token`, `disable_oauth_credential`) manage OAuth credential lifecycles.
+- Raw refresh and access tokens are never logged or exposed in unencrypted audit trails.
+
+## Would change if
+
+System keyring / OS secret storage integration is added for desktop environments.
+
+---
+
+# D-144 — Preemptive single-flight background token refresher (`OAuthRefresher`)
+
+## Decision
+
+The kernel runs a 60-second periodic sweep (`OAuthRefresher`) that preemptively renews OAuth access tokens expiring within 300 seconds (5 minutes) using single-flight mutex protection per provider.
+
+## Rationale
+
+Preemptive refresh prevents model request latency spikes and token expiration failures during long-running tasks. Single-flighting prevents stampedes when multiple concurrent tasks demand token refresh for the same provider.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Lazy on-demand refresh only | Zero background CPU/timer overhead | Latency spike on expiring requests |
+| Preemptive 300s sweep + single-flighting | Smooth token availability, no request stalls | Periodic background timer task |
+
+## Consequences
+
+- Access tokens are automatically kept valid without user intervention.
+- Definitive refresh failures (`invalid_grant`, `revoked_token`) disable credentials in `SecretStore` and surface via failure queue.
+- Transient network failures leave credentials active for retry on subsequent sweeps.
+
+## Would change if
+
+Token expirations become push-notified or provider token lifetimes expand significantly.
+
+---
+
+# D-145 — Gateway bearer token resolution with automatic 401 retry recovery
+
+## Decision
+
+When `model_gateway` dispatches a model request for an OAuth-authenticated provider, `ProviderClient` resolves the active access token from `SecretStore`, injects `Authorization: Bearer <access_token>`, and automatically retries once on HTTP 401 Unauthorized after forcing an inline token refresh.
+
+## Rationale
+
+Transient token invalidation or clock skew can cause unexpected HTTP 401 responses. A single automatic inline refresh and retry recovers transparently without failing caller workloads.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Fail immediately on 401 | Simple error path | High sensitivity to transient auth invalidation |
+| Inline single-retry on 401 | Resilient request recovery | Adds 1 retry attempt before returning error |
+
+## Consequences
+
+- Outbound HTTP requests carry `Authorization: Bearer <access_token>`.
+- Single-retry on 401 prevents cascading task failures due to stale cached tokens.
+
+## Would change if
+
+Provider APIs return non-standard auth error codes requiring alternative retry triggers.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -3353,4 +3471,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-23 | Added D-122 (restart-bound non-delegable root-owner overlay snapshots under a canonical lifetime lock, exact authenticated typed-tree bundles, and external signed terminal-erasure continuity), settled while implementing `implement-overlay-export-restore`. |
 | 2026-07-24 | Added D-123 (production adoption at ambiguous route resolution), D-124 (canonical tied candidate ids), D-125 (lexicographic within-class selection), D-126 (invalid/failed competitors escalate), D-127 (all-non-applicable ties are silent non-matches), D-128 (rated-egress production guard), and D-129 (persist the selected composition snapshot), settled while implementing `wire-authority-equivalence-selection`. |
 | 2026-07-24 | Added D-130–D-141 (pure proposed-only miner boundary, authenticated bounded grants, verified encrypted-reference evidence, derived exact-match repetition, correction/probe separation, fail-closed provenance, independent durable budgets, scoped consolidation, declarative scheduled grant composition, and owner-bound cross-grant evidence), settled while implementing `implement-reflection-miner`. |
+| 2026-07-24 | Added D-142 (native OAuth 2.0 PKCE authentication), D-143 (encrypted vault storage in SecretStore), D-144 (preemptive single-flight background token refresher), and D-145 (gateway bearer token resolution with automatic single-retry on 401), settled while implementing `implement-model-provider-oauth-onboarding`. |
 

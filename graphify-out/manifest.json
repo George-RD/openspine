@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1784890748.2675114,
-    "ast_hash": "6e8904f830c3680d8267d01f91cbf3cb",
+    "mtime": 1784912718.796706,
+    "ast_hash": "42893a8c123b0b11db142b42fc2155f2",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -180,7 +180,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/config.rs": {
-    "mtime": 1784912273.0311184,
+    "mtime": 1784912698.2833488,
     "ast_hash": "23ca9d9374a6c98a9925870c02f2fb0e",
     "semantic_hash": ""
   },
@@ -195,7 +195,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1784912273.0690625,
+    "mtime": 1784912698.2837088,
     "ast_hash": "adf35ff33456a8fdd5e94c03a028dd90",
     "semantic_hash": ""
   },
@@ -205,7 +205,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers.rs": {
-    "mtime": 1784912507.267474,
+    "mtime": 1784912698.284,
     "ast_hash": "c2b70ecca37ea57ea00346399174d6ed",
     "semantic_hash": ""
   },
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1784890717.906842,
-    "ast_hash": "b42d957b17bfe17144a73c304380613f",
+    "mtime": 1784912750.121421,
+    "ast_hash": "36f817e1d3e9eed0a6cba1f518c7318a",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -1710,7 +1710,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/secret_store.rs": {
-    "mtime": 1784912358.6605763,
+    "mtime": 1784912698.2864776,
     "ast_hash": "c657775dc44cbdd1d7d5f71970db67bb",
     "semantic_hash": ""
   },
@@ -3430,78 +3430,83 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/mod.rs": {
-    "mtime": 1784912203.3560674,
+    "mtime": 1784912698.2827077,
     "ast_hash": "3d3182e9f18a211fb7e510c72e73dbf8",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/setup.rs": {
-    "mtime": 1784912376.1754112,
+    "mtime": 1784912698.2829382,
     "ast_hash": "9dfb90453ceb2fdf59f34c77e28a7f0b",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
-    "mtime": 1784912530.022329,
+    "mtime": 1784912698.2842832,
     "ast_hash": "1c5e40807fee18e4ffce2fc0372d4e07",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/callback_server.rs": {
-    "mtime": 1784912273.07627,
+    "mtime": 1784912698.2846007,
     "ast_hash": "2d3f5cfe527db1f8c12cc60a32210f4e",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/mod.rs": {
-    "mtime": 1784912273.0766141,
+    "mtime": 1784912698.2847989,
     "ast_hash": "2685af2b57c72cba3f19a9f3485fb2b5",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/pkce.rs": {
-    "mtime": 1784912382.8862457,
+    "mtime": 1784912698.2849808,
     "ast_hash": "08279e61ef0391a79beb648c6c6ed898",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/providers/anthropic.rs": {
-    "mtime": 1784912336.4706645,
+    "mtime": 1784912698.2852154,
     "ast_hash": "61bd927b95f7c3276986f71c03a3fe33",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/providers/google_antigravity.rs": {
-    "mtime": 1784912322.411287,
+    "mtime": 1784912698.2854364,
     "ast_hash": "0c226c8c62395454da9cebeb2a41ef2d",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/providers/mod.rs": {
-    "mtime": 1784912389.9810493,
+    "mtime": 1784912698.2856662,
     "ast_hash": "a31302e69eebcc08090dfe8ca4947dcc",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/providers/openai_codex.rs": {
-    "mtime": 1784912397.1995735,
+    "mtime": 1784912698.2859027,
     "ast_hash": "db42a7e4381407940d45a92468f39d8e",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/refresher.rs": {
-    "mtime": 1784912405.424222,
+    "mtime": 1784912698.2861934,
     "ast_hash": "d240427541f4a12bd9bfdec380f6cf7c",
     "semantic_hash": ""
   },
-  "openspec/changes/implement-model-provider-oauth-onboarding/design.md": {
-    "mtime": 1784905838.4340832,
+  "openspec/changes/archive/2026-07-24-implement-model-provider-oauth-onboarding/design.md": {
+    "mtime": 1784912698.326113,
     "ast_hash": "9dce5138f1f88f2eeede52d0af54f9c4",
     "semantic_hash": ""
   },
-  "openspec/changes/implement-model-provider-oauth-onboarding/proposal.md": {
-    "mtime": 1784905828.1650574,
+  "openspec/changes/archive/2026-07-24-implement-model-provider-oauth-onboarding/proposal.md": {
+    "mtime": 1784912698.3262773,
     "ast_hash": "465c29c0f7a9d56fd5278f8781ebb14d",
     "semantic_hash": ""
   },
-  "openspec/changes/implement-model-provider-oauth-onboarding/specs/model-provider-oauth-onboarding/spec.md": {
-    "mtime": 1784905855.583457,
+  "openspec/changes/archive/2026-07-24-implement-model-provider-oauth-onboarding/specs/model-provider-oauth-onboarding/spec.md": {
+    "mtime": 1784912698.3265388,
     "ast_hash": "a1792230ff598c97e97b9867442d951f",
     "semantic_hash": ""
   },
-  "openspec/changes/implement-model-provider-oauth-onboarding/tasks.md": {
-    "mtime": 1784912641.6269155,
+  "openspec/changes/archive/2026-07-24-implement-model-provider-oauth-onboarding/tasks.md": {
+    "mtime": 1784912698.3267107,
     "ast_hash": "c2bb8e74ba53d2e51cf6d9266d54d57d",
+    "semantic_hash": ""
+  },
+  "openspec/specs/model-provider-oauth-onboarding/spec.md": {
+    "mtime": 1784912703.5887406,
+    "ast_hash": "2bc7237dd6f954fbfa63b5b76e7af989",
     "semantic_hash": ""
   }
 }
