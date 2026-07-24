@@ -510,8 +510,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1783049538.375184,
-    "ast_hash": "176ef068f615b8de673339a0b3dfedf6",
+    "mtime": 1784901043.6362844,
+    "ast_hash": "a61ce21e7104bb93a806a52e326ff92c",
     "semantic_hash": ""
   },
   ".github/workflows/deploy-site.yml": {
