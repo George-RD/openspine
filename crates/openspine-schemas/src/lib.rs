@@ -34,6 +34,7 @@ pub mod persona;
 pub mod plan;
 pub mod policy;
 pub mod principal;
+pub mod reflection_miner;
 pub mod route;
 pub mod selection;
 pub mod skill;

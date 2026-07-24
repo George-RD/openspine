@@ -93,6 +93,10 @@ pub(super) fn evaluate(
             // to confirm that action is a known catalog id.
             declared.push(&rule.action_id);
         }
+        ParsedProposal::Persona(_) => {
+            // Persona elements carry no authority (AD-094): no declared or
+            // denied actions to reconcile against the catalog.
+        }
         ParsedProposal::ModelSwap(swap) => {
             let result = swap
                 .golden_set_result

@@ -92,7 +92,7 @@ async fn nomination_requires_explicit_depersonalized_assertion() {
 }
 
 #[tokio::test]
-async fn nomination_rejects_persona_kind_before_authority_path() {
+async fn nomination_rejects_persona_kind_without_compatible_learned_artifact() {
     let server = MockServer::start().await;
     telegram_ok(&server).await;
     let state = test_state_with_telegram(TelegramConnector::with_api_url(
@@ -117,7 +117,7 @@ async fn nomination_rejects_persona_kind_before_authority_path() {
     .await
     .unwrap_err();
     assert!(
-        matches!(err, DispatchError::BadRequest(message) if message.contains("not proposable"))
+        matches!(err, DispatchError::BadRequest(message) if message.contains("compatible learned artifact"))
     );
     assert_eq!(
         state

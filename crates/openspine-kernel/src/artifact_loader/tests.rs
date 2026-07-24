@@ -73,7 +73,7 @@ fn non_yaml_files_are_ignored() {
 /// `overlay_subdir()` agree with the table entry — and the public
 /// `parse_proposal` entry point must agree too (D-048).
 #[test]
-fn kind_table_round_trips_all_seven_kinds() {
+fn kind_table_round_trips_all_eight_kinds() {
     let base = repo_lyra_dir();
     let fixtures = [
         ("route", "routes/owner_telegram_main_assistant.yaml"),
@@ -89,6 +89,9 @@ fn kind_table_round_trips_all_seven_kinds() {
             owned_yaml.as_str()
         } else if spec.name == "standing_rule" {
             owned_yaml = "id: appointment_booking\nschema_version: 1\nversion: 1\nlifecycle_state: proposed\naction_id: calendar.book_appointment\ndescription: Always approve appointment bookings, up to 5/week\nquota: {max: 5, window_secs: 604800}\nrate: {max: 1, window_secs: 3600}\nexpires_after_secs: 7776000\n".to_string();
+            owned_yaml.as_str()
+        } else if spec.name == "persona" {
+            owned_yaml = "id: digest_brief_default\nschema_version: 1\nversion: 1\nlifecycle_state: proposed\nguidance: Present a compact decision brief\n".to_string();
             owned_yaml.as_str()
         } else {
             let (_, rel) = fixtures
@@ -124,20 +127,16 @@ fn kind_table_excludes_templates() {
     );
 }
 
-/// AD-080: personas carry no authority. Unlike `template` (fixture-only,
-/// never an artifact kind at all), `persona` IS a real, loaded artifact
-/// kind — it just never appears in the proposable-kind table, so it can
-/// never enter the propose -> approve -> activate pipeline.
+/// AD-135: persona is a non-authority overlay kind that may enter the normal
+/// proposal lifecycle while remaining owner-approved before activation.
 #[test]
-fn kind_table_excludes_personas() {
-    assert!(find_kind_spec("persona").is_none());
-    assert!(!is_proposable_kind("persona"));
-    let err = parse_proposal("persona", "id: x\nschema_version: 1\n").unwrap_err();
-    let msg = err.to_string();
-    assert!(
-        msg.contains("unknown artifact kind persona"),
-        "unexpected parse error for persona: {msg}"
-    );
+fn kind_table_accepts_personas() {
+    assert!(find_kind_spec("persona").is_some());
+    assert!(is_proposable_kind("persona"));
+    let yaml = "id: digest_brief_default\nschema_version: 1\nversion: 1\nlifecycle_state: proposed\nguidance: Present a compact decision brief\n";
+    let parsed = parse_proposal("persona", yaml).unwrap();
+    assert_eq!(parsed.kind(), "persona");
+    assert_eq!(parsed.overlay_subdir(), "personas");
 }
 
 #[test]

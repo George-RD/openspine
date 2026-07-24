@@ -126,6 +126,69 @@ fn workflow_manifests_round_trip() {
 }
 
 #[test]
+fn reflection_routes_are_declarative_and_distinct() {
+    let miner: Route =
+        serde_yaml::from_str(&read("routes/reflection_scheduled_miner.yaml")).unwrap();
+    let submitter: Route =
+        serde_yaml::from_str(&read("routes/reflection_scheduled_submitter.yaml")).unwrap();
+    assert_eq!(
+        miner.when.channel_account.as_deref(),
+        Some("reflection-miner")
+    );
+    assert_eq!(
+        submitter.when.channel_account.as_deref(),
+        Some("reflection-submitter")
+    );
+    assert_eq!(miner.agent.as_deref(), Some("reflection_miner_agent"));
+    assert_eq!(
+        submitter.agent.as_deref(),
+        Some("reflection_submitter_agent")
+    );
+}
+
+#[test]
+fn reflection_agents_preserve_the_no_egress_boundary() {
+    let miner: AgentManifest =
+        serde_yaml::from_str(&read("agents/reflection_miner_agent.yaml")).unwrap();
+    let submitter: AgentManifest =
+        serde_yaml::from_str(&read("agents/reflection_submitter_agent.yaml")).unwrap();
+    assert!(miner.output_channels.allowed.is_empty());
+    assert!(miner
+        .designed_tools
+        .iter()
+        .any(|action| action.as_str() == "model.generate:approved_provider"));
+    assert!(submitter
+        .designed_tools
+        .iter()
+        .any(|action| action.as_str() == "artifact.propose"));
+}
+
+#[test]
+fn reflection_packs_and_workflows_are_bounded() {
+    let miner_pack: CapabilityPack =
+        serde_yaml::from_str(&read("packs/reflection_miner_pack.yaml")).unwrap();
+    let submitter_pack: CapabilityPack =
+        serde_yaml::from_str(&read("packs/reflection_submitter_pack.yaml")).unwrap();
+    let miner_workflow: WorkflowManifest =
+        serde_yaml::from_str(&read("workflows/reflection_miner_scheduled.yaml")).unwrap();
+    let submitter_workflow: WorkflowManifest =
+        serde_yaml::from_str(&read("workflows/reflection_submitter_scheduled.yaml")).unwrap();
+    assert_eq!(miner_workflow.required_capability_pack, miner_pack.id);
+    assert_eq!(
+        submitter_workflow.required_capability_pack,
+        submitter_pack.id
+    );
+    assert_eq!(
+        miner_pack.constraints.data_classification_max,
+        Some(openspine_schemas::event::DataClassification::Private)
+    );
+    assert!(submitter_pack
+        .candidate_allowed_actions
+        .iter()
+        .any(|action| action.as_str() == "artifact.propose"));
+}
+
+#[test]
 fn global_policy_round_trips_and_denies_send() {
     let policy: Policy = serde_yaml::from_str(&read("policies/global.yaml")).unwrap();
     assert_eq!(policy.id, "global");
@@ -146,7 +209,7 @@ fn every_fixture_file_is_covered_by_a_test() {
     }
     assert_eq!(
         found.len(),
-        14,
-        "expected 14 fixture files, found {found:?}"
+        22,
+        "expected 22 fixture files, found {found:?}"
     );
 }

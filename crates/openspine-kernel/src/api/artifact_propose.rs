@@ -38,7 +38,7 @@ struct ArtifactProposePayload {
     yaml: String,
 }
 
-pub(super) async fn dispatch_artifact_propose(
+pub(crate) async fn dispatch_artifact_propose(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
@@ -57,7 +57,7 @@ pub(super) async fn dispatch_artifact_propose(
     })?;
     if !is_proposable_kind(&req.kind) {
         return Err(DispatchError::BadRequest(
-            "artifact.propose kind must be one of route|agent|workflow|pack|policy|model_swap|standing_rule"
+            "artifact.propose kind must be one of route|agent|workflow|pack|policy|model_swap|standing_rule|persona"
                 .to_string(),
         ));
     }

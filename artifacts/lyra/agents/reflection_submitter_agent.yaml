@@ -1,0 +1,27 @@
+id: reflection_submitter_agent
+schema_version: 1
+lifecycle_state: active
+purpose: Submit reflection outputs to the normal owner-review lifecycle.
+persistence: ephemeral
+persona: concise_practical_operator
+model_policy:
+  allowed_providers: [local]
+  private_context_requires_gateway: true
+  max_model_calls_per_task: 0
+memory_scope:
+  allowed_classes: []
+  allowed_scopes: []
+  denied_classes: [health, finance, family_private, raw_email_body, attachment_content, infrastructure_secret]
+designed_tools:
+  - artifact.propose
+denied_tools:
+  - artifact.activate
+  - policy.modify_direct
+limits:
+  max_runtime_seconds: 120
+  max_artifacts: 4
+  max_tokens: 0
+output_channels:
+  allowed:
+    - telegram.owner.reply
+    - "action_request:approval"
