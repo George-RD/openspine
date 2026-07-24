@@ -86,6 +86,7 @@ pub enum ProviderAuth {
 pub enum ProviderKind {
     Anthropic,
     OpenaiCompat,
+    GoogleAntigravity,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +112,7 @@ pub fn provider_config_digest(provider: &ProviderConfig) -> Digest {
     let default_base = match provider.kind {
         ProviderKind::Anthropic => "https://api.anthropic.com",
         ProviderKind::OpenaiCompat => "https://api.openai.com",
+        ProviderKind::GoogleAntigravity => "https://generativelanguage.googleapis.com",
     };
     digest_of(&json!({
         "provider_id": provider.id,
@@ -297,10 +299,13 @@ pub fn provider_api_key(provider: &ProviderConfig) -> Result<String, ConfigError
         ProviderAuth::ApiKey { env } => {
             std::env::var(env).map_err(|_| ConfigError::MissingEnv(env.clone()))
         }
-        ProviderAuth::Oauth => Err(ConfigError::MissingEnv(format!(
-            "{}: oauth provider login not yet implemented (Step 4c defers `provider login`)",
-            provider.id
-        ))),
+        ProviderAuth::Oauth => Ok(format!("oauth:{}", provider.id)),
+    }
+}
+
+impl ProviderConfig {
+    pub fn is_oauth(&self) -> bool {
+        matches!(self.auth, ProviderAuth::Oauth)
     }
 }
 
@@ -390,5 +395,37 @@ unsafe_allow_uncontained_private_data: false
             assert_eq!(cfg.owner.telegram_user_id, 123456789);
             assert_eq!(cfg.providers.len(), 1);
         }
+    }
+    #[test]
+    fn config_accepts_provider_auth_oauth_variant() {
+        let yaml = r#"
+id: google-antigravity
+kind: google_antigravity
+model: gemini-2.5-flash
+auth:
+  mode: oauth
+"#;
+        let provider: ProviderConfig =
+            serde_yaml::from_str(yaml).expect("parse provider oauth config");
+        assert!(provider.is_oauth());
+        assert_eq!(provider.id, "google-antigravity");
+        assert_eq!(provider.kind, ProviderKind::GoogleAntigravity);
+        assert_eq!(
+            provider_api_key(&provider).unwrap(),
+            "oauth:google-antigravity"
+        );
+    }
+
+    #[test]
+    fn provider_config_digest_handles_oauth_providers() {
+        let provider = ProviderConfig {
+            id: "google-antigravity".to_string(),
+            kind: ProviderKind::GoogleAntigravity,
+            base_url: None,
+            model: "gemini-2.5-flash".to_string(),
+            auth: ProviderAuth::Oauth,
+        };
+        let digest = provider_config_digest(&provider);
+        assert!(!digest.to_string().is_empty());
     }
 }
