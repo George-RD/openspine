@@ -90,9 +90,11 @@ pub(super) fn persist_promotion_decision_conn(
     );
     match res {
         Ok(_) => Ok(()),
-        Err(err) if is_unique_constraint_violation(&err) => Err(StoreError::SkillLifecycle(
-            format!("skill {skill_id} v{version} already has an owner promotion decision recorded (AD-041: one decision per skill version, ever)"),
-        )),
+        Err(err) if is_unique_constraint_violation(&err) => {
+            Err(StoreError::SkillLifecycle(format!(
+                "skill {skill_id} v{version} already has an owner promotion decision recorded (AD-041: one decision per skill version, ever)"
+            )))
+        }
         Err(err) => Err(StoreError::from(err)),
     }
 }

@@ -149,6 +149,9 @@ pub struct AppState {
     pub base_artifact_ids: std::collections::HashSet<(String, String)>,
     /// Digest of sorted active base artifacts reviewed by owner taps.
     pub base_compatibility_epoch: String,
+    /// Exclusive overlay export/restore controller; holds the data-root
+    /// lifetime lock for the process lifetime.
+    pub overlay_operations: std::sync::Arc<crate::overlay_export_restore::OverlayOperations>,
 }
 
 impl AppState {
@@ -474,18 +477,22 @@ pub async fn handle_owner_update(
     match crate::secret_intake::capture(state, chat_id, &text).await {
         Ok(Some(outcome)) => {
             let response = match outcome {
-                crate::secret_intake::CaptureOutcome::Stored(crate::secret_intake::SecretMode::Intake) => {
-                    "Secret intake completed; value was stored."
-                }
-                crate::secret_intake::CaptureOutcome::Staged(crate::secret_intake::SecretMode::Intake) => {
+                crate::secret_intake::CaptureOutcome::Stored(
+                    crate::secret_intake::SecretMode::Intake,
+                ) => "Secret intake completed; value was stored.",
+                crate::secret_intake::CaptureOutcome::Staged(
+                    crate::secret_intake::SecretMode::Intake,
+                ) => {
                     "Secret received and staged; provide the paired Gmail credential to validate and activate it."
                 }
-                crate::secret_intake::CaptureOutcome::Staged(crate::secret_intake::SecretMode::Rotate) => {
+                crate::secret_intake::CaptureOutcome::Staged(
+                    crate::secret_intake::SecretMode::Rotate,
+                ) => {
                     "Secret received and staged; provide the paired Gmail credential to validate and activate rotation."
                 }
-                crate::secret_intake::CaptureOutcome::Stored(crate::secret_intake::SecretMode::Rotate) => {
-                    "Secret rotation completed; value was stored."
-                }
+                crate::secret_intake::CaptureOutcome::Stored(
+                    crate::secret_intake::SecretMode::Rotate,
+                ) => "Secret rotation completed; value was stored.",
                 crate::secret_intake::CaptureOutcome::Rejected => {
                     "Secret message discarded; intake expired, failed validation, or was not bound to this chat. Retry."
                 }
@@ -798,7 +805,9 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
                                 String::new()
                             }
                         } else {
-                            format!("Skill preview delivery failed (outcome={outcome:?}); preview not persisted. Retry /promote.")
+                            format!(
+                                "Skill preview delivery failed (outcome={outcome:?}); preview not persisted. Retry /promote."
+                            )
                         }
                     }
                     Ok(None) => "Skill not found.".to_string(),

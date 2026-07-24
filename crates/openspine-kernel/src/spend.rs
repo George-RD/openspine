@@ -60,9 +60,13 @@ pub(crate) enum SpendModelError {
 
 fn breach_message(day: &str, current_day: &str) -> String {
     if day == current_day {
-        format!("Daily spend cap breached on {day}; proactive and headless activity is paused until UTC midnight.")
+        format!(
+            "Daily spend cap breached on {day}; proactive and headless activity is paused until UTC midnight."
+        )
     } else {
-        format!("Daily spend cap breach on {day} was recovered after restart; today is {current_day} and current-day admission is governed by today's cap.")
+        format!(
+            "Daily spend cap breach on {day} was recovered after restart; today is {current_day} and current-day admission is governed by today's cap."
+        )
     }
 }
 

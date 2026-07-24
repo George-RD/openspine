@@ -102,6 +102,9 @@ pub struct ActionCatalog {
     /// denied outright — the kernel may not reach for arbitrary actions
     /// without being explicitly enumerated as trusted.
     kernel_origin_actions: HashSet<ActionId>,
+    /// Actions that may only be exercised by a root grant and therefore
+    /// must never appear in a commissioned worker's attenuation.
+    non_delegable_actions: HashSet<ActionId>,
     /// Actions that require a valid, grant-bound, unexpired selection token
     /// of the correct type before `gate()` will grant them (D-055.1).
     token_requiring_actions: HashMap<ActionId, SelectionTokenType>,
@@ -123,6 +126,7 @@ impl ActionCatalog {
         ActionCatalog {
             ids: ids.into_iter().collect(),
             kernel_origin_actions: HashSet::new(),
+            non_delegable_actions: HashSet::new(),
             token_requiring_actions: HashMap::new(),
             effect_paths: Vec::new(),
             counterparty_facing_actions: HashSet::new(),
@@ -146,6 +150,20 @@ impl ActionCatalog {
     /// to assert each carries a mandatory egress declaration (blocker 1).
     pub fn action_ids(&self) -> &HashSet<ActionId> {
         &self.ids
+    }
+
+    /// Mark actions that worker commission may never delegate. Returns
+    /// `self` for chaining.
+    pub fn with_non_delegable(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
+        self.non_delegable_actions = actions.into_iter().collect();
+        self
+    }
+
+    /// True when `id` is catalogued as root-only and non-delegable.
+    /// Unknown actions return false; catalog membership is validated
+    /// independently by authority composition and the gate.
+    pub fn is_non_delegable(&self, id: &ActionId) -> bool {
+        self.non_delegable_actions.contains(id)
     }
 
     /// Mark the given actions as requiring a selection token of the expected type (D-055.1):

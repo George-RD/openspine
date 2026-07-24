@@ -51,7 +51,9 @@ pub enum ArtifactLoadError {
         id: String,
         reason: String,
     },
-    #[error("artifact collision: {kind} id={id} v{version} appears more than once (check fixtures and the data/artifacts.d overlay)")]
+    #[error(
+        "artifact collision: {kind} id={id} v{version} appears more than once (check fixtures and the data/artifacts.d overlay)"
+    )]
     #[allow(dead_code)]
     Collision {
         kind: String,

@@ -338,5 +338,19 @@ pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
                 egress_class: None,
             },
         ),
+        (
+            id("openspine.overlay.export"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
+        (
+            id("openspine.overlay.restore"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
     ]
 }

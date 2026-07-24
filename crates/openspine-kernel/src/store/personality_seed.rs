@@ -326,7 +326,7 @@ pub(crate) fn seed_if_missing(
                 Err(err) => {
                     return Err(err).with_context(|| {
                         format!("reading persona file {}", expected_path.display())
-                    })
+                    });
                 }
             };
             if matches!(

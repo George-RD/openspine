@@ -72,7 +72,13 @@ fn commission(
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let worker = mint_worker_grant(parent, &spec, &key()).expect("mint worker");
+    let worker = mint_worker_grant(
+        parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &key(),
+    )
+    .expect("mint worker");
     let identity = WorkerIdentity {
         owner: parent.user.clone(),
         conversation: parent.event_id.to_string(),

@@ -169,6 +169,8 @@ pub fn main_assistant_agent() -> AgentManifest {
             ActionId::new("model.generate:approved_provider"),
             ActionId::new("lyra.ui.preview"),
             ActionId::new("telegram.reply:owner_channel"),
+            ActionId::new("openspine.overlay.export"),
+            ActionId::new("openspine.overlay.restore"),
         ],
         approval_required_tools: vec![
             ActionId::new("connector.enable"),
@@ -314,6 +316,8 @@ pub fn owner_control_basic_pack() -> CapabilityPack {
             ActionId::new("memory.read:owner_preferences_limited"),
             ActionId::new("model.generate:approved_provider"),
             ActionId::new("telegram.reply:owner_channel"),
+            ActionId::new("openspine.overlay.export"),
+            ActionId::new("openspine.overlay.restore"),
         ],
         // D-048: `artifact.activate` is the single canonical activation
         // action id (D-034 precedent) — mirrors

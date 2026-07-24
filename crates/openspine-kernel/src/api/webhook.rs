@@ -88,7 +88,7 @@ pub(crate) async fn post_webhook(
                     outcome: "rejected",
                     grant_id: None,
                 }),
-            ))
+            ));
         }
     };
     Ok((

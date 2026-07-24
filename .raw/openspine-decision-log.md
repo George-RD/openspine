@@ -133,6 +133,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-119 | Every rated egress effect is kernel-prepared: a one-use prepared-query token binds action/relationship/egress/grant and kernel-derived provenance and is consume-verified fail-closed with zero connector calls; provenance derives kernel-side from ALL worker-visible non-public sections (unclassified sections fail closed, KernelBound excluded) and redaction walks nested JSON in every private/sensitive section | Accepted |
 | D-120 | An uncovered disclosure blocks into a durable pending owner question carrying a kernel-derived blocked-query digest; owners answer by pending-question id (allow / allow-with-carve-out / deny) and no human-supplied digest is ever accepted; scoped answers never broaden unrelated approvals | Accepted |
 | D-121 | Disclosure envelope budgets reserve atomically and finalize only after the connector effect succeeds with all-or-nothing rollback across classes; budget exhaustion is a distinct kernel audit (disclosure.budget_exhausted) while the worker sees only the generic policy denial (AD-151), and store failures travel the kernel Resource lane, never a caller-input denial | Accepted |
+| D-122 | Overlay export/restore is a restart-bound, non-delegable root-owner ceremony: one canonical data-root lifetime lock guards exact HMAC-authenticated directory bundles, while a signed external continuity lineage carries terminal counterparty erasures across restore | Accepted |
 
 ---
 
@@ -2869,6 +2870,28 @@ D-107 reservations move into a transactional gate-integrated budget engine.
 
 ---
 
+# D-122 — Restart-bound overlay snapshots with external erasure continuity
+
+## Decision
+
+AD-150 export/restore is implemented as two non-delegable actions available only to the configured owner's canonical sealed root grant. Actions stage a signed bounded bundle name under a kernel-controlled snapshot root; they never accept arbitrary host paths or copy open stores. On restart, one exclusive lock derived from the canonical physical data root covers pre-open operation processing and the full process lifetime. Export atomically publishes a `0700` directory bundle whose master-key-HMAC manifest is bijective with the complete typed tree and whose files are `0600`; the external artifact master key is never bundled.
+
+Terminal counterparty erasure has an HMAC-bound continuity id, monotonic sequence, and id set outside replaceable data generations. Every bundle embeds its ledger baseline; restore requires the same live/imported continuity lineage and applies every merged terminal id before any restored key can load. Portable recovery separately preserves the latest signed ledger with the master key. Restore authorization is replayed into the restored audit chain, finalization waits until listener bind and post-bind clock commit, and failed installed generations use the pathless authenticated rollback command.
+
+## Rationale
+
+SQLite, blobs, credentials, overlays, and wrapped keys have no shared hot-snapshot transaction, so a live copy would make an incoherent claim. A normal restart does not prove the previous process stopped; the lifetime lock does. File-only manifests miss malicious empty directories and validate-then-copy races, so the exact typed tree is copy-hashed and re-enumerated. Restoring an older generation can otherwise resurrect a key deleted after export, and replacing the database also removes the original gate audit; external monotonic erasure continuity and signed authorization replay close those two rollback gaps.
+
+## Consequences
+
+Export/restore requires an intentional restart and free space for staging. Bundles preserve existing at-rest representations and remain sensitive because database metadata and overlay YAML may be plaintext. Portable recovery needs both the external artifact key and latest signed source ledger; an unrelated fresh ledger fails even at sequence zero. No archive parser, cloud destination, automatic rollback, or worker delegation enters the kernel.
+
+## Would change if
+
+The stores gain a real cross-store snapshot transaction; a trusted remote/HSM monotonic anchor enters the deployment contract; or a reviewed transport requirement justifies an authenticated single-file envelope without weakening path/type validation.
+
+---
+
 
 
 
@@ -2947,4 +2970,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-111 (no grant inheritance; terminal tokens dead), D-112 (exactly one terminal outcome; sandbox exit taxonomy), D-113 (fail-closed per-connector restart caps), and D-114 (tuple worker addressing with durable failure consumer), settled while implementing `implement-worker-supervision`. |
 | 2026-07-18 | Added D-115 (additive, no-fallback, structurally contained persona binding), D-116 (fail-closed bound-MAC webhook admission), and D-117 (digest-only headless lane with non-downgradable resumable approvals), settled while implementing `implement-persona-binding-and-headless-lanes`. |
 | 2026-07-18 | Added D-118 (scope-keyed disclosure policies with independent envelopes), D-119 (kernel-prepared one-use disclosure queries over kernel provenance), D-120 (pending-question owner answers with kernel digests), and D-121 (fail-closed disclosure budget accounting with policy-free worker outcomes), settled while implementing `implement-disclosure-policy`. |
+| 2026-07-23 | Added D-122 (restart-bound non-delegable root-owner overlay snapshots under a canonical lifetime lock, exact authenticated typed-tree bundles, and external signed terminal-erasure continuity), settled while implementing `implement-overlay-export-restore`. |
 

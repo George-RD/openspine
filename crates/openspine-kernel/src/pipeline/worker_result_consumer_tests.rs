@@ -123,7 +123,13 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         counterparty_identifier: None,
         task_class: TaskClass::Conversation,
     };
-    let worker = mint_worker_grant(&parent, &spec, &key).expect("mint worker");
+    let worker = mint_worker_grant(
+        &parent,
+        &spec,
+        &crate::action_catalog::canonical_catalog(),
+        &key,
+    )
+    .expect("mint worker");
     let worker_pending = state.artifacts.put(b"worker-pending").unwrap();
     let worker_token = state.artifacts.put(worker.task_token.as_bytes()).unwrap();
     let request_digest = digest_of(&json!({"purpose": "worker-task"}));

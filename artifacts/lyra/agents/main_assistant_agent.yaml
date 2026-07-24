@@ -25,6 +25,8 @@ designed_tools:
   - "telegram.reply:owner_channel"
   - worker.commission
   - worker.report_result
+  - openspine.overlay.export
+  - openspine.overlay.restore
 approval_required_tools:
   - connector.enable
   - route.activate

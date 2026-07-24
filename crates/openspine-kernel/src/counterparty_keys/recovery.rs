@@ -31,7 +31,7 @@ impl CounterpartyKeyRing {
                         return Err(CounterpartyKeyError::Io {
                             path: tmp_path,
                             source,
-                        })
+                        });
                     }
                 }
                 continue;
@@ -52,7 +52,7 @@ impl CounterpartyKeyRing {
                     return Err(CounterpartyKeyError::Io {
                         path: key_path,
                         source,
-                    })
+                    });
                 }
             }
 
@@ -95,7 +95,7 @@ impl CounterpartyKeyRing {
         counterparty_id: Ulid,
     ) -> Result<(), CounterpartyKeyError> {
         let path = self.key_pending_path(counterparty_id);
-        if path.exists() {
+        if self.require_regular_file_or_absent(&path)? {
             // A prior attempt may have created the marker but failed its
             // directory fsync. Re-establish durability before publication.
             let f = std::fs::File::open(&path).map_err(|source| CounterpartyKeyError::Io {
@@ -161,10 +161,10 @@ impl CounterpartyKeyRing {
         key_path: &Path,
         counterparty_id: Ulid,
     ) -> Result<(), CounterpartyKeyError> {
-        if !self.key_pending_path(counterparty_id).exists() {
+        if !self.require_regular_file_or_absent(&self.key_pending_path(counterparty_id))? {
             return Ok(());
         }
-        if self.tombstone_path(counterparty_id).exists() {
+        if self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))? {
             return self.clear_key_pending_locked(counterparty_id);
         }
         self.sync_key_file_and_dir(key_path)?;

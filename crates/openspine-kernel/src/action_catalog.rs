@@ -73,6 +73,8 @@ pub fn canonical_catalog() -> ActionCatalog {
         "worker.report_result",
         "worker.failed",
         "skill.context",
+        "openspine.overlay.export",
+        "openspine.overlay.restore",
     ];
     // Every catalog id receives a literal declaration. `None/None` is a
     // deliberate classification for non-egress actions, not an auto-default;
@@ -81,6 +83,10 @@ pub fn canonical_catalog() -> ActionCatalog {
     let decls = action_catalog_data::egress_declarations();
     ActionCatalog::new(ids.iter().map(|s| id(s)))
         .with_kernel_origin([id("owner.notify")])
+        .with_non_delegable([
+            id("openspine.overlay.export"),
+            id("openspine.overlay.restore"),
+        ])
         .with_counterparty_facing([id("email.send")])
         .with_token_requiring([(
             id("email.read_thread:selected_no_attachments"),
@@ -164,6 +170,14 @@ pub fn canonical_catalog() -> ActionCatalog {
                 name: "dispatch_skill_context".to_string(),
                 classification: EffectPathClass::GatedShell,
             },
+            EffectPath {
+                name: "dispatch_overlay_export".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "dispatch_overlay_restore".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
         ])
 }
 
@@ -177,8 +191,8 @@ mod tests {
         let paths = catalog.effect_paths();
         assert_eq!(
             paths.len(),
-            19,
-            "Expected exactly 19 classified effect paths, got {:?}",
+            21,
+            "Expected exactly 21 classified effect paths, got {:?}",
             paths
         );
         let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -207,6 +221,8 @@ mod tests {
         assert!(path_names.contains(&"sweep_expired_grants"));
         assert!(path_names.contains(&"answer_callback_query"));
         assert!(path_names.contains(&"dispatch_skill_context"));
+        assert!(path_names.contains(&"dispatch_overlay_export"));
+        assert!(path_names.contains(&"dispatch_overlay_restore"));
     }
 
     #[test]
@@ -277,6 +293,29 @@ mod tests {
                 decl.egress_class, None,
                 "{id} must not be a rated egress endpoint"
             );
+            assert_eq!(
+                decl.output_channels, None,
+                "{id} must not name an output channel"
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_export_restore_are_non_delegable_with_no_egress() {
+        let catalog = canonical_catalog();
+        for id in [
+            ActionId::new("openspine.overlay.export"),
+            ActionId::new("openspine.overlay.restore"),
+        ] {
+            assert!(catalog.contains(&id), "{id} must be catalogued");
+            assert!(
+                catalog.is_non_delegable(&id),
+                "{id} must be catalogued non-delegable"
+            );
+            let decl = catalog
+                .egress_decl_for(&id)
+                .expect("overlay action declared");
+            assert_eq!(decl.egress_class, None, "{id} must not be rated egress");
             assert_eq!(
                 decl.output_channels, None,
                 "{id} must not name an output channel"
