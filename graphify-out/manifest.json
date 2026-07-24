@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/config.rs": {
-    "mtime": 1784890717.9109628,
-    "ast_hash": "46310347734ea4013ffdae043ba11c54",
+    "mtime": 1784912273.0311184,
+    "ast_hash": "23ca9d9374a6c98a9925870c02f2fb0e",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/gmail.rs": {
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1784890717.9113376,
-    "ast_hash": "3944483eacf8909ddf3b85f1582f225c",
+    "mtime": 1784912273.0690625,
+    "ast_hash": "adf35ff33456a8fdd5e94c03a028dd90",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/mod.rs": {
@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers.rs": {
-    "mtime": 1784293062.8369071,
-    "ast_hash": "ff13b4f374f9482610a62f6d17fad6ca",
+    "mtime": 1784912507.267474,
+    "ast_hash": "c2b70ecca37ea57ea00346399174d6ed",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/approval.rs": {
@@ -510,7 +510,7 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1784901043.6362844,
+    "mtime": 1784901296.1623642,
     "ast_hash": "a61ce21e7104bb93a806a52e326ff92c",
     "semantic_hash": ""
   },
@@ -1710,8 +1710,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/secret_store.rs": {
-    "mtime": 1784247119.0418181,
-    "ast_hash": "887184c17a8a4cd5907e13abda863d6b",
+    "mtime": 1784912358.6605763,
+    "ast_hash": "c657775dc44cbdd1d7d5f71970db67bb",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/test_hooks.rs": {
@@ -3427,6 +3427,81 @@
   "openspec/specs/reflection-miner/spec.md": {
     "mtime": 1784890728.097513,
     "ast_hash": "c7e4e8c6622dac1a0e9dd2b4210a6ef6",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/cli/mod.rs": {
+    "mtime": 1784912203.3560674,
+    "ast_hash": "3d3182e9f18a211fb7e510c72e73dbf8",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/cli/setup.rs": {
+    "mtime": 1784912376.1754112,
+    "ast_hash": "9dfb90453ceb2fdf59f34c77e28a7f0b",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
+    "mtime": 1784912530.022329,
+    "ast_hash": "1c5e40807fee18e4ffce2fc0372d4e07",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/callback_server.rs": {
+    "mtime": 1784912273.07627,
+    "ast_hash": "2d3f5cfe527db1f8c12cc60a32210f4e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/mod.rs": {
+    "mtime": 1784912273.0766141,
+    "ast_hash": "2685af2b57c72cba3f19a9f3485fb2b5",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/pkce.rs": {
+    "mtime": 1784912382.8862457,
+    "ast_hash": "08279e61ef0391a79beb648c6c6ed898",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/providers/anthropic.rs": {
+    "mtime": 1784912336.4706645,
+    "ast_hash": "61bd927b95f7c3276986f71c03a3fe33",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/providers/google_antigravity.rs": {
+    "mtime": 1784912322.411287,
+    "ast_hash": "0c226c8c62395454da9cebeb2a41ef2d",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/providers/mod.rs": {
+    "mtime": 1784912389.9810493,
+    "ast_hash": "a31302e69eebcc08090dfe8ca4947dcc",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/providers/openai_codex.rs": {
+    "mtime": 1784912397.1995735,
+    "ast_hash": "db42a7e4381407940d45a92468f39d8e",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/oauth/refresher.rs": {
+    "mtime": 1784912405.424222,
+    "ast_hash": "d240427541f4a12bd9bfdec380f6cf7c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-model-provider-oauth-onboarding/design.md": {
+    "mtime": 1784905838.4340832,
+    "ast_hash": "9dce5138f1f88f2eeede52d0af54f9c4",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-model-provider-oauth-onboarding/proposal.md": {
+    "mtime": 1784905828.1650574,
+    "ast_hash": "465c29c0f7a9d56fd5278f8781ebb14d",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-model-provider-oauth-onboarding/specs/model-provider-oauth-onboarding/spec.md": {
+    "mtime": 1784905855.583457,
+    "ast_hash": "a1792230ff598c97e97b9867442d951f",
+    "semantic_hash": ""
+  },
+  "openspec/changes/implement-model-provider-oauth-onboarding/tasks.md": {
+    "mtime": 1784912641.6269155,
+    "ast_hash": "c2bb8e74ba53d2e51cf6d9266d54d57d",
     "semantic_hash": ""
   }
 }

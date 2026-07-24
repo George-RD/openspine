@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/telegram.rs": {
-    "mtime": 1784421817.3675516,
-    "ast_hash": "d5ab43e11462122b73ca7b7bee7730ed",
+    "mtime": 1784900607.822811,
+    "ast_hash": "e112f84579e3f2a8d738e9b8c2f83201",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/test_support.rs": {
@@ -510,8 +510,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1783049538.375184,
-    "ast_hash": "176ef068f615b8de673339a0b3dfedf6",
+    "mtime": 1784901043.6362844,
+    "ast_hash": "a61ce21e7104bb93a806a52e326ff92c",
     "semantic_hash": ""
   },
   ".github/workflows/deploy-site.yml": {

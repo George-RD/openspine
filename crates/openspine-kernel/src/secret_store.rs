@@ -31,6 +31,25 @@ pub enum SecretStoreError {
     Encrypt,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct OAuthTokens {
+    pub provider_id: String,
+    pub refresh_token: String,
+    pub access_token: String,
+    pub expires_at: String,
+    pub account_email: Option<String>,
+    pub account_id: Option<String>,
+    pub identity_key: Option<String>,
+    pub disabled: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct OAuthIdentityMetadata {
+    pub account_email: Option<String>,
+    pub account_id: Option<String>,
+    pub identity_key: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct SecretStore {
     root: PathBuf,
@@ -191,6 +210,131 @@ impl SecretStore {
             .map(|(bytes, _)| String::from_utf8(bytes).map_err(|_| SecretStoreError::Decrypt))
             .transpose()
     }
+    pub fn store_oauth_tokens(
+        &self,
+        provider_id: &str,
+        refresh_token: &str,
+        access_token: &str,
+        expires_at: &str,
+        identity_metadata: Option<OAuthIdentityMetadata>,
+    ) -> Result<(), SecretStoreError> {
+        let meta = identity_metadata.unwrap_or_default();
+        self.put(&format!("provider.{provider_id}.auth_mode"), b"oauth")?;
+        self.put(
+            &format!("provider.{provider_id}.refresh_token"),
+            refresh_token.as_bytes(),
+        )?;
+        self.put(
+            &format!("provider.{provider_id}.access_token"),
+            access_token.as_bytes(),
+        )?;
+        self.put(
+            &format!("provider.{provider_id}.expires_at"),
+            expires_at.as_bytes(),
+        )?;
+        self.put(&format!("provider.{provider_id}.disabled"), b"false")?;
+
+        if let Some(email) = meta.account_email {
+            self.put(
+                &format!("provider.{provider_id}.account_email"),
+                email.as_bytes(),
+            )?;
+        }
+        if let Some(id) = meta.account_id {
+            self.put(&format!("provider.{provider_id}.account_id"), id.as_bytes())?;
+        }
+        if let Some(key) = meta.identity_key {
+            self.put(
+                &format!("provider.{provider_id}.identity_key"),
+                key.as_bytes(),
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn get_oauth_tokens(
+        &self,
+        provider_id: &str,
+    ) -> Result<Option<OAuthTokens>, SecretStoreError> {
+        let refresh_token =
+            match self.get_string(&format!("provider.{provider_id}.refresh_token"))? {
+                Some(t) => t,
+                None => {
+                    match self.get_string(&format!("provider.{provider_id}.oauth.refresh_token"))? {
+                        Some(t) => t,
+                        None => return Ok(None),
+                    }
+                }
+            };
+
+        let access_token = self
+            .get_string(&format!("provider.{provider_id}.access_token"))?
+            .or_else(|| {
+                self.get_string(&format!("provider.{provider_id}.oauth.access_token"))
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_default();
+
+        let expires_at = self
+            .get_string(&format!("provider.{provider_id}.expires_at"))?
+            .or_else(|| {
+                self.get_string(&format!("provider.{provider_id}.oauth.expires_at"))
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_default();
+
+        let disabled = self
+            .get_string(&format!("provider.{provider_id}.disabled"))?
+            .map(|s| s == "true")
+            .unwrap_or(false);
+
+        let account_email = self.get_string(&format!("provider.{provider_id}.account_email"))?;
+        let account_id = self.get_string(&format!("provider.{provider_id}.account_id"))?;
+        let identity_key = self.get_string(&format!("provider.{provider_id}.identity_key"))?;
+
+        Ok(Some(OAuthTokens {
+            provider_id: provider_id.to_string(),
+            refresh_token,
+            access_token,
+            expires_at,
+            account_email,
+            account_id,
+            identity_key,
+            disabled,
+        }))
+    }
+
+    pub fn update_access_token(
+        &self,
+        provider_id: &str,
+        access_token: &str,
+        expires_at: &str,
+    ) -> Result<(), SecretStoreError> {
+        self.put(
+            &format!("provider.{provider_id}.access_token"),
+            access_token.as_bytes(),
+        )?;
+        self.put(
+            &format!("provider.{provider_id}.expires_at"),
+            expires_at.as_bytes(),
+        )?;
+        Ok(())
+    }
+
+    pub fn disable_oauth_credential(
+        &self,
+        provider_id: &str,
+        cause: &str,
+    ) -> Result<(), SecretStoreError> {
+        self.put(&format!("provider.{provider_id}.disabled"), b"true")?;
+        self.put(
+            &format!("provider.{provider_id}.disable_cause"),
+            cause.as_bytes(),
+        )?;
+        Ok(())
+    }
     #[cfg(test)]
     pub(crate) fn arm_fault_put(&self, slot: &str) {
         *self.fault_put.lock().expect("fault_put mutex poisoned") = Some(slot.to_string());
@@ -261,5 +405,88 @@ mod tests {
             store.get("corrupt"),
             Err(SecretStoreError::Decrypt)
         ));
+    }
+
+    #[test]
+    fn oauth_tokens_stored_encrypted_in_secret_store() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = SecretStore::open(dir.path().join("credentials"), [12; 32]).expect("open");
+
+        let meta = OAuthIdentityMetadata {
+            account_email: Some("user@example.com".to_string()),
+            account_id: Some("acc-123".to_string()),
+            identity_key: Some("email:user@example.com".to_string()),
+        };
+
+        store
+            .store_oauth_tokens(
+                "google-antigravity",
+                "refresh-secret-token",
+                "access-secret-token",
+                "2026-07-24T18:00:00Z",
+                Some(meta),
+            )
+            .expect("store oauth tokens");
+
+        let raw = std::fs::read_to_string(
+            dir.path()
+                .join("credentials/provider.google-antigravity.refresh_token"),
+        )
+        .unwrap_or_default();
+        assert!(
+            !raw.contains("refresh-secret-token"),
+            "secret must not be plaintext on disk"
+        );
+
+        let loaded = store
+            .get_oauth_tokens("google-antigravity")
+            .expect("load")
+            .expect("some");
+        assert_eq!(loaded.refresh_token, "refresh-secret-token");
+        assert_eq!(loaded.access_token, "access-secret-token");
+        assert_eq!(loaded.account_email.as_deref(), Some("user@example.com"));
+        assert!(!loaded.disabled);
+
+        store
+            .update_access_token(
+                "google-antigravity",
+                "new-access-token",
+                "2026-07-24T19:00:00Z",
+            )
+            .expect("update access token");
+        let updated = store
+            .get_oauth_tokens("google-antigravity")
+            .expect("load")
+            .expect("some");
+        assert_eq!(updated.access_token, "new-access-token");
+        assert_eq!(updated.refresh_token, "refresh-secret-token");
+
+        store
+            .disable_oauth_credential("google-antigravity", "revoked")
+            .expect("disable");
+        let disabled = store
+            .get_oauth_tokens("google-antigravity")
+            .expect("load")
+            .expect("some");
+        assert!(disabled.disabled);
+    }
+
+    #[test]
+    fn secret_store_oauth_keys_are_isolated_per_provider() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = SecretStore::open(dir.path().join("credentials"), [13; 32]).expect("open");
+
+        store
+            .store_oauth_tokens("provider-a", "ref-a", "acc-a", "1000", None)
+            .expect("store a");
+        store
+            .store_oauth_tokens("provider-b", "ref-b", "acc-b", "2000", None)
+            .expect("store b");
+
+        let tokens_a = store.get_oauth_tokens("provider-a").unwrap().unwrap();
+        let tokens_b = store.get_oauth_tokens("provider-b").unwrap().unwrap();
+
+        assert_eq!(tokens_a.refresh_token, "ref-a");
+        assert_eq!(tokens_b.refresh_token, "ref-b");
     }
 }

@@ -84,23 +84,89 @@ impl ProviderClient {
                     .unwrap_or_else(|| DEFAULT_OPENAI_BASE_URL.to_string()),
                 model: config.model.clone(),
             },
+            ProviderKind::GoogleAntigravity => ProviderClient::OpenAiCompat {
+                client: http_client(),
+                api_key,
+                base_url: config
+                    .base_url
+                    .clone()
+                    .unwrap_or_else(|| "https://generativelanguage.googleapis.com".to_string()),
+                model: config.model.clone(),
+            },
         }
     }
 
     pub async fn generate(&self, prompt: &ResolvedPrompt) -> Result<String, GatewayError> {
+        self.generate_with_secret_store(prompt, None, None, None)
+            .await
+    }
+
+    pub async fn generate_with_secret_store(
+        &self,
+        prompt: &ResolvedPrompt,
+        secret_store: Option<&crate::secret_store::SecretStore>,
+        provider_id: Option<&str>,
+        token_url_override: Option<&str>,
+    ) -> Result<String, GatewayError> {
+        let mut key = match self {
+            ProviderClient::Anthropic { api_key, .. } => api_key.clone(),
+            ProviderClient::OpenAiCompat { api_key, .. } => api_key.clone(),
+        };
+
+        let pid = provider_id.unwrap_or(match self {
+            ProviderClient::Anthropic { .. } => "anthropic",
+            ProviderClient::OpenAiCompat { .. } => "openai-codex",
+        });
+
+        let mut is_oauth = key.starts_with("oauth:");
+
+        if let Some(store) = secret_store {
+            if let Ok(Some(tokens)) = store.get_oauth_tokens(pid) {
+                is_oauth = true;
+                if !tokens.access_token.is_empty() && !tokens.disabled {
+                    key = tokens.access_token;
+                }
+            }
+        }
+
+        let res = self.generate_raw(prompt, &key, is_oauth).await;
+
+        if let Err(GatewayError::ProviderError { status: 401, .. }) = &res {
+            if is_oauth {
+                if let Some(store) = secret_store {
+                    let refresher = crate::oauth::refresher::OAuthRefresher::new(store.clone());
+                    if let Ok(new_token) = refresher
+                        .refresh_provider_now(pid, token_url_override)
+                        .await
+                    {
+                        return self.generate_raw(prompt, &new_token, is_oauth).await;
+                    }
+                }
+            }
+        }
+
+        res
+    }
+
+    async fn generate_raw(
+        &self,
+        prompt: &ResolvedPrompt,
+        key: &str,
+        is_oauth: bool,
+    ) -> Result<String, GatewayError> {
         match self {
             ProviderClient::Anthropic {
                 client,
-                api_key,
                 base_url,
                 model,
-            } => generate_anthropic(client, api_key, base_url, model, prompt).await,
+                ..
+            } => generate_anthropic(client, key, base_url, model, prompt, is_oauth).await,
             ProviderClient::OpenAiCompat {
                 client,
-                api_key,
                 base_url,
                 model,
-            } => generate_openai_compat(client, api_key, base_url, model, prompt).await,
+                ..
+            } => generate_openai_compat(client, key, base_url, model, prompt).await,
         }
     }
 }
@@ -125,6 +191,7 @@ async fn generate_anthropic(
     base_url: &str,
     model: &str,
     prompt: &ResolvedPrompt,
+    is_oauth: bool,
 ) -> Result<String, GatewayError> {
     let body = json!({
         "model": model,
@@ -133,14 +200,18 @@ async fn generate_anthropic(
         "messages": messages_json(prompt),
     });
 
-    let response = client
-        .post(format!("{base_url}/v1/messages"))
-        .header("x-api-key", api_key)
+    let mut req = client.post(format!("{base_url}/v1/messages"));
+    if is_oauth {
+        req = req.bearer_auth(api_key);
+    } else {
+        req = req.header("x-api-key", api_key);
+    }
+
+    let response = req
         .header("anthropic-version", ANTHROPIC_API_VERSION)
         .json(&body)
         .send()
         .await?;
-
     let status = response.status();
     let text = response.text().await?;
     if !status.is_success() {
@@ -209,155 +280,4 @@ async fn generate_openai_compat(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model_gateway::GatewayTierMap;
-    use crate::model_gateway::PromptMessage;
-    use openspine_schemas::workflow::ReasoningTier;
-    use std::collections::HashMap;
-    use wiremock::matchers::{header, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
-
-    fn prompt() -> ResolvedPrompt {
-        ResolvedPrompt {
-            system: "You are Lyra.".to_string(),
-            messages: vec![PromptMessage {
-                role: super::super::PromptRole::User,
-                content: "hello".to_string(),
-            }],
-            max_tokens: 100,
-            reasoning_tier: openspine_schemas::workflow::ReasoningTier::Standard,
-        }
-    }
-
-    #[tokio::test]
-    async fn anthropic_client_parses_the_reply_text() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/messages"))
-            .and(header("x-api-key", "test-key"))
-            .and(header("anthropic-version", ANTHROPIC_API_VERSION))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "content": [{"type": "text", "text": "hi owner"}]
-            })))
-            .mount(&server)
-            .await;
-
-        let client = ProviderClient::Anthropic {
-            client: http_client(),
-            api_key: "test-key".to_string(),
-            base_url: server.uri(),
-            model: "test-model".to_string(),
-        };
-        let text = client.generate(&prompt()).await.unwrap();
-        assert_eq!(text, "hi owner");
-    }
-
-    #[tokio::test]
-    async fn openai_compat_client_parses_the_reply_text() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/chat/completions"))
-            .and(header("authorization", "Bearer test-key"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "choices": [{"message": {"content": "hi owner"}}]
-            })))
-            .mount(&server)
-            .await;
-
-        let client = ProviderClient::OpenAiCompat {
-            client: http_client(),
-            api_key: "test-key".to_string(),
-            base_url: server.uri(),
-            model: "test-model".to_string(),
-        };
-        let text = client.generate(&prompt()).await.unwrap();
-        assert_eq!(text, "hi owner");
-    }
-
-    #[tokio::test]
-    async fn provider_error_status_surfaces_as_provider_error() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/messages"))
-            .respond_with(ResponseTemplate::new(401).set_body_string("unauthorized"))
-            .mount(&server)
-            .await;
-
-        let client = ProviderClient::Anthropic {
-            client: http_client(),
-            api_key: "bad-key".to_string(),
-            base_url: server.uri(),
-            model: "test-model".to_string(),
-        };
-        let err = client.generate(&prompt()).await.unwrap_err();
-        assert!(matches!(
-            err,
-            GatewayError::ProviderError { status: 401, .. }
-        ));
-    }
-
-    #[tokio::test]
-    async fn malformed_response_is_missing_content_not_a_panic() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/messages"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"unexpected": true})))
-            .mount(&server)
-            .await;
-
-        let client = ProviderClient::Anthropic {
-            client: http_client(),
-            api_key: "test-key".to_string(),
-            base_url: server.uri(),
-            model: "test-model".to_string(),
-        };
-        let err = client.generate(&prompt()).await.unwrap_err();
-        assert!(matches!(err, GatewayError::MissingContent(_)));
-    }
-    #[tokio::test]
-    async fn declared_high_tier_selects_high_provider_endpoint() {
-        let standard_server = MockServer::start().await;
-        let high_server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/messages"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "content": [{"type": "text", "text": "high reply"}]
-            })))
-            .mount(&high_server)
-            .await;
-        let mut pool = HashMap::new();
-        pool.insert(
-            "standard-provider".to_string(),
-            ProviderClient::Anthropic {
-                client: http_client(),
-                api_key: "test-key".to_string(),
-                base_url: standard_server.uri(),
-                model: "standard-model".to_string(),
-            },
-        );
-        pool.insert(
-            "high-provider".to_string(),
-            ProviderClient::Anthropic {
-                client: http_client(),
-                api_key: "test-key".to_string(),
-                base_url: high_server.uri(),
-                model: "high-model".to_string(),
-            },
-        );
-        let map = GatewayTierMap::new().with_route(ReasoningTier::High, "high-provider");
-        let provider = map
-            .resolve(ReasoningTier::High, "standard-provider", &pool)
-            .expect("high tier route must resolve");
-        let response = provider
-            .generate(&ResolvedPrompt {
-                reasoning_tier: ReasoningTier::High,
-                ..prompt()
-            })
-            .await
-            .unwrap();
-        assert_eq!(response, "high reply");
-        assert_eq!(high_server.received_requests().await.unwrap().len(), 1);
-        assert_eq!(standard_server.received_requests().await.unwrap().len(), 0);
-    }
-}
+mod tests;

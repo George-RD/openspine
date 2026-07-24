@@ -6,6 +6,7 @@ mod artifact_store;
 mod benchmark;
 mod briefcase;
 mod briefcase_visibility;
+pub(crate) mod cli;
 mod config;
 mod connector_reality;
 mod connectors;
@@ -22,6 +23,7 @@ mod model_gateway;
 mod model_swap;
 mod model_swap_recovery;
 mod nerve_delivery;
+pub(crate) mod oauth;
 mod overlay_compat;
 mod overlay_eval_gate;
 mod overlay_export_restore;
@@ -59,7 +61,7 @@ use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::connector_reality::WebhookVerifier;
 use crate::connectors::ConnectorRegistry;
 use anyhow::Context as _;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -148,6 +150,28 @@ pub(crate) struct Cli {
     /// Reinstall the retained pre-restore generation for the pending signed restore.
     #[arg(long)]
     rollback_pending_restore: bool,
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum Commands {
+    /// Interactive onboarding setup wizard
+    Setup,
+    /// Provider login via OAuth or API key
+    Provider {
+        #[command(subcommand)]
+        command: ProviderCommands,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum ProviderCommands {
+    /// Login to a model provider
+    Login {
+        /// Provider ID (e.g. google-antigravity, openai-codex, anthropic)
+        provider: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -163,6 +187,21 @@ async fn main() -> anyhow::Result<()> {
     let boot_started_at = jiff::Timestamp::now();
     if cli.benchmark {
         benchmark::run_benchmarks()?;
+        return Ok(());
+    }
+    if let Some(Commands::Setup) = &cli.command {
+        println!("======================================================");
+        println!("  Welcome to OpenSpine - Governed AI Personal Assistant");
+        println!("======================================================");
+        println!("Setup wizard initialized for {}", cli.config.display());
+        return Ok(());
+    }
+    if let Some(Commands::Provider {
+        command: ProviderCommands::Login { provider },
+    }) = &cli.command
+    {
+        let pid = provider.as_deref().unwrap_or("google-antigravity");
+        println!("Initiating OAuth login for {pid}...");
         return Ok(());
     }
     let cfg = config::Config::load(&cli.config)
