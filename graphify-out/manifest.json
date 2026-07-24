@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/telegram.rs": {
-    "mtime": 1784421817.3675516,
-    "ast_hash": "d5ab43e11462122b73ca7b7bee7730ed",
+    "mtime": 1784900607.822811,
+    "ast_hash": "e112f84579e3f2a8d738e9b8c2f83201",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/test_support.rs": {

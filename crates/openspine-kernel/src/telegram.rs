@@ -204,10 +204,8 @@ pub fn parse_approve_plan_callback(data: &str) -> Option<Ulid> {
 pub fn parse_standing_rule_callback(data: &str) -> Option<(Ulid, bool)> {
     let (prefix, allow) = if let Some(id) = data.strip_prefix("sr_allow:") {
         (id, true)
-    } else if let Some(id) = data.strip_prefix("sr_deny:") {
-        (id, false)
     } else {
-        return None;
+        (data.strip_prefix("sr_deny:")?, false)
     };
     Some((prefix.parse().ok()?, allow))
 }
