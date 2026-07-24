@@ -35,6 +35,8 @@ use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use ulid::Ulid;
 
+pub(crate) const OWNER_APPROVAL_GATE_REASON: &str = "owner-approved request re-gated";
+
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS task_grants (
     id TEXT PRIMARY KEY,
@@ -661,6 +663,7 @@ pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
 pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
+mod reflection_miner_support;
 pub(crate) mod skill_preview_records;
 pub(crate) mod skill_promotion_decisions;
 pub(crate) mod skill_read_queries;

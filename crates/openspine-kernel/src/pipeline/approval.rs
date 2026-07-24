@@ -225,7 +225,7 @@ pub(super) async fn handle_draft_approval_callback(
         "action.gated",
         Some(&request.action),
         Some(&outcome.decision),
-        None,
+        Some(crate::store::OWNER_APPROVAL_GATE_REASON),
         Some(grant.id),
         &[],
         std::slice::from_ref(payload_ref),

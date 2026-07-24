@@ -180,6 +180,16 @@ pub struct Config {
     /// with no Gmail connector configured.
     #[serde(default)]
     pub gmail: Option<GmailConfig>,
+    /// AD-050/135: interval (seconds) between scheduled reflection-miner
+    /// passes. The driver is fail-closed and self-healing (D-047 sweep reaps
+    /// expired scheduled grants), so a conservative default is safe.
+    #[serde(default = "default_reflection_miner_interval_secs")]
+    pub reflection_miner_interval_seconds: u64,
+}
+
+/// Default interval between scheduled reflection-miner passes: 5 minutes.
+fn default_reflection_miner_interval_secs() -> u64 {
+    300
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -202,6 +212,8 @@ pub enum ConfigError {
         "{0} must be 64 lowercase hex characters (32 bytes for AES-256-GCM), got {1} characters"
     )]
     InvalidArtifactKey(&'static str, usize),
+    #[error("reflection_miner_interval_seconds must be greater than zero")]
+    InvalidReflectionMinerInterval,
 }
 
 impl Config {
@@ -210,10 +222,18 @@ impl Config {
             path: path.to_path_buf(),
             source,
         })?;
-        serde_yaml::from_str(&text).map_err(|source| ConfigError::Parse {
+        let config: Self = serde_yaml::from_str(&text).map_err(|source| ConfigError::Parse {
             path: path.to_path_buf(),
             source,
-        })
+        })?;
+        config.validate()
+    }
+
+    fn validate(self) -> Result<Self, ConfigError> {
+        if self.reflection_miner_interval_seconds == 0 {
+            return Err(ConfigError::InvalidReflectionMinerInterval);
+        }
+        Ok(self)
     }
 }
 
@@ -318,6 +338,16 @@ unsafe_allow_uncontained_private_data: false
         assert!(!cfg.unsafe_allow_uncontained_private_data);
         assert_eq!(cfg.kernel.bind_addr, "127.0.0.1:7777");
         assert_eq!(cfg.providers.len(), 1);
+    }
+
+    #[test]
+    fn rejects_zero_reflection_miner_interval() {
+        let mut cfg: Config = serde_yaml::from_str(sample_yaml()).unwrap();
+        cfg.reflection_miner_interval_seconds = 0;
+        assert!(matches!(
+            cfg.validate(),
+            Err(ConfigError::InvalidReflectionMinerInterval)
+        ));
     }
 
     #[test]

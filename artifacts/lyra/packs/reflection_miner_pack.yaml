@@ -1,0 +1,16 @@
+id: reflection_miner_pack
+schema_version: 1
+lifecycle_state: active
+applies_to:
+  event_type: timer.reflection.fired
+  verified_source: true
+  lane: scheduled_internal
+candidate_allowed_actions:
+  - "model.generate:approved_provider"
+denied_actions:
+  - artifact.activate
+  - policy.modify_direct
+constraints:
+  data_classification_max: private
+  recovery_required: revert_or_compensate
+  max_runtime_seconds: 120

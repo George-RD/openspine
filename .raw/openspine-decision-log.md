@@ -3037,6 +3037,246 @@ Registry generations become transactionally pinnable across resolution and grant
 
 ---
 
+# D-130 — Reflection mining remains a pure proposed-output worker boundary
+
+## Decision
+
+The reflection miner remains a pure worker-role boundary: schemas expose no Store handle, activation mutator, or standing-rule mutator; outputs remain `Lifecycle::Proposed`.
+
+## Rationale
+
+Learning must not bypass the kernel-owned artifact lifecycle or turn a model-facing worker into an authority source.
+
+## Consequences
+
+Every mined change requires the ordinary proposal, owner-review, evaluation, and activation path. The miner cannot mutate active behavior directly.
+
+## Would change if
+
+Canon assigns a new kernel-owned, non-model mutation path with equivalent lifecycle guarantees.
+
+---
+
+# D-131 — Reflection runtime accepts only authenticated persisted grants
+
+## Decision
+
+Kernel runtime loads canonical persisted grants by ID and MUST be called only from an already authenticated and gate-admitted request context; schema admission performs structural defense-in-depth checks.
+
+## Rationale
+
+Caller-supplied grant objects can be forged or stale. Authentication and gate admission are kernel boundaries, while schema checks prevent malformed miner roles from entering the runtime.
+
+## Consequences
+
+The runtime re-loads the persisted grant, verifies its MAC, and rejects calls outside the admitted model-action path.
+
+## Would change if
+
+Grant handles become unforgeable kernel capabilities that already pin an authenticated persisted generation.
+
+---
+
+# D-132 — Miner grants are read-only, bounded, and classification-capped
+
+## Decision
+
+The miner grant requires empty `output_channels`, `model.generate:approved_provider`, no direct-mutation action, expiry, exact grant-bound scoped evidence, and pack-derived classification ceiling.
+
+## Rationale
+
+A reflection worker needs model inference and evidence access, not an effect channel. Limits and the pack ceiling keep its authority no broader than the declarative artifacts that composed it.
+
+## Consequences
+
+Malformed or overpowered miner grants fail admission. All model and artifact consumption remains finite and grant-accounted.
+
+## Would change if
+
+A ratified reflection role requires a new effect, with that effect separately gated and represented in the composed authority.
+
+---
+
+# D-133 — Reflection evidence is verified, referenced, and allow-filtered
+
+## Decision
+
+The kernel packs audit evidence only after verifying the audit hash chain; rows without encrypted target references are excluded, and approval evidence is filtered to `GateDecision::Allow`.
+
+## Rationale
+
+Unverified rows, reference-free summaries, and denied actions cannot prove an owner-approved artifact interaction.
+
+## Consequences
+
+The miner receives provenance-bearing encrypted references only. Ledger corruption aborts evidence loading instead of degrading to partial history.
+
+## Would change if
+
+A separately authenticated evidence source gains equivalent integrity, provenance, and confidentiality guarantees.
+
+---
+
+# D-134 — Reflection identities use encrypted-reference digests
+
+## Decision
+
+Briefcase artifact identities are keyed by the digest of the persisted encrypted target reference; observed action IDs remain separate and are carried into standing-rule candidates.
+
+## Rationale
+
+The persisted reference is the kernel-verifiable identity available in audit history, while an action describes what happened rather than what artifact was involved.
+
+## Consequences
+
+Repeated evidence groups by artifact digest and action as distinct fields; standing-rule proposals retain both.
+
+## Would change if
+
+Audit events gain a stronger canonical artifact identity bound to the same persisted target.
+
+---
+
+# D-135 — Repeated approvals are derived, never caller-asserted
+
+## Decision
+
+Repeated-approval evidence is derived from at least two matching entries in the kernel-packed briefcase; caller-supplied approval counts are not accepted.
+
+## Rationale
+
+Accepting a count from a worker would let untrusted input manufacture the threshold for a standing-rule proposal.
+
+## Consequences
+
+The kernel supplies individual verified observations and the pure miner derives repetition from exact matches.
+
+## Would change if
+
+The kernel introduces an authenticated aggregate evidence record carrying the underlying proof set.
+
+---
+
+# D-136 — Corrections separate positive instructions from negative probes
+
+## Decision
+
+Corrections reject prohibition-shaped replacement instructions. Negative constraints remain structured `EvalProbe` data and are retained in the lifecycle provenance audit row.
+
+## Rationale
+
+Mixing prohibitions into learned instructions makes behavior hard to evaluate and can silently turn failure examples into policy text.
+
+## Consequences
+
+Positive rewrites remain executable persona instructions; negative lessons remain explicit evaluation obligations with durable provenance.
+
+## Would change if
+
+Persona schemas gain a typed negative-constraint field with equivalent evaluation and audit semantics.
+
+---
+
+# D-137 — Reflection provenance audit is dispatch-critical
+
+## Decision
+
+Persona provenance/reason/eval-probe metadata is retained in a `reflection.miner.provenance` audit event carrying proposal artifact ID and version; audit append failure aborts dispatch.
+
+## Rationale
+
+Owner review must be able to reconstruct why a learned proposal exists. Dispatch without that record would create an unauditable behavioral mutation candidate.
+
+## Consequences
+
+Every dispatched persona proposal has durable lineage metadata, and storage failure is fail-closed.
+
+## Would change if
+
+The proposal store transactionally embeds the same immutable provenance and audit-chain commitment.
+
+---
+
+# D-138 — Miner and lifecycle artifact budgets are independent
+
+## Decision
+
+Artifact budget reservation is charged once for the miner grant and the normal lifecycle's owner grant independently; both are durable `BEGIN IMMEDIATE` counters keyed to their respective grants.
+
+## Rationale
+
+Mining and owner-lifecycle submission are separate authority uses. Sharing or count-then-compare accounting would obscure ownership and reintroduce concurrent overrun risk.
+
+## Consequences
+
+Each grant pays for its own artifact operation exactly once, with transactional exhaustion under concurrency.
+
+## Would change if
+
+A ratified parent-child budget model defines atomic delegated quota transfer between these grants.
+
+---
+
+# D-139 — Consolidation remains scoped proposed maintenance
+
+## Decision
+
+Consolidation targets are limited to artifact identities present in the scoped briefcase and remain a proposed maintenance directive; dynamic golden-set probe registration remains the D-096 follow-up.
+
+## Rationale
+
+Consolidation must not name unseen artifacts or mutate active overlays, and this change does not settle dynamic evaluator registration.
+
+## Consequences
+
+Merge/prune output is owner-reviewable and evidence-scoped. Existing fixed golden-set behavior remains unchanged.
+
+## Would change if
+
+D-096's follow-up ratifies dynamic probe registration or a broader authenticated consolidation scope.
+
+---
+
+# D-140 — Scheduled reflection grants compose from active artifacts
+
+## Decision
+
+The scheduled driver composes short-lived miner and submitter grants from active route/agent/workflow/pack/policy artifacts, resolves the internal route deterministically, seals both grants, and re-authenticates persisted copies before reuse.
+
+## Rationale
+
+Hard-coded grants would create a second authority convention and drift from the normal route/composition boundary.
+
+## Consequences
+
+Scheduled reflection uses the same declarative authority inputs as ordinary work, while short expiry and MAC revalidation bound reuse.
+
+## Would change if
+
+Canon defines a distinct kernel scheduler authority primitive with no declarative route dependency.
+
+---
+
+# D-141 — Scheduled repeated approvals span authenticated owner grants
+
+## Decision
+
+Scheduled repeated-approval evidence spans the authenticated owner's signed grants, groups by exact `(artifact digest, action id)`, and is stamped into the miner grant's scoped briefcase. Existing active/pending candidates are skipped.
+
+## Rationale
+
+Production approvals occur across short-lived owner grants, but evidence must remain owner-bound, MAC-authenticated, exact-match grouped, and idempotent across ticks.
+
+## Consequences
+
+The scheduler can learn stable repetitions without widening to another owner's history or repeatedly consuming proposal budget for an existing candidate.
+
+## Would change if
+
+Owner evidence is consolidated into a separately authenticated durable corpus with equivalent exact-match and idempotency guarantees.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -3112,4 +3352,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-118 (scope-keyed disclosure policies with independent envelopes), D-119 (kernel-prepared one-use disclosure queries over kernel provenance), D-120 (pending-question owner answers with kernel digests), and D-121 (fail-closed disclosure budget accounting with policy-free worker outcomes), settled while implementing `implement-disclosure-policy`. |
 | 2026-07-23 | Added D-122 (restart-bound non-delegable root-owner overlay snapshots under a canonical lifetime lock, exact authenticated typed-tree bundles, and external signed terminal-erasure continuity), settled while implementing `implement-overlay-export-restore`. |
 | 2026-07-24 | Added D-123 (production adoption at ambiguous route resolution), D-124 (canonical tied candidate ids), D-125 (lexicographic within-class selection), D-126 (invalid/failed competitors escalate), D-127 (all-non-applicable ties are silent non-matches), D-128 (rated-egress production guard), and D-129 (persist the selected composition snapshot), settled while implementing `wire-authority-equivalence-selection`. |
+| 2026-07-24 | Added D-130–D-141 (pure proposed-only miner boundary, authenticated bounded grants, verified encrypted-reference evidence, derived exact-match repetition, correction/probe separation, fail-closed provenance, independent durable budgets, scoped consolidation, declarative scheduled grant composition, and owner-bound cross-grant evidence), settled while implementing `implement-reflection-miner`. |
 

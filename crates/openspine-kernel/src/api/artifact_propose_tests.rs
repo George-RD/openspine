@@ -19,7 +19,15 @@ use ulid::Ulid;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+use jiff::Timestamp;
 use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::event::DataClassification;
+use openspine_schemas::grant::{GrantLimits, GrantMode, TaskGrant};
+use openspine_schemas::policy::Constraints;
+use openspine_schemas::reflection_miner::{
+    AuditTrailEntry, CorrectionObservation, MinerBriefcase, OrdinaryMinerGrant, ReflectionMiner,
+    ReflectionProposalBody, ReflectionProvenance,
+};
 
 use super::actions::DispatchError;
 use super::artifact_propose::dispatch_artifact_propose;
@@ -253,19 +261,16 @@ async fn artifact_propose_rejects_template_kind() {
 }
 
 #[tokio::test]
-async fn artifact_propose_rejects_persona_kind() {
+async fn artifact_propose_rejects_non_proposed_persona_kind() {
     let state = test_state();
     let grant = handle_owner_update(&state, &owner_update("hello lyra"))
         .await
         .unwrap()
         .expect("owner update must compose a grant");
 
-    // AD-080: personas carry no authority, so they are not in the
-    // proposable-kind table and a chat can never propose one — only the
-    // six authority-bearing kinds may enter propose -> approve -> activate.
     let payload = json!({
         "kind": "persona",
-        "yaml": "id: injected_persona\nschema_version: 1\n",
+        "yaml": "id: injected_persona\nschema_version: 1\nversion: 1\nlifecycle_state: active\nguidance: injected\n",
     });
     let err = dispatch_artifact_propose(
         &state,
@@ -277,15 +282,14 @@ async fn artifact_propose_rejects_persona_kind() {
     .await
     .unwrap_err();
     match err {
-        DispatchError::BadRequest(msg) => assert!(
-            msg.contains("route|agent|workflow|pack|policy"),
-            "unexpected message: {msg}"
-        ),
+        DispatchError::BadRequest(msg) => {
+            assert!(msg.contains("lifecycle_state"), "unexpected message: {msg}")
+        }
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
         | DispatchError::ConnectorUnavailable(_)
         | DispatchError::DeliveryUnknown(_) => {
-            panic!("persona kind must be a BadRequest, not infrastructure failure")
+            panic!("invalid persona lifecycle must be a BadRequest")
         }
     }
     assert!(!state
@@ -393,3 +397,5 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
         .proposed_artifact_exists("route", "preactivate_route", 1)
         .unwrap());
 }
+#[path = "artifact_propose_miner_tests.rs"]
+mod miner_tests;

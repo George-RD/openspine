@@ -1,0 +1,16 @@
+id: reflection_miner_scheduled
+schema_version: 1
+lifecycle_state: active
+purpose: Scheduled reflection mining over a kernel-packed evidence slice.
+required_agent: reflection_miner_agent
+required_capability_pack: reflection_miner_pack
+steps:
+  - pack a bounded verified audit slice
+  - gate the bounded model operation
+  - emit review-only reflection proposals
+candidate_allowed_actions:
+  - "model.generate:approved_provider"
+approval_required: []
+denied_actions:
+  - artifact.activate
+  - policy.modify_direct

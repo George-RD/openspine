@@ -29,6 +29,8 @@ mod overlay_persona_admission;
 mod overlay_recovery;
 mod overlay_startup;
 mod pipeline;
+mod reflection_miner_runtime;
+use crate::reflection_miner_runtime::run_reflection_miner_driver;
 mod sandbox;
 mod secret_intake;
 mod secret_store;
@@ -651,6 +653,17 @@ async fn main() -> anyhow::Result<()> {
     let worker_failed_consumer = pipeline::run_worker_failed_consumer(&state);
     let standing_rule_dark_window_consumer =
         pipeline::run_standing_rule_dark_window_consumer(&state);
+    // AD-050/135: scheduled reflection miner. Interval-driven, fail-closed;
+    // finds-or-mints a long-lived scheduled grant pair each pass and invokes
+    // `run_reflection_miner` under the grant-scoped admission path.
+    let reflection_state = state.clone();
+    tokio::spawn(async move {
+        run_reflection_miner_driver(
+            &reflection_state,
+            std::time::Duration::from_secs(cfg.reflection_miner_interval_seconds),
+        )
+        .await;
+    });
     tokio::select! {
         res = http_server => res.context("http server failed")?,
         res = telegram_poll => res.context("telegram poll loop failed")?,

@@ -1,0 +1,25 @@
+id: reflection_miner_agent
+schema_version: 1
+lifecycle_state: active
+purpose: Mine bounded owner evidence into review-only learning proposals.
+persistence: ephemeral
+persona: concise_practical_operator
+model_policy:
+  allowed_providers: [local, openai, anthropic]
+  private_context_requires_gateway: true
+  max_model_calls_per_task: 1
+memory_scope:
+  allowed_classes: [owner_preference, workflow_state]
+  allowed_scopes: [owner_control, product_usage, external_facing_writing_preferences]
+  denied_classes: [health, finance, family_private, raw_email_body, attachment_content, infrastructure_secret]
+designed_tools:
+  - "model.generate:approved_provider"
+denied_tools:
+  - artifact.activate
+  - policy.modify_direct
+limits:
+  max_runtime_seconds: 120
+  max_artifacts: 4
+  max_tokens: 4000
+output_channels:
+  allowed: []

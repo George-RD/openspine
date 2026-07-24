@@ -1,0 +1,14 @@
+id: reflection_scheduled_miner
+schema_version: 1
+lifecycle_state: active
+priority: 100
+effect: allow
+when:
+  source: internal
+  event_type: timer.reflection.fired
+  verified_source: true
+  lane: scheduled_internal
+  channel_account: reflection-miner
+agent: reflection_miner_agent
+workflow: reflection_miner_scheduled
+capability_pack: reflection_miner_pack

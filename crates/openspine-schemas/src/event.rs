@@ -63,6 +63,9 @@ pub enum EventType {
     /// A kernel-owned task reminder firing (AD-090): same path as a deadline.
     #[serde(rename = "timer.reminder.fired")]
     TimerReminderFired,
+    /// A kernel-owned periodic reflection-miner pass (AD-050/AD-149).
+    #[serde(rename = "timer.reflection.fired")]
+    TimerReflectionFired,
     /// A verified webhook delivery (AD-134): rides the ordinary event
     /// pipeline as a system-hook event source, gated through the full
     /// verify → identify → route → compose → grant → run → gate → audit

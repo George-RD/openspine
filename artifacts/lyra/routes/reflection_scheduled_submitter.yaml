@@ -1,0 +1,14 @@
+id: reflection_scheduled_submitter
+schema_version: 1
+lifecycle_state: active
+priority: 100
+effect: allow
+when:
+  source: internal
+  event_type: timer.reflection.fired
+  verified_source: true
+  lane: scheduled_internal
+  channel_account: reflection-submitter
+agent: reflection_submitter_agent
+workflow: reflection_submitter_scheduled
+capability_pack: reflection_submitter_pack

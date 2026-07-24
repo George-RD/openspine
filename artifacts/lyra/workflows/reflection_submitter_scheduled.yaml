@@ -1,0 +1,16 @@
+id: reflection_submitter_scheduled
+schema_version: 1
+lifecycle_state: active
+purpose: Submit mined artifacts through the normal owner-review lifecycle.
+required_agent: reflection_submitter_agent
+required_capability_pack: reflection_submitter_pack
+steps:
+  - receive a provenance-bound reflection proposal
+  - gate artifact.propose
+  - request owner approval through the normal lifecycle
+candidate_allowed_actions:
+  - artifact.propose
+approval_required: []
+denied_actions:
+  - artifact.activate
+  - policy.modify_direct

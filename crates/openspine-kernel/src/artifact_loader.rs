@@ -606,6 +606,10 @@ pub enum ParsedProposal {
     Policy(Policy),
     ModelSwap(ModelSwapManifest),
     StandingRule(StandingRuleManifest),
+    /// Persona element (AD-094/AD-135): non-authority behavioral guidance,
+    /// proposable through the normal lifecycle so owner corrections to the
+    /// learned digest default converge as reviewed overlay artifacts.
+    Persona(PersonaElement),
 }
 
 impl ParsedProposal {
@@ -618,6 +622,7 @@ impl ParsedProposal {
             ParsedProposal::Policy(_) => "policy",
             ParsedProposal::ModelSwap(_) => "model_swap",
             ParsedProposal::StandingRule(_) => "standing_rule",
+            ParsedProposal::Persona(_) => "persona",
         }
     }
 
@@ -630,6 +635,7 @@ impl ParsedProposal {
             ParsedProposal::Policy(p) => &p.id,
             ParsedProposal::ModelSwap(m) => &m.id,
             ParsedProposal::StandingRule(r) => &r.id,
+            ParsedProposal::Persona(p) => &p.id,
         }
     }
 
@@ -642,6 +648,7 @@ impl ParsedProposal {
             ParsedProposal::Policy(p) => p.version,
             ParsedProposal::ModelSwap(m) => m.version,
             ParsedProposal::StandingRule(r) => r.version,
+            ParsedProposal::Persona(p) => p.version,
         }
     }
 
@@ -654,6 +661,7 @@ impl ParsedProposal {
             ParsedProposal::Policy(p) => p.lifecycle_state,
             ParsedProposal::ModelSwap(m) => m.lifecycle_state,
             ParsedProposal::StandingRule(r) => r.lifecycle_state,
+            ParsedProposal::Persona(p) => p.lifecycle_state,
         }
     }
     /// Overlay subdirectory name matching the loader's per-kind layout
@@ -676,6 +684,7 @@ impl ParsedProposal {
             ParsedProposal::Policy(p) => p.lifecycle_state = active,
             ParsedProposal::ModelSwap(m) => m.lifecycle_state = active,
             ParsedProposal::StandingRule(r) => r.lifecycle_state = active,
+            ParsedProposal::Persona(p) => p.lifecycle_state = active,
         }
     }
 
@@ -689,6 +698,7 @@ impl ParsedProposal {
             ParsedProposal::ModelSwap(m) => serde_yaml::to_string(m),
             ParsedProposal::Policy(p) => serde_yaml::to_string(p),
             ParsedProposal::StandingRule(r) => serde_yaml::to_string(r),
+            ParsedProposal::Persona(p) => serde_yaml::to_string(p),
         }
     }
 
@@ -734,6 +744,7 @@ impl ParsedProposal {
             ParsedProposal::Workflow(w) => replace_keyed(&mut registry.workflows, w.id.clone(), w),
             ParsedProposal::Pack(p) => replace_keyed(&mut registry.packs, p.id.clone(), p),
             ParsedProposal::Policy(p) => replace_keyed(&mut registry.policies, p.id.clone(), p),
+            ParsedProposal::Persona(p) => replace_keyed(&mut registry.personas, p.id.clone(), p),
         }
     }
 }
@@ -779,10 +790,10 @@ pub struct ArtifactKindSpec {
     pub duplicate_exists: fn(&ArtifactRegistry, &str, u32) -> bool,
 }
 
-/// The six proposable kinds, in a fixed order. This table is the only
+/// The eight proposable kinds, in a fixed order. This table is the only
 /// declaration of what `artifact.propose` accepts; the kind guard, parser,
 /// and duplicate-check all derive from it.
-pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 7] = &[
+pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 8] = &[
     ArtifactKindSpec {
         name: "route",
         overlay_subdir: "routes",
@@ -855,6 +866,17 @@ pub static ARTIFACT_KIND_SPECS: &[ArtifactKindSpec; 7] = &[
                 .standing_rules
                 .get(id)
                 .is_some_and(|r| r.version == version)
+        },
+    },
+    ArtifactKindSpec {
+        name: "persona",
+        overlay_subdir: "personas",
+        parse: |yaml| Ok(ParsedProposal::Persona(serde_yaml::from_str(yaml)?)),
+        duplicate_exists: |registry, id, version| {
+            registry
+                .personas
+                .get(id)
+                .is_some_and(|persona| persona.version == version)
         },
     },
 ];
