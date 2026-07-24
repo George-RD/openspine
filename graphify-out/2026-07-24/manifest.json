@@ -1980,8 +1980,8 @@
     "semantic_hash": ""
   },
   "docs/day-2-operations.md": {
-    "mtime": 1784883168.8191316,
-    "ast_hash": "2ab0aee4f3b0694e0ac61231cea059c6",
+    "mtime": 1784883383.7600057,
+    "ast_hash": "c80b352e1c9b7e4553577d94fee60ceb",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-day2-operations/design.md": {
@@ -3152,11 +3152,6 @@
   "crates/openspine-shell/src/agents/main_assistant/tests.rs": {
     "mtime": 1784828041.5943174,
     "ast_hash": "1ae7861a75ef1320bea4f008c5ab729a",
-    "semantic_hash": ""
-  },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784881236.7577164,
-    "ast_hash": "b82e38104a174481d78e32f30e4c0c3a",
     "semantic_hash": ""
   },
   "openspec/changes/implement-overlay-export-restore/.openspec.yaml": {
