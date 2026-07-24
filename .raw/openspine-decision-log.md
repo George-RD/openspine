@@ -2897,6 +2897,146 @@ The stores gain a real cross-store snapshot transaction; a trusted remote/HSM mo
 
 
 
+# D-123 — Production authority-equivalence adoption occurs at ambiguous route resolution
+
+## Decision
+
+The production tie lives at `resolve_route`'s ambiguous route result, not inside `compose_authority`. `compose_authority` continues to receive one resolved route; the pipeline driver adopts equivalence selection at the route/composition boundary.
+
+## Rationale
+
+This is the production point where multiple matching candidates still compete. Moving conflict resolution into single-input composition would blur D-008's deterministic routing boundary and create a second authority-selection convention.
+
+## Consequences
+
+The ordinary one-route path remains unchanged. Any future production surface that carries multiple candidates must explicitly adopt the same class-resolution boundary rather than relying on composition to choose.
+
+## Would change if
+
+A future production caller introduces a separate multi-candidate composition surface.
+
+---
+
+# D-124 — Ambiguous route results expose their canonical tied set
+
+## Decision
+
+`RouteResolution::Ambiguous` exposes sorted, deduplicated tied route ids while retaining `fallback_route`. The driver uses the actual tied candidates for sealed class construction; no fallback is auto-used.
+
+## Rationale
+
+The prior result carried only a synthetic fallback and reason, which was insufficient to compose the competing authority candidates. Canonical ordering also makes deterministic within-class selection stable.
+
+## Consequences
+
+All constructors and consumers of `RouteResolution::Ambiguous` carry `candidate_route_ids`. The fallback remains wire-compatible context, not an authority decision.
+
+## Would change if
+
+The route-resolution schema is versioned for a different candidate transport.
+
+---
+
+# D-125 — Unique-class route ties select the lexicographically smallest candidate id
+
+## Decision
+
+A unique authority class picks its lexicographically smallest candidate id, the first member after `AuthorityEquivalenceClasses::from_candidates` sorting.
+
+## Rationale
+
+Members are authority-identical after the production egress guard, so a stable deterministic choice changes strategy only, never authority. No production semantic chooser exists at this boundary.
+
+## Consequences
+
+Equivalent ties are reproducible and auditable without model scoring. The selected route and persisted grant identify the same lowest-id candidate.
+
+## Would change if
+
+The matcher supplies an explicit semantic chooser at this production boundary while remaining class-scoped.
+
+---
+
+# D-126 — Invalid or failed tied candidates escalate instead of shrinking the set
+
+## Decision
+
+A missing authority source or composition failure among tied candidates escalates rather than dropping the failed candidate and auto-picking the remainder.
+
+## Rationale
+
+Shrinking a tied set after an authority-relevant failure can manufacture an apparently safe one-class result and conceal a conflicting candidate.
+
+## Consequences
+
+Missing route, agent, workflow, pack, or global policy metadata and any `compose_all` failure produce an audited owner escalation and no grant.
+
+## Would change if
+
+The kernel defines a separately ratified partial-composition contract that proves dropping a failed candidate cannot widen or conceal authority.
+
+---
+
+# D-127 — All-non-applicable route ties remain silent non-matches
+
+## Decision
+
+A tie whose candidates all have non-applicable packs is a silent non-match, not an escalation.
+
+## Rationale
+
+Pack applicability is a suitability predicate, not competing authority. This matches the existing single-route `pack_not_applicable` behavior and keeps non-matches distinct from authority ambiguity.
+
+## Consequences
+
+The driver records `route.ambiguous.not_applicable`, persists no grant, and sends no owner notification. Applicable candidates still proceed through class resolution.
+
+## Would change if
+
+The product requires owner visibility for every route non-match.
+
+---
+
+# D-128 — Rated egress equality guards production within-class selection
+
+## Decision
+
+Rated egress equality is checked as a production selection guard, not added to AD-147's frozen five-field `AuthorityClassId`. A mismatch escalates because the gate treats composed egress as live authority.
+
+## Rationale
+
+D-109 froze an exact five-field identity while `allowed_egress_classes` already existed, and the gate enforces that omitted field. D-128 therefore qualifies D-110's broad consequence that within-class picks compose identical grants: production picks also require egress homogeneity.
+
+## Consequences
+
+The driver canonicalizes every selected-class member's composed egress set and escalates on any difference. The sealed five-field class API remains unchanged; D-128 refines D-110's production within-class selection boundary.
+
+## Would change if
+
+Canon explicitly revises `AuthorityClassId` to include rated egress.
+
+---
+
+# D-129 — Ambiguous selection persists the exact composition snapshot
+
+## Decision
+
+The driver persists the exact grant snapshot selected from the authority class rather than recomposing from the live registry.
+
+## Rationale
+
+Artifact activation can replace same-id agents, workflows, packs, or policies between registry reads. Recomposing after class resolution would permit the persisted grant to differ from the authority snapshot that passed selection.
+
+## Consequences
+
+`TieResolution::Selected` carries the selected route and composed grant into the shared persona-binding and Grant-stage path. A post-resolution registry update cannot widen the returned or persisted grant.
+
+## Would change if
+
+Registry generations become transactionally pinnable across resolution and grant persistence.
+
+---
+
 ## Open Decision Questions — CLOSED (see linked decisions)
 
 | ID    | Question                                                    | Resolution |
@@ -2971,4 +3111,5 @@ Potential areas to research before implementation decisions:
 | 2026-07-18 | Added D-115 (additive, no-fallback, structurally contained persona binding), D-116 (fail-closed bound-MAC webhook admission), and D-117 (digest-only headless lane with non-downgradable resumable approvals), settled while implementing `implement-persona-binding-and-headless-lanes`. |
 | 2026-07-18 | Added D-118 (scope-keyed disclosure policies with independent envelopes), D-119 (kernel-prepared one-use disclosure queries over kernel provenance), D-120 (pending-question owner answers with kernel digests), and D-121 (fail-closed disclosure budget accounting with policy-free worker outcomes), settled while implementing `implement-disclosure-policy`. |
 | 2026-07-23 | Added D-122 (restart-bound non-delegable root-owner overlay snapshots under a canonical lifetime lock, exact authenticated typed-tree bundles, and external signed terminal-erasure continuity), settled while implementing `implement-overlay-export-restore`. |
+| 2026-07-24 | Added D-123 (production adoption at ambiguous route resolution), D-124 (canonical tied candidate ids), D-125 (lexicographic within-class selection), D-126 (invalid/failed competitors escalate), D-127 (all-non-applicable ties are silent non-matches), D-128 (rated-egress production guard), and D-129 (persist the selected composition snapshot), settled while implementing `wire-authority-equivalence-selection`. |
 

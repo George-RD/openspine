@@ -13,6 +13,7 @@ mod effect_paths;
 mod headless;
 mod offset;
 mod plan;
+mod route_ambiguity;
 mod secret_intake_integration;
 mod skill_command_tests;
 mod task_board;

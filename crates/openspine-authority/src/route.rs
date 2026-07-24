@@ -128,11 +128,16 @@ pub fn resolve_route(
         .map(|r| r.when.specificity())
         .max()
         .unwrap_or(0);
-    let winners: Vec<&&Route> = by_priority
+    let mut winners: Vec<&&Route> = by_priority
         .iter()
         .filter(|r| r.when.specificity() == max_specificity)
         .copied()
         .collect();
+    // Sort + dedup so the exposed tie set is canonical and stable across runs
+    // (deterministic order is what `AuthorityEquivalenceClasses` later picks
+    // from; see D-109/D-110 production-adoption wiring).
+    winners.sort_by(|left, right| left.id.cmp(&right.id));
+    winners.dedup_by(|left, right| left.id == right.id);
 
     match winners.as_slice() {
         [only] => RouteResolution::Success {
@@ -141,6 +146,7 @@ pub fn resolve_route(
         _ => RouteResolution::Ambiguous {
             fallback_route: LOW_AUTHORITY_TRIAGE.to_string(),
             reason: "multiple_matching_routes_no_deterministic_winner".to_string(),
+            candidate_route_ids: winners.iter().map(|r| r.id.clone()).collect(),
         },
     }
 }
@@ -347,7 +353,38 @@ mod tests {
             resolution,
             RouteResolution::Ambiguous {
                 fallback_route: LOW_AUTHORITY_TRIAGE.to_string(),
-                reason: "multiple_matching_routes_no_deterministic_winner".to_string()
+                reason: "multiple_matching_routes_no_deterministic_winner".to_string(),
+                candidate_route_ids: vec![
+                    "owner_telegram_main_assistant".to_string(),
+                    "owner_telegram_main_assistant_v2".to_string(),
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn three_way_priority_tie_exposes_sorted_deduped_candidate_ids() {
+        let mut second = owner_route();
+        second.id = "owner_telegram_main_assistant_v2".to_string();
+        let mut third = owner_route();
+        third.id = "owner_telegram_main_assistant_v3".to_string();
+        // Construct out of order to prove the result is sorted.
+        let resolution = resolve_route(
+            &owner_event(),
+            &owner_identity_resolution(),
+            Some(RelationshipKind::Owner),
+            &[third, owner_route(), second],
+        );
+        assert_eq!(
+            resolution,
+            RouteResolution::Ambiguous {
+                fallback_route: LOW_AUTHORITY_TRIAGE.to_string(),
+                reason: "multiple_matching_routes_no_deterministic_winner".to_string(),
+                candidate_route_ids: vec![
+                    "owner_telegram_main_assistant".to_string(),
+                    "owner_telegram_main_assistant_v2".to_string(),
+                    "owner_telegram_main_assistant_v3".to_string(),
+                ],
             }
         );
     }
