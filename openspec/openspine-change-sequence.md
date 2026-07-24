@@ -82,6 +82,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-counterparty-key-model` (no new D entries — storage and erasure
   contracts are ratified by AD-140)
 - `implement-overlay-export-restore` (D-122)
+- `wire-authority-equivalence-selection` (D-123..D-129)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

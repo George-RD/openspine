@@ -3264,11 +3264,6 @@
     "ast_hash": "2aa2fb2063538afc0276ec01f55d232d",
     "semantic_hash": ""
   },
-  "IMPLEMENTATION-NOTES.md": {
-    "mtime": 1784886267.2044609,
-    "ast_hash": "8c3c77e85fb109dc4553144e9bc9bfa2",
-    "semantic_hash": ""
-  },
   "openspec/changes/wire-authority-equivalence-selection/design.md": {
     "mtime": 1784886394.0165982,
     "ast_hash": "1d2448d27948c872aa99add5c4cc90eb",
