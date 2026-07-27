@@ -110,8 +110,16 @@
 					<dd>thread 8F2 only</dd>
 				</div>
 				<div>
-					<dt>budget</dt>
-					<dd>1 read · 1 draft</dd>
+					<dt>model</dt>
+					<dd>≤5 calls</dd>
+				</div>
+				<div>
+					<dt>artifacts</dt>
+					<dd>≤20</dd>
+				</div>
+				<div>
+					<dt>runtime</dt>
+					<dd>≤180 seconds</dd>
 				</div>
 				<div>
 					<dt>expires</dt>
@@ -124,7 +132,7 @@
 	<div class="gate-ledger" aria-label="Effect gate decisions">
 		<div class="gate-row gate-row--allow" style="--gate: 0">
 			<span class="gate-result">Allow</span>
-			<code>email.read_selected_thread</code>
+			<code>email.read_thread:selected_no_attachments</code>
 			<small>selection token matched</small>
 		</div>
 		<div class="gate-row gate-row--ask" style="--gate: 1">
