@@ -1,15 +1,21 @@
 # OpenSpine site
 
-Astro + Starlight docs site for OpenSpine. Isolated from the Rust
-workspace's own `package.json`/gate — this directory has its own
-dependencies and its own build.
+Astro + Starlight site for OpenSpine. The custom marketing landing page lives in `src/pages/index.astro`; documentation routes remain in Starlight under `src/content/docs/`.
 
 ```sh
-npm install
-npm run dev     # local dev server at localhost:4321
-npm run build   # production build to ./dist/
+npm ci
+npm run dev      # local server at http://localhost:4321/openspine/
+npm run build    # production build to ./dist/
+npm run preview
 ```
 
-Deployment is out of scope for this repository right now — `npm run
-build` passing locally is the bar. Hosting (e.g. Cloudflare Pages/Workers)
-is a follow-up to wire when ready.
+## Design context
+
+- [`PRODUCT.md`](PRODUCT.md) records product truth, audience, proof, voice, and claims to avoid.
+- [`DESIGN.md`](DESIGN.md) records the Impeccable-derived visual system and interaction rules.
+- `src/styles/landing.css` is the landing-page entry point; its smaller modules separate shell, trace, scenario, sections, and responsive behavior.
+- `src/styles/starlight.css` carries the same system into the documentation without the landing-page effects.
+
+## Deployment
+
+Pull requests that change `site/**` run the site build check. Changes merged to `main` deploy to GitHub Pages through `.github/workflows/deploy-site.yml`.
