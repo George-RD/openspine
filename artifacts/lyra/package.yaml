@@ -1,0 +1,59 @@
+schema_version: 1
+id: lyra
+version: 1
+lifecycle_state: alpha
+display_name: Lyra
+description: >-
+  The default owner-facing personal agent for OpenSpine. Lyra coordinates
+  bounded workers and workflows while the OpenSpine kernel retains authority.
+entry_agent: main_assistant_agent
+
+artifacts:
+  agents:
+    - main_assistant_agent
+    - email_reply_drafter
+    - reflection_miner_agent
+    - reflection_submitter_agent
+  routes:
+    - owner_telegram_main_assistant
+    - task_deadline_fired
+    - task_reminder_fired
+  policies:
+    - global
+
+identity:
+  persona: concise_practical_operator
+  identity_document: PERSONA.md
+
+memory:
+  model: typed_overlay
+  description: >-
+    Memory is stored as typed, scoped overlay artifacts with provenance. It is
+    not an unrestricted transcript or a single mutable soul file.
+  readable_classes:
+    - owner_preference
+    - setup_state
+    - workflow_state
+  readable_scopes:
+    - owner_control
+    - product_usage
+    - external_facing_writing_preferences
+  denied_classes:
+    - health
+    - finance
+    - family_private
+    - raw_email_body
+    - attachment_content
+    - infrastructure_secret
+
+installation:
+  current_source: artifacts/lyra
+  config_key: lyra_dir
+  planned_cli: openspine install lyra
+
+security_invariants:
+  - The model reasons; the kernel decides.
+  - Agent manifests describe intended tools, not effective authority.
+  - Explicit deny wins.
+  - Email sending is denied by the base Lyra policy.
+  - Raw connector credentials are never provided to the agent shell.

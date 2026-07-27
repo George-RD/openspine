@@ -1,8 +1,9 @@
-# Transcribed verbatim (field values) from PRD §10.1.
+# Lyra's persistent owner-facing coordinator. Intended tools describe design;
+# effective authority is resolved by the kernel for each task grant.
 id: main_assistant_agent
 schema_version: 1
 lifecycle_state: active
-purpose: Owner-facing conversational orchestrator.
+purpose: Lyra, the default owner-facing personal agent and bounded workflow orchestrator.
 persistence: persistent
 persona: concise_practical_operator
 model_policy:
