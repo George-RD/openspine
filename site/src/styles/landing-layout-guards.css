@@ -1,0 +1,10 @@
+html {
+	overflow-x: clip;
+}
+
+.mechanism-layout > *,
+.section-heading--split > *,
+.proof-heading > *,
+.start-layout > * {
+	min-width: 0;
+}

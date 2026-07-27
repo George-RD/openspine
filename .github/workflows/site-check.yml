@@ -25,3 +25,37 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - run: npm ci
       - run: npm run build
+      - name: Install visual-check browser
+        run: |
+          npm install --no-save --package-lock=false playwright@1.54.1
+          npx playwright install --with-deps chromium
+      - name: Verify rendered landing page
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4321 > /tmp/openspine-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+
+          ready=''
+          for attempt in {1..40}; do
+            if curl --fail --silent --show-error http://127.0.0.1:4321/openspine/ > /dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+
+          if [ -z "$ready" ]; then
+            cat /tmp/openspine-preview.log
+            exit 1
+          fi
+
+          SITE_URL=http://127.0.0.1:4321/openspine/ node scripts/capture-site.cjs
+      - name: Upload visual QA artifact
+        if: always()
+        id: visual-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openspine-site-visual
+          path: site/visual-artifacts
+          if-no-files-found: warn
+          retention-days: 14
