@@ -1,0 +1,428 @@
+.mechanism-section {
+	position: relative;
+	overflow: hidden;
+	padding: var(--section-space) 0 0;
+	background: var(--ink);
+	color: var(--paper);
+}
+
+.mechanism-section::before {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 34%;
+	height: 0.45rem;
+	background: var(--orange);
+	content: '';
+}
+
+.mechanism-layout {
+	display: grid;
+	grid-template-columns: minmax(18rem, 0.78fr) minmax(28rem, 1.22fr);
+	gap: clamp(3rem, 7vw, 8rem);
+	align-items: start;
+	padding-bottom: clamp(4.5rem, 8vw, 7.5rem);
+}
+
+.mechanism-intro {
+	position: sticky;
+	top: 7.5rem;
+}
+
+.mechanism-intro h2,
+.section-heading h2,
+.proof-heading h2,
+.start-copy h2 {
+	margin-bottom: 1.25rem;
+	font-size: clamp(3rem, 6vw, 5.7rem);
+	font-weight: 700;
+	letter-spacing: -0.025em;
+	line-height: 0.88;
+}
+
+.mechanism-intro p {
+	max-width: 45ch;
+	margin-bottom: 1.5rem;
+	color: rgba(238, 243, 240, 0.7);
+	font-size: 1.02rem;
+}
+
+.mechanism-section .section-marker {
+	color: var(--mint);
+}
+
+.boundary-sequence {
+	display: grid;
+	border-top: 1px solid var(--line-light);
+}
+
+.boundary-row {
+	display: grid;
+	grid-template-columns: 4.25rem minmax(0, 1fr);
+	gap: 1.25rem;
+	padding: 2rem 0;
+	border-bottom: 1px solid var(--line-light);
+}
+
+.boundary-row > code {
+	grid-column: 2;
+	width: fit-content;
+	max-width: 100%;
+	padding: 0.4rem 0.55rem;
+	overflow-wrap: anywhere;
+	background: rgba(140, 222, 198, 0.1);
+	color: var(--mint);
+	font-size: 0.66rem;
+}
+
+.boundary-mark {
+	display: grid;
+	width: 3.7rem;
+	height: 3.7rem;
+	place-items: center;
+	background: rgba(238, 243, 240, 0.06);
+	box-shadow: inset 0 0 0 1px var(--line-light);
+}
+
+.boundary-mark svg {
+	width: 2.05rem;
+	fill: none;
+	stroke: var(--orange);
+	stroke-linecap: square;
+	stroke-linejoin: miter;
+	stroke-width: 1.6;
+}
+
+.boundary-row h3 {
+	margin-bottom: 0.45rem;
+	font-size: clamp(1.65rem, 2.5vw, 2.2rem);
+	font-weight: 600;
+	line-height: 1;
+}
+
+.boundary-row p {
+	margin-bottom: 0;
+	color: rgba(238, 243, 240, 0.65);
+	font-size: 0.9rem;
+}
+
+.spine-statement {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: clamp(0.4rem, 1.5vw, 1.1rem);
+	min-width: 72rem;
+	padding: 1.2rem max(4vw, calc((100vw - 88rem) / 2));
+	background: var(--orange);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: clamp(0.7rem, 1.3vw, 0.92rem);
+	font-weight: 800;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+}
+
+.spine-statement i {
+	width: clamp(1.5rem, 4vw, 4.5rem);
+	height: 1px;
+	background: currentColor;
+}
+
+.lyra-section {
+	padding: var(--section-space) 0;
+}
+
+.section-heading--split,
+.proof-heading {
+	display: grid;
+	grid-template-columns: minmax(0, 1.14fr) minmax(19rem, 0.86fr);
+	gap: clamp(2.5rem, 6vw, 6rem);
+	align-items: end;
+	margin-bottom: clamp(2.5rem, 5vw, 4.5rem);
+}
+
+.section-heading h2,
+.proof-heading h2 {
+	max-width: 11ch;
+	margin-bottom: 0;
+}
+
+.section-heading-copy {
+	padding-bottom: 0.35rem;
+}
+
+.section-heading-copy p,
+.proof-heading > p {
+	margin-bottom: 0.8rem;
+	color: var(--ink-3);
+	font-size: 1rem;
+}
+
+.scope-note {
+	display: inline-block;
+	padding: 0.35rem 0.48rem;
+	background: var(--paper-deep);
+	color: var(--ink-3);
+	font-family: var(--font-mono);
+	font-size: 0.6rem;
+	font-weight: 700;
+}
+
+.proof-section {
+	padding: var(--section-space) 0;
+	background: var(--paper-raised);
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line);
+}
+
+.proof-heading > p {
+	max-width: 43ch;
+	margin-bottom: 0.2rem;
+}
+
+.claim-ledger {
+	border-top: 2px solid var(--ink);
+	border-bottom: 2px solid var(--ink);
+}
+
+.claim-ledger-head,
+.claim-row {
+	display: grid;
+	grid-template-columns: minmax(10rem, 0.72fr) minmax(15rem, 1fr) minmax(18rem, 1.28fr);
+	gap: 1.5rem;
+	align-items: center;
+}
+
+.claim-ledger-head {
+	padding: 0.7rem 0;
+	border-bottom: 1px solid var(--ink);
+	color: var(--ink-3);
+	font-family: var(--font-mono);
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.claim-row {
+	min-height: 6rem;
+	padding: 1.1rem 0;
+	border-bottom: 1px solid var(--line);
+}
+
+.claim-row:last-child {
+	border-bottom: 0;
+}
+
+.claim-row strong {
+	font-family: var(--font-display);
+	font-size: 1.35rem;
+	line-height: 1;
+}
+
+.claim-row p {
+	margin-bottom: 0;
+	color: var(--ink-3);
+	font-size: 0.88rem;
+}
+
+.claim-row code {
+	padding: 0.55rem 0.65rem;
+	overflow-wrap: anywhere;
+	background: var(--paper-deep);
+	color: var(--ink-2);
+	font-size: 0.63rem;
+	line-height: 1.45;
+}
+
+.proof-actions {
+	margin-top: 2rem;
+}
+
+.button--ink {
+	background: var(--ink);
+	color: var(--paper);
+	box-shadow: 5px 6px 0 var(--orange);
+}
+
+.button--ink:hover {
+	box-shadow: 2px 3px 0 var(--orange);
+	transform: translate(3px, 3px);
+}
+
+.start-section {
+	padding: var(--section-space) 0;
+	background: var(--orange);
+	color: var(--ink);
+}
+
+.start-layout {
+	display: grid;
+	grid-template-columns: minmax(19rem, 0.85fr) minmax(28rem, 1.15fr);
+	gap: clamp(3rem, 7vw, 8rem);
+	align-items: center;
+}
+
+.start-copy h2 {
+	max-width: 10ch;
+}
+
+.start-copy > p {
+	max-width: 48ch;
+	font-size: 1rem;
+}
+
+.start-actions {
+	margin: 1.7rem 0 2rem;
+}
+
+.button--dark {
+	background: var(--ink);
+	color: var(--paper);
+	box-shadow: 6px 7px 0 rgba(11, 28, 36, 0.25);
+}
+
+.button--dark:hover {
+	box-shadow: 3px 4px 0 rgba(11, 28, 36, 0.25);
+	transform: translate(3px, 3px);
+}
+
+.button--ghost-dark {
+	border-color: rgba(11, 28, 36, 0.55);
+	color: var(--ink);
+}
+
+.button--ghost-dark:hover {
+	background: var(--paper);
+	border-color: var(--paper);
+}
+
+.alpha-note {
+	max-width: 47ch;
+	margin-bottom: 0;
+	padding-top: 1rem;
+	border-top: 1px solid rgba(11, 28, 36, 0.36);
+	font-size: 0.82rem;
+}
+
+.command-panel {
+	background: var(--ink);
+	color: var(--paper);
+	box-shadow: 13px 15px 0 rgba(11, 28, 36, 0.25), 23px 30px 55px rgba(11, 28, 36, 0.18);
+}
+
+.command-bar,
+.command-result {
+	display: flex;
+	align-items: center;
+}
+
+.command-bar {
+	justify-content: space-between;
+	padding: 0.7rem 0.85rem;
+	border-bottom: 1px solid var(--line-light);
+	font-family: var(--font-mono);
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.copy-button {
+	padding: 0.35rem 0.5rem;
+	background: transparent;
+	border: 1px solid var(--line-light);
+	color: var(--paper);
+	cursor: pointer;
+	font-size: 0.62rem;
+	font-weight: 700;
+	transition: background-color 180ms ease, color 180ms ease;
+}
+
+.copy-button:hover {
+	background: var(--paper);
+	color: var(--ink);
+}
+
+.copy-button.copy-failed {
+	border-color: var(--yellow);
+	color: var(--yellow);
+}
+
+.command-panel pre {
+	margin: 0;
+	padding: clamp(1.25rem, 3vw, 2rem);
+	overflow-x: auto;
+	background: transparent;
+	font-size: clamp(0.68rem, 1.2vw, 0.84rem);
+	line-height: 1.9;
+}
+
+.command-panel code {
+	color: var(--mint);
+}
+
+.command-result {
+	gap: 0.65rem;
+	padding: 0.8rem 0.9rem;
+	background: rgba(140, 222, 198, 0.08);
+	border-top: 1px solid var(--line-light);
+	color: rgba(238, 243, 240, 0.68);
+	font-family: var(--font-mono);
+	font-size: 0.6rem;
+}
+
+.status-light--large {
+	width: 0.65rem;
+	height: 0.65rem;
+}
+
+.site-footer {
+	display: grid;
+	grid-template-columns: minmax(16rem, 1.2fr) minmax(18rem, 1fr) auto;
+	gap: 2rem;
+	align-items: end;
+	padding: 3rem max(4vw, calc((100vw - 88rem) / 2));
+	background: var(--ink);
+	color: var(--paper);
+}
+
+.footer-main p {
+	margin: 0.7rem 0 0;
+	color: rgba(238, 243, 240, 0.6);
+	font-size: 0.8rem;
+}
+
+.brand--footer {
+	color: var(--paper);
+}
+
+.brand--footer .brand-symbol circle {
+	stroke: var(--ink);
+}
+
+.footer-nav {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0.65rem 1.5rem;
+	font-size: 0.78rem;
+	font-weight: 700;
+}
+
+.footer-nav a,
+.support-link {
+	color: rgba(238, 243, 240, 0.75);
+	text-decoration: none;
+	transition: color 180ms ease;
+}
+
+.footer-nav a:hover,
+.support-link:hover {
+	color: var(--mint);
+}
+
+.support-link {
+	font-size: 0.78rem;
+	font-weight: 700;
+	white-space: nowrap;
+}

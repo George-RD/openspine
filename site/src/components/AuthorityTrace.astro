@@ -1,0 +1,155 @@
+<section class="authority-trace" data-trace aria-label="Illustrative OpenSpine authority trace">
+	<div class="instrument-bar">
+		<div class="instrument-label">
+			<span class="status-light" aria-hidden="true"></span>
+			<span>Illustrative authority trace</span>
+		</div>
+		<div class="instrument-meta">
+			<span>TRACE 0042</span>
+			<button class="trace-replay" type="button" data-trace-replay>
+				<span aria-hidden="true">↻</span>
+				Replay
+			</button>
+		</div>
+	</div>
+
+	<div class="trace-request">
+		<div class="request-source">
+			<span class="source-glyph" aria-hidden="true">
+				<svg viewBox="0 0 24 24">
+					<path d="M7.2 11.3 10.4 14.5 17 7.9" />
+				</svg>
+			</span>
+			<div>
+				<span class="request-kicker">Verified owner · Telegram</span>
+				<strong>“Draft a reply to the thread I selected.”</strong>
+			</div>
+		</div>
+		<div class="request-facts" aria-label="Request facts">
+			<span>source verified</span>
+			<span>selection token: 8F2</span>
+		</div>
+	</div>
+
+	<div class="trace-spine" aria-label="Runtime stages">
+		<div class="spine-rail" aria-hidden="true"><span></span></div>
+		<ol class="trace-stages">
+			<li style="--stage: 0">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Verify</span>
+				<small>source</small>
+			</li>
+			<li style="--stage: 1">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Identify</span>
+				<small>actor</small>
+			</li>
+			<li style="--stage: 2">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Route</span>
+				<small>workflow</small>
+			</li>
+			<li style="--stage: 3">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Compose</span>
+				<small>authority</small>
+			</li>
+			<li style="--stage: 4">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Grant</span>
+				<small>task</small>
+			</li>
+			<li style="--stage: 5">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Gate</span>
+				<small>effects</small>
+			</li>
+			<li style="--stage: 6">
+				<span class="stage-node" aria-hidden="true"></span>
+				<span class="stage-name">Audit</span>
+				<small>record</small>
+			</li>
+		</ol>
+	</div>
+
+	<div class="authority-compose">
+		<div class="composition-layers" aria-label="Authority inputs">
+			<div class="policy-layer" style="--layer: 0">
+				<span>Route</span>
+				<strong>owner control</strong>
+			</div>
+			<div class="policy-layer" style="--layer: 1">
+				<span>Agent</span>
+				<strong>main assistant</strong>
+			</div>
+			<div class="policy-layer" style="--layer: 2">
+				<span>Workflow</span>
+				<strong>selected-thread draft</strong>
+			</div>
+			<div class="policy-layer" style="--layer: 3">
+				<span>Policy</span>
+				<strong>send hard-denied</strong>
+			</div>
+		</div>
+
+		<div class="compose-junction" aria-hidden="true">
+			<span></span>
+			<svg viewBox="0 0 44 22">
+				<path d="M1 11h36M29 3l8 8-8 8" />
+			</svg>
+		</div>
+
+		<div class="task-grant" aria-label="Composed task grant">
+			<div class="grant-header">
+				<span>Task grant</span>
+				<strong>GRANT·7C1</strong>
+			</div>
+			<dl>
+				<div>
+					<dt>scope</dt>
+					<dd>thread 8F2 only</dd>
+				</div>
+				<div>
+					<dt>model</dt>
+					<dd>≤5 calls</dd>
+				</div>
+				<div>
+					<dt>artifacts</dt>
+					<dd>≤20</dd>
+				</div>
+				<div>
+					<dt>runtime</dt>
+					<dd>≤180 seconds</dd>
+				</div>
+				<div>
+					<dt>expires</dt>
+					<dd>after task</dd>
+				</div>
+			</dl>
+		</div>
+	</div>
+
+	<div class="gate-ledger" aria-label="Effect gate decisions">
+		<div class="gate-row gate-row--allow" style="--gate: 0">
+			<span class="gate-result">Allow</span>
+			<code>email.read_thread:selected_no_attachments</code>
+			<small>selection token matched</small>
+		</div>
+		<div class="gate-row gate-row--ask" style="--gate: 1">
+			<span class="gate-result">Ask</span>
+			<code>email.create_draft</code>
+			<small>digest-bound approval</small>
+		</div>
+		<div class="gate-row gate-row--deny" style="--gate: 2">
+			<span class="gate-result">Deny</span>
+			<code>email.send</code>
+			<small>global policy wins</small>
+		</div>
+	</div>
+
+	<div class="audit-strip">
+		<span class="audit-mark" aria-hidden="true"></span>
+		<span>Audit appended</span>
+		<code>prev_hash → event → grant → gate → new_hash</code>
+	</div>
+</section>
