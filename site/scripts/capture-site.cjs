@@ -18,21 +18,16 @@ function localRequestFailed(url) {
 }
 
 async function activateViewportReveals(page) {
-	await page.evaluate(async () => {
-		const pause = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
-		const pageHeight = document.documentElement.scrollHeight;
-		const maximumY = Math.max(0, pageHeight - window.innerHeight);
-		const step = Math.max(320, Math.floor(window.innerHeight * 0.72));
+	const revealItems = page.locator('[data-reveal]');
+	const revealCount = await revealItems.count();
 
-		for (let y = 0; y < maximumY; y += step) {
-			window.scrollTo(0, y);
-			await pause(140);
-		}
-		window.scrollTo(0, maximumY);
-		await pause(220);
-		window.scrollTo(0, 0);
-	});
-	await page.waitForTimeout(700);
+	for (let index = 0; index < revealCount; index += 1) {
+		await revealItems.nth(index).scrollIntoViewIfNeeded();
+		await page.waitForTimeout(180);
+	}
+
+	await page.evaluate(() => window.scrollTo(0, 0));
+	await page.waitForTimeout(900);
 }
 
 async function capture(browser, config) {
@@ -124,6 +119,7 @@ async function capture(browser, config) {
 			rawHorizontalOverflow,
 			maximumHorizontalScroll,
 			overflowOffenders,
+			unrevealedCount: document.querySelectorAll('[data-reveal]:not(.is-visible)').length,
 			traceRunning: document.querySelector('.authority-trace')?.classList.contains('is-running') || false,
 		};
 	});
@@ -137,6 +133,7 @@ async function capture(browser, config) {
 	if (checks.maximumHorizontalScroll > 1) {
 		issues.push(`Page can scroll horizontally by ${checks.maximumHorizontalScroll}px`);
 	}
+	if (checks.unrevealedCount > 0) issues.push(`${checks.unrevealedCount} reveal elements never became visible`);
 	if (config.reducedMotion === 'no-preference' && !checks.traceRunning) issues.push('Authority trace did not enter its running state');
 	issues.push(...consoleErrors.map((error) => `Console error: ${error}`));
 	issues.push(...pageErrors.map((error) => `Page error: ${error}`));
@@ -191,6 +188,7 @@ async function main() {
 		for (const result of results) {
 			console.log(`${result.name}: ${result.issues.length === 0 ? 'passed' : 'failed'}`);
 			console.log(`  raw overflow: ${result.checks.rawHorizontalOverflow}px; scrollable: ${result.checks.maximumHorizontalScroll}px`);
+			console.log(`  unrevealed elements: ${result.checks.unrevealedCount}`);
 			for (const offender of result.checks.overflowOffenders) {
 				console.log(`  overflow candidate: ${offender.element} [${offender.left}, ${offender.right}] parent=${offender.parent}`);
 			}
