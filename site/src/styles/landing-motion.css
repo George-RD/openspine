@@ -1,3 +1,7 @@
+.site-header.is-hidden:focus-within {
+	transform: translateY(0);
+}
+
 .is-running .trace-stages li {
 	animation: stage-wake 470ms var(--ease-out) both;
 }
