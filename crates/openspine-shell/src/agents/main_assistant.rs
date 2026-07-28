@@ -17,7 +17,8 @@ use anyhow::Result;
 use openspine_schemas::action::GateDecision;
 use serde_json::{json, Value};
 
-const REPLY_ACTION: &str = "telegram.reply:owner_channel";
+pub(crate) const TELEGRAM_REPLY_ACTION: &str = "telegram.reply:owner_channel";
+pub(crate) const TERMINAL_REPLY_ACTION: &str = "terminal.reply:owner_device";
 const MODEL_PURPOSE: &str = "reply_to_owner";
 const MAX_TOKENS: u32 = 12_000;
 
@@ -28,54 +29,66 @@ const MAX_TOKENS: u32 = 12_000;
 /// Returns `Ok(())` on success **or** on a gate deny/approval-required
 /// outcome — those are logged and the shell exits 0 (the kernel already
 /// recorded the audit row).  Only transport / `5xx` errors propagate as `Err`.
+#[cfg(test)]
 pub async fn run(client: &KernelClient, message: &str) -> Result<()> {
+    run_with_reply_action(client, message, TELEGRAM_REPLY_ACTION).await
+}
+
+/// Run the shared owner-assistant command layer while binding replies to the
+/// output action granted for this task. The shell never chooses an arbitrary
+/// channel: `main.rs` derives this exact action from the grant allowlist.
+pub async fn run_with_reply_action(
+    client: &KernelClient,
+    message: &str,
+    reply_action: &str,
+) -> Result<()> {
     if message == "/status" {
-        return cmd_status(client).await;
+        return cmd_status(client, reply_action).await;
     }
     if message == "/setup" {
-        return cmd_setup(client).await;
+        return cmd_setup(client, reply_action).await;
     }
     if let Some(proposal) = message.strip_prefix("/propose ") {
-        return cmd_propose(client, proposal).await;
+        return cmd_propose(client, proposal, reply_action).await;
     }
     if let Some(name) = message.strip_prefix("/export ") {
-        return cmd_overlay_bundle(client, "openspine.overlay.export", name).await;
+        return cmd_overlay_bundle(client, "openspine.overlay.export", name, reply_action).await;
     }
     if message == "/export" {
-        return cmd_overlay_bundle(client, "openspine.overlay.export", "").await;
+        return cmd_overlay_bundle(client, "openspine.overlay.export", "", reply_action).await;
     }
     if let Some(name) = message.strip_prefix("/restore ") {
-        return cmd_overlay_bundle(client, "openspine.overlay.restore", name).await;
+        return cmd_overlay_bundle(client, "openspine.overlay.restore", name, reply_action).await;
     }
     if message == "/restore" {
-        return cmd_overlay_bundle(client, "openspine.overlay.restore", "").await;
+        return cmd_overlay_bundle(client, "openspine.overlay.restore", "", reply_action).await;
     }
-    cmd_freeform(client, message).await
+    cmd_freeform(client, message, reply_action).await
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
 
-/// Send `telegram.reply:owner_channel` carrying `text`.
+/// Send the grant-selected owner reply action carrying `text`.
 ///
 /// A deny or approval-required outcome on the reply itself is logged but
 /// does not return an `Err` — the gate has already recorded it.
-async fn send_reply(client: &KernelClient, text: &str) -> Result<()> {
+async fn send_reply(client: &KernelClient, reply_action: &str, text: &str) -> Result<()> {
     let payload = json!({ "text": text });
     let outcome = client
-        .submit_action(REPLY_ACTION, Some(payload), None)
+        .submit_action(reply_action, Some(payload), None)
         .await?;
     match outcome.decision {
         GateDecision::Allow => {
-            eprintln!("[openspine-shell] INFO: telegram reply sent");
+            eprintln!("[openspine-shell] INFO: owner reply sent via {reply_action}");
         }
         GateDecision::Deny { reason } => {
-            eprintln!("[openspine-shell] WARN: telegram reply denied: {reason:?}");
+            eprintln!("[openspine-shell] WARN: owner reply denied via {reply_action}: {reason:?}");
         }
         GateDecision::ApprovalRequired { ref approval_type } => {
-            eprintln!("[openspine-shell] WARN: telegram reply needs approval: {approval_type}");
+            eprintln!("[openspine-shell] WARN: owner reply via {reply_action} needs approval: {approval_type}");
         }
         GateDecision::EffectSuppressed => {
-            eprintln!("[openspine-shell] WARN: telegram reply effect suppressed");
+            eprintln!("[openspine-shell] WARN: owner reply via {reply_action} effect suppressed");
         }
     }
     Ok(())
@@ -83,7 +96,7 @@ async fn send_reply(client: &KernelClient, text: &str) -> Result<()> {
 
 // ── Command handlers ──────────────────────────────────────────────────────────
 
-async fn cmd_status(client: &KernelClient) -> Result<()> {
+async fn cmd_status(client: &KernelClient, reply_action: &str) -> Result<()> {
     let outcome = client
         .submit_action("openspine.status.read", None, None)
         .await?;
@@ -92,7 +105,7 @@ async fn cmd_status(client: &KernelClient) -> Result<()> {
             let result: Value = outcome.result.unwrap_or(json!({"status": "ok"}));
             let text =
                 serde_json::to_string_pretty(&result).context("status result serialization")?;
-            send_reply(client, &text).await
+            send_reply(client, reply_action, &text).await
         }
         GateDecision::Deny { reason } => {
             eprintln!("[openspine-shell] WARN: openspine.status.read denied: {reason:?}");
@@ -111,14 +124,14 @@ async fn cmd_status(client: &KernelClient) -> Result<()> {
     }
 }
 
-async fn cmd_setup(client: &KernelClient) -> Result<()> {
+async fn cmd_setup(client: &KernelClient, reply_action: &str) -> Result<()> {
     let outcome = client
         .submit_action("setup.workflow.start", None, None)
         .await?;
     match outcome.decision {
         GateDecision::Allow => {
             let text = stub_note(&outcome.result, "Setup workflow started.");
-            send_reply(client, &text).await
+            send_reply(client, reply_action, &text).await
         }
         GateDecision::Deny { reason } => {
             eprintln!("[openspine-shell] WARN: setup.workflow.start denied: {reason:?}");
@@ -141,7 +154,7 @@ async fn cmd_setup(client: &KernelClient) -> Result<()> {
 /// client-side kind validation beyond non-empty — the kernel owns it
 /// (`artifact.propose`'s payload contract). A missing kind or empty body
 /// never reaches the kernel at all.
-async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
+async fn cmd_propose(client: &KernelClient, proposal_text: &str, reply_action: &str) -> Result<()> {
     let (kind, yaml) = match proposal_text.split_once('\n') {
         Some((kind, yaml)) => (kind.trim(), yaml),
         None => (proposal_text.trim(), ""),
@@ -149,6 +162,7 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
     if kind.is_empty() || yaml.trim().is_empty() {
         return send_reply(
             client,
+            reply_action,
             "Usage: /propose <route|agent|workflow|pack|policy>\n<yaml>",
         )
         .await;
@@ -160,7 +174,7 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
     match outcome.decision {
         GateDecision::Allow => {
             let text = stub_note(&outcome.result, "Proposal submitted for review.");
-            send_reply(client, &text).await
+            send_reply(client, reply_action, &text).await
         }
         GateDecision::Deny { reason } => {
             eprintln!("[openspine-shell] WARN: artifact.propose denied: {reason:?}");
@@ -179,7 +193,12 @@ async fn cmd_propose(client: &KernelClient, proposal_text: &str) -> Result<()> {
     }
 }
 
-async fn cmd_overlay_bundle(client: &KernelClient, action: &str, bundle_name: &str) -> Result<()> {
+async fn cmd_overlay_bundle(
+    client: &KernelClient,
+    action: &str,
+    bundle_name: &str,
+    reply_action: &str,
+) -> Result<()> {
     let bundle_name = bundle_name.trim();
     if bundle_name.is_empty() || bundle_name.split_whitespace().nth(1).is_some() {
         let usage = if action.ends_with("export") {
@@ -187,7 +206,7 @@ async fn cmd_overlay_bundle(client: &KernelClient, action: &str, bundle_name: &s
         } else {
             "Usage: /restore <bundle-name>"
         };
-        return send_reply(client, usage).await;
+        return send_reply(client, reply_action, usage).await;
     }
     let payload = json!({ "bundle_name": bundle_name });
     let outcome = client.submit_action(action, Some(payload), None).await?;
@@ -197,7 +216,7 @@ async fn cmd_overlay_bundle(client: &KernelClient, action: &str, bundle_name: &s
                 &outcome.result,
                 "Overlay operation staged; restart required.",
             );
-            send_reply(client, &text).await
+            send_reply(client, reply_action, &text).await
         }
         GateDecision::Deny { reason } => {
             eprintln!("[openspine-shell] WARN: {action} denied: {reason:?}");
@@ -214,7 +233,7 @@ async fn cmd_overlay_bundle(client: &KernelClient, action: &str, bundle_name: &s
     }
 }
 
-async fn cmd_freeform(client: &KernelClient, message: &str) -> Result<()> {
+async fn cmd_freeform(client: &KernelClient, message: &str, reply_action: &str) -> Result<()> {
     let model_outcome: ModelOutcome = client
         .generate(MODEL_PURPOSE, message, None, MAX_TOKENS)
         .await?;
@@ -225,7 +244,7 @@ async fn cmd_freeform(client: &KernelClient, message: &str) -> Result<()> {
                 eprintln!("[openspine-shell] WARN: model returned empty text; skipping reply");
                 return Ok(());
             }
-            send_reply(client, &text).await
+            send_reply(client, reply_action, &text).await
         }
         GateDecision::Deny { reason } => {
             eprintln!("[openspine-shell] WARN: model.generate denied: {reason:?}");

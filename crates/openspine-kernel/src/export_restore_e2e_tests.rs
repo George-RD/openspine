@@ -95,6 +95,7 @@ fn build_state_at(data_root: &Path, master_key: &[u8; 32]) -> AppState {
         action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox: base.sandbox,
         connectors: base.connectors,
+        terminal_reply_tx: None,
         webhook_verifier: base.webhook_verifier,
         action_handlers: crate::api::handler_registry::ActionHandlerRegistry::default_registrations(
         ),

@@ -189,6 +189,53 @@ fn reflection_packs_and_workflows_are_bounded() {
 }
 
 #[test]
+fn owner_terminal_slice_round_trips() {
+    let route: Route = serde_yaml::from_str(&read("routes/owner_cli_main_assistant.yaml")).unwrap();
+    assert_eq!(route.id, "owner_cli_main_assistant");
+    assert_eq!(
+        route.agent.as_deref(),
+        Some("main_terminal_assistant_agent")
+    );
+    assert_eq!(
+        route.workflow.as_deref(),
+        Some("owner_terminal_conversation")
+    );
+    assert_eq!(
+        route.capability_pack.as_deref(),
+        Some("owner_terminal_basic_pack")
+    );
+
+    let agent: AgentManifest =
+        serde_yaml::from_str(&read("agents/main_terminal_assistant_agent.yaml")).unwrap();
+    assert_eq!(agent.id, "main_terminal_assistant_agent");
+    assert!(agent
+        .designed_tools
+        .iter()
+        .any(|action| action.as_str() == "terminal.reply:owner_device"));
+    assert!(!agent
+        .designed_tools
+        .iter()
+        .any(|action| action.as_str() == "telegram.reply:owner_channel"));
+
+    let pack: CapabilityPack =
+        serde_yaml::from_str(&read("packs/owner_terminal_basic_pack.yaml")).unwrap();
+    assert_eq!(pack.id, "owner_terminal_basic_pack");
+    assert!(pack
+        .candidate_allowed_actions
+        .iter()
+        .any(|action| action.as_str() == "terminal.reply:owner_device"));
+    assert!(!pack
+        .candidate_allowed_actions
+        .iter()
+        .any(|action| action.as_str() == "telegram.reply:owner_channel"));
+
+    let workflow: WorkflowManifest =
+        serde_yaml::from_str(&read("workflows/owner_terminal_conversation.yaml")).unwrap();
+    assert_eq!(workflow.required_agent, agent.id);
+    assert_eq!(workflow.required_capability_pack, pack.id);
+}
+
+#[test]
 fn global_policy_round_trips_and_denies_send() {
     let policy: Policy = serde_yaml::from_str(&read("policies/global.yaml")).unwrap();
     assert_eq!(policy.id, "global");
@@ -209,7 +256,7 @@ fn every_fixture_file_is_covered_by_a_test() {
     }
     assert_eq!(
         found.len(),
-        22,
-        "expected 22 fixture files, found {found:?}"
+        26,
+        "expected 26 fixture files, found {found:?}"
     );
 }

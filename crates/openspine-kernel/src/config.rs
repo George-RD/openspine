@@ -86,6 +86,7 @@ pub enum ProviderAuth {
 pub enum ProviderKind {
     Anthropic,
     OpenaiCompat,
+    Onyx,
     GoogleAntigravity,
 }
 
@@ -112,6 +113,7 @@ pub fn provider_config_digest(provider: &ProviderConfig) -> Digest {
     let default_base = match provider.kind {
         ProviderKind::Anthropic => "https://api.anthropic.com",
         ProviderKind::OpenaiCompat => "https://api.openai.com",
+        ProviderKind::Onyx => "http://127.0.0.1:8080",
         ProviderKind::GoogleAntigravity => "https://generativelanguage.googleapis.com",
     };
     digest_of(&json!({
@@ -396,6 +398,21 @@ unsafe_allow_uncontained_private_data: false
             assert_eq!(cfg.providers.len(), 1);
         }
     }
+    #[test]
+    fn terminal_example_config_uses_onyx_lfm_models() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let cfg = Config::load(&repo_root.join("openspine.terminal.example.yaml"))
+            .expect("terminal example must parse against Config");
+        assert_eq!(cfg.owner.telegram_user_id, 1);
+        assert_eq!(cfg.providers.len(), 2);
+        assert_eq!(cfg.providers[0].id, "onyx-lfm-1-2b");
+        assert_eq!(cfg.providers[0].kind, ProviderKind::Onyx);
+        assert_eq!(cfg.providers[0].model, "LiquidAI/LFM2.5-1.2B-Instruct");
+        assert_eq!(cfg.providers[1].id, "onyx-lfm-350m");
+        assert_eq!(cfg.providers[1].kind, ProviderKind::Onyx);
+        assert_eq!(cfg.providers[1].model, "LiquidAI/LFM2.5-350M");
+    }
+
     #[test]
     fn config_accepts_provider_auth_oauth_variant() {
         let yaml = r#"

@@ -93,7 +93,7 @@ use std::time::Duration;
 
 use approval::handle_draft_approval_callback;
 use driver::run_pipeline;
-use lanes::{email_preview_lane, owner_control_lane, EventInputs};
+use lanes::{email_preview_lane, owner_control_lane, terminal_owner_lane, EventInputs};
 use plan_approval::handle_plan_approval_callback;
 
 /// Everything the pipeline needs to turn one Telegram update into an
@@ -109,6 +109,10 @@ pub struct AppState {
     pub sandbox: Sandbox,
     pub action_handlers: ActionHandlerRegistry,
     pub connectors: ConnectorRegistry,
+    /// Direct terminal replies are delivered through this kernel-owned,
+    /// in-process channel. It is present only while the `chat` command is
+    /// active; ordinary daemon mode leaves it disabled.
+    pub terminal_reply_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
     /// HMAC-SHA256 verifier for inbound webhooks (AD-134/AD-141). Shared
     /// kernel state so replay dedup is stable across hook deliveries.
     #[allow(dead_code)]
@@ -882,4 +886,37 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
         dispatch_timer_id: None,
     };
     run_pipeline(state, spec, &inputs, Timestamp::now(), &mut Vec::new()).await
+}
+
+/// Process one line from the local direct terminal chat through the same
+/// verify → identify → route → compose → grant → shell → gate path used by
+/// connector-backed owner messages. The owner principal override is minted
+/// here by the kernel and accepted by the driver only alongside a verified
+/// `cli.owner.message` / `LocalCliAuth` envelope.
+pub async fn handle_terminal_message(
+    state: &AppState,
+    text: String,
+) -> anyhow::Result<Option<TaskGrant>> {
+    let chat_id = state.owner_user_id;
+    let _guard = state.lock_conversation(chat_id).await;
+    let inputs = EventInputs {
+        chat_id,
+        text,
+        thread_id: None,
+        owner_verified: None,
+        principal_override: Some(state.owner_principal_id),
+        event_type_override: None,
+        timer_event_id: None,
+        correlated_task_id: None,
+        dispatch_key: None,
+        dispatch_timer_id: None,
+    };
+    run_pipeline(
+        state,
+        terminal_owner_lane(),
+        &inputs,
+        Timestamp::now(),
+        &mut Vec::new(),
+    )
+    .await
 }

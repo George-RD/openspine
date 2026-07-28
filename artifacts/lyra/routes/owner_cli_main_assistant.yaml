@@ -1,0 +1,18 @@
+id: owner_cli_main_assistant
+schema_version: 1
+lifecycle_state: active
+priority: 100
+effect: allow
+when:
+  source: cli
+  event_type: cli.owner.message
+  verified_source: true
+  lane: owner_control
+  actor:
+    relationship: owner
+    channel_trust: owner_device
+    identity_confidence_min: 0.95
+agent: main_terminal_assistant_agent
+workflow: owner_terminal_conversation
+capability_pack: owner_terminal_basic_pack
+persona: honest_counsel_with_recommendation

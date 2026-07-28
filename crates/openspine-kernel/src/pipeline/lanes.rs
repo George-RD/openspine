@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: typed lane specifications and their shared event and preflight helpers form one review boundary
 //! Per-lane hook implementations invoked by [`super::driver::run_pipeline`]
 //! through the [`super::driver::LaneSpec`] fn-pointer record.
 //!
@@ -130,6 +131,21 @@ pub fn owner_control_lane() -> LaneSpec {
     }
 }
 
+/// The direct local terminal conversation lane. The `chat` command is a
+/// kernel-owned owner-device surface: no connector or shell can mint this
+/// event or its `LocalCliAuth` verification method.
+pub fn terminal_owner_lane() -> LaneSpec {
+    LaneSpec {
+        lane: Lane::OwnerControl,
+        channel_trust: ChannelTrust::OwnerDevice,
+        purpose: "owner_terminal_conversation",
+        build_envelope: terminal_owner_build_envelope,
+        preflight: owner_preflight,
+        route_containment_guard: owner_route_guard,
+        grant_binding: owner_grant_binding,
+    }
+}
+
 /// The `/draft <thread_id>` selected-thread email reply draft lane.
 pub fn email_preview_lane() -> LaneSpec {
     LaneSpec {
@@ -169,6 +185,43 @@ pub(super) fn owner_build_envelope(
 ) -> anyhow::Result<(EventEnvelope, ArtifactRef)> {
     let raw_ref = state.artifacts.put(inputs.text.as_bytes())?;
     let envelope = telegram::build_owner_envelope(inputs.chat_id, raw_ref.clone(), now);
+    Ok((envelope, raw_ref))
+}
+
+pub(super) fn terminal_owner_build_envelope(
+    state: &AppState,
+    inputs: &EventInputs,
+    now: Timestamp,
+) -> anyhow::Result<(EventEnvelope, ArtifactRef)> {
+    let raw_ref = state.artifacts.put(inputs.text.as_bytes())?;
+    let envelope = EventEnvelope {
+        id: Ulid::new(),
+        source: Source::Cli,
+        connector: None,
+        account_role: Some(AccountRole::OwnerControlAccount),
+        event_type: EventType::CliOwnerMessage,
+        received_at: now,
+        verified_source: true,
+        verification_method: VerificationMethod::LocalCliAuth,
+        replay_protected: false,
+        replay_nonce: None,
+        channel_account: "local-cli".to_string(),
+        raw_event_ref: raw_ref.clone(),
+        actor_hint: ActorHint {
+            device_id: Some("local-cli".to_string()),
+            ..ActorHint::default()
+        },
+        target_refs: vec![],
+        data_classification: DataClassification::Private,
+        user_intent_hint: Some("owner_terminal_conversation".to_string()),
+        lane: Lane::OwnerControl,
+        trust_context: TrustContext {
+            channel_trust: ChannelTrust::OwnerDevice,
+            interaction_mode: InteractionMode::OwnerMessage,
+        },
+        thread_id: None,
+        schema_version: 1,
+    };
     Ok((envelope, raw_ref))
 }
 

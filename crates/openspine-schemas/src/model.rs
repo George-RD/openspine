@@ -17,6 +17,7 @@ pub enum Provider {
     Local,
     Openai,
     Anthropic,
+    Onyx,
 }
 
 /// PRD §14.3 `redaction_required`.

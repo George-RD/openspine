@@ -53,6 +53,11 @@ pub enum AccountRole {
 pub enum EventType {
     #[serde(rename = "telegram.owner.message")]
     TelegramOwnerMessage,
+    /// A message typed by the local operator into the direct terminal chat.
+    /// The kernel mints this event only from its own `chat` command; shells
+    /// and external connectors cannot claim local-CLI verification.
+    #[serde(rename = "cli.owner.message")]
+    CliOwnerMessage,
     #[serde(rename = "email.thread.selected")]
     EmailThreadSelected,
     /// A kernel-owned task deadline firing (AD-090): rides the archived
@@ -278,6 +283,8 @@ mod tests {
     fn event_type_serializes_as_dotted_string() {
         let json = serde_json::to_value(EventType::TelegramOwnerMessage).unwrap();
         assert_eq!(json, serde_json::json!("telegram.owner.message"));
+        let json = serde_json::to_value(EventType::CliOwnerMessage).unwrap();
+        assert_eq!(json, serde_json::json!("cli.owner.message"));
         let json = serde_json::to_value(EventType::EmailThreadSelected).unwrap();
         assert_eq!(json, serde_json::json!("email.thread.selected"));
     }

@@ -94,6 +94,13 @@ pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
             },
         ),
         (
+            id("terminal.reply:owner_device"),
+            ActionEgressDeclaration {
+                output_channels: Some(vec!["terminal.owner.reply".to_string()]),
+                egress_class: None,
+            },
+        ),
+        (
             id("connector.enable"),
             ActionEgressDeclaration {
                 output_channels: None,

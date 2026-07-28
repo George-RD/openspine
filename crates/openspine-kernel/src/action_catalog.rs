@@ -38,6 +38,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         "model.generate:approved_provider",
         "lyra.ui.preview",
         "telegram.reply:owner_channel",
+        "terminal.reply:owner_device",
         "connector.enable",
         "route.activate",
         "capability_pack.change",
@@ -251,6 +252,7 @@ mod tests {
                 | "plan.propose"
                 | "artifact.propose"
                 | "artifact.nominate_upstream" => Some(vec!["telegram.owner.reply"]),
+                "terminal.reply:owner_device" => Some(vec!["terminal.owner.reply"]),
                 _ => None,
             };
             let actual_channels = decl

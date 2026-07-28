@@ -41,6 +41,32 @@ struct Cli {
     task: String,
 }
 
+fn owner_reply_action(task_view: &TaskView) -> Result<&'static str> {
+    use agents::main_assistant::{TELEGRAM_REPLY_ACTION, TERMINAL_REPLY_ACTION};
+
+    let telegram = task_view
+        .allowed_actions
+        .iter()
+        .any(|action| action == TELEGRAM_REPLY_ACTION);
+    let terminal = task_view
+        .allowed_actions
+        .iter()
+        .any(|action| action == TERMINAL_REPLY_ACTION);
+    match (telegram, terminal) {
+        (true, false) => Ok(TELEGRAM_REPLY_ACTION),
+        (false, true) => Ok(TERMINAL_REPLY_ACTION),
+        (true, true) => Err(anyhow::anyhow!(
+            "owner grant contains both Telegram and terminal reply actions"
+        )),
+        // Backward compatibility for older serialized test/task views that
+        // omitted `allowed_actions`; the gate still denies an ungranted send.
+        (false, false) if task_view.agent_id == "main_assistant_agent" => Ok(TELEGRAM_REPLY_ACTION),
+        (false, false) => Err(anyhow::anyhow!(
+            "owner grant contains no supported reply action"
+        )),
+    }
+}
+
 fn should_report_worker_result(task_view: &TaskView) -> bool {
     task_view.is_worker
         && task_view
@@ -88,14 +114,20 @@ async fn run(cli: Cli) -> Result<()> {
     // ids are rejected here so a misconfigured grant fails loudly rather
     // than silently doing nothing.
     let agent_result = match task_view.agent_id.as_str() {
-        "main_assistant_agent" => {
-            agents::main_assistant::run(&client, &task_view.pending_message).await
+        "main_assistant_agent" | "main_terminal_assistant_agent" => {
+            let reply_action = owner_reply_action(&task_view)?;
+            agents::main_assistant::run_with_reply_action(
+                &client,
+                &task_view.pending_message,
+                reply_action,
+            )
+            .await
         }
         "email_reply_drafter" => {
             agents::email_reply_drafter::run(&client, &task_view.selection_tokens).await
         }
         other => Err(anyhow::anyhow!(
-            "unsupported agent_id '{}' — only main_assistant_agent and email_reply_drafter are implemented",
+            "unsupported agent_id '{}' — only main_assistant_agent, main_terminal_assistant_agent, and email_reply_drafter are implemented",
             other
         )),
     };
@@ -161,6 +193,32 @@ mod tests {
             pending_message: "pending".to_string(),
             selection_tokens: Vec::new(),
         }
+    }
+
+    #[test]
+    fn owner_reply_action_selects_exactly_one_granted_channel() {
+        let telegram = task_view(false, &["telegram.reply:owner_channel"]);
+        assert_eq!(
+            owner_reply_action(&telegram).unwrap(),
+            "telegram.reply:owner_channel"
+        );
+
+        let mut terminal = task_view(false, &["terminal.reply:owner_device"]);
+        terminal.agent_id = "main_terminal_assistant_agent".to_string();
+        assert_eq!(
+            owner_reply_action(&terminal).unwrap(),
+            "terminal.reply:owner_device"
+        );
+
+        let mut ambiguous = task_view(
+            false,
+            &[
+                "telegram.reply:owner_channel",
+                "terminal.reply:owner_device",
+            ],
+        );
+        ambiguous.agent_id = "main_terminal_assistant_agent".to_string();
+        assert!(owner_reply_action(&ambiguous).is_err());
     }
 
     #[test]

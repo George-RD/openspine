@@ -513,6 +513,42 @@ impl Store {
         Ok(out)
     }
 
+    /// The most recent messages for one bound owner channel and workflow,
+    /// oldest first. Conversation turns remain persisted under the grant that
+    /// produced them, while this query gives successive one-shot shell grants
+    /// a continuous dialogue without mixing workflows or channels.
+    pub fn recent_conversation_for_channel_workflow(
+        &self,
+        bound_chat_id: i64,
+        workflow_id: &str,
+        limit: usize,
+    ) -> Result<Vec<(String, Digest)>, StoreError> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT c.role, c.content_digest
+             FROM conversation_state AS c
+             JOIN task_grants AS g ON g.id = c.task_grant_id
+             WHERE g.bound_chat_id = ?1
+               AND json_extract(g.grant_json, '$.workflow_id') = ?2
+             ORDER BY c.seq DESC
+             LIMIT ?3",
+        )?;
+        let rows = stmt.query_map(params![bound_chat_id, workflow_id, limit as i64], |row| {
+            let role: String = row.get(0)?;
+            let digest: String = row.get(1)?;
+            Ok((role, digest))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (role, digest) = row?;
+            let digest = Digest::parse(digest)
+                .map_err(|_| StoreError::BadDigest("content_digest".into()))?;
+            out.push((role, digest));
+        }
+        out.reverse();
+        Ok(out)
+    }
+
     // ---- simple key/value (e.g. last Telegram update_id) ----------------
 
     pub fn get_kv(&self, key: &str) -> Result<Option<String>, StoreError> {

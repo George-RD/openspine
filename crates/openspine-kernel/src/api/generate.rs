@@ -52,6 +52,7 @@ pub(super) struct GenerateRequestBody {
 fn template_id_for_agent(agent_id: &str) -> Option<&'static str> {
     match agent_id {
         "main_assistant_agent" => Some("owner_control_template"),
+        "main_terminal_assistant_agent" => Some("owner_terminal_template"),
         "email_reply_drafter" => Some("email_reply_draft_template"),
         _ => None,
     }
@@ -98,7 +99,7 @@ pub(super) async fn post_model_generate(
     headers: HeaderMap,
     Json(body): Json<GenerateRequestBody>,
 ) -> Result<Json<GenerateResponseBody>, (StatusCode, Json<Value>)> {
-    let (grant, _pending_ref, _bound_chat_id) = authenticate(&state, &headers).await?;
+    let (grant, _pending_ref, bound_chat_id) = authenticate(&state, &headers).await?;
     let now = Timestamp::now();
     let action = ActionId::new("model.generate:approved_provider");
     if !crate::spend::admit_spend(&state, crate::spend::SpendLane::from_grant(&grant), now)
@@ -220,7 +221,11 @@ pub(super) async fn post_model_generate(
 
     let history = state
         .store
-        .recent_conversation(grant.id, CONVERSATION_HISTORY_LIMIT)
+        .recent_conversation_for_channel_workflow(
+            bound_chat_id,
+            &grant.workflow_id,
+            CONVERSATION_HISTORY_LIMIT,
+        )
         .map_err(internal_error)?;
     let mut conversation = Vec::with_capacity(history.len());
     for (role, digest) in history {
