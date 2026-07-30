@@ -17,12 +17,14 @@ Any standard OAuth 2.0 authorization-code walkthrough for a Desktop app client w
 
 ### Docker Compose
 
-Compose passes secrets from `.env` into the kernel container. Copy `.env.example` to `.env`, then fill these existing entries:
+Compose passes values from `.env` into the kernel container. Copy `.env.example` to `.env`, then fill these existing entries:
 
 ```dotenv
 OPENSPINE_GMAIL_CLIENT_SECRET=your-client-secret
 OPENSPINE_GMAIL_REFRESH_TOKEN=your-refresh-token
 ```
+
+Also set `DOCKER_GID` to the numeric group ID of `/var/run/docker.sock`. Use `stat -c '%g' /var/run/docker.sock` on Linux or `stat -f '%g' /var/run/docker.sock` on macOS. The non-root kernel container uses that supplemental group to spawn contained task workers.
 
 Do not rely on host-shell `export` commands for the Compose path. `compose.yaml` reads the values from `.env`.
 
@@ -84,7 +86,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-`compose.yaml` mounts `artifacts/lyra` read-only into the kernel and the Docker example points `lyra_dir` at that mount.
+`compose.yaml` mounts `artifacts/lyra` read-only into the kernel and stores kernel state in a Docker-managed volume owned by the non-root kernel user.
 
 The process driver is a development shortcut. Under `sandbox.driver: process`, `/draft` is refused unless the configuration explicitly sets:
 
