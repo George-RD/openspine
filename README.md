@@ -1,5 +1,5 @@
 <picture>
-  <img src="docs/readme-header.svg" width="100%" alt="OpenSpine. Give your AI real work. Not the master key. A self-hosted personal AI system with hard task limits." />
+  <img src="docs/readme-header.svg" width="100%" alt="OpenSpine. Let a personal AI do the job. Keep the rest of your accounts out of reach. A self-hosted personal AI system with hard task limits." />
 </picture>
 
 <p align="center">
@@ -18,19 +18,23 @@
 
 # OpenSpine
 
-**A self-hosted personal AI system for real account access.**
+**Let a personal AI do the job. Keep the rest of your accounts out of reach.**
 
-OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine enforces those limits outside the model.
+OpenSpine comes with **Lyra, the assistant you talk to**. You choose the task. Lyra can use only what that task needs. Anything else stays out of reach.
 
-It does not run OpenClaw, Hermes, or another assistant today. Other assistants may come later. Lyra is the path that works now.
+If the promise of OpenClaw or Hermes appeals to you, but broad access to your inbox, files, and accounts does not, OpenSpine is built around that exact hesitation.
 
-> **Alpha:** Lyra can read one Gmail thread you choose, draft a reply, and create the exact draft you approved. It cannot send the email.
+> **Alpha:** Choose one Gmail thread. Lyra drafts a reply. Only the exact draft you approve is created. Sending stays blocked.
+
+OpenSpine is much narrower than OpenClaw or Hermes today. It does not run either project, and it does not yet support other assistants through a finished compatibility layer. Lyra is the path that works now.
 
 ## Why this needs a different system
 
-A personal agent is easy to trust while it writes notes or works in a disposable folder. The decision changes when it asks for your main inbox, customer data, files, calendar, infrastructure, or another real account.
+A chat assistant can suggest what to do. A personal agent becomes useful when it can read mail, use files, update accounts, or run tools for you.
 
-Now the failure scenes are concrete:
+That is also the point where one mistake can reach something real.
+
+The failure scenes are ordinary:
 
 - a poisoned email tells the model to read more mail;
 - the agent selects the wrong customer, thread, or account;
@@ -39,30 +43,30 @@ Now the failure scenes are concrete:
 - an approval applies to something different from what you reviewed;
 - the agent quietly gives itself more access.
 
-Prompts, allowlists, approvals, and sandboxes all help. OpenSpine adds a harder rule: **the model is never the authority source.**
+Prompts, allowlists, approvals, and sandboxes all help. OpenSpine adds a harder rule: **the AI does not decide what it is allowed to reach.**
 
 <picture>
   <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and checks model-driven account actions before a connector runs." />
 </picture>
 
-## The product shape
+## What happens when you ask Lyra to do something
 
 ```text
 you ↔ Lyra
        │ asks for work
        ▼
 OpenSpine runtime
-  verifies → scopes → grants → gates → records
+  verifies → limits → grants → checks → records
        │
        ▼
 email, models, and other connectors
 ```
 
-- **Lyra** handles the conversation and coordinates bounded workers and workflows.
-- **The runtime** verifies requests, builds the task grant, holds credentials, and checks actions.
-- **Workers** receive a task token and the context needed for that job. They do not receive raw connector keys.
-- **Worker-requested effects** run only after the gate allows them or an exact approval is satisfied.
-- **A small set of pre-gate owner-selected metadata reads** is separately enumerated, classified, and audited.
+- **Lyra** talks with you and coordinates the work.
+- **The runtime** checks the request, decides what this task may use, holds the account keys, and checks actions.
+- **Workers** receive a short-lived task pass and the context needed for that job. They do not receive raw connector keys.
+- **AI-requested account actions** run only when the task allows them or the exact approval is satisfied.
+- **A small set of owner-selected metadata reads before the main gate** is separately listed, classified, and audited.
 
 The deterministic path is:
 
@@ -72,15 +76,15 @@ event → verify → identify → route → compose → grant → run → gate �
 
 A malicious email can change what the model tries to do. It cannot create permission to read another thread or send an email.
 
-## How this differs from OpenClaw and Hermes
+## The trade-off against OpenClaw and Hermes
 
-OpenClaw and Hermes are mature, capability-first personal agents. They offer far more channels, tools, skills, automation, and onboarding than OpenSpine does today. They also provide real security controls.
+OpenClaw and Hermes offer far more channels, tools, skills, automation, and onboarding than OpenSpine does today. They also provide real security controls.
 
 OpenSpine makes a different trade:
 
-> **OpenClaw and Hermes are capability-first assistants. OpenSpine is a trust-first assistant system.**
+> **Each task gets hard limits before the AI can reach your accounts.**
 
-The distinction is structural, not a claim that the other projects ignore security. OpenSpine makes task authority a first-class runtime object and keeps it outside the model. Model-driven effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately classified and audited.
+The distinction is structural, not a claim that the other projects ignore security. OpenSpine makes task permission a first-class runtime object and keeps it outside the model. AI-requested effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately classified and audited.
 
 See the [full comparison](https://george-rd.github.io/openspine/comparison/) for the current strengths and trade-offs of each approach.
 
@@ -90,11 +94,11 @@ See the [full comparison](https://george-rd.github.io/openspine/comparison/) for
   <img src="docs/readme-lyra-flow.svg" width="100%" alt="Lyra alpha flow. A verified Telegram request selects one Gmail thread. OpenSpine creates a task grant, Lyra drafts a reply, the owner approves the exact text, and Gmail receives a draft. Email sending follows a separate denied path." />
 </picture>
 
-Today, you send Lyra a Gmail thread ID in Telegram. OpenSpine verifies the owner message and binds the task to that thread. Lyra prepares a reply. You approve the exact text and target before a Gmail draft is created. `email.send` remains denied.
+Today, you send Lyra a Gmail thread ID in Telegram. OpenSpine verifies that the message came from you and binds the task to that thread. Lyra prepares a reply. You approve the exact text and target before Gmail receives a draft. `email.send` remains denied.
 
 This workflow is deliberately narrow. It proves the boundary against hostile external content without claiming that the alpha is already a full chief-of-staff assistant.
 
-## Permissions grow only after you approve them
+## More access needs another decision
 
 An agent can propose a new route, rule, workflow, or capability. The proposal stays inactive until the relevant lifecycle and approval checks pass. Nothing can silently give itself more access.
 
@@ -119,7 +123,7 @@ The [full claims register](docs/threat-claims.md) covers external content, model
 
 ## Current trade-offs
 
-Choose the alpha because the authority model matters enough to accept:
+Choose the alpha because the task boundary matters enough to accept:
 
 - Docker, Telegram, model-provider, and Gmail OAuth setup;
 - a copied Gmail thread ID instead of a polished picker;
@@ -176,7 +180,8 @@ Then message your bot:
 | [How OpenSpine differs](https://george-rd.github.io/openspine/comparison/) | A fair comparison with capability-first personal agents. |
 | [Architecture](https://george-rd.github.io/openspine/architecture/) | The event path, task grants, gate, artifacts, and audit model. |
 | [`docs/threat-claims.md`](docs/threat-claims.md) | Every security claim and the test or manual proof behind it. |
-| [`.raw/openspine-positioning-audit-2026-07-30.md`](.raw/openspine-positioning-audit-2026-07-30.md) | The Growth Arsenal offer audit, target market, value equation, and product contradictions. |
+| [`.raw/openspine-layperson-offer-rerun-2026-07-30.md`](.raw/openspine-layperson-offer-rerun-2026-07-30.md) | The full Growth Arsenal rerun, buyer personas, value equation, adversarial findings, and paired copy evaluation. |
+| [`.raw/openspine-positioning-audit-2026-07-30.md`](.raw/openspine-positioning-audit-2026-07-30.md) | The earlier architecture and positioning audit that this reader-first rerun corrects. |
 | [`.raw/openspine-decision-log.md`](.raw/openspine-decision-log.md) | Architecture decisions, consequences, and reversal conditions. |
 | [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md) | What has landed, what comes next, and the order of work. |
 
