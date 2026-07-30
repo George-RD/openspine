@@ -23,7 +23,7 @@ Scope: landing hero and README opening
 
 > Give your AI real work. Not the master key.
 >
-> OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. Before an account action runs, OpenSpine allows it, blocks it, or sends it to you first.
+> OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. The model-driven worker cannot reach your accounts beyond that scope.
 
 ## Deterministic comparison
 
@@ -31,15 +31,15 @@ The metrics use the same heuristic and default gates as Growth Arsenal: Flesch-K
 
 | Landing signal | Baseline | Candidate | Candidate minus baseline |
 |---|---:|---:|---:|
-| Words | 46 | 54 | +8 |
+| Words | 46 | 48 | +2 |
 | Sentences | 6 | 7 | +1 |
-| Average words per sentence | 7.7 | 7.7 | 0.0 |
-| Flesch-Kincaid grade | 4.1 | 3.6 | -0.5 |
+| Average words per sentence | 7.7 | 6.9 | -0.8 |
+| Flesch-Kincaid grade | 4.1 | 3.8 | -0.3 |
 | Em dashes | 0 | 0 | 0 |
 | Tier-1 AI vocabulary | 0 | 0 | 0 |
 | Hard gate | Pass | Pass | No regression |
 
-The final sentence deliberately says **account action** rather than **every action**. OpenSpine gates runtime effects, but the user-facing promise should not imply that every internal thought or pure computation stops for approval.
+The final sentence states the worker boundary rather than claiming that every runtime action crosses the effect gate. OpenSpine has a small, enumerated set of owner-selected metadata reads before grant composition. Those trusted paths are separately classified and audited.
 
 ## Reader lenses
 
@@ -63,7 +63,7 @@ Strongest objection to the candidate: “real work” is broader than the curren
 
 ### Mechanism reader
 
-**Keep candidate.** Both versions communicate credential separation and checked actions. The candidate adds the missing product hierarchy without removing the mechanism. A reader can now explain the distinction as: “Lyra proposes the work; the OpenSpine runtime decides what may happen.”
+**Keep candidate.** Both versions communicate credential separation and task limits. The candidate adds the missing product hierarchy without removing the mechanism. A reader can now explain the distinction as: “Lyra proposes the work; the OpenSpine runtime decides what may happen.”
 
 ## Paired rubric
 
@@ -74,7 +74,7 @@ Score: `0 = fails`, `1 = partial`, `2 = clear`.
 | Target-audience recognition | 1 | 2 | Candidate speaks to the point where an installed personal agent receives real account access. |
 | Category clarity | 1 | 2 | Baseline sounds like middleware; candidate names the system and assistant. |
 | Mechanism clarity | 2 | 2 | Both explain credential separation and task limits. |
-| Specificity | 2 | 2 | Both use account keys, task scope, and action decisions. |
+| Specificity | 2 | 2 | Both use account keys and task scope. |
 | Action clarity | 2 | 2 | Baseline led to setup; candidate leads to the boundary, then setup. Both actions are visible. |
 | Trust and claim discipline | 2 | 2 | Candidate keeps the alpha limit and proof ledger close to the promise. |
 | Wrong-fit rejection | 1 | 2 | Candidate surfaces narrow workflow breadth and technical setup. |
@@ -87,15 +87,15 @@ The README candidate adds the missing product hierarchy and explicit non-compati
 
 | README signal | Baseline | Candidate |
 |---|---:|---:|
-| Words | 66 | 93 |
+| Words | 66 | 86 |
 | Sentences | 6 | 10 |
-| Average words per sentence | 11.0 | 9.3 |
+| Average words per sentence | 11.0 | 8.6 |
 | Flesch-Kincaid grade | 5.9 | 5.7 |
 | Em dashes | 0 | 0 |
 | Tier-1 AI vocabulary | 0 | 0 |
 | Hard gate | Pass | Pass |
 
-The extra words earn their place because they answer the user's actual confusion: OpenSpine is not currently a bolt-on for OpenClaw, Hermes, or another assistant; Lyra is the supported assistant path.
+The extra words earn their place because they answer the user's actual confusion: OpenSpine does not currently run OpenClaw, Hermes, or another assistant; Lyra is the supported assistant path.
 
 ## Decision
 
