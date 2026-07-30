@@ -102,7 +102,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-Compose mounts the Lyra package into the kernel read-only and stores runtime data in a Docker-managed volume. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package read-only and retains runtime state in `./data`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts, so existing Compose data is preserved across upgrades. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Then message your bot:
 
