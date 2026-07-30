@@ -1,56 +1,32 @@
-# Gmail selected-thread email preview setup (Phase 2)
+# Gmail selected-thread drafting setup
 
-How to configure the Gmail connector for `implement-selected-thread-email-preview-slice`
-for local/dev use. This is the Phase 2 slice — the owner selects one Gmail
-thread by id, the kernel drafts a reply via the model gateway, and the
-owner sees a preview over Telegram. **No draft is ever created and no
-email is ever sent by this slice** — draft creation is approval-required
-(D-034) and its actual approval flow ships in
-`implement-digest-bound-draft-approval` (Step 6).
+This guide configures Lyra's current Gmail workflow for local or self-hosted use. The owner selects one Gmail thread by ID. OpenSpine verifies and scopes the request, Lyra prepares a reply, and the owner approves the exact text in Telegram before Gmail receives a draft. Email sending remains denied by runtime policy.
 
 ## 1. Create a Google Cloud OAuth client
 
-1. In the [Google Cloud Console](https://console.cloud.google.com/), create
-   (or reuse) a project and enable the **Gmail API**.
-2. Configure the OAuth consent screen. **Testing mode is sufficient** for a
-   single-owner dev deployment — you do not need to publish the app or
-   pass Google's verification review, since the only user is the owner
-   account itself.
-3. Create an OAuth 2.0 **Desktop app** client. Note the `client_id` and
-   `client_secret`.
-4. Grant these scopes during consent (D-029): `gmail.readonly` (this
-   slice's only live call) and `gmail.compose` (needed once Step 6
-   implements `email.create_draft` — requested together now so the owner
-   completes consent once for both phases). **Never** `gmail.send` — Lyra
-   never has send authority through any phase (D-004/D-015/PRD §22).
+1. In the [Google Cloud Console](https://console.cloud.google.com/), create or reuse a project and enable the **Gmail API**.
+2. Configure the OAuth consent screen. **Testing mode is sufficient** for a single-owner development deployment. You do not need to publish the app or pass Google's verification review when the only user is the owner account.
+3. Create an OAuth 2.0 **Desktop app** client. Note the `client_id` and `client_secret`.
+4. Grant `gmail.readonly` to read the selected thread and `gmail.compose` to create the approved draft. Never grant `gmail.send`. Lyra has no send authority.
 
 ## 2. Obtain a refresh token
 
-The kernel is a headless process — it does not run an interactive OAuth
-consent flow itself (D-037). A human completes Google's consent screen
-**once**, outside this codebase, and gives the kernel the resulting
-long-lived refresh token via the environment. Any standard OAuth2
-"authorization code" walkthrough for a Desktop-app client works (e.g.
-Google's own
-[OAuth 2.0 Playground](https://developers.google.com/oauthplayground/),
-configured with your own client id/secret and the two scopes above,
-produces a refresh token directly). Store it the same way as every other
-secret in this repo:
+The kernel is a headless process. It does not run an interactive OAuth consent flow. A human completes Google's consent screen once and gives the kernel the resulting long-lived refresh token through the environment.
+
+Any standard OAuth 2.0 authorization-code walkthrough for a Desktop app client works. Google's [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) can use your own client ID and secret with the two scopes above and return a refresh token.
+
+Store the secret and token in the environment:
 
 ```sh
 export OPENSPINE_GMAIL_CLIENT_SECRET="your-client-secret"
 export OPENSPINE_GMAIL_REFRESH_TOKEN="your-refresh-token"
 ```
 
-**Do not put the client secret or refresh token in `openspine.yaml` or
-anywhere in the repo** — same secret-intake shortcut as the Telegram bot
-token and artifact key (see `docs/telegram-setup.md` §3, D-014's
-deferral): plain environment variables for now, a richer secret-intake
-flow is future work.
+Do not put the client secret or refresh token in `openspine.yaml` or in the repository. Environment variables are the current secret-intake path, as they are for the Telegram bot token and artifact key.
 
-## 3. `openspine.yaml`'s `gmail` block
+## 3. Add the `gmail` block to `openspine.yaml`
 
-Add to the minimal config from `docs/telegram-setup.md` §4:
+Add this block to the minimal configuration from [`docs/telegram-setup.md`](telegram-setup.md):
 
 ```yaml
 gmail:
@@ -59,60 +35,38 @@ gmail:
   refresh_token_env: OPENSPINE_GMAIL_REFRESH_TOKEN
 ```
 
-Omitting the `gmail` block entirely is fine — the kernel starts normally
-and the `/draft` command below replies "Gmail isn't configured on this
-kernel yet, so /draft is unavailable." instead of failing to start (Phase 1's Telegram-only slice
-must keep working with no Gmail connector at all).
+The kernel can start without this block, but `/draft` then replies that Gmail is not configured.
 
-## 4. Selecting a thread — the `/draft <thread_id>` command
+## 4. Select a thread with `/draft <thread_id>`
 
-PRD §15 requires that "the shell must not be trusted to provide target IDs
-and claim the user selected them" — so the thread-selection trigger for
-Phases 1-3 (D-036) is a structured command the **kernel itself** recognizes
-directly in the Telegram poll loop, before any shell/agent ever sees the
-message:
+The kernel, rather than the agent shell, recognises the thread-selection command:
 
 ```text
 /draft <gmail_thread_id>
 ```
 
-Find a thread's id from Gmail's own web UI: open the thread and look at the
-URL, e.g. `https://mail.google.com/mail/u/0/#inbox/<thread_id>` — the
-trailing hex string after the last `/` is the thread id. Send
-`/draft <that_id>` to the same Telegram bot from
-`docs/telegram-setup.md`, from the owner account.
+Open a thread in Gmail and copy the trailing thread ID from its web URL. Send `/draft <that_id>` to the Telegram bot from the configured owner account.
 
-What happens next (PRD §21.1):
+OpenSpine then follows this path:
 
-1. The kernel verifies the thread exists via a live Gmail call, **before**
-   minting anything.
-2. The kernel mints a single-use, quickly-expiring selection token (PRD
-   §15) and composes authority for `email_reply_drafter` as a new task,
-   bound to the same Telegram chat that sent `/draft`.
-3. The sandboxed shell reads the bounded, attachment-free thread content
-   (`email.read_thread:selected_no_attachments`) using — and consuming —
-   that token.
-4. The thread content is drafted into a reply via the model gateway, with
-   the raw email text wrapped as untrusted, non-authoritative data (PRD
-   §13) — a prompt-injection attempt inside the email body cannot make the
-   model take an unauthorized action.
-5. The draft is previewed back to the owner over Telegram
-   (`lyra.ui.preview`). **No draft is created in Gmail and no email is
-   sent** — this slice's output is preview-only.
+1. The kernel verifies that the thread exists before minting any task authority.
+2. It creates a short-lived, single-use selection token bound to that thread and the requesting Telegram chat.
+3. The contained agent reads only the selected, attachment-free thread.
+4. The model gateway presents the email as untrusted data while Lyra prepares a reply.
+5. Telegram shows the proposed draft and binds the approval to the exact text digest.
+6. After owner approval, OpenSpine verifies the digest and creates the draft in Gmail.
+7. `email.send` remains denied regardless of the task grant or approval state.
 
-A real thread-browsing picker (list recent threads, "the one from Alex
-about the invoice") is explicit future work, not built here — see D-036
-for why a narrow, kernel-recognized command is this slice's real scope,
-not a shortcut around it.
+A thread browser or natural-language picker is still future work. The current alpha requires the explicit Gmail thread ID.
 
-## 5. Unsafe dev shortcuts (do not carry into production)
+## 5. Containment requirements
 
-Everything in `docs/telegram-setup.md` §5 applies unchanged. One addition
-specific to this slice: `/draft` triggers an `external_communication`-lane
-event (unlike Phase 1's `owner_control`-lane chat), so the D-025/O-003
-containment guard actually engages here. Under `sandbox.driver: process`
-you must also set `unsafe_allow_uncontained_private_data: true` in
-`openspine.yaml` to exercise `/draft` at all — omitting it is the safe
-default and produces a `route.refused_uncontained` audit row, not a bug.
-Real deployments use `driver: docker`, where the guard is satisfied by the
-container boundary itself and this flag stays `false`.
+Use `sandbox.driver: docker` for the Gmail workflow. The container boundary satisfies the private-data containment guard while `unsafe_allow_uncontained_private_data` stays `false`.
+
+The process driver is a development shortcut. Under `sandbox.driver: process`, `/draft` is refused unless the configuration explicitly sets:
+
+```yaml
+unsafe_allow_uncontained_private_data: true
+```
+
+Use that flag only in an isolated development environment. Omitting it is the safe default and produces a `route.refused_uncontained` audit row rather than running the private-data task without containment.
