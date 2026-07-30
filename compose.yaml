@@ -11,8 +11,9 @@
 # Build the worker image once before starting Compose:
 #   docker build --file Dockerfile.shell --tag openspine-shell:latest .
 #
-# Secrets: copy .env.example to .env and fill in real values before running.
-# The .env file is gitignored and must never be committed.
+# Secrets and the Docker socket group: copy .env.example to .env and fill in
+# real values before running. The .env file is gitignored and must never be
+# committed.
 
 name: openspine
 
@@ -31,12 +32,22 @@ networks:
     # "network not found" at runtime.
     name: openspine-internal
 
+volumes:
+  # Docker initializes this volume from /app/data in Dockerfile.kernel, keeping
+  # the non-root kernel user's ownership. A bind-mounted ./data directory from
+  # a clean clone would otherwise normally be created as root and be unwritable.
+  openspine-data:
+
 services:
   kernel:
     build:
       context: .
       dockerfile: Dockerfile.kernel
     restart: unless-stopped
+    # The kernel remains uid 10001. Add the host socket's numeric group so it
+    # can use the mounted Docker API without running the whole container as root.
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID in .env to the group id of /var/run/docker.sock}"
     networks:
       # The kernel needs both networks:
       # - default (bridge): internet access for Telegram long-polling and
@@ -59,8 +70,9 @@ services:
       # so the reference Compose path has the routes, agents, workflows, packs,
       # policies, and templates required by `/draft`.
       - ./artifacts/lyra:/app/artifacts/lyra:ro
-      # Persistent data: SQLite DB, encrypted artifact blobs, credentials.
-      - ./data:/app/data
+      # Persistent SQLite and encrypted artifacts. The image prepares /app/data
+      # as uid/gid 10001 before this named volume is initialized.
+      - openspine-data:/app/data
       # Docker socket: the kernel uses this to spawn per-task shell containers
       # via DockerDriver (docker run --rm --network openspine-internal ...).
       # The socket grants significant privileges; in production restrict the
@@ -112,5 +124,6 @@ services:
   #     AUTH: 0
   #
   # Then on the kernel service: drop the `/var/run/docker.sock` volume mount
-  # above and add `DOCKER_HOST=tcp://docker-socket-proxy:2375` to its
-  # `environment:` (or `.env`, via `env_file`) instead.
+  # above and the `group_add` entry, then add
+  # `DOCKER_HOST=tcp://docker-socket-proxy:2375` to `environment:` (or `.env`,
+  # via `env_file`).
