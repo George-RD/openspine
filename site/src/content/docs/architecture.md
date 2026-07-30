@@ -29,7 +29,8 @@ flowchart LR
 - **Authority composition**: deterministic, deny-by-default intersection across every relevant route, agent manifest, workflow, capability pack, policy, caveat, approval, and runtime limit.
 - **Task grant**: the one live authority object a worker holds. It contains a short-lived token, scoped actions, approval requirements, budgets, and any selection tokens.
 - **Agent / workflow**: runs in a contained shell process with no I/O except the kernel API.
-- **Gated effects**: every effectful action passes through `gate()` before a connector runs it.
+- **Gated effects**: effectful actions requested by a worker pass through `gate()` before dispatch.
+- **Trusted pre-gate paths**: a small, enumerated set of owner-selected metadata reads may occur before grant composition. Each path is separately classified and audited; it is not controlled by model output.
 - **Audit / memory**: every decision is appended to a hash-chained audit log. Memory and learned behaviour update through governed lifecycles rather than free mutation.
 
 The order is the security model. Authority is settled before model-driven worker code runs, so nothing the model generates can reach back and renegotiate the task grant.
@@ -38,7 +39,7 @@ The order is the security model. Authority is settled before model-driven worker
 
 - `openspine-schemas`: versioned, `deny_unknown_fields` object kinds for every runtime concept, plus canonical-JSON digest functions. Pure data, no I/O.
 - `openspine-authority`: route resolution and authority composition as pure functions that merge route, workflow, agent, pack, policy, caveat, and runtime inputs into a task grant or denial.
-- `openspine-gate`: the `gate()` mediation boundary every effectful action passes through before a connector runs it.
+- `openspine-gate`: the mediation boundary for effectful worker actions before connector dispatch.
 - `openspine-kernel` (bin `openspine`): the trusted process. It owns storage, the artifact store, connectors, model gateway, audit chain, and kernel HTTP API.
 - `openspine-shell` (bin `openspine-shell`): the contained per-task worker that runs agent and workflow logic. Its only I/O is the kernel API.
 
