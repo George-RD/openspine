@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: cohesive store integration tests share fixtures and durable-state invariants in one test module
 use super::*;
 use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::action::{ActionRequest, DenialReason};
@@ -304,6 +305,49 @@ fn conversation_history_returns_oldest_first_within_limit() {
     let expected_4 = Digest::parse(format!("sha256:{}", "4".repeat(64))).unwrap();
     assert_eq!(recent[0].1, expected_2);
     assert_eq!(recent[2].1, expected_4);
+}
+
+#[test]
+fn conversation_history_continues_across_grants_in_same_channel_and_workflow() {
+    let store = Store::open_in_memory().unwrap();
+    let pending = ArtifactRef {
+        digest: Digest::parse(format!("sha256:{}", "f".repeat(64))).unwrap(),
+        schema_version: 1,
+    };
+
+    let first = sample_grant("conversation-token-a");
+    store.insert_task_grant(&first, &pending, 555).unwrap();
+    let first_digest = Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap();
+    store
+        .append_conversation_message(first.id, "user", &first_digest)
+        .unwrap();
+
+    let second = sample_grant("conversation-token-b");
+    store.insert_task_grant(&second, &pending, 555).unwrap();
+    let second_digest = Digest::parse(format!("sha256:{}", "2".repeat(64))).unwrap();
+    store
+        .append_conversation_message(second.id, "assistant", &second_digest)
+        .unwrap();
+
+    let other_channel = sample_grant("conversation-token-c");
+    store
+        .insert_task_grant(&other_channel, &pending, 777)
+        .unwrap();
+    let ignored_digest = Digest::parse(format!("sha256:{}", "3".repeat(64))).unwrap();
+    store
+        .append_conversation_message(other_channel.id, "user", &ignored_digest)
+        .unwrap();
+
+    let history = store
+        .recent_conversation_for_channel_workflow(555, "owner_control_conversation", 20)
+        .unwrap();
+    assert_eq!(
+        history,
+        vec![
+            ("user".to_string(), first_digest),
+            ("assistant".to_string(), second_digest),
+        ]
+    );
 }
 
 #[test]

@@ -1,0 +1,41 @@
+# Direct terminal configuration using local Onyx-managed inference.
+# No Telegram bot token is required by `openspine chat`.
+
+data_dir: ./data-terminal
+
+sandbox:
+  driver: process # development/testing only; openspine-shell must be on PATH
+
+owner:
+  # Retained as the stable local owner id until owner config becomes
+  # connector-neutral. It is not contacted through Telegram in chat mode.
+  telegram_user_id: 1
+  display_name: "Local Owner"
+
+providers:
+  # The first provider is the default for all governed model roles.
+  - id: onyx-lfm-1-2b
+    kind: onyx
+    base_url: http://127.0.0.1:8080
+    model: LiquidAI/LFM2.5-1.2B-Instruct
+    auth:
+      mode: api_key
+      env: ONYX_PAT
+
+  # Smaller registered alternative for simple or latency-sensitive work.
+  - id: onyx-lfm-350m
+    kind: onyx
+    base_url: http://127.0.0.1:8080
+    model: LiquidAI/LFM2.5-350M
+    auth:
+      mode: api_key
+      env: ONYX_PAT
+
+spend_cap:
+  model_calls_per_day: 100
+  connector_calls_per_day: 100
+
+kernel:
+  bind_addr: "127.0.0.1:7777"
+
+lyra_dir: ./artifacts/lyra

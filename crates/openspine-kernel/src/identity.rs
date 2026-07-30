@@ -29,6 +29,31 @@ impl<'a> IdentityResolver<'a> {
         }
     }
 
+    /// Resolve the kernel-owned local terminal as the configured owner.
+    ///
+    /// This path is intentionally separate from Telegram verification: the
+    /// caller must first prove that the event was minted by the local `chat`
+    /// command (`Source::Cli` + `LocalCliAuth`) and bind the owner principal.
+    /// No external payload can construct this result directly.
+    pub fn resolve_local_owner(
+        &self,
+        event_id: Ulid,
+        channel_trust: ChannelTrust,
+    ) -> (IdentityResolution, Option<RelationshipKind>) {
+        let resolution = IdentityResolution {
+            event_id,
+            matched_identity_id: Some(self.owner_identity_id),
+            principal_id: Some(self.owner_principal_id),
+            confidence: 1.0,
+            matched_identifier_type: MatchedIdentifierType::Device,
+            channel_trust,
+            source_verified: true,
+            authority_warning: None,
+            schema_version: 1,
+        };
+        (resolution, Some(RelationshipKind::Owner))
+    }
+
     /// Resolve an incoming message's sender to an IdentityResolution and relationship kind.
     /// Read-only (never mutates or binds).
     pub fn resolve(
@@ -177,6 +202,26 @@ mod tests {
     use super::*;
     use openspine_schemas::event::ChannelTrust;
     use openspine_schemas::identity::RelationshipKind;
+
+    #[test]
+    fn local_cli_path_resolves_owner_device_and_principal() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+        let resolver = IdentityResolver::new(&store, owner.id, owner.identity_id);
+        let event_id = Ulid::new();
+
+        let (resolution, relationship) =
+            resolver.resolve_local_owner(event_id, ChannelTrust::OwnerDevice);
+
+        assert_eq!(resolution.principal_id, Some(owner.id));
+        assert_eq!(resolution.matched_identity_id, Some(owner.identity_id));
+        assert_eq!(
+            resolution.matched_identifier_type,
+            MatchedIdentifierType::Device
+        );
+        assert_eq!(relationship, Some(RelationshipKind::Owner));
+        assert!(resolution.source_verified);
+    }
 
     #[test]
     fn owner_verified_path_resolves_owner_principal_and_relationship() {

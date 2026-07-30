@@ -3,7 +3,7 @@ use crate::model_gateway::GatewayTierMap;
 use crate::model_gateway::PromptMessage;
 use openspine_schemas::workflow::ReasoningTier;
 use std::collections::HashMap;
-use wiremock::matchers::{header, method, path};
+use wiremock::matchers::{body_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn prompt() -> ResolvedPrompt {
@@ -56,6 +56,40 @@ async fn openai_compat_client_parses_the_reply_text() {
     let client = ProviderClient::OpenAiCompat {
         client: http_client(),
         api_key: "test-key".to_string(),
+        base_url: server.uri(),
+        model: "test-model".to_string(),
+    };
+    let text = client.generate(&prompt()).await.unwrap();
+    assert_eq!(text, "hi owner");
+}
+
+#[tokio::test]
+async fn onyx_client_uses_scoped_chat_api_and_parses_answer() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/chat/send-chat-message"))
+        .and(header("authorization", "Bearer pat-token"))
+        .and(body_json(json!({
+            "message": "hello",
+            "llm_override": {"model_version": "test-model"},
+            "allowed_tool_ids": [],
+            "origin": "api",
+            "stream": false,
+            "include_citations": false,
+            "additional_context": "OpenSpine system instructions:\nYou are Lyra."
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "answer": "hi owner",
+            "answer_citationless": "hi owner",
+            "error_msg": null
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = ProviderClient::Onyx {
+        client: http_client(),
+        pat: "pat-token".to_string(),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };

@@ -8,9 +8,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-openspec_bin="./node_modules/.bin/openspec"
+openspec_bin="${OPENSPINE_OPENSPEC_BIN:-$PWD/node_modules/.bin/openspec}"
 if [ ! -x "$openspec_bin" ]; then
-  echo "OpenSpec CLI not found at $openspec_bin. Run npm ci first." >&2
+  echo "OpenSpec CLI not found at $openspec_bin. Run npm ci or set OPENSPINE_OPENSPEC_BIN." >&2
   exit 1
 fi
 

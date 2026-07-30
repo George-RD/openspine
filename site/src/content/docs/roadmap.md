@@ -14,7 +14,19 @@ The canonical implementation ledger is [`openspec/openspine-change-sequence.md`]
 
 ## Available through Lyra today
 
-The current owner-facing alpha proves one guarded workflow end to end:
+The current owner-facing alpha proves two bounded paths end to end.
+
+### Direct local terminal conversation
+
+- `openspine chat` provides a line-oriented local REPL, with `--once` for smoke tests and scripts;
+- each message becomes a kernel-minted `cli.owner.message` verified with `local_cli_auth` on an owner-device channel;
+- every turn receives a signed task grant and runs through the contained shell, model gateway, action gate, artifact store, and audit trail;
+- the supplied Onyx configuration uses `LiquidAI/LFM2.5-1.2B-Instruct` first and registers `LiquidAI/LFM2.5-350M` as a smaller alternative;
+- the Onyx PAT remains in the kernel, outside YAML and the worker environment;
+- terminal grants permit only status, setup, approved model generation, and `terminal.reply:owner_device`;
+- no Telegram bot token is required for terminal mode.
+
+### Selected Gmail draft
 
 - verified Telegram owner control;
 - `/draft <thread_id>` for one Gmail thread selected by the owner;
@@ -26,11 +38,11 @@ The current owner-facing alpha proves one guarded workflow end to end:
 - email sending denied by global runtime policy;
 - encrypted artifacts, task-grant records, gate decisions, and audit receipts.
 
-This is a working trust proof. It is not yet a broad personal-assistant experience.
+These are working trust proofs. They are not yet a broad personal-assistant experience.
 
 ## Landed in the OpenSpine runtime
 
-The change ledger records substantially more machinery than the public Gmail flow exposes.
+The change ledger records substantially more machinery than the public owner paths expose.
 
 ### Authority and containment
 

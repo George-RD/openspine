@@ -1,9 +1,10 @@
 //! Provider HTTP clients (build plan 4c).
 //!
-//! Two provider kinds, enum-dispatched (no `dyn`/`async_trait` — this repo's
+//! Provider kinds are enum-dispatched (no `dyn`/`async_trait` — this repo's
 //! no-new-deps convention and the small, closed set of kinds don't justify
 //! either): `anthropic` calls the Messages API; `openai_compat` calls
-//! `/v1/chat/completions`, the shape most OpenAI-compatible providers share.
+//! `/v1/chat/completions`; `onyx` calls the normal non-streaming Onyx chat API
+//! with a scoped Personal Access Token.
 
 use serde_json::{json, Value};
 
@@ -13,6 +14,7 @@ use super::ResolvedPrompt;
 
 const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com";
+const DEFAULT_ONYX_BASE_URL: &str = "http://127.0.0.1:8080";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +46,12 @@ pub enum ProviderClient {
     OpenAiCompat {
         client: reqwest::Client,
         api_key: String,
+        base_url: String,
+        model: String,
+    },
+    Onyx {
+        client: reqwest::Client,
+        pat: String,
         base_url: String,
         model: String,
     },
@@ -84,6 +92,15 @@ impl ProviderClient {
                     .unwrap_or_else(|| DEFAULT_OPENAI_BASE_URL.to_string()),
                 model: config.model.clone(),
             },
+            ProviderKind::Onyx => ProviderClient::Onyx {
+                client: http_client(),
+                pat: api_key,
+                base_url: config
+                    .base_url
+                    .clone()
+                    .unwrap_or_else(|| DEFAULT_ONYX_BASE_URL.to_string()),
+                model: config.model.clone(),
+            },
             ProviderKind::GoogleAntigravity => ProviderClient::OpenAiCompat {
                 client: http_client(),
                 api_key,
@@ -111,11 +128,13 @@ impl ProviderClient {
         let mut key = match self {
             ProviderClient::Anthropic { api_key, .. } => api_key.clone(),
             ProviderClient::OpenAiCompat { api_key, .. } => api_key.clone(),
+            ProviderClient::Onyx { pat, .. } => pat.clone(),
         };
 
         let pid = provider_id.unwrap_or(match self {
             ProviderClient::Anthropic { .. } => "anthropic",
             ProviderClient::OpenAiCompat { .. } => "openai-codex",
+            ProviderClient::Onyx { .. } => "onyx",
         });
 
         let mut is_oauth = key.starts_with("oauth:");
@@ -167,6 +186,12 @@ impl ProviderClient {
                 model,
                 ..
             } => generate_openai_compat(client, key, base_url, model, prompt).await,
+            ProviderClient::Onyx {
+                client,
+                base_url,
+                model,
+                ..
+            } => generate_onyx(client, key, base_url, model, prompt).await,
         }
     }
 }
@@ -232,6 +257,89 @@ async fn generate_anthropic(
         .and_then(|t| t.as_str())
         .map(str::to_string)
         .ok_or_else(|| GatewayError::MissingContent("anthropic".to_string()))
+}
+
+fn onyx_request_parts(prompt: &ResolvedPrompt) -> Result<(String, String), GatewayError> {
+    let user_index = prompt
+        .messages
+        .iter()
+        .rposition(|message| matches!(message.role, super::PromptRole::User))
+        .ok_or_else(|| GatewayError::MissingContent("onyx.request.user_message".to_string()))?;
+    let message = prompt.messages[user_index].content.trim().to_string();
+    if message.is_empty() {
+        return Err(GatewayError::MissingContent(
+            "onyx.request.user_message".to_string(),
+        ));
+    }
+
+    let mut context = format!("OpenSpine system instructions:\n{}", prompt.system);
+    if user_index > 0 {
+        context.push_str("\n\nConversation history:");
+        for item in &prompt.messages[..user_index] {
+            let role = match item.role {
+                super::PromptRole::User => "USER",
+                super::PromptRole::Assistant => "ASSISTANT",
+            };
+            context.push_str(&format!("\n{role}: {}", item.content));
+        }
+    }
+    Ok((message, context))
+}
+
+async fn generate_onyx(
+    client: &reqwest::Client,
+    pat: &str,
+    base_url: &str,
+    model: &str,
+    prompt: &ResolvedPrompt,
+) -> Result<String, GatewayError> {
+    let (message, additional_context) = onyx_request_parts(prompt)?;
+    let body = json!({
+        "message": message,
+        "llm_override": { "model_version": model },
+        "allowed_tool_ids": [],
+        "origin": "api",
+        "stream": false,
+        "include_citations": false,
+        "additional_context": additional_context,
+    });
+    let response = client
+        .post(format!("{base_url}/chat/send-chat-message"))
+        .bearer_auth(pat)
+        .json(&body)
+        .send()
+        .await?;
+    let status = response.status();
+    let text = response.text().await?;
+    if !status.is_success() {
+        return Err(GatewayError::ProviderError {
+            provider: "onyx".to_string(),
+            status: status.as_u16(),
+            body: text,
+        });
+    }
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|_| GatewayError::MissingContent("onyx".to_string()))?;
+    if let Some(error) = value
+        .get("error_msg")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|error| !error.is_empty())
+    {
+        return Err(GatewayError::ProviderError {
+            provider: "onyx".to_string(),
+            status: 502,
+            body: error.to_string(),
+        });
+    }
+    value
+        .get("answer_citationless")
+        .or_else(|| value.get("answer"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|answer| !answer.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| GatewayError::MissingContent("onyx".to_string()))
 }
 
 async fn generate_openai_compat(

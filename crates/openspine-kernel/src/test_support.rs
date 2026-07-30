@@ -74,6 +74,7 @@ pub(crate) mod fixtures {
             sandbox: Sandbox::Process(ProcessDriver::default()),
             connectors: ConnectorRegistry::new(telegram, gmail)
                 .expect("built-in egress ratings are conflict-free"),
+            terminal_reply_tx: None,
             webhook_verifier: WebhookVerifier::new(
                 b"openspine-test-webhook-hmac-key-v1".to_vec(),
                 Duration::from_secs(300),

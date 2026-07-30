@@ -62,6 +62,10 @@ impl ActionHandlerRegistry {
             handle_telegram_reply as ActionHandler,
         );
         map.insert(
+            "terminal.reply:owner_device",
+            handle_terminal_reply as ActionHandler,
+        );
+        map.insert(
             "email.read_thread:selected_no_attachments",
             handle_read_selected_thread as ActionHandler,
         );
@@ -178,6 +182,33 @@ fn handle_telegram_reply<'a>(
                 .send_reply(bound_chat_id, &reply.text),
         )
         .await?;
+        Ok(json!({"sent": true}))
+    })
+}
+
+fn handle_terminal_reply<'a>(
+    state: &'a AppState,
+    _grant: &'a TaskGrant,
+    _action: &'a ActionId,
+    _bound_chat_id: i64,
+    payload: Option<&'a Value>,
+) -> HandlerFuture<'a> {
+    Box::pin(async move {
+        let value = payload.ok_or_else(|| {
+            DispatchError::BadRequest("terminal.reply:owner_device requires a payload".to_string())
+        })?;
+        let reply: TelegramReplyPayload = serde_json::from_value(value.clone()).map_err(|_| {
+            DispatchError::BadRequest(
+                "terminal.reply:owner_device payload must be exactly {\"text\": string}"
+                    .to_string(),
+            )
+        })?;
+        let sender = state.terminal_reply_tx.as_ref().ok_or_else(|| {
+            DispatchError::Resource(anyhow::anyhow!("direct terminal chat is not active"))
+        })?;
+        sender.send(reply.text).map_err(|_| {
+            DispatchError::Resource(anyhow::anyhow!("direct terminal chat receiver closed"))
+        })?;
         Ok(json!({"sent": true}))
     })
 }

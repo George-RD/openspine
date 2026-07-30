@@ -158,6 +158,12 @@ pub(crate) struct Cli {
 pub(crate) enum Commands {
     /// Interactive onboarding setup wizard
     Setup,
+    /// Open a direct local terminal conversation with Lyra
+    Chat {
+        /// Send one message, print the reply, and exit (for smoke tests/scripts)
+        #[arg(long)]
+        once: Option<String>,
+    },
     /// Provider login via OAuth or API key
     Provider {
         #[command(subcommand)]
@@ -180,6 +186,11 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
     let cli = Cli::parse();
+    let terminal_chat_request = match &cli.command {
+        Some(Commands::Chat { once }) => Some(once.clone()),
+        _ => None,
+    };
+    let terminal_chat_mode = terminal_chat_request.is_some();
     // Fixed boot timestamp captured at process start. Startup stranded-worker
     // recovery selects only dispatches created BEFORE this instant, so a
     // commission accepted just after boot can never be falsely surfaced as
@@ -228,17 +239,19 @@ async fn main() -> anyhow::Result<()> {
         secret_store::SecretStore::open(data_root.join("credentials"), artifact_key)
             .context("opening secret store")?,
     );
-    let bot_token = if let Some(value) = secrets
+    let bot_token = if terminal_chat_mode {
+        None
+    } else if let Some(value) = secrets
         .get_string("telegram.bot_token")
         .context("reading Telegram bot token from vault")?
     {
-        value
+        Some(value)
     } else {
         let value = config::telegram_bot_token()?;
         secrets
             .seed_if_absent("telegram.bot_token", value.as_bytes())
             .context("seeding Telegram bot token")?;
-        value
+        Some(value)
     };
     let store = store::Store::open(&data_root.join("kernel.db")).context("opening kernel store")?;
     // Close the DB-commit-before-key-tombstone crash window: the durable
@@ -443,11 +456,14 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let telegram = telegram::TelegramConnector::new_with_store(
-        bot_token,
-        secrets.clone(),
-        "telegram.bot_token".to_string(),
-    );
+    let telegram = match bot_token {
+        Some(token) => telegram::TelegramConnector::new_with_store(
+            token,
+            secrets.clone(),
+            "telegram.bot_token".to_string(),
+        ),
+        None => telegram::TelegramConnector::new("0:terminal-disabled".to_string()),
+    };
     let gmail = match &cfg.gmail {
         Some(gmail_cfg) => {
             let client_secret_slot = "gmail.client_secret";
@@ -472,6 +488,12 @@ async fn main() -> anyhow::Result<()> {
         }
         None => None,
     };
+    let (terminal_reply_tx, terminal_reply_rx) = if terminal_chat_mode {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
     let state = Arc::new(pipeline::AppState {
         store,
         artifacts,
@@ -480,6 +502,7 @@ async fn main() -> anyhow::Result<()> {
         action_catalog: crate::action_catalog::canonical_catalog(),
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail)?,
+        terminal_reply_tx,
         webhook_verifier: WebhookVerifier::new(
             config::webhook_hmac_secret()?,
             Duration::from_secs(300),
@@ -516,6 +539,12 @@ async fn main() -> anyhow::Result<()> {
         pending_overlay_finalization.as_ref(),
     )
     .await?;
+
+    if let Some(once) = terminal_chat_request {
+        let receiver = terminal_reply_rx
+            .ok_or_else(|| anyhow::anyhow!("terminal reply channel was not initialized"))?;
+        return run_terminal_chat(state, listener, receiver, once).await;
+    }
 
     for (request_id, summary) in &pending_reconfirm_buttons {
         let guard = crate::spend::guard_connector(&state, true).await;
@@ -854,6 +883,76 @@ pub(crate) async fn bind_clock_and_finalize_overlay(
     finalize_overlay_after_bind(store, overlay_operations, pending, jiff::Timestamp::now())?;
     Ok(listener)
 }
+async fn run_terminal_turn(
+    state: &Arc<pipeline::AppState>,
+    receiver: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
+    message: String,
+) -> anyhow::Result<String> {
+    if message.trim().is_empty() {
+        anyhow::bail!("terminal message must not be empty");
+    }
+    let grant = pipeline::handle_terminal_message(state, message).await?;
+    if grant.is_none() {
+        anyhow::bail!("terminal message was denied before a task grant was created");
+    }
+    tokio::time::timeout(Duration::from_secs(150), receiver.recv())
+        .await
+        .context("timed out waiting for the terminal reply action")?
+        .ok_or_else(|| anyhow::anyhow!("terminal reply channel closed before a reply arrived"))
+}
+
+async fn run_terminal_chat(
+    state: Arc<pipeline::AppState>,
+    listener: tokio::net::TcpListener,
+    mut receiver: tokio::sync::mpsc::UnboundedReceiver<String>,
+    once: Option<String>,
+) -> anyhow::Result<()> {
+    let server_state = state.clone();
+    let http_server = tokio::spawn(async move {
+        axum::serve(listener, api::router(server_state))
+            .await
+            .context("terminal chat HTTP server failed")
+    });
+
+    let result = if let Some(message) = once {
+        let reply = run_terminal_turn(&state, &mut receiver, message).await?;
+        println!("{reply}");
+        Ok(())
+    } else {
+        use std::io::Write as _;
+
+        eprintln!("OpenSpine direct terminal chat. Type /exit or press Ctrl-D to leave.");
+        let stdin = std::io::stdin();
+        loop {
+            print!("you> ");
+            std::io::stdout()
+                .flush()
+                .context("flushing terminal prompt")?;
+            let mut line = String::new();
+            if stdin
+                .read_line(&mut line)
+                .context("reading terminal input")?
+                == 0
+            {
+                break;
+            }
+            let line = line.trim_end_matches(['\r', '\n']).to_string();
+            if matches!(line.trim(), "/exit" | "/quit") {
+                break;
+            }
+            match run_terminal_turn(&state, &mut receiver, line).await {
+                Ok(reply) => println!("lyra> {reply}"),
+                Err(error) => eprintln!("error: {error:#}"),
+            }
+        }
+        Ok(())
+    };
+
+    http_server.abort();
+    let _ = http_server.await;
+    result
+}
+
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutdown signal received, draining in-flight requests");

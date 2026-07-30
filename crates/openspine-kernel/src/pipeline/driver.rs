@@ -8,7 +8,9 @@ use openspine_authority::{
     compose_authority, resolve_persona, resolve_route, AuthorityInput, AuthorityOutcome,
 };
 use openspine_schemas::artifact::ArtifactRef;
-use openspine_schemas::event::{EventEnvelope, Lane, Source};
+use openspine_schemas::event::{
+    ChannelTrust, EventEnvelope, EventType, Lane, Source, VerificationMethod,
+};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::route::RouteResolution;
 use ulid::Ulid;
@@ -133,12 +135,22 @@ pub(crate) async fn run_pipeline_with_envelope(
         state.owner_principal_id,
         state.owner_identity_id,
     );
-    let (mut identity, relationship) = resolver.resolve(
-        envelope.id,
-        spec.channel_trust,
-        envelope.actor_hint.channel_user_id.as_deref(),
-        inputs.owner_verified.as_ref(),
-    )?;
+    let local_cli_owner = envelope.source == Source::Cli
+        && envelope.event_type == EventType::CliOwnerMessage
+        && envelope.verified_source
+        && envelope.verification_method == VerificationMethod::LocalCliAuth
+        && envelope.trust_context.channel_trust == ChannelTrust::OwnerDevice
+        && inputs.principal_override == Some(state.owner_principal_id);
+    let (mut identity, relationship) = if local_cli_owner {
+        resolver.resolve_local_owner(envelope.id, spec.channel_trust)
+    } else {
+        resolver.resolve(
+            envelope.id,
+            spec.channel_trust,
+            envelope.actor_hint.channel_user_id.as_deref(),
+            inputs.owner_verified.as_ref(),
+        )?
+    };
     // A webhook's verifier is the source-authentication proof. There is no
     // Telegram owner context to pass to the identity resolver, so preserve
     // that kernel proof for the authority check without inventing a sender

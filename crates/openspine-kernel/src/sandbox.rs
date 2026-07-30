@@ -80,6 +80,40 @@ impl Default for ProcessDriver {
 }
 
 impl ProcessDriver {
+    /// Resolve the worker executable while the kernel still has its
+    /// startup environment. The spawned worker keeps a cleared
+    /// environment, so executable lookup cannot depend on child PATH.
+    fn resolved_shell_binary(&self) -> PathBuf {
+        if self.shell_binary.components().count() > 1 {
+            if self.shell_binary.is_absolute() {
+                return self.shell_binary.clone();
+            }
+            return std::env::current_dir()
+                .map(|dir| dir.join(&self.shell_binary))
+                .unwrap_or_else(|_| self.shell_binary.clone());
+        }
+
+        if let Ok(current_exe) = std::env::current_exe() {
+            if let Some(parent) = current_exe.parent() {
+                let sibling = parent.join(&self.shell_binary);
+                if sibling.is_file() {
+                    return sibling;
+                }
+            }
+        }
+
+        if let Some(path) = std::env::var_os("PATH") {
+            for directory in std::env::split_paths(&path) {
+                let candidate = directory.join(&self.shell_binary);
+                if candidate.is_file() {
+                    return candidate.canonicalize().unwrap_or(candidate);
+                }
+            }
+        }
+
+        self.shell_binary.clone()
+    }
+
     /// Build a `tokio::process::Command` for the shell invocation.
     fn build_command(
         &self,
@@ -87,7 +121,7 @@ impl ProcessDriver {
         kernel_endpoint: &str,
         task_token: &str,
     ) -> tokio::process::Command {
-        let mut command = tokio::process::Command::new(&self.shell_binary);
+        let mut command = tokio::process::Command::new(self.resolved_shell_binary());
         command
             .env_clear()
             .env("KERNEL_ENDPOINT", kernel_endpoint)
