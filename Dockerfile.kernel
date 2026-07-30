@@ -63,6 +63,7 @@ COPY --from=builder /build/target/release/openspine /usr/local/bin/openspine
 # The Docker socket, configuration, Lyra package, and data volume are mounted
 # at runtime by compose.yaml.
 WORKDIR /app
+VOLUME ["/app/data"]
 
 # Expose the kernel API port (internal network only — see compose.yaml).
 EXPOSE 7777
