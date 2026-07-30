@@ -20,7 +20,7 @@
 
 **A self-hosted personal AI system for real account access.**
 
-OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Every action is allowed, blocked, or sent to you first.
+OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine allows it, blocks it, or sends it to you first.
 
 It does not run OpenClaw, Hermes, or another assistant inside OpenSpine today. Other assistant packages may come later. Lyra is the path that works now.
 
@@ -42,7 +42,7 @@ Now the failure scenes are concrete:
 Prompts, allowlists, approvals, and sandboxes all help. OpenSpine adds a harder rule: **the model is never the authority source.**
 
 <picture>
-  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and allows, asks about, or denies each action before a connector runs." />
+  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and allows, asks about, or denies each account action before a connector runs." />
 </picture>
 
 ## The product shape
