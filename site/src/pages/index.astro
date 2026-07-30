@@ -23,19 +23,19 @@ cargo build --workspace
 		<meta name="theme-color" content="#eef3f0" />
 		<meta
 			name="description"
-			content="OpenSpine is a self-hosted personal AI system with hard task limits. It ships with Lyra and keeps credentials and permission decisions outside the model."
+			content="Put a personal AI to work while keeping control of your accounts. OpenSpine includes Lyra and gives each task hard limits outside the AI model."
 		/>
 		<meta property="og:type" content="website" />
-		<meta property="og:title" content="OpenSpine — Give your AI real work. Not the master key." />
+		<meta property="og:title" content="OpenSpine — Personal AI with hard limits" />
 		<meta
 			property="og:description"
-			content="A trust-first personal AI system for real account access, with short-lived task permissions and model-driven account effects checked outside the model."
+			content="Choose the job and what it may use. Lyra cannot quietly reach the rest of your inbox, files, or accounts."
 		/>
 		<meta property="og:url" content={canonical} />
 		<meta name="twitter:card" content="summary" />
 		<link rel="canonical" href={canonical} />
 		<link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
-		<title>OpenSpine — Trust-first personal AI</title>
+		<title>OpenSpine — Personal AI with hard limits</title>
 		<script is:inline>document.documentElement.classList.add('js');</script>
 	</head>
 	<body>
@@ -66,42 +66,42 @@ cargo build --workspace
 
 		<main id="main">
 			<!--
-			THESIS: The useful product is a personal AI system; the differentiator is that authority lives below the model.
-			OWN-WORLD: A pale safety-case instrument with deep ink, safety orange, clipped panels, authority rails, proof ledgers, and precise status marks.
-			STORY: A cautious agent user recognises the real-access problem, learns that OpenSpine includes Lyra, watches one task receive a hard boundary, then inspects the proof and honest alpha scope.
-			FIRST VIEWPORT: Outcome and category on the left; a live task trace on the right visibly allows one thread, asks before drafting, and denies send.
-			FORM: Asymmetric control-instrument landing page; problem first, mechanism second, proof before setup, no literal spine imagery.
+			THESIS: The buyer wants a useful personal AI but pauses when it asks for broad access to real accounts.
+			OWN-WORLD: A pale safety-case instrument with deep ink, safety orange, clipped panels, permission rails, proof ledgers, and precise status marks.
+			STORY: A personal-agent buyer recognises the broad-access hesitation, sees the narrow Gmail proof, learns that OpenSpine includes Lyra, then inspects how each task is limited outside the model.
+			FIRST VIEWPORT: Desired outcome and hesitation on the left; a live task trace on the right visibly allows one thread, asks before drafting, and denies send.
+			FORM: Asymmetric control-instrument landing page; buyer problem first, current proof second, mechanism third, no literal spine imagery.
 			-->
 			<section class="hero" aria-labelledby="hero-title">
 				<div class="hero-copy" data-reveal>
 					<div class="hero-badge">
 						<span class="hero-badge-dot" aria-hidden="true"></span>
-						Self-hosted personal AI with hard limits · alpha
+						Self-hosted personal AI · hard limits · alpha
 					</div>
 					<h1 id="hero-title">
-						Give your AI real work.<br />
-						<span>Not the master key.</span>
+						Put a personal AI to work.<br />
+						<span>Keep control of your accounts.</span>
 					</h1>
 					<p class="hero-lede">
-						OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. The model-driven worker cannot reach your accounts beyond that scope.
+						OpenSpine comes with Lyra, the assistant you talk to. You choose the job and what it may use. Lyra cannot quietly reach the rest.
 					</p>
 					<div class="hero-actions">
 						<a class="button button--primary" href="#mechanism">
-							See the working boundary
+							See the limits in action
 							<span aria-hidden="true">→</span>
 						</a>
 						<a class="button button--secondary" href={href('/quickstart/')}>
 							Run the alpha
 						</a>
 					</div>
-					<div class="hero-audience" aria-label="Who OpenSpine is for">
+					<div class="hero-audience" aria-label="Why OpenSpine exists and what works today">
 						<div>
-							<strong>Already run an agent?</strong>
-							<span>Move beyond chat without giving one model-controlled process broad account access.</span>
+							<strong>Interested in OpenClaw or Hermes?</strong>
+							<span>OpenSpine is for the point where a capable agent asks for broad access to your inbox, files, and accounts.</span>
 						</div>
 						<div>
-							<strong>Building an agent?</strong>
-							<span>Keep permissions testable when prompts, models, skills, and external content change.</span>
+							<strong>What works now?</strong>
+							<span>Choose one Gmail thread. Lyra drafts a reply. Only the exact draft you approve is created. Sending stays blocked.</span>
 						</div>
 					</div>
 				</div>
@@ -114,11 +114,11 @@ cargo build --workspace
 			<section class="mechanism-section" id="mechanism" aria-labelledby="mechanism-title">
 				<div class="section-shell mechanism-layout">
 					<div class="mechanism-intro" data-reveal>
-						<span class="section-marker">Why capable agents stay in demo mode</span>
-						<h2 id="mechanism-title">The problem starts when the assistant gets real access.</h2>
-						<p>A prompt can guide behaviour. It should not be the final lock on your inbox, files, customers, or servers.</p>
-						<a class="text-link text-link--light" href={href('/why-openspine/')}>
-							Why the boundary matters <span aria-hidden="true">↗</span>
+						<span class="section-marker">Why choose a different system</span>
+						<h2 id="mechanism-title">Useful access should not mean access to everything.</h2>
+						<p>OpenClaw and Hermes offer far more features today. OpenSpine makes a different trade: each task gets a hard limit before the AI can reach your accounts.</p>
+						<a class="text-link text-link--light" href={href('/comparison/')}>
+							Compare the trade-offs <span aria-hidden="true">↗</span>
 						</a>
 					</div>
 
@@ -128,10 +128,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M17 3 28 7.5v8.4c0 6.7-4.4 11.8-11 14.1C10.4 27.7 6 22.6 6 15.9V7.5L17 3Z" /><path d="m11.8 16.7 3.2 3.2 7.2-7.2" /></svg>
 							</div>
 							<div>
-								<h3>The key stays outside the worker</h3>
-								<p>The contained agent process receives a task token, not your connector credentials. A bad response cannot print or reuse a key it never received.</p>
+								<h3>The AI does not get your account keys</h3>
+								<p>OpenSpine keeps the real credentials. Lyra's worker gets a short-lived task pass, so it cannot print or reuse a key it never received.</p>
 							</div>
-							<code>credential → kernel only</code>
+							<code>credential → OpenSpine only</code>
 						</article>
 
 						<article class="boundary-row">
@@ -139,10 +139,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 8h24M8 17h18M11 26h12" /><circle cx="11" cy="8" r="2.5" /><circle cx="21" cy="17" r="2.5" /><circle cx="15" cy="26" r="2.5" /></svg>
 							</div>
 							<div>
-								<h3>One task gets one boundary</h3>
-								<p>OpenSpine combines the request, assistant, workflow, capabilities, policy, and limits into short-lived task permissions. No matching allow means no access.</p>
+								<h3>The task sets the limit</h3>
+								<p>If you selected one Gmail thread, that is the only thread the worker can read. No matching permission means no access.</p>
 							</div>
-							<code>rules → task grant</code>
+							<code>one task → one limit</code>
 						</article>
 
 						<article class="boundary-row">
@@ -150,8 +150,8 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 17h24" /><path d="M17 5v24" /><circle cx="17" cy="17" r="6" /><path d="m14.2 17 2 2 4-4" /></svg>
 							</div>
 							<div>
-								<h3>Model-driven effects stop at the gate</h3>
-								<p>Before a worker can read, write, or send through a connector, OpenSpine allows the action, blocks it, or asks you. The decision is recorded.</p>
+								<h3>Anything outside the task stops here</h3>
+								<p>Before an AI-requested account action runs, OpenSpine allows it, blocks it, or asks you. The result is recorded.</p>
 							</div>
 							<code>action → allow | ask | deny</code>
 						</article>
@@ -159,7 +159,7 @@ cargo build --workspace
 				</div>
 
 				<div class="spine-statement" aria-hidden="true">
-					<span>request</span><i></i><span>verify</span><i></i><span>scope</span><i></i><span>grant</span><i></i><span>run</span><i></i><span>gate</span><i></i><span>receipt</span>
+					<span>request</span><i></i><span>verify</span><i></i><span>limit</span><i></i><span>grant</span><i></i><span>run</span><i></i><span>gate</span><i></i><span>receipt</span>
 				</div>
 			</section>
 
@@ -171,7 +171,7 @@ cargo build --workspace
 							<h2 id="lyra-title">OpenSpine is the system.<br />Lyra is the assistant.</h2>
 						</div>
 						<div class="section-heading-copy">
-							<p>Talk to Lyra through a verified Telegram channel. Today, its first guarded workflow reads one Gmail thread you selected, drafts a reply, and creates the exact draft you approved. OpenSpine blocks email sending.</p>
+							<p>Today, you send Lyra one Gmail thread. It drafts a reply. You review the exact text and target before OpenSpine creates the draft. Sending is blocked.</p>
 							<span class="scope-note">Current alpha scope. The interface below is illustrative.</span>
 						</div>
 					</header>
@@ -186,7 +186,7 @@ cargo build --workspace
 				<div class="section-shell">
 					<header class="proof-heading" data-reveal>
 						<div>
-							<span class="section-marker">Why believe the boundary</span>
+							<span class="section-marker">Why believe the limit</span>
 							<h2 id="proof-title">Do not trust the promise. Run the failure.</h2>
 						</div>
 						<p>Each public security claim points to a named test. If the test disappears, the build fails.</p>
@@ -233,7 +233,7 @@ cargo build --workspace
 				<div class="section-shell start-layout">
 					<div class="start-copy" data-reveal>
 						<span class="section-marker section-marker--dark">Current alpha</span>
-						<h2 id="start-title">Prove the boundary.<br />Then decide if it is worth the setup.</h2>
+						<h2 id="start-title">Prove the limit.<br />Then decide if it is worth the setup.</h2>
 						<p>The alpha is narrow and technical. Clone OpenSpine, run the same test and claim checks used by CI, then connect Telegram, Gmail, and a model provider.</p>
 						<div class="start-actions">
 							<a class="button button--dark" href={href('/quickstart/')}>
@@ -273,7 +273,7 @@ cargo build --workspace
 					</svg>
 					<span class="brand-word">OpenSpine</span>
 				</a>
-				<p>A trust-first personal AI system, with authority outside the model.</p>
+				<p>A personal AI system that keeps each task inside hard limits.</p>
 			</div>
 			<nav class="footer-nav" aria-label="Footer navigation">
 				<a href={href('/why-openspine/')}>Why OpenSpine</a>
