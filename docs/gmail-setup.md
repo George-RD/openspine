@@ -11,18 +11,31 @@ This guide configures Lyra's current Gmail workflow for local or self-hosted use
 
 ## 2. Obtain a refresh token
 
-The kernel is a headless process. It does not run an interactive OAuth consent flow. A human completes Google's consent screen once and gives the kernel the resulting long-lived refresh token through the environment.
+The kernel is a headless process. It does not run an interactive OAuth consent flow. A human completes Google's consent screen once and gives the kernel the resulting long-lived refresh token.
 
 Any standard OAuth 2.0 authorization-code walkthrough for a Desktop app client works. Google's [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/) can use your own client ID and secret with the two scopes above and return a refresh token.
 
-Store the secret and token in the environment:
+### Docker Compose
+
+Compose passes secrets from `.env` into the kernel container. Copy `.env.example` to `.env`, then fill these existing entries:
+
+```dotenv
+OPENSPINE_GMAIL_CLIENT_SECRET=your-client-secret
+OPENSPINE_GMAIL_REFRESH_TOKEN=your-refresh-token
+```
+
+Do not rely on host-shell `export` commands for the Compose path. `compose.yaml` reads the values from `.env`.
+
+### Bare metal
+
+When running the kernel directly, export the same values into the process environment:
 
 ```sh
 export OPENSPINE_GMAIL_CLIENT_SECRET="your-client-secret"
 export OPENSPINE_GMAIL_REFRESH_TOKEN="your-refresh-token"
 ```
 
-Do not put the client secret or refresh token in `openspine.yaml` or in the repository. Environment variables are the current secret-intake path, as they are for the Telegram bot token and artifact key.
+Do not put the literal client secret or refresh token in `openspine.yaml` or in the repository.
 
 ## 3. Add the `gmail` block to `openspine.yaml`
 
@@ -33,9 +46,12 @@ gmail:
   client_id: "your-client-id.apps.googleusercontent.com"
   client_secret_env: OPENSPINE_GMAIL_CLIENT_SECRET
   refresh_token_env: OPENSPINE_GMAIL_REFRESH_TOKEN
+  mailbox_address: "you@example.com"
 ```
 
-The kernel can start without this block, but `/draft` then replies that Gmail is not configured.
+`mailbox_address` is the owner's Gmail address. OpenSpine uses it to avoid replying to the owner's own message when it identifies the other participant in a thread.
+
+The kernel can start without the `gmail` block, but `/draft` then replies that Gmail is not configured.
 
 ## 4. Select a thread with `/draft <thread_id>`
 
@@ -61,7 +77,14 @@ A thread browser or natural-language picker is still future work. The current al
 
 ## 5. Containment requirements
 
-Use `sandbox.driver: docker` for the Gmail workflow. The container boundary satisfies the private-data containment guard while `unsafe_allow_uncontained_private_data` stays `false`.
+Use `sandbox.driver: docker` for the Gmail workflow. Before starting Compose, build the task-worker image expected by `openspine.docker.example.yaml`:
+
+```sh
+docker build --file Dockerfile.shell --tag openspine-shell:latest .
+docker compose up --build
+```
+
+`compose.yaml` mounts `artifacts/lyra` read-only into the kernel and the Docker example points `lyra_dir` at that mount.
 
 The process driver is a development shortcut. Under `sandbox.driver: process`, `/draft` is refused unless the configuration explicitly sets:
 
