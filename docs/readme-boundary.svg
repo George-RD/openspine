@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
   <title id="title">Where account credentials live</title>
-  <desc id="desc">A common agent setup gives the model broad connector credentials and prompt rules. OpenSpine keeps credentials inside the runtime, gives each task a short-lived grant, and checks every action before a connector runs.</desc>
+  <desc id="desc">A common model-driven agent keeps broad connector access in the agent process and relies on prompt rules. OpenSpine keeps credentials inside the runtime, gives each task a short-lived grant, and checks every action before a connector runs.</desc>
   <rect width="1200" height="500" fill="#eef3f0"/>
 
   <g font-family="Arial, sans-serif" fill="#0b1c24">
@@ -21,16 +21,16 @@
     <path d="m250 85 10 8-10 8" fill="none" stroke="#0b1c24" stroke-width="2"/>
 
     <rect x="270" y="45" width="218" height="96" fill="#0b1c24" stroke="#0b1c24" stroke-width="2"/>
-    <text x="379" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#eef3f0">MODEL</text>
+    <text x="379" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#eef3f0">AGENT PROCESS</text>
     <text x="379" y="103" text-anchor="middle" font-family="monospace" font-size="13" font-weight="700" fill="#ff6438">HOLDS CONNECTOR KEYS</text>
-    <text x="379" y="124" text-anchor="middle" font-family="monospace" font-size="12" fill="#dce7e1">broad access stays live</text>
+    <text x="379" y="124" text-anchor="middle" font-family="monospace" font-size="12" fill="#dce7e1">model can steer broad access</text>
 
     <path d="M379 149v44" stroke="#0b1c24" stroke-width="2"/>
     <path d="m371 183 8 10 8-10" fill="none" stroke="#0b1c24" stroke-width="2"/>
 
     <rect x="92" y="204" width="336" height="62" fill="#ff6438" stroke="#0b1c24" stroke-width="2"/>
     <text x="260" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="900" fill="#0b1c24">EMAIL · FILES · APPS</text>
-    <text x="260" y="251" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">MODEL CAN CALL CONNECTORS DIRECTLY</text>
+    <text x="260" y="251" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">AGENT CALLS CONNECTORS DIRECTLY</text>
 
     <text x="260" y="309" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#b52f10">One compromised instruction can reach broad account access.</text>
   </g>
