@@ -28,7 +28,8 @@ Its answer is to keep the authority boundary below the assistant:
 - the worker does not receive raw connector credentials;
 - external content can influence reasoning but cannot create permission;
 - each task receives a short-lived grant built from all applicable constraints;
-- every read, write, model call, connector call, and other effect crosses one gate;
+- effectful worker actions cross one gate before dispatch;
+- a small, enumerated set of owner-selected pre-gate metadata reads is separately classified and audited;
 - exact denials and approvals remain in force even when the prompt changes;
 - capability growth follows a separate, reviewable lifecycle;
 - public security claims point to named tests.
@@ -40,7 +41,7 @@ This is a product-emphasis comparison, not a claim that one project has no secur
 | | OpenClaw | Hermes | OpenSpine |
 |---|---|---|---|
 | Main story | Local, always-on personal assistant across many channels and devices | Self-improving agent with broad tools, memory, skills, schedules, and deployment backends | Trust-first personal AI with runtime-enforced task boundaries |
-| Current strength | Channels, apps, tools, onboarding, mature assistant experience | Learning loop, terminal workflow, skills, memory, model flexibility | Authority outside the model, contained workers, one gate, test-backed claims |
+| Current strength | Channels, apps, tools, onboarding, mature assistant experience | Learning loop, terminal workflow, skills, memory, model flexibility | Authority outside the model, contained workers, one effect gate, test-backed claims |
 | Typical safety controls | Pairing, allowlists, tool policies, approvals, sandbox modes, security audit | User authorization, dangerous-command approval, deny rules, container isolation, prompt scanning | Deterministic grants, kernel-held credentials, parameter binding, effect gate, digest-bound approval, audit |
 | Current trade-off | Broad capability creates a large configuration and trust surface | Broad capability and self-modification require careful approval and containment choices | Far fewer user-facing workflows and more setup effort |
 | Best fit now | You want a capable personal agent and will configure its trust boundary | You want a capable, learning, terminal-first agent | You need the assistant's authority to remain explicit and testable outside the model |
