@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const siteUrl = process.env.SITE_URL || 'http://127.0.0.1:4321/openspine/';
 const outputDir = path.resolve(process.cwd(), 'visual-artifacts');
 
-const expectedHeading = 'Give your AI real work. Not the master key.';
+const expectedHeading = 'Put a personal AI to work. Keep control of your accounts.';
 
 function localRequestFailed(url) {
 	try {
@@ -67,6 +67,7 @@ async function capture(browser, config) {
 		const quickstartAction = Array.from(document.querySelectorAll('.hero-actions a')).find((link) =>
 			link.getAttribute('href')?.endsWith('/quickstart/'),
 		);
+		const heroAudienceText = document.querySelector('.hero-audience')?.innerText?.replace(/\s+/g, ' ').trim() || '';
 		const viewportWidth = document.documentElement.clientWidth;
 		const rawHorizontalOverflow = Math.max(0, document.documentElement.scrollWidth - viewportWidth);
 
@@ -119,6 +120,7 @@ async function capture(browser, config) {
 			primaryActionHref: primaryAction?.getAttribute('href') || '',
 			quickstartActionText: quickstartAction?.innerText?.replace(/\s+/g, ' ').trim() || '',
 			quickstartActionHref: quickstartAction?.getAttribute('href') || '',
+			heroAudienceText,
 			documentWidth: document.documentElement.scrollWidth,
 			viewportWidth,
 			rawHorizontalOverflow,
@@ -133,10 +135,12 @@ async function capture(browser, config) {
 	if (checks.heading !== expectedHeading) issues.push(`Unexpected H1: ${checks.heading}`);
 	if (!checks.hasAuthorityTrace) issues.push('Authority trace is missing');
 	if (!checks.hasLyraScenario) issues.push('Lyra scenario is missing');
-	if (!checks.primaryActionText.includes('See the working boundary')) issues.push('Primary boundary action is missing');
+	if (!checks.primaryActionText.includes('See the limits in action')) issues.push('Primary limits action is missing');
 	if (checks.primaryActionHref !== '#mechanism') issues.push(`Unexpected primary action href: ${checks.primaryActionHref}`);
 	if (!checks.quickstartActionText.includes('Run the alpha')) issues.push('Hero quickstart action is missing');
 	if (!checks.quickstartActionHref.endsWith('/quickstart/')) issues.push(`Unexpected quickstart href: ${checks.quickstartActionHref}`);
+	if (!checks.heroAudienceText.includes('Interested in OpenClaw or Hermes?')) issues.push('Personal-agent recognition line is missing');
+	if (!checks.heroAudienceText.includes('What works now?')) issues.push('Current proof line is missing');
 	if (checks.maximumHorizontalScroll > 1) {
 		issues.push(`Page can scroll horizontally by ${checks.maximumHorizontalScroll}px`);
 	}
