@@ -8,6 +8,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+openspec_bin="${OPENSPINE_OPENSPEC_BIN:-$PWD/node_modules/.bin/openspec}"
+if [ ! -x "$openspec_bin" ]; then
+  echo "OpenSpec CLI not found at $openspec_bin. Run npm ci or set OPENSPINE_OPENSPEC_BIN." >&2
+  exit 1
+fi
+
 echo "== cargo fmt --check =="
 cargo fmt --check
 
@@ -29,12 +35,6 @@ scripts/check-claims.sh
 
 echo "== scripts/check-omp-ceremony.sh =="
 scripts/check-omp-ceremony.sh
-
-openspec_bin="${OPENSPINE_OPENSPEC_BIN:-$PWD/node_modules/.bin/openspec}"
-if [ ! -x "$openspec_bin" ]; then
-  echo "OpenSpec CLI not found at $openspec_bin. Run npm ci or set OPENSPINE_OPENSPEC_BIN." >&2
-  exit 1
-fi
 
 if [ "$#" -ge 1 ]; then
   change_id="$1"
