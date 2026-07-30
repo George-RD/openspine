@@ -13,7 +13,7 @@ Do not describe OpenSpine as an add-on that a finished third-party assistant plu
 
 ## Product truth
 
-OpenSpine is a self-hosted personal AI system designed for the point where an assistant starts touching real accounts and data. The runtime keeps authority outside the language model and system prompt. Each event is verified, routed, resolved into bounded task permissions, passed through one effect gate, and recorded in a tamper-evident audit trail.
+OpenSpine is a self-hosted personal AI system designed for the point where an assistant starts touching real accounts and data. The runtime keeps authority outside the language model and system prompt. Each event is verified, routed, and resolved into bounded task permissions. Model-driven effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately enumerated, classified, and audited.
 
 Lyra is the default owner-facing assistant package. It composes agents, routes, workflows, capability packs, policies, templates, persona overlays, and memory scopes that the runtime loads and constrains.
 
@@ -81,7 +81,7 @@ Secondary action: **Run the alpha.**
 1. **Outcome:** give a personal AI real work without giving the model the master key.
 2. **Category:** self-hosted personal AI with hard limits.
 3. **Product shape:** OpenSpine system + Lyra assistant + governed runtime.
-4. **Unique mechanism:** task-specific authority is composed outside the model and every effect crosses one gate.
+4. **Unique mechanism:** task authority is composed outside the model; model-driven effects cross one gate before dispatch; trusted pre-gate paths are explicit and audited.
 5. **Current proof:** one selected Gmail thread, exact-text approval, draft creation, send denied.
 6. **Evidence:** named tests, contained workers, credential separation, audit chain.
 7. **Honest limit:** alpha setup is technical and workflow breadth is narrow.
@@ -94,6 +94,8 @@ Secondary action: **Run the alpha.**
 - The contained worker receives no raw connector credentials.
 - External content is wrapped as data and does not become authority.
 - Selected-thread access is bound to a single-use selection token.
+- Effectful worker actions pass through the gate before dispatch.
+- A small set of owner-selected pre-gate metadata reads is separately classified and audited.
 - Approval is digest-bound to the exact payload and target reviewed by the owner.
 - `email.send` is denied regardless of grant or approval state.
 - Documented security claims map to named tests, and the build checks that those tests continue to exist.
