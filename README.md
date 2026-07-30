@@ -23,12 +23,12 @@ OpenSpine lets an AI assistant use your email and other tools. The model does no
 > **Alpha:** Lyra can read one Gmail thread you choose and create a draft after you approve the exact text. Email sending is blocked by runtime policy.
 
 <picture>
-  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common agent setup and OpenSpine. In the common setup, the model holds broad connector credentials and prompt rules. With OpenSpine, the runtime holds credentials, gives the model a short-lived task grant, and allows, asks about, or denies each action before a connector runs." />
+  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent a short-lived task grant, and allows, asks about, or denies each action before a connector runs." />
 </picture>
 
 ## What OpenSpine changes
 
-A common agent setup gives the model a connector and relies on prompt rules. OpenSpine keeps credentials in the runtime. The model receives a short-lived task grant and can only request actions inside it.
+A common setup puts broad connector access in the same process the model can steer and relies on prompt rules. OpenSpine keeps credentials in the runtime. The agent receives a short-lived task grant. The model can only request actions inside those limits.
 
 - The source is verified before owner identity is trusted.
 - Routes, agent rules, workflows, capabilities, and policy combine into the task grant.
@@ -85,18 +85,28 @@ This runs formatting, lints, tests, and the claims register used by CI. The [qui
 
 ## Run Lyra
 
-At minimum, the server needs:
+For Telegram control and model replies, the server needs:
 
 - `OPENSPINE_TELEGRAM_BOT_TOKEN`
 - `OPENSPINE_ARTIFACT_KEY`, generated with `openssl rand -hex 32`
 - credentials for Anthropic, OpenAI, or another compatible model provider
 
+For Gmail drafting, follow the [Gmail setup guide](docs/gmail-setup.md). It adds the Google OAuth client, `OPENSPINE_GMAIL_CLIENT_SECRET`, `OPENSPINE_GMAIL_REFRESH_TOKEN`, and the `gmail:` block in `openspine.yaml`.
+
 Copy `.env.example` to `.env`. Then copy `openspine.docker.example.yaml` or `openspine.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id`.
+
+Use Docker for the Gmail workflow:
 
 ```sh
 docker compose up --build
-# or
-cargo run -p openspine-kernel
+```
+
+The bare-metal process driver is a development shortcut. `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+
+Then message your bot:
+
+```text
+/draft <gmail_thread_id>
 ```
 
 ## Documentation
