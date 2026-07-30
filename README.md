@@ -20,11 +20,11 @@
 
 **A self-hosted personal AI system for real account access.**
 
-OpenSpine is the system you install. **Lyra is the default assistant you talk to.** The runtime underneath keeps credentials and permission decisions outside the model. Each task gets short-lived permissions, and every action is allowed, denied, or sent to you for approval before a connector runs.
+OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Every action is allowed, blocked, or sent to you first.
 
-It is not a finished security layer that you add to OpenClaw, Hermes, or another assistant today. The OpenSpine runtime is reusable, but Lyra is the working product path.
+It does not run OpenClaw, Hermes, or another assistant inside OpenSpine today. Other assistant packages may come later. Lyra is the path that works now.
 
-> **Alpha:** Lyra can read one Gmail thread you choose, draft a reply, and create the exact draft you approved. Email sending is blocked by runtime policy.
+> **Alpha:** Lyra can read one Gmail thread you choose, draft a reply, and create the exact draft you approved. It cannot send the email.
 
 ## Why this needs a different system
 
