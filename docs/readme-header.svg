@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
   <title id="title">OpenSpine</title>
-  <desc id="desc">Let AI use your tools. Keep the keys. A self-hosted permission layer for AI assistants.</desc>
+  <desc id="desc">Give your AI real work. Not the master key. A self-hosted personal AI system with hard task limits.</desc>
   <rect width="1200" height="360" fill="#eef3f0"/>
   <path d="M744 0h456v308H744z" fill="#0b1c24"/>
   <path d="M0 308h1200v52H0z" fill="#ff6438"/>
@@ -12,10 +12,10 @@
 
   <g font-family="Arial, sans-serif" fill="#0b1c24">
     <text x="64" y="62" font-size="24" font-weight="700" letter-spacing="2">OPENSPINE</text>
-    <text x="64" y="148" font-size="54" font-weight="900" letter-spacing="-1.5">LET AI USE YOUR TOOLS.</text>
-    <text x="64" y="221" font-size="62" font-weight="900" letter-spacing="-2" fill="#b52f10">KEEP THE KEYS.</text>
-    <text x="64" y="267" font-size="20" fill="#385058">A permission layer between the model and your accounts.</text>
-    <text x="64" y="342" font-size="17" font-family="monospace" font-weight="700" letter-spacing=".8">SELF-HOSTED · OPEN SOURCE · ALPHA</text>
+    <text x="64" y="148" font-size="54" font-weight="900" letter-spacing="-1.5">GIVE YOUR AI REAL WORK.</text>
+    <text x="64" y="221" font-size="62" font-weight="900" letter-spacing="-2" fill="#b52f10">NOT THE MASTER KEY.</text>
+    <text x="64" y="267" font-size="20" fill="#385058">OpenSpine is the system. Lyra is the assistant.</text>
+    <text x="64" y="342" font-size="17" font-family="monospace" font-weight="700" letter-spacing=".8">SELF-HOSTED PERSONAL AI · OPEN SOURCE · ALPHA</text>
   </g>
 
   <g transform="translate(786 34)">

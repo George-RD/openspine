@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
   <title id="title">Where account credentials live</title>
-  <desc id="desc">A common model-driven agent keeps broad connector access in the agent process and relies on prompt rules. OpenSpine keeps credentials inside the runtime, gives each task a short-lived grant, and checks every action before a connector runs.</desc>
+  <desc id="desc">A common model-driven agent keeps broad connector access in the agent process and relies on prompt rules. OpenSpine keeps credentials inside the runtime, gives each task a short-lived grant, and gates model-driven effects before connector dispatch.</desc>
   <rect width="1200" height="500" fill="#eef3f0"/>
 
   <g font-family="Arial, sans-serif" fill="#0b1c24">
@@ -57,7 +57,7 @@
 
     <rect x="28" y="188" width="464" height="98" fill="#f8fbf8" stroke="#8cdec6" stroke-width="2"/>
     <text x="48" y="216" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#0b1c24">OPENSPINE HOLDS THE CONNECTOR KEYS</text>
-    <text x="48" y="241" font-family="monospace" font-size="12" font-weight="700" fill="#385058">EVERY ACTION STOPS AT ONE GATE</text>
+    <text x="48" y="241" font-family="monospace" font-size="12" font-weight="700" fill="#385058">MODEL-DRIVEN EFFECTS STOP AT ONE GATE</text>
 
     <rect x="48" y="254" width="96" height="24" fill="#8cdec6"/>
     <text x="96" y="271" text-anchor="middle" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">ALLOW</text>

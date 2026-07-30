@@ -1,9 +1,11 @@
 ---
 title: Quickstart
-description: Build OpenSpine, run every check locally, and stand up your own Lyra.
+description: Build the OpenSpine system, run its proof checks, and start the included Lyra assistant.
 ---
 
-Everything runs on your machine. No account, no hosted service, no telemetry. Clone it, build it, and run the same checks that gate every merge.
+This quickstart installs the OpenSpine system from source. Lyra is the included assistant package. The governed runtime underneath Lyra keeps credentials and task authority outside the model.
+
+Everything runs on your machine. There is no OpenSpine account, hosted service, or telemetry. The current alpha setup is technical and the first useful workflow is narrow.
 
 ## Build and prove it works
 
@@ -15,7 +17,7 @@ cargo build --workspace
 ./scripts/check.sh # runs every test and check used by CI
 ```
 
-`check.sh` runs formatting, lints, the full test suite, strict OpenSpec validation, and the claims register that ties every documented safety claim to a named test or recorded manual justification.
+`check.sh` runs formatting, lints, the full test suite, strict OpenSpec validation, and the claims register that ties every documented security claim to a named test or recorded manual justification.
 
 ## Configure a real server
 
@@ -42,10 +44,12 @@ Full setup guides:
 - [Telegram setup](https://github.com/George-RD/openspine/blob/main/docs/telegram-setup.md)
 - [Gmail setup](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md)
 
-## Talk to it
+## Talk to Lyra
 
 Send a direct message to your bot from the configured owner account:
 
-- `/status` checks whether the server is up and holding its invariants.
+- `/status` checks whether the system is up and holding its invariants.
 - `/draft <thread_id>` reads only the selected Gmail thread and prepares a reply. Telegram shows the exact text for approval before Gmail receives a draft. Email sending remains denied.
 - `/propose <kind>` followed by YAML proposes a new rule, route, or policy. It stays inactive until you approve the exact text.
+
+The current setup friction is tracked in [issue #118](https://github.com/George-RD/openspine/issues/118). The intended package-level install and run flow is tracked in [issue #117](https://github.com/George-RD/openspine/issues/117).

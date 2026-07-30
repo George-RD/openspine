@@ -8,7 +8,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'OpenSpine',
-			tagline: 'Runtime-enforced authority for agents.',
+			tagline: 'Trust-first personal AI with authority outside the model.',
 			favicon: '/openspine/favicon.svg',
 			customCss: ['./src/styles/starlight.css'],
 			social: [
@@ -16,6 +16,7 @@ export default defineConfig({
 			],
 			sidebar: [
 				{ label: 'Why OpenSpine', slug: 'why-openspine' },
+				{ label: 'How it differs', slug: 'comparison' },
 				{ label: 'Quickstart', slug: 'quickstart' },
 				{ label: 'Architecture', slug: 'architecture' },
 				{ label: 'Threat model', slug: 'threat-model' },
