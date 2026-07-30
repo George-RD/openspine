@@ -3,7 +3,7 @@
 #
 # The kernel needs the Docker CLI installed in the final image so it can
 # shell out to `docker run` for DockerDriver (SandboxDriver trait, decision
-# O-003).  The compose.yaml mounts the host Docker socket at
+# O-003). The compose.yaml mounts the host Docker socket at
 # /var/run/docker.sock; the kernel never runs a Docker daemon itself.
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ FROM debian:bookworm-slim AS runtime
 
 # Install only the Docker CLI (docker-ce-cli from Docker's official apt repo —
 # much smaller than debian's docker.io meta-package which drags in containerd,
-# runc, iptables, etc.).  The Docker daemon is NOT started inside this
+# runc, iptables, etc.). The Docker daemon is NOT started inside this
 # container; the kernel talks to the host daemon via the mounted socket.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -49,23 +49,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for the kernel process.
+# Create a non-root user for the kernel process and prepare the path that the
+# named Compose volume initializes from. The volume keeps uid/gid 10001 so the
+# kernel can create SQLite and encrypted artifact files without running as root.
 RUN groupadd --gid 10001 openspine \
-    && useradd --uid 10001 --gid 10001 --shell /bin/false --no-create-home openspine
+    && useradd --uid 10001 --gid 10001 --shell /bin/false --no-create-home openspine \
+    && mkdir -p /app/data \
+    && chown -R openspine:openspine /app
 
 # Copy the kernel binary from the builder stage.
 COPY --from=builder /build/target/release/openspine /usr/local/bin/openspine
 
-# The docker socket and data volume are mounted at runtime by compose.yaml.
+# The Docker socket, configuration, Lyra package, and data volume are mounted
+# at runtime by compose.yaml.
 WORKDIR /app
 
 # Expose the kernel API port (internal network only — see compose.yaml).
 EXPOSE 7777
 
-# Run as non-root.  The Docker socket (/var/run/docker.sock) must be
-# accessible to this user; in the compose deployment the socket's group
-# ownership matches the host's docker group and the openspine user is added
-# to a supplemental group in the compose override if needed.
+# Run as non-root. compose.yaml adds the host Docker socket's numeric group as
+# a supplemental group so this process can ask the daemon to spawn task shells.
 USER openspine
 
 ENTRYPOINT ["/usr/local/bin/openspine"]
