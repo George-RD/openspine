@@ -35,7 +35,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-Compose mounts the Lyra package into the kernel read-only and stores runtime data in a Docker-managed volume. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package read-only and retains runtime state in `./data`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts, so existing Compose data is preserved across upgrades. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Full setup guides:
 
