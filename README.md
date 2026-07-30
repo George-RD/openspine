@@ -20,7 +20,7 @@
 
 **A self-hosted personal AI system for real account access.**
 
-OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine allows it, blocks it, or sends it to you first.
+OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine enforces those limits outside the model.
 
 It does not run OpenClaw, Hermes, or another assistant inside OpenSpine today. Other assistant packages may come later. Lyra is the path that works now.
 
@@ -42,7 +42,7 @@ Now the failure scenes are concrete:
 Prompts, allowlists, approvals, and sandboxes all help. OpenSpine adds a harder rule: **the model is never the authority source.**
 
 <picture>
-  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and allows, asks about, or denies each account action before a connector runs." />
+  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and checks model-driven account actions before a connector runs." />
 </picture>
 
 ## The product shape
@@ -61,7 +61,8 @@ email, models, and other connectors
 - **Lyra** handles the conversation and coordinates bounded workers and workflows.
 - **The runtime** verifies requests, builds the task grant, holds credentials, and checks actions.
 - **Workers** receive a task token and the context needed for that job. They do not receive raw connector keys.
-- **Connectors** run only after the gate returns allow or after an exact approval is satisfied.
+- **Worker-requested effects** run only after the gate allows them or an exact approval is satisfied.
+- **A small set of pre-gate owner-selected metadata reads** is separately enumerated, classified, and audited.
 
 The deterministic path is:
 
@@ -79,7 +80,7 @@ OpenSpine makes a different trade:
 
 > **OpenClaw and Hermes are capability-first assistants. OpenSpine is a trust-first assistant system.**
 
-The distinction is structural, not a claim that the other projects ignore security. OpenSpine makes task authority a first-class runtime object, keeps it outside the model, and treats every read, write, model call, connector call, and durable change as a gated effect.
+The distinction is structural, not a claim that the other projects ignore security. OpenSpine makes task authority a first-class runtime object and keeps it outside the model. Model-driven effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately classified and audited.
 
 See the [full comparison](https://george-rd.github.io/openspine/comparison/) for the current strengths and trade-offs of each approach.
 
@@ -95,7 +96,9 @@ This workflow is deliberately narrow. It proves the boundary against hostile ext
 
 ## Permissions grow only after you approve them
 
-An agent can propose a new route, rule, workflow, skill, or capability. The proposal stays inactive until the relevant lifecycle and approval checks pass. Nothing can silently give itself more access.
+An agent can propose a new route, rule, workflow, or capability. The proposal stays inactive until the relevant lifecycle and approval checks pass. Nothing can silently give itself more access.
+
+Skills currently install through a verified-owner command and a separate promotion lifecycle. Agent-proposed skill installation is not part of the public Lyra path today.
 
 The broader design aims to make safe repetition smoother: do internal work freely, ask at a real effect boundary, and turn repeated approvals into revocable standing rules only after one explicit decision.
 
@@ -109,7 +112,7 @@ Each documented security claim points to a named test. `scripts/check-claims.sh`
 | A task cannot read a different Gmail thread | `email_read_selected_thread_rejects_foreign_grant` |
 | The agent process receives no raw connector credentials | `process_driver_clears_env_and_sets_only_two_vars` |
 | An explicit deny overrides an allow | `explicit_deny_overrides_allow` |
-| Every effectful action stops at the gate before dispatch | `approval_required_action_stops_before_dispatch` |
+| An approval-required worker action stops before dispatch | `approval_required_action_stops_before_dispatch` |
 | Email sending is denied in every grant and approval state | `global_policy_round_trips_and_denies_send` |
 
 The [full claims register](docs/threat-claims.md) covers external content, model calls, approval binding, audit artifacts, host operations, and more.
