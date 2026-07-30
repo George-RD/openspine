@@ -6,3 +6,24 @@
 @import './landing-sections.css';
 @import './landing-responsive.css';
 @import './landing-layout-guards.css';
+
+/* The buyer-first headline is longer than the original slogan. Give it enough
+   measure to read as a thought rather than a column of isolated words. */
+.hero h1 {
+	max-width: 11ch;
+	font-size: clamp(3.6rem, 6.9vw, 6.6rem);
+	line-height: 0.86;
+}
+
+@media (max-width: 960px) {
+	.hero h1 {
+		max-width: 12ch;
+	}
+}
+
+@media (max-width: 720px) {
+	.hero h1 {
+		max-width: 11ch;
+		font-size: clamp(3.4rem, 16vw, 5rem);
+	}
+}
