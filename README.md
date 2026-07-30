@@ -81,7 +81,7 @@ cargo build --workspace
 ./scripts/check.sh
 ```
 
-This runs formatting, lints, tests, and the claims register used by CI. The [quickstart](https://george-rd.github.io/openspine/quickstart/) then covers Telegram, Gmail, and model setup.
+This runs formatting, lints, tests, strict OpenSpec validation, and the claims register used by CI. The [quickstart](https://george-rd.github.io/openspine/quickstart/) then covers Telegram, Gmail, and model setup.
 
 ## Run Lyra
 
@@ -91,17 +91,18 @@ For Telegram control and model replies, the server needs:
 - `OPENSPINE_ARTIFACT_KEY`, generated with `openssl rand -hex 32`
 - credentials for Anthropic, OpenAI, or another compatible model provider
 
-For Gmail drafting, follow the [Gmail setup guide](docs/gmail-setup.md). It adds the Google OAuth client, `OPENSPINE_GMAIL_CLIENT_SECRET`, `OPENSPINE_GMAIL_REFRESH_TOKEN`, and the `gmail:` block in `openspine.yaml`.
+For Gmail drafting, follow the [Gmail setup guide](docs/gmail-setup.md). It adds the Google OAuth client, `OPENSPINE_GMAIL_CLIENT_SECRET`, `OPENSPINE_GMAIL_REFRESH_TOKEN`, and a `gmail:` block with your `mailbox_address`.
 
-Copy `.env.example` to `.env`. Then copy `openspine.docker.example.yaml` or `openspine.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id`.
+Copy `.env.example` to `.env` and put the secret values there. Then copy `openspine.docker.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id` plus the Gmail fields.
 
-Use Docker for the Gmail workflow:
+Build the contained task worker, then start the kernel:
 
 ```sh
+docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-The bare-metal process driver is a development shortcut. `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package into the kernel read-only. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Then message your bot:
 
