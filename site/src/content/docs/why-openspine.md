@@ -49,13 +49,15 @@ Connector credentials remain in the kernel. Contained workers receive a task tok
 
 Routes, the assistant, the workflow, capability packs, policies, caveats, approvals, and runtime limits combine into one task grant. If no rule allows an action, the task does not get it. An explicit deny wins.
 
-### Every effect crosses one gate
+### Model-driven effects cross one gate
 
-Reading private data, calling a model with private context, writing a draft, using a connector, sending a message, and changing durable memory are effects. Each one is allowed, denied, or stopped for approval before it runs.
+Effectful actions requested by a worker stop at the gate before dispatch. The gate allows them, denies them, or requires approval. A small set of owner-selected metadata reads happens before grant composition; those paths are separately enumerated, classified, and audited rather than hidden behind a universal claim.
 
 ### Capability cannot quietly widen itself
 
-An agent may propose a new route, rule, workflow, skill, or capability. Activation follows a separate, digest-bound lifecycle. The thing approved is the thing that activates.
+An agent may propose a new route, rule, workflow, or capability. Activation follows a separate, digest-bound lifecycle. The thing approved is the thing that activates.
+
+Skills currently use a verified-owner install command and a separate promotion lifecycle. Agent-proposed skill installation is not wired into the public Lyra path today.
 
 ## Useful autonomy without constant permission prompts
 
