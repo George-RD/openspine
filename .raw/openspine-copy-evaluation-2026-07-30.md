@@ -23,7 +23,7 @@ Scope: landing hero and README opening
 
 > Give your AI real work. Not the master key.
 >
-> OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. Every action is allowed, blocked, or sent to you first.
+> OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. Before an account action runs, OpenSpine allows it, blocks it, or sends it to you first.
 
 ## Deterministic comparison
 
@@ -31,13 +31,15 @@ The metrics use the same heuristic and default gates as Growth Arsenal: Flesch-K
 
 | Landing signal | Baseline | Candidate | Candidate minus baseline |
 |---|---:|---:|---:|
-| Words | 46 | 48 | +2 |
+| Words | 46 | 54 | +8 |
 | Sentences | 6 | 7 | +1 |
-| Average words per sentence | 7.7 | 6.9 | -0.8 |
-| Flesch-Kincaid grade | 4.1 | 3.8 | -0.3 |
+| Average words per sentence | 7.7 | 7.7 | 0.0 |
+| Flesch-Kincaid grade | 4.1 | 3.6 | -0.5 |
 | Em dashes | 0 | 0 | 0 |
 | Tier-1 AI vocabulary | 0 | 0 | 0 |
 | Hard gate | Pass | Pass | No regression |
+
+The final sentence deliberately says **account action** rather than **every action**. OpenSpine gates runtime effects, but the user-facing promise should not imply that every internal thought or pure computation stops for approval.
 
 ## Reader lenses
 
@@ -81,14 +83,14 @@ Score: `0 = fails`, `1 = partial`, `2 = clear`.
 
 ## README opening comparison
 
-The README candidate adds the missing product hierarchy and explicit non-compatibility boundary while remaining within the deterministic gates.
+The README candidate adds the missing product hierarchy and explicit non-compatibility boundary while remaining within the deterministic gates. The metrics below measure the explanatory body and alpha statement, excluding the bold category line in both variants.
 
 | README signal | Baseline | Candidate |
 |---|---:|---:|
-| Words | 66 | 87 |
+| Words | 66 | 93 |
 | Sentences | 6 | 10 |
-| Average words per sentence | 11.0 | 8.7 |
-| Flesch-Kincaid grade | 5.9 | 5.8 |
+| Average words per sentence | 11.0 | 9.3 |
+| Flesch-Kincaid grade | 5.9 | 5.7 |
 | Em dashes | 0 | 0 |
 | Tier-1 AI vocabulary | 0 | 0 |
 | Hard gate | Pass | Pass |
