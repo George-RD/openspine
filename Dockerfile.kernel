@@ -49,9 +49,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for the kernel process and prepare the path that the
-# named Compose volume initializes from. The volume keeps uid/gid 10001 so the
-# kernel can create SQLite and encrypted artifact files without running as root.
+# Create a non-root user for the kernel process and its default data path.
+# compose.yaml retains the established ./data bind mount and runs a one-shot
+# ownership initializer before this user starts.
 RUN groupadd --gid 10001 openspine \
     && useradd --uid 10001 --gid 10001 --shell /bin/false --no-create-home openspine \
     && mkdir -p /app/data \
@@ -60,10 +60,9 @@ RUN groupadd --gid 10001 openspine \
 # Copy the kernel binary from the builder stage.
 COPY --from=builder /build/target/release/openspine /usr/local/bin/openspine
 
-# The Docker socket, configuration, Lyra package, and data volume are mounted
-# at runtime by compose.yaml.
+# The Docker socket, configuration, Lyra package, and data path are mounted at
+# runtime by compose.yaml.
 WORKDIR /app
-VOLUME ["/app/data"]
 
 # Expose the kernel API port (internal network only — see compose.yaml).
 EXPOSE 7777
