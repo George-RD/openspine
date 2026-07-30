@@ -6,9 +6,9 @@ Method: Growth Arsenal Grand Slam Offer phases, paired-copy evaluation, competit
 
 ## Executive finding
 
-The current line, **“a self-hosted permission layer for AI assistants,”** describes an important part of OpenSpine but misclassifies the product.
+The previous line, **“a self-hosted permission layer for AI assistants,”** described an important part of OpenSpine but misclassified the product.
 
-It implies that a user already has an assistant and adds OpenSpine underneath it. That is not the current user experience. A user installs OpenSpine, talks to Lyra, and runs workflows through the OpenSpine runtime. Third-party assistants do not plug into OpenSpine through a finished compatibility interface today.
+It implied that a user already had an assistant and added OpenSpine underneath it. That is not the current user experience. A user installs OpenSpine, talks to Lyra, and runs workflows through the OpenSpine runtime. Third-party assistants do not plug into OpenSpine through a finished compatibility interface today.
 
 The clearer layered model is:
 
@@ -55,7 +55,7 @@ Primary sources:
 
 OpenSpine is a self-hosted personal AI system with a governed runtime at its core. It ships with Lyra as the default owner-facing assistant package.
 
-Lyra coordinates agents and workflows. The runtime verifies requests, keeps credentials outside workers, builds a short-lived task grant, checks every effect, records the result, and controls how capability can grow.
+Lyra coordinates agents and workflows. The runtime verifies requests, keeps credentials outside workers, builds a short-lived task grant, gates model-driven effects before dispatch, records the result, and controls how capability can grow. A small set of owner-selected pre-gate metadata reads is separately enumerated, classified, and audited.
 
 ### Primary audience
 
@@ -158,7 +158,7 @@ The website should therefore:
 - a selected-thread Gmail drafting workflow;
 - exact-text approval before draft creation;
 - hard-denied email sending;
-- contained workers, task grants, a single action gate, encrypted artifacts, audit receipts, and test-backed claims.
+- contained workers, task grants, a gate for worker-requested effects, explicit audited pre-gate paths, encrypted artifacts, audit receipts, and test-backed claims.
 
 ### What belongs to the product direction, not the current promise
 
@@ -178,7 +178,7 @@ Use this distinction instead:
 | Product emphasis | OpenClaw / Hermes | OpenSpine |
 |---|---|---|
 | Primary product story | A capable personal agent with many tools, channels, skills, and automations | A personal AI system designed around enforceable task boundaries |
-| Safety posture | Configurable controls, approvals, sandboxes, allowlists, and security guidance around a broad agent | Authority composed outside the model; workers receive only the task grant; every effect crosses one gate |
+| Safety posture | Configurable controls, approvals, sandboxes, allowlists, and security guidance around a broad agent | Authority composed outside the model; workers receive only the task grant; model-driven effects cross one gate before dispatch; trusted pre-gate reads are explicit and audited |
 | Current strength | Capability breadth, onboarding, channels, mature user experience | Structural limits, auditable authority, test-backed security claims |
 | Current weakness | Broad capability creates a larger and more complex trust surface | Narrow alpha, high setup effort, few end-user workflows |
 
@@ -197,7 +197,7 @@ A first-time reader should learn these points in order:
 3. **What the user gets:** an assistant that can do bounded work without holding the master key.
 4. **How it differs:** the model does not decide its own permissions; the runtime does.
 5. **What works today:** Lyra can draft from one selected Gmail thread and create the exact approved draft; sending is blocked.
-6. **Why believe it:** named tests, contained workers, grants, gate, and audit.
+6. **Why believe it:** named tests, contained workers, grants, gate, explicit trusted paths, and audit.
 7. **What to do:** inspect the working boundary, then run the alpha.
 
 ## Recommended copy direction
@@ -212,7 +212,7 @@ A first-time reader should learn these points in order:
 
 ### Supporting copy
 
-OpenSpine is the assistant system, not an add-on for another agent. It ships with Lyra, the assistant you talk to, and a runtime that keeps credentials and permission decisions outside the model. Each task gets a short-lived scope. Every action is allowed, denied, or sent to you for approval.
+OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. The model-driven worker cannot reach your accounts beyond that scope.
 
 ### Current-proof line
 
@@ -222,7 +222,7 @@ Today, Lyra can read one Gmail thread you select, draft a reply, and create the 
 
 **See the working boundary**
 
-A visitor should understand the proof before being asked to invest in the setup. “Run the quickstart” remains the next action for a qualified technical reader.
+A visitor should understand the proof before being asked to invest in the setup. “Run the alpha” remains the next action for a qualified technical reader.
 
 ## Copy rules
 
@@ -231,25 +231,27 @@ A visitor should understand the proof before being asked to invest in the setup.
 - Translate `authority` to “what the task is allowed to do” on first use.
 - Translate `task grant` to “short-lived task permissions” on first use.
 - Use real failure scenes: wrong thread, poisoned email, leaked key, changed draft, silent new capability.
+- Say the gate applies to model-driven or worker-requested effects; name the small enumerated pre-gate owner-selected paths when technical precision matters.
+- Do not imply that agents can currently propose skills through the public Lyra path. Skills install through a verified-owner command and a separate promotion lifecycle today.
 - Do not use “safe,” “secure,” “trustworthy,” or “cannot” without naming the enforced mechanism or bounded claim.
 - Keep OpenClaw and Hermes comparisons factual and acknowledge their capability advantage.
 - Separate **current alpha** from **north-star system** in every high-level surface.
 
 ## Architecture and roadmap contradictions
 
-### 1. The current copy implies bring-your-own assistant support
+### 1. The previous copy implied bring-your-own assistant support
 
-“A permission layer for AI assistants” sounds like middleware. The current system instead loads Lyra as its default package. The native package installer and a general third-party integration surface are not shipped.
+“A permission layer for AI assistants” sounded like middleware. The current system instead loads Lyra as its default package. The native package installer and a general third-party integration surface are not shipped.
 
-**Action:** change the user-facing category. Keep “runtime for governed agents” in architecture material.
+**Action:** change the user-facing category. Keep “runtime for governed agents” in architecture material. Addressed in this change.
 
 ### 2. The product vision is ahead of the default user experience
 
 The design canon describes a chief-of-staff system with quiet internal work, standing rules, workers, memory, reflection, and receipts. The public alpha still asks the user to copy a Gmail thread ID into Telegram.
 
-**Action:** treat the current Gmail path as proof of the boundary, not the whole offer. Prioritize a first useful task that feels like an assistant.
+**Action:** treat the current Gmail path as proof of the boundary, not the whole offer. Prioritize a first useful task that feels like an assistant. Raised as issue #118.
 
-### 3. The planned package interface is not on the visible roadmap
+### 3. The planned package interface was not on the visible roadmap
 
 `docs/lyra.md` states the intended flow:
 
@@ -259,27 +261,39 @@ openspine use lyra
 openspine run
 ```
 
-The productize-Lyra change explicitly defers the transactional package store and resolver. The current roadmap does not make that follow-up visible.
+The productize-Lyra change explicitly defers the transactional package store and resolver. The previous public roadmap did not make that follow-up visible.
 
-**Action:** add an explicit product roadmap item and issue for the installer and selected-package model.
+**Action:** add an explicit product roadmap item and issue for the installer and selected-package model. Raised as issue #117 and linked from the revised roadmap.
 
 ### 4. Richer onboarding is deferred by architecture sequence, but onboarding is now the main value leak
 
 The day-two operations brief defers richer onboarding until a second deployment exists. The Grand Slam value equation shows that setup time and effort are the weakest parts of the offer now.
 
-**Action:** do not weaken the runtime sequence, but create a separate product-surface track for install, setup validation, first-run progress, and recovery. Product UX work should not wait for a second deployment target.
+**Action:** do not weaken the runtime sequence, but create a separate product-surface track for install, setup validation, first-run progress, and recovery. Product UX work should not wait for a second deployment target. Raised as issue #118.
 
-### 5. The public roadmap has factual drift
+### 5. The public roadmap had factual drift
 
-The public roadmap still lists secret intake as deferred, while `implement-secret-intake` is archived in the change sequence. It also understates the agent-OS work that has landed.
+The previous public roadmap listed secret intake as deferred, while `implement-secret-intake` is archived in the change sequence. It also understated the agent-OS work that has landed.
 
-**Action:** update the roadmap from the change ledger and separate shipped kernel capability from user-visible product capability.
+**Action:** update the roadmap from the change ledger and separate shipped kernel capability from user-visible product capability. Addressed in this change.
 
 ### 6. Advanced kernel capability is not the same as an end-user feature
 
 The change ledger records standing rules, workers, skills, task boards, reflection, disclosure policy, and other machinery as archived. The website should not imply that each is available through a complete Lyra workflow unless it has been exercised end to end from the user surface.
 
-**Action:** label capabilities as `runtime`, `wired into Lyra`, or `planned product surface`.
+**Action:** label capabilities as `runtime`, `wired into Lyra`, or `planned product surface`. Raised as issue #119 and reflected in the revised roadmap.
+
+### 7. Universal single-gate language overstated the current trusted-path model
+
+The Gmail workflow includes a narrowly enumerated owner-selected metadata read before grant composition. It is classified as `PreGateOwnerSelectedRead`, not a worker effect mediated by `gate()`.
+
+**Action:** bound public claims to model-driven worker effects and document the explicit, audited trusted-path carve-out. Addressed across the README, comparison, Why page, architecture page, product context, landing page, and boundary visual.
+
+### 8. Agent-proposed skill language was ahead of the shipped Lyra path
+
+Skills exist as governed artifacts, but the public path installs them through a verified-owner command. The agent-facing artifact proposal allowlist does not currently accept skills.
+
+**Action:** remove skills from current agent-proposal claims and label agent-proposed skill installation as future product work. Addressed in the README and Why page.
 
 ## Decision
 
