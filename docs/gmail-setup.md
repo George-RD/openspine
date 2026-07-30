@@ -7,7 +7,7 @@ This guide configures Lyra's current Gmail workflow for local or self-hosted use
 1. In the [Google Cloud Console](https://console.cloud.google.com/), create or reuse a project and enable the **Gmail API**.
 2. Configure the OAuth consent screen. **Testing mode is sufficient** for a single-owner development deployment. You do not need to publish the app or pass Google's verification review when the only user is the owner account.
 3. Create an OAuth 2.0 **Desktop app** client. Note the `client_id` and `client_secret`.
-4. Grant `gmail.readonly` to read the selected thread and `gmail.compose` to create the approved draft. Never grant `gmail.send`. Lyra has no send authority.
+4. Grant `gmail.readonly` to read the selected thread and `gmail.compose` to create the approved draft. Google does not provide a draft-creation-only scope; `gmail.compose` is broader, while OpenSpine's action gate and base policy keep `email.send` denied. Do not separately request `gmail.send`.
 
 ## 2. Obtain a refresh token
 
@@ -86,7 +86,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-`compose.yaml` mounts `artifacts/lyra` read-only into the kernel and stores kernel state in a Docker-managed volume owned by the non-root kernel user.
+`compose.yaml` mounts `artifacts/lyra` read-only into the kernel and retains the existing `./data` path. A one-shot initializer fixes that directory's ownership before the non-root kernel starts, preserving prior audit history and artifacts across upgrades.
 
 The process driver is a development shortcut. Under `sandbox.driver: process`, `/draft` is refused unless the configuration explicitly sets:
 
