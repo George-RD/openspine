@@ -32,18 +32,27 @@ networks:
     # "network not found" at runtime.
     name: openspine-internal
 
-volumes:
-  # Docker initializes this volume from /app/data in Dockerfile.kernel, keeping
-  # the non-root kernel user's ownership. A bind-mounted ./data directory from
-  # a clean clone would otherwise normally be created as root and be unwritable.
-  openspine-data:
-
 services:
+  # Keep the established ./data bind mount so upgrades retain the existing
+  # database, audit history, approvals, credentials, and encrypted artifacts.
+  # This one-shot service also makes a clean clone writable by the non-root
+  # kernel user before the kernel starts.
+  data-init:
+    image: busybox:1.36
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
+    volumes:
+      - ./data:/app/data
+
   kernel:
     build:
       context: .
       dockerfile: Dockerfile.kernel
     restart: unless-stopped
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
     # The kernel remains uid 10001. Add the host socket's numeric group so it
     # can use the mounted Docker API without running the whole container as root.
     group_add:
@@ -70,9 +79,9 @@ services:
       # so the reference Compose path has the routes, agents, workflows, packs,
       # policies, and templates required by `/draft`.
       - ./artifacts/lyra:/app/artifacts/lyra:ro
-      # Persistent SQLite and encrypted artifacts. The image prepares /app/data
-      # as uid/gid 10001 before this named volume is initialized.
-      - openspine-data:/app/data
+      # Preserve the existing local data path across upgrades. data-init fixes
+      # ownership before the uid-10001 kernel starts.
+      - ./data:/app/data
       # Docker socket: the kernel uses this to spawn per-task shell containers
       # via DockerDriver (docker run --rm --network openspine-internal ...).
       # The socket grants significant privileges; in production restrict the
