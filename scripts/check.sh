@@ -8,6 +8,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+openspec_bin="./node_modules/.bin/openspec"
+if [ ! -x "$openspec_bin" ]; then
+  echo "OpenSpec CLI not found at $openspec_bin. Run npm ci first." >&2
+  exit 1
+fi
+
 echo "== cargo fmt --check =="
 cargo fmt --check
 
@@ -33,10 +39,10 @@ scripts/check-omp-ceremony.sh
 if [ "$#" -ge 1 ]; then
   change_id="$1"
   echo "== openspec validate ${change_id} --strict =="
-  /Users/george/repos/openspine/node_modules/.bin/openspec validate "$change_id" --strict
+  "$openspec_bin" validate "$change_id" --strict
 else
   echo "== openspec validate --all --strict =="
-  /Users/george/repos/openspine/node_modules/.bin/openspec validate --all --strict
+  "$openspec_bin" validate --all --strict
 fi
 
 echo "All checks passed."

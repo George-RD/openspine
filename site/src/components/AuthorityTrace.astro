@@ -1,8 +1,8 @@
-<section class="authority-trace" data-trace aria-label="Illustrative OpenSpine authority trace">
+<section class="authority-trace" data-trace aria-label="How OpenSpine checks one email drafting task">
 	<div class="instrument-bar">
 		<div class="instrument-label">
 			<span class="status-light" aria-hidden="true"></span>
-			<span>Illustrative authority trace</span>
+			<span>One email task, checked end to end</span>
 		</div>
 		<div class="instrument-meta">
 			<span>TRACE 0042</span>
@@ -21,7 +21,7 @@
 				</svg>
 			</span>
 			<div>
-				<span class="request-kicker">Verified owner · Telegram</span>
+				<span class="request-kicker">Verified request · Telegram</span>
 				<strong>“Draft a reply to the thread I selected.”</strong>
 			</div>
 		</div>
@@ -37,43 +37,43 @@
 			<li style="--stage: 0">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Verify</span>
-				<small>source</small>
+				<small>check source</small>
 			</li>
 			<li style="--stage: 1">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Identify</span>
-				<small>actor</small>
+				<small>who asked</small>
 			</li>
 			<li style="--stage: 2">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Route</span>
-				<small>workflow</small>
+				<small>choose task</small>
 			</li>
 			<li style="--stage: 3">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Compose</span>
-				<small>authority</small>
+				<small>combine rules</small>
 			</li>
 			<li style="--stage: 4">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Grant</span>
-				<small>task</small>
+				<small>limit access</small>
 			</li>
 			<li style="--stage: 5">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Gate</span>
-				<small>effects</small>
+				<small>check action</small>
 			</li>
 			<li style="--stage: 6">
 				<span class="stage-node" aria-hidden="true"></span>
 				<span class="stage-name">Audit</span>
-				<small>record</small>
+				<small>record result</small>
 			</li>
 		</ol>
 	</div>
 
 	<div class="authority-compose">
-		<div class="composition-layers" aria-label="Authority inputs">
+		<div class="composition-layers" aria-label="Rules combined for this task">
 			<div class="policy-layer" style="--layer: 0">
 				<span>Route</span>
 				<strong>owner control</strong>
@@ -88,7 +88,7 @@
 			</div>
 			<div class="policy-layer" style="--layer: 3">
 				<span>Policy</span>
-				<strong>send hard-denied</strong>
+				<strong>email send blocked</strong>
 			</div>
 		</div>
 
@@ -99,7 +99,7 @@
 			</svg>
 		</div>
 
-		<div class="task-grant" aria-label="Composed task grant">
+		<div class="task-grant" aria-label="Permissions for this task">
 			<div class="grant-header">
 				<span>Task grant</span>
 				<strong>GRANT·7C1</strong>
@@ -129,7 +129,7 @@
 		</div>
 	</div>
 
-	<div class="gate-ledger" aria-label="Effect gate decisions">
+	<div class="gate-ledger" aria-label="Allowed, approval-required, and blocked actions">
 		<div class="gate-row gate-row--allow" style="--gate: 0">
 			<span class="gate-result">Allow</span>
 			<code>email.read_thread:selected_no_attachments</code>
@@ -149,7 +149,7 @@
 
 	<div class="audit-strip">
 		<span class="audit-mark" aria-hidden="true"></span>
-		<span>Audit appended</span>
+		<span>Decision recorded</span>
 		<code>prev_hash → event → grant → gate → new_hash</code>
 	</div>
 </section>

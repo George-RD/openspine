@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
+  <title id="title">Lyra email drafting flow</title>
+  <desc id="desc">A verified Telegram request selects one Gmail thread. OpenSpine creates a task grant, Lyra drafts a reply, the owner approves the exact text, and Gmail receives a draft. Email sending is denied.</desc>
+  <rect width="1200" height="380" fill="#0b1c24"/>
+  <g fill="none" stroke="#8cdec6" stroke-opacity=".12">
+    <path d="M0 70h1200M0 140h1200M0 210h1200M0 280h1200M0 350h1200"/>
+    <path d="M60 0v380M120 0v380M180 0v380M240 0v380M300 0v380M360 0v380M420 0v380M480 0v380M540 0v380M600 0v380M660 0v380M720 0v380M780 0v380M840 0v380M900 0v380M960 0v380M1020 0v380M1080 0v380M1140 0v380"/>
+  </g>
+
+  <g font-family="Arial, sans-serif">
+    <text x="48" y="48" font-size="25" font-weight="900" fill="#eef3f0">LYRA'S CURRENT EMAIL FLOW</text>
+    <text x="48" y="73" font-size="15" fill="#8cdec6">One selected thread enters. One approved draft comes out. Sending stays blocked.</text>
+  </g>
+
+  <g transform="translate(48 108)">
+    <g font-family="Arial, sans-serif">
+      <path d="M0 0h156l14 14v112H14L0 112z" fill="#f8fbf8" stroke="#8cdec6" stroke-width="2"/>
+      <text x="18" y="28" font-size="12" font-weight="700" fill="#0e6d61">1 · VERIFIED REQUEST</text>
+      <text x="18" y="60" font-size="18" font-weight="900" fill="#0b1c24">TELEGRAM</text>
+      <text x="18" y="88" font-family="monospace" font-size="13" font-weight="700" fill="#385058">/draft 8F2</text>
+      <text x="18" y="109" font-family="monospace" font-size="11" fill="#385058">owner checked</text>
+    </g>
+
+    <path d="M178 62h24" stroke="#8cdec6" stroke-width="2"/>
+    <path d="m194 54 9 8-9 8" fill="none" stroke="#8cdec6" stroke-width="2"/>
+
+    <g transform="translate(212)">
+      <path d="M0 0h156l14 14v112H14L0 112z" fill="#dce7e1" stroke="#8cdec6" stroke-width="2"/>
+      <text x="18" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#0e6d61">2 · SELECTED SCOPE</text>
+      <text x="18" y="60" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#0b1c24">GMAIL THREAD</text>
+      <text x="18" y="88" font-family="monospace" font-size="13" font-weight="700" fill="#0b1c24">8F2 ONLY</text>
+      <text x="18" y="109" font-family="monospace" font-size="11" fill="#385058">single-use token</text>
+    </g>
+
+    <path d="M390 62h24" stroke="#8cdec6" stroke-width="2"/>
+    <path d="m406 54 9 8-9 8" fill="none" stroke="#8cdec6" stroke-width="2"/>
+
+    <g transform="translate(424)">
+      <path d="M0 0h176l14 14v112H14L0 112z" fill="#f8fbf8" stroke="#f3d56b" stroke-width="2"/>
+      <text x="18" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#684f00">3 · TASK GRANT</text>
+      <text x="18" y="58" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">READ   ALLOW</text>
+      <text x="18" y="80" font-family="monospace" font-size="12" font-weight="700" fill="#684f00">DRAFT  ASK</text>
+      <text x="18" y="102" font-family="monospace" font-size="12" font-weight="700" fill="#b52f10">SEND   DENY</text>
+    </g>
+
+    <path d="M622 62h24" stroke="#8cdec6" stroke-width="2"/>
+    <path d="m638 54 9 8-9 8" fill="none" stroke="#8cdec6" stroke-width="2"/>
+
+    <g transform="translate(656)">
+      <path d="M0 0h132l14 14v112H14L0 112z" fill="#8cdec6" stroke="#8cdec6" stroke-width="2"/>
+      <text x="18" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#0b1c24">4 · LYRA</text>
+      <text x="18" y="62" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#0b1c24">DRAFTS</text>
+      <text x="18" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">reply text</text>
+    </g>
+
+    <path d="M810 62h24" stroke="#8cdec6" stroke-width="2"/>
+    <path d="m826 54 9 8-9 8" fill="none" stroke="#8cdec6" stroke-width="2"/>
+
+    <g transform="translate(844)">
+      <path d="M0 0h150l14 14v112H14L0 112z" fill="#f3d56b" stroke="#f3d56b" stroke-width="2"/>
+      <text x="18" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#684f00">5 · YOU APPROVE</text>
+      <text x="18" y="60" font-family="Arial, sans-serif" font-size="17" font-weight="900" fill="#0b1c24">EXACT TEXT</text>
+      <text x="18" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">digest matched</text>
+    </g>
+
+    <path d="M1016 62h24" stroke="#8cdec6" stroke-width="2"/>
+    <path d="m1032 54 9 8-9 8" fill="none" stroke="#8cdec6" stroke-width="2"/>
+
+    <g transform="translate(1050)">
+      <path d="M0 0h86l14 14v112H14L0 112z" fill="#f8fbf8" stroke="#8cdec6" stroke-width="2"/>
+      <text x="14" y="28" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#0e6d61">6 · GMAIL</text>
+      <text x="14" y="62" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#0b1c24">DRAFT</text>
+      <text x="14" y="86" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#0b1c24">CREATED</text>
+    </g>
+
+    <path d="M512 137v54h331" fill="none" stroke="#ff6438" stroke-width="2" stroke-dasharray="6 5"/>
+    <path d="m833 183 10 8-10 8" fill="none" stroke="#ff6438" stroke-width="2"/>
+    <rect x="850" y="167" width="286" height="47" fill="#ffd8c9" stroke="#ff6438" stroke-width="2"/>
+    <text x="870" y="187" font-family="monospace" font-size="12" font-weight="700" fill="#b52f10">email.send</text>
+    <text x="1114" y="198" text-anchor="end" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#b52f10">DENIED BY POLICY</text>
+  </g>
+</svg>

@@ -2,38 +2,61 @@
 #
 # SHELL CONTAINERS ARE NOT DEFINED HERE.
 # Shell containers are spawned per-task by the kernel itself using the Docker
-# API via the mounted socket (/var/run/docker.sock).  They run on the
+# API via the mounted socket (/var/run/docker.sock). They run on the
 # openspine-internal network so they can reach the kernel at kernel:7777 but
-# have no public-internet egress (internal: true).  Each shell container is
+# have no public-internet egress (internal: true). Each shell container is
 # ephemeral (--rm) and is managed entirely by the kernel's DockerDriver; they
 # are not compose-managed services.
 #
-# Secrets: copy .env.example to .env and fill in real values before running.
-# The .env file is gitignored and must never be committed.
+# Build the worker image once before starting Compose:
+#   docker build --file Dockerfile.shell --tag openspine-shell:latest .
+#
+# Secrets and the Docker socket group: copy .env.example to .env and fill in
+# real values before running. The .env file is gitignored and must never be
+# committed.
 
 name: openspine
 
 networks:
   # Internal-only network: containers on this network can reach each other
-  # but have no route to the public internet.  The kernel exposes port 7777
+  # but have no route to the public internet. The kernel exposes port 7777
   # here so spawned shell containers can call the kernel API; the shell
   # containers have no other network attachment, enforcing egress containment
   # (decision O-003 / PRD §16).
   openspine-internal:
     driver: bridge
     internal: true
-    # Pin the real Docker network name.  Without this, Compose prefixes it with
+    # Pin the real Docker network name. Without this, Compose prefixes it with
     # the project name (e.g. "openspine_openspine-internal"), which would cause
     # the kernel's `docker run --network openspine-internal` to fail with
     # "network not found" at runtime.
     name: openspine-internal
 
 services:
+  # Keep the established ./data bind mount so upgrades retain the existing
+  # database, audit history, approvals, credentials, and encrypted artifacts.
+  # This one-shot service also makes a clean clone writable by the non-root
+  # kernel user before the kernel starts.
+  data-init:
+    image: busybox:1.36
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
+    volumes:
+      - ./data:/app/data
+
   kernel:
     build:
       context: .
       dockerfile: Dockerfile.kernel
     restart: unless-stopped
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    # The kernel remains uid 10001. Add the host socket's numeric group so it
+    # can use the mounted Docker API without running the whole container as root.
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID in .env to the group id of /var/run/docker.sock}"
     networks:
       # The kernel needs both networks:
       # - default (bridge): internet access for Telegram long-polling and
@@ -52,7 +75,12 @@ services:
       # ignored. Config-file-driven avoids a second, parallel config
       # surface that could drift from what `config.rs` actually parses.
       - ./openspine.yaml:/app/openspine.yaml:ro
-      # Persistent data: SQLite DB, encrypted artifact blobs, credentials.
+      # Lyra is a declarative package loaded by the kernel. Mount it read-only
+      # so the reference Compose path has the routes, agents, workflows, packs,
+      # policies, and templates required by `/draft`.
+      - ./artifacts/lyra:/app/artifacts/lyra:ro
+      # Preserve the existing local data path across upgrades. data-init fixes
+      # ownership before the uid-10001 kernel starts.
       - ./data:/app/data
       # Docker socket: the kernel uses this to spawn per-task shell containers
       # via DockerDriver (docker run --rm --network openspine-internal ...).
@@ -66,7 +94,7 @@ services:
       - .env
     # Port 7777 is NOT published to the host; the kernel API is only reachable
     # from inside the openspine-internal network (by shell containers) and from
-    # the kernel's own process.  Expose it here only for documentation clarity.
+    # the kernel's own process. Expose it here only for documentation clarity.
     expose:
       - "7777"
 
@@ -105,5 +133,6 @@ services:
   #     AUTH: 0
   #
   # Then on the kernel service: drop the `/var/run/docker.sock` volume mount
-  # above and add `DOCKER_HOST=tcp://docker-socket-proxy:2375` to its
-  # `environment:` (or `.env`, via `env_file`) instead.
+  # above and the `group_add` entry, then add
+  # `DOCKER_HOST=tcp://docker-socket-proxy:2375` to `environment:` (or `.env`,
+  # via `env_file`).

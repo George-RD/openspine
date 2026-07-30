@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">OpenSpine</title>
+  <desc id="desc">Let AI use your tools. Keep the keys. A self-hosted permission layer for AI assistants.</desc>
+  <rect width="1200" height="360" fill="#eef3f0"/>
+  <path d="M744 0h456v308H744z" fill="#0b1c24"/>
+  <path d="M0 308h1200v52H0z" fill="#ff6438"/>
+
+  <g fill="none" stroke="#8cdec6" stroke-opacity=".18">
+    <path d="M744 52h456M744 104h456M744 156h456M744 208h456M744 260h456"/>
+    <path d="M804 0v308M864 0v308M924 0v308M984 0v308M1044 0v308M1104 0v308M1164 0v308"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" fill="#0b1c24">
+    <text x="64" y="62" font-size="24" font-weight="700" letter-spacing="2">OPENSPINE</text>
+    <text x="64" y="148" font-size="54" font-weight="900" letter-spacing="-1.5">LET AI USE YOUR TOOLS.</text>
+    <text x="64" y="221" font-size="62" font-weight="900" letter-spacing="-2" fill="#b52f10">KEEP THE KEYS.</text>
+    <text x="64" y="267" font-size="20" fill="#385058">A permission layer between the model and your accounts.</text>
+    <text x="64" y="342" font-size="17" font-family="monospace" font-weight="700" letter-spacing=".8">SELF-HOSTED · OPEN SOURCE · ALPHA</text>
+  </g>
+
+  <g transform="translate(786 34)">
+    <path d="M0 0h332l22 22v238H22L0 238z" fill="#f8fbf8" stroke="#8cdec6" stroke-width="3"/>
+    <path d="M0 0h332l22 22H22L0 0z" fill="#8cdec6"/>
+    <g font-family="monospace" font-size="12" font-weight="700" fill="#0b1c24">
+      <text x="18" y="17">TASK 0042</text>
+      <text x="273" y="17">CHECKED</text>
+    </g>
+
+    <text x="22" y="54" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#385058">VERIFIED REQUEST</text>
+    <text x="22" y="78" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0b1c24">Draft a reply to thread 8F2</text>
+
+    <path d="M22 96h310" stroke="#0b1c24" stroke-opacity=".2"/>
+    <text x="22" y="119" font-family="monospace" font-size="12" font-weight="700" fill="#385058">TASK PERMISSIONS</text>
+
+    <g font-family="monospace" font-size="13" font-weight="700" fill="#0b1c24">
+      <rect x="22" y="134" width="310" height="30" fill="#dce7e1" stroke="#0b1c24" stroke-width="1.5"/>
+      <text x="34" y="154">READ</text>
+      <text x="187" y="154">THREAD 8F2 ONLY</text>
+
+      <rect x="22" y="174" width="310" height="30" fill="#f3d56b" stroke="#0b1c24" stroke-width="1.5"/>
+      <text x="34" y="194">DRAFT</text>
+      <text x="259" y="194">ASK</text>
+
+      <rect x="22" y="214" width="310" height="30" fill="#ffd8c9" stroke="#0b1c24" stroke-width="1.5"/>
+      <text x="34" y="234">SEND</text>
+      <text x="253" y="234" fill="#b52f10">DENY</text>
+    </g>
+  </g>
+</svg>
