@@ -23,19 +23,19 @@ cargo build --workspace
 		<meta name="theme-color" content="#eef3f0" />
 		<meta
 			name="description"
-			content="OpenSpine is a self-hostable runtime that keeps agent authority outside the model. Verify every event, issue scoped grants, gate every effect, and audit the result."
+			content="OpenSpine is a self-hosted permission layer for AI assistants. It limits each task, checks every action, and keeps raw credentials outside the model."
 		/>
 		<meta property="og:type" content="website" />
-		<meta property="og:title" content="OpenSpine — Give agents access. Keep the authority." />
+		<meta property="og:title" content="OpenSpine — Let AI use your tools. Keep the keys." />
 		<meta
 			property="og:description"
-			content="A self-hostable runtime for governed agents, with runtime-enforced boundaries and test-backed security claims."
+			content="Give an AI assistant limited access to email and connected tools without handing the model raw credentials or control of the rules."
 		/>
 		<meta property="og:url" content={canonical} />
 		<meta name="twitter:card" content="summary" />
 		<link rel="canonical" href={canonical} />
 		<link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
-		<title>OpenSpine — Runtime-enforced authority for agents</title>
+		<title>OpenSpine — Permissions for AI assistants</title>
 		<script is:inline>document.documentElement.classList.add('js');</script>
 	</head>
 	<body>
@@ -68,22 +68,22 @@ cargo build --workspace
 			<!--
 			THESIS: Agent safety belongs in a runtime boundary, not a prompt; refuse the stock dark-neon security landing page.
 			OWN-WORLD: A pale safety-case instrument with deep ink, safety orange, clipped panels, authority rails, proof ledgers, and precise status marks.
-			STORY: A skeptical builder sees one request become a scoped grant, watches risky effects get gated, checks named tests, then opens the quickstart.
-			FIRST VIEWPORT: Plain-language offer on the left; a large live authority trace on the right visibly denies email.send. The primary action sits under the offer.
+			STORY: A skeptical builder understands the category first, sees one task become limited permissions, watches risky actions get checked, then inspects the proof.
+			FIRST VIEWPORT: Plain-language category and benefit on the left; a live task trace on the right visibly denies email.send. The primary action sits under the offer.
 			FORM: Asymmetric control-instrument landing page; mechanism-first staging, no card-grid hero, no literal spine imagery.
 			-->
 			<section class="hero" aria-labelledby="hero-title">
 				<div class="hero-copy" data-reveal>
 					<div class="hero-badge">
 						<span class="hero-badge-dot" aria-hidden="true"></span>
-						Open source · self-hostable · alpha
+						Self-hosted permissions for AI assistants · alpha
 					</div>
 					<h1 id="hero-title">
-						Give agents access.<br />
-						<span>Keep the authority.</span>
+						Let AI use your tools.<br />
+						<span>Keep the keys.</span>
 					</h1>
 					<p class="hero-lede">
-						OpenSpine lets an assistant work with real email and tools without handing the model the keys. The runtime verifies each event, issues a narrow task grant, gates every effect, and records what happened.
+						OpenSpine sits between the model and your email or apps. Each task gets only the access it needs. It checks every action, asks you when approval is needed, and records the result. The model never sees raw credentials.
 					</p>
 					<div class="hero-actions">
 						<a class="button button--primary" href={href('/quickstart/')}>
@@ -97,11 +97,11 @@ cargo build --workspace
 					<div class="hero-audience" aria-label="Who OpenSpine is for">
 						<div>
 							<strong>For self-hosters</strong>
-							<span>Let an assistant help with real admin without blanket access.</span>
+							<span>Connect an assistant to real accounts without giving the model full access.</span>
 						</div>
 						<div>
 							<strong>For agent builders</strong>
-							<span>Move authority out of prompts and into code you can test.</span>
+							<span>Put permissions in code you can test, not in a system prompt.</span>
 						</div>
 					</div>
 				</div>
@@ -114,9 +114,9 @@ cargo build --workspace
 			<section class="mechanism-section" id="mechanism" aria-labelledby="mechanism-title">
 				<div class="section-shell mechanism-layout">
 					<div class="mechanism-intro" data-reveal>
-						<span class="section-marker">The control boundary</span>
-						<h2 id="mechanism-title">The model reasons.<br />The spine decides.</h2>
-						<p>A prompt injection can change what the model wants. It cannot change what the runtime permits.</p>
+						<span class="section-marker">How one task stays in bounds</span>
+						<h2 id="mechanism-title">The model requests.<br />OpenSpine decides.</h2>
+						<p>A malicious email can change what the model tries to do. It cannot change what OpenSpine allows.</p>
 						<a class="text-link text-link--light" href={href('/architecture/')}>
 							See the architecture <span aria-hidden="true">↗</span>
 						</a>
@@ -128,10 +128,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M17 3 28 7.5v8.4c0 6.7-4.4 11.8-11 14.1C10.4 27.7 6 22.6 6 15.9V7.5L17 3Z" /><path d="m11.8 16.7 3.2 3.2 7.2-7.2" /></svg>
 							</div>
 							<div>
-								<h3>Verify before trust</h3>
-								<p>A sender ID is checked, not believed. Identity can help choose a route, but identity alone grants nothing.</p>
+								<h3>Check who asked</h3>
+								<p>OpenSpine verifies the source before trusting the sender. A matching user ID is not enough on its own.</p>
 							</div>
-							<code>event → verify → identify</code>
+							<code>request → verify source</code>
 						</article>
 
 						<article class="boundary-row">
@@ -139,10 +139,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 8h24M8 17h18M11 26h12" /><circle cx="11" cy="8" r="2.5" /><circle cx="21" cy="17" r="2.5" /><circle cx="15" cy="26" r="2.5" /></svg>
 							</div>
 							<div>
-								<h3>Compose a narrow grant</h3>
-								<p>Routes, manifests, workflows, capability packs, and policy intersect. No matching allow means no authority.</p>
+								<h3>Set the task limits</h3>
+								<p>OpenSpine combines the route, agent, workflow, capabilities, and policy into one short-lived task grant. If no rule allows an action, the task does not get it.</p>
 							</div>
-							<code>route ∩ agent ∩ workflow ∩ policy</code>
+							<code>rules → task grant</code>
 						</article>
 
 						<article class="boundary-row">
@@ -150,16 +150,16 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 17h24" /><path d="M17 5v24" /><circle cx="17" cy="17" r="6" /><path d="m14.2 17 2 2 4-4" /></svg>
 							</div>
 							<div>
-								<h3>Gate every effect</h3>
-								<p>Before a connector touches the world, one gate returns allow, deny, or ask you first. The decision is audited.</p>
+								<h3>Check every action</h3>
+								<p>Before email or another connector runs, OpenSpine allows the action, blocks it, or asks you. The result is logged.</p>
 							</div>
-							<code>run → gate → audit</code>
+							<code>action → allow | ask | deny</code>
 						</article>
 					</div>
 				</div>
 
 				<div class="spine-statement" aria-hidden="true">
-					<span>event</span><i></i><span>verify</span><i></i><span>route</span><i></i><span>compose</span><i></i><span>grant</span><i></i><span>gate</span><i></i><span>audit</span>
+					<span>request</span><i></i><span>verify</span><i></i><span>match</span><i></i><span>limit</span><i></i><span>run</span><i></i><span>decide</span><i></i><span>record</span>
 				</div>
 			</section>
 
@@ -167,11 +167,11 @@ cargo build --workspace
 				<div class="section-shell">
 					<header class="section-heading section-heading--split" data-reveal>
 						<div>
-							<span class="section-marker">The first product on the spine</span>
-							<h2 id="lyra-title">Lyra helps with email.<br />The runtime keeps the boundary.</h2>
+							<span class="section-marker">A working example</span>
+							<h2 id="lyra-title">Lyra drafts the reply.<br />Sending stays with you.</h2>
 						</div>
 						<div class="section-heading-copy">
-							<p>Lyra is a Telegram-controlled personal assistant. Today it can work from a Gmail thread you selected, prepare a reply preview, and create a draft after approval. Sending stays denied by policy.</p>
+							<p>Send Lyra a Gmail thread ID in Telegram. It can read only that thread, draft a reply, and create a Gmail draft after you approve the exact text. OpenSpine blocks email sending.</p>
 							<span class="scope-note">Current alpha scope. The interface below is illustrative.</span>
 						</div>
 					</header>
@@ -186,10 +186,10 @@ cargo build --workspace
 				<div class="section-shell">
 					<header class="proof-heading" data-reveal>
 						<div>
-							<span class="section-marker">Claims with failure modes</span>
-							<h2 id="proof-title">Security claims should break when the proof disappears.</h2>
+							<span class="section-marker">Claims you can test</span>
+							<h2 id="proof-title">Every safety claim points to a test.</h2>
 						</div>
-						<p>Each documented claim maps to a named test. The build fails if a claimed test stops existing.</p>
+						<p>The build fails if a listed test disappears. Clone the repo and run the same checks yourself.</p>
 					</header>
 
 					<div class="claim-ledger" data-reveal data-reveal-delay="1">
@@ -199,29 +199,29 @@ cargo build --workspace
 							<span>Named test</span>
 						</div>
 						<article class="claim-row">
-							<strong>Spoofed owner identity</strong>
-							<p>Denied when the source was not verified.</p>
+							<strong>Unverified owner request</strong>
+							<p>Denied because the source was not verified.</p>
 							<code>spoofed_owner_id_without_verified_source_is_denied</code>
 						</article>
 						<article class="claim-row">
-							<strong>Reading another thread</strong>
-							<p>Denied when it does not match the single-use selection token.</p>
+							<strong>Reading a different thread</strong>
+							<p>Denied because the task is bound to one selected thread.</p>
 							<code>email_read_selected_thread_rejects_foreign_grant</code>
 						</article>
 						<article class="claim-row">
-							<strong>Credential exposure</strong>
-							<p>The agent shell receives no raw connector credentials.</p>
+							<strong>Raw credentials</strong>
+							<p>The agent process receives no connector credentials.</p>
 							<code>process_driver_clears_env_and_sets_only_two_vars</code>
 						</article>
 						<article class="claim-row">
-							<strong>Email send</strong>
-							<p>Denied regardless of grant or approval state.</p>
+							<strong>Email sending</strong>
+							<p>Denied even if a grant or approval says otherwise.</p>
 							<code>global_policy_round_trips_and_denies_send</code>
 						</article>
 					</div>
 
 					<div class="proof-actions" data-reveal>
-						<a class="button button--ink" href={href('/threat-model/')}>Read every claim and test</a>
+						<a class="button button--ink" href={href('/threat-model/')}>See every claim and test</a>
 						<a class="text-link" href={`${repoUrl}/blob/main/docs/threat-claims.md`} target="_blank" rel="noreferrer">
 							Open the source file <span aria-hidden="true">↗</span>
 						</a>
@@ -232,16 +232,16 @@ cargo build --workspace
 			<section class="start-section" aria-labelledby="start-title">
 				<div class="section-shell start-layout">
 					<div class="start-copy" data-reveal>
-						<span class="section-marker section-marker--dark">Build from the proof</span>
-						<h2 id="start-title">Run the checks.<br />Then run the agent.</h2>
-						<p>Clone OpenSpine, build the workspace, and run the same checks used by CI. The quickstart then walks through Telegram, Gmail, and model setup.</p>
+						<span class="section-marker section-marker--dark">Try the alpha</span>
+						<h2 id="start-title">Run the checks.<br />Then connect Lyra.</h2>
+						<p>Clone OpenSpine and run the same test and claim checks used by CI. The quickstart then covers Telegram, Gmail, and model setup.</p>
 						<div class="start-actions">
 							<a class="button button--dark" href={href('/quickstart/')}>
 								Open the quickstart <span aria-hidden="true">→</span>
 							</a>
 							<a class="button button--ghost-dark" href={repoUrl} target="_blank" rel="noreferrer">View on GitHub</a>
 						</div>
-						<p class="alpha-note"><strong>Alpha, honestly:</strong> the substrate and Lyra run end to end, but the roadmap still records what has not landed.</p>
+						<p class="alpha-note"><strong>Alpha:</strong> the permission layer and Lyra run end to end. The roadmap lists what is still missing.</p>
 					</div>
 
 					<div class="command-panel" data-reveal data-reveal-delay="1">
@@ -273,7 +273,7 @@ cargo build --workspace
 					</svg>
 					<span class="brand-word">OpenSpine</span>
 				</a>
-				<p>The backbone for agents you can trust with more.</p>
+				<p>Permissions for AI assistants, enforced outside the model.</p>
 			</div>
 			<nav class="footer-nav" aria-label="Footer navigation">
 				<a href={href('/why-openspine/')}>Why OpenSpine</a>
