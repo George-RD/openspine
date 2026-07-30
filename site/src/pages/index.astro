@@ -29,7 +29,7 @@ cargo build --workspace
 		<meta property="og:title" content="OpenSpine — Give your AI real work. Not the master key." />
 		<meta
 			property="og:description"
-			content="A trust-first personal AI system for real account access, with short-lived task permissions and every account action checked outside the model."
+			content="A trust-first personal AI system for real account access, with short-lived task permissions and model-driven account effects checked outside the model."
 		/>
 		<meta property="og:url" content={canonical} />
 		<meta name="twitter:card" content="summary" />
@@ -83,7 +83,7 @@ cargo build --workspace
 						<span>Not the master key.</span>
 					</h1>
 					<p class="hero-lede">
-						OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. Before an account action runs, OpenSpine allows it, blocks it, or sends it to you first.
+						OpenSpine is the system you install. Lyra is the assistant you talk to. The runtime keeps your account keys away from the model. Each task gets a short-lived scope. The model-driven worker cannot reach your accounts beyond that scope.
 					</p>
 					<div class="hero-actions">
 						<a class="button button--primary" href="#mechanism">
@@ -150,8 +150,8 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 17h24" /><path d="M17 5v24" /><circle cx="17" cy="17" r="6" /><path d="m14.2 17 2 2 4-4" /></svg>
 							</div>
 							<div>
-								<h3>Every account action stops at the gate</h3>
-								<p>Before a connector reads, writes, or sends anything, OpenSpine allows the action, blocks it, or asks you. The decision is recorded.</p>
+								<h3>Model-driven effects stop at the gate</h3>
+								<p>Before a worker can read, write, or send through a connector, OpenSpine allows the action, blocks it, or asks you. The decision is recorded.</p>
 							</div>
 							<code>action → allow | ask | deny</code>
 						</article>
