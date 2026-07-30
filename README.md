@@ -22,7 +22,7 @@
 
 OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine enforces those limits outside the model.
 
-It does not run OpenClaw, Hermes, or another assistant inside OpenSpine today. Other assistant packages may come later. Lyra is the path that works now.
+It does not run OpenClaw, Hermes, or another assistant today. Other assistants may come later. Lyra is the path that works now.
 
 > **Alpha:** Lyra can read one Gmail thread you choose, draft a reply, and create the exact draft you approved. It cannot send the email.
 
