@@ -1,101 +1,189 @@
+<picture>
+  <img src="docs/readme-header.svg" width="100%" alt="OpenSpine. Give your AI real work. Not the master key. A self-hosted personal AI system with hard task limits." />
+</picture>
+
+<p align="center">
+  <a href="https://george-rd.github.io/openspine/"><strong>Website</strong></a>
+  ·
+  <a href="https://george-rd.github.io/openspine/comparison/"><strong>How it differs</strong></a>
+  ·
+  <a href="https://george-rd.github.io/openspine/quickstart/"><strong>Quickstart</strong></a>
+  ·
+  <a href="https://george-rd.github.io/openspine/threat-model/"><strong>Threat model</strong></a>
+  ·
+  <a href="https://george-rd.github.io/openspine/roadmap/"><strong>Roadmap</strong></a>
+  ·
+  <a href="https://ko-fi.com/george_builds"><strong>Support</strong></a>
+</p>
+
 # OpenSpine
 
-**The backbone for agents you can actually trust with your life admin.**
+**A self-hosted personal AI system for real account access.**
 
-OpenSpine is a self-hostable runtime for governed agents. The runtime decides what an agent is allowed to do — never the model, never the prompt. Every decision lands in a tamper-evident audit log, and every documented security claim maps to a named test the build enforces.
+OpenSpine is the system you install. **Lyra is the assistant you talk to.** The runtime keeps your account keys away from the model. Each task gets short-lived limits. Before an account action runs, OpenSpine enforces those limits outside the model.
 
-[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/george_builds)
+It does not run OpenClaw, Hermes, or another assistant today. Other assistants may come later. Lyra is the path that works now.
 
-## Who this is for
+> **Alpha:** Lyra can read one Gmail thread you choose, draft a reply, and create the exact draft you approved. It cannot send the email.
 
-**You want an assistant that touches your real life** — your email, your messages — but handing an LLM your Gmail key and a prompt that says "be careful" is not a security model. OpenSpine is the alternative: the agent runs inside a runtime that structurally cannot send your email, read threads you didn't select, or touch your filesystem, no matter what the model decides or what a poisoned email tells it.
+## Why this needs a different system
 
-**You build agent products** and you're tired of safety being a paragraph in the system prompt. OpenSpine makes authority a runtime property: you declare what an agent may do, the kernel composes and enforces it, and the agent operates inside that boundary. A prompt injection can change what the model *wants*; it cannot change what the runtime *permits*.
+A personal agent is easy to trust while it writes notes or works in a disposable folder. The decision changes when it asks for your main inbox, customer data, files, calendar, infrastructure, or another real account.
 
-## How it works
+Now the failure scenes are concrete:
 
-Every event travels the same spine, in the same order, every time:
+- a poisoned email tells the model to read more mail;
+- the agent selects the wrong customer, thread, or account;
+- a skill adds an extra recipient;
+- a credential appears in tool output or chat history;
+- an approval applies to something different from what you reviewed;
+- the agent quietly gives itself more access.
 
+Prompts, allowlists, approvals, and sandboxes all help. OpenSpine adds a harder rule: **the model is never the authority source.**
+
+<picture>
+  <img src="docs/readme-boundary.svg" width="100%" alt="Comparison of a common model-driven agent setup and OpenSpine. In the common setup, the agent process holds broad connector credentials and relies on prompt rules. With OpenSpine, the runtime holds credentials, gives the agent short-lived task permissions, and checks model-driven account actions before a connector runs." />
+</picture>
+
+## The product shape
+
+```text
+you ↔ Lyra
+       │ asks for work
+       ▼
+OpenSpine runtime
+  verifies → scopes → grants → gates → records
+       │
+       ▼
+email, models, and other connectors
 ```
+
+- **Lyra** handles the conversation and coordinates bounded workers and workflows.
+- **The runtime** verifies requests, builds the task grant, holds credentials, and checks actions.
+- **Workers** receive a task token and the context needed for that job. They do not receive raw connector keys.
+- **Worker-requested effects** run only after the gate allows them or an exact approval is satisfied.
+- **A small set of pre-gate owner-selected metadata reads** is separately enumerated, classified, and audited.
+
+The deterministic path is:
+
+```text
 event → verify → identify → route → compose → grant → run → gate → audit
 ```
 
-- The source is **verified** before anything else happens. A sender ID is checked, not believed.
-- Identity is resolved, but **identity is never authority**. Knowing who you are grants nothing by itself.
-- Authority is **composed** by deterministic intersection of routes, agent manifests, workflows, capability packs, and policies. Deny by default: no rule allows it, it doesn't happen.
-- The agent receives one **task grant** — short-lived, scoped, budgeted. That grant is the only live authority object in the system.
-- Every effect passes through one **gate** before any connector runs it: allow, deny, or ask you first.
-- Everything is **audited** into a hash-chained log that references encrypted artifacts, never plaintext.
+A malicious email can change what the model tries to do. It cannot create permission to read another thread or send an email.
 
-The agent itself runs in a contained shell with exactly two environment variables and no route to the internet. It never sees a credential. Its only door back into the world is the kernel API — and the gate is in the doorframe.
+## How this differs from OpenClaw and Hermes
 
-## Trust grows, but only through you
+OpenClaw and Hermes are mature, capability-first personal agents. They offer far more channels, tools, skills, automation, and onboarding than OpenSpine does today. They also provide real security controls.
 
-An agent on OpenSpine can propose new routes, rules, and capabilities. It can never activate them. Every proposal is shown to you exactly as it will run — digest-bound, so what you approve is byte-for-byte what activates — and nothing turns itself on. There is no tool store, no silent capability creep, no "the agent decided it needed more access." Capability grows exactly as fast as your approvals, and no faster.
+OpenSpine makes a different trade:
 
-## Lyra, the first product
+> **OpenClaw and Hermes are capability-first assistants. OpenSpine is a trust-first assistant system.**
 
-Lyra is a personal assistant built on OpenSpine: you talk to it on Telegram (verified against your owner ID), it reads the Gmail threads you select, and it drafts replies for your approval. It cannot send email — not as a setting, but as policy the runtime enforces regardless of grant or approval state. The draft it creates is the draft you approved, verified by digest.
+The distinction is structural, not a claim that the other projects ignore security. OpenSpine makes task authority a first-class runtime object and keeps it outside the model. Model-driven effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately classified and audited.
 
-## Every claim has a test
+See the [full comparison](https://george-rd.github.io/openspine/comparison/) for the current strengths and trade-offs of each approach.
 
-A safety claim nobody can falsify is marketing. Each row links to a test you can run yourself; `scripts/check-claims.sh` fails the build if a claimed test stops existing.
+## Lyra: the working proof
 
-| Claim | Proof |
-| --- | --- |
-| Telegram owner messages are verified against the configured owner ID | `configured_owner_text_message_is_verified` |
-| Identity is not authority: a spoofed owner ID without a verified source is denied | `spoofed_owner_id_without_verified_source_is_denied` |
-| Connector authentication and account role grant no trust by themselves | `gmail_connector_authenticated_alone_does_not_match_the_selected_thread_route` |
-| External content is data, never instruction | `email_reply_drafter_template_wraps_untrusted_context_on_the_wire` |
-| The shell receives no raw connector credentials | `process_driver_clears_env_and_sets_only_two_vars` |
-| Private-context model calls are mediated by the model gateway, untrusted context always wrapped | `generate_sends_untrusted_context_in_body` |
-| User-selected targets are proven with selection tokens, single-use | `email_read_selected_thread_rejects_foreign_grant`, `email_read_selected_thread_rejects_second_use` |
-| Authority composes by deterministic intersection: no candidate allow means no grant | `no_candidate_allow_means_action_is_not_granted` |
-| Explicit deny wins over any allow; approval-required overrides a plain allow | `explicit_deny_overrides_allow`, `approval_required_overrides_plain_allow` |
-| Every effectful action is mediated by `gate()` before dispatch | `approval_required_action_stops_before_dispatch` |
-| Audit records reference encrypted artifacts, never plaintext | `audit_metadata_records_action_grant_and_refs_not_plaintext` |
-| The shell cannot widen its own authority without explicit owner approval | `widening_via_a_proposed_pack_requires_approval_first` |
-| LLMs may not resolve authority-affecting route conflicts | `priority_tie_with_equal_specificity_is_ambiguous` |
-| Email send is denied regardless of grant or approval state | `global_policy_round_trips_and_denies_send` |
-| Kernel replies are channel-bound to the grant-bound owner chat | `lyra_ui_preview_sends_telegram_reply_to_grant_bound_chat` |
-| System-operations actions (host filesystem, raw network egress) are denied by default | `host_filesystem_read_and_write_are_denied_for_owner_control_grant` |
+<picture>
+  <img src="docs/readme-lyra-flow.svg" width="100%" alt="Lyra alpha flow. A verified Telegram request selects one Gmail thread. OpenSpine creates a task grant, Lyra drafts a reply, the owner approves the exact text, and Gmail receives a draft. Email sending follows a separate denied path." />
+</picture>
 
-## Try it in 5 minutes
+Today, you send Lyra a Gmail thread ID in Telegram. OpenSpine verifies the owner message and binds the task to that thread. Lyra prepares a reply. You approve the exact text and target before a Gmail draft is created. `email.send` remains denied.
+
+This workflow is deliberately narrow. It proves the boundary against hostile external content without claiming that the alpha is already a full chief-of-staff assistant.
+
+## Permissions grow only after you approve them
+
+An agent can propose a new route, rule, workflow, or capability. The proposal stays inactive until the relevant lifecycle and approval checks pass. Nothing can silently give itself more access.
+
+Skills currently install through a verified-owner command and a separate promotion lifecycle. Agent-proposed skill installation is not part of the public Lyra path today.
+
+The broader design aims to make safe repetition smoother: do internal work freely, ask at a real effect boundary, and turn repeated approvals into revocable standing rules only after one explicit decision.
+
+## Proof you can run
+
+Each documented security claim points to a named test. `scripts/check-claims.sh` fails the build if a listed test disappears.
+
+| Runtime claim | Named test |
+|---|---|
+| A spoofed owner ID without a verified source is denied | `spoofed_owner_id_without_verified_source_is_denied` |
+| A task cannot read a different Gmail thread | `email_read_selected_thread_rejects_foreign_grant` |
+| The agent process receives no raw connector credentials | `process_driver_clears_env_and_sets_only_two_vars` |
+| An explicit deny overrides an allow | `explicit_deny_overrides_allow` |
+| An approval-required worker action stops before dispatch | `approval_required_action_stops_before_dispatch` |
+| Email sending is denied in every grant and approval state | `global_policy_round_trips_and_denies_send` |
+
+The [full claims register](docs/threat-claims.md) covers external content, model calls, approval binding, audit artifacts, host operations, and more.
+
+## Current trade-offs
+
+Choose the alpha because the authority model matters enough to accept:
+
+- Docker, Telegram, model-provider, and Gmail OAuth setup;
+- a copied Gmail thread ID instead of a polished picker;
+- one narrow owner-facing workflow;
+- fewer channels and tools than mature agent platforms;
+- an architecture and threat model that are still evolving in public.
+
+Do not choose it today if your main requirement is the widest assistant feature set or a consumer-grade setup flow.
+
+## Build and run the checks
 
 ```sh
 git clone https://github.com/George-RD/openspine.git
 cd openspine
-npm ci                # dev tools used by the check script
+npm ci
 cargo build --workspace
-./scripts/check.sh    # runs every test and check - same as CI
+./scripts/check.sh
 ```
 
-To run a real server you need three secrets as environment variables:
+This runs formatting, lints, tests, strict OpenSpec validation, and the claims register used by CI. The [quickstart](https://george-rd.github.io/openspine/quickstart/) then covers Telegram, Gmail, and model setup.
 
-- `OPENSPINE_TELEGRAM_BOT_TOKEN` — your Telegram bot token.
-- `OPENSPINE_ARTIFACT_KEY` — a random 32-byte hex key (`openssl rand -hex 32`). Every private message, email, and prompt is stored encrypted with it.
-- Your model provider API key (Anthropic, OpenAI, or compatible).
+## Run Lyra
 
-The [quickstart](https://george-rd.github.io/openspine/quickstart/) walks through Telegram and Gmail setup.
+For Telegram control and model replies, the server needs:
 
-## Docs
+- `OPENSPINE_TELEGRAM_BOT_TOKEN`
+- `OPENSPINE_ARTIFACT_KEY`, generated with `openssl rand -hex 32`
+- credentials for Anthropic, OpenAI, or another compatible model provider
 
-Full documentation lives at [george-rd.github.io/openspine](https://george-rd.github.io/openspine/).
+For Gmail drafting, follow the [Gmail setup guide](docs/gmail-setup.md). It adds the Google OAuth client, `OPENSPINE_GMAIL_CLIENT_SECRET`, `OPENSPINE_GMAIL_REFRESH_TOKEN`, and a `gmail:` block with your `mailbox_address`.
 
-Inside the repository:
+Copy `.env.example` to `.env` and put the secret values there. Set `DOCKER_GID` to the numeric group ID of `/var/run/docker.sock` (`stat -c '%g' /var/run/docker.sock` on Linux or `stat -f '%g' /var/run/docker.sock` on macOS). Then copy `openspine.docker.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id` plus the Gmail fields.
+
+Build the contained task worker, then start the kernel:
+
+```sh
+docker build --file Dockerfile.shell --tag openspine-shell:latest .
+docker compose up --build
+```
+
+Compose mounts the Lyra package read-only and retains runtime state in `./data`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts, so existing Compose data is preserved across upgrades. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+
+Then message your bot:
+
+```text
+/draft <gmail_thread_id>
+```
+
+## Documentation
 
 | Document | What it covers |
-| --- | --- |
-| [`.raw/openspine-prd-v9.md`](.raw/openspine-prd-v9.md) | The product/architecture spec: envelope shapes, artifact examples, phase exit criteria. |
-| [`.raw/openspine-decision-log.md`](.raw/openspine-decision-log.md) | Why the architecture is shaped the way it is — every decision with its rationale, consequences, and the condition that would reverse it. |
-| [`docs/threat-claims.md`](docs/threat-claims.md) | Every security claim mapped to the test (or documented manual justification) that proves it. |
-| [`openspec/`](openspec/) | The OpenSpec-driven development process: applied capability specs, in-flight changes, and the implementation sequence in [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md). |
-| [`openspec/conventions.md`](openspec/conventions.md) | Per-change ceremony: proposal → spec → design → tasks → archive. |
+|---|---|
+| [Why OpenSpine](https://george-rd.github.io/openspine/why-openspine/) | The real-account trust gap and the boundary OpenSpine enforces. |
+| [How OpenSpine differs](https://george-rd.github.io/openspine/comparison/) | A fair comparison with capability-first personal agents. |
+| [Architecture](https://george-rd.github.io/openspine/architecture/) | The event path, task grants, gate, artifacts, and audit model. |
+| [`docs/threat-claims.md`](docs/threat-claims.md) | Every security claim and the test or manual proof behind it. |
+| [`.raw/openspine-positioning-audit-2026-07-30.md`](.raw/openspine-positioning-audit-2026-07-30.md) | The Growth Arsenal offer audit, target market, value equation, and product contradictions. |
+| [`.raw/openspine-decision-log.md`](.raw/openspine-decision-log.md) | Architecture decisions, consequences, and reversal conditions. |
+| [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md) | What has landed, what comes next, and the order of work. |
 
 ## Status
 
-Alpha, and honest about it. The substrate and Lyra run end to end: gated actions, Telegram owner control, Gmail draft previews with digest-bound approval, and a governed artifact lifecycle for rules and routes. The [change sequence](openspec/openspine-change-sequence.md) records exactly what has landed and what hasn't; the [roadmap](https://george-rd.github.io/openspine/roadmap/) records what is deferred on purpose.
+Alpha. The OpenSpine system and Lyra run end to end for verified owner control, scoped Gmail reads, reply previews, digest-bound draft approval, gated actions, and governed changes. The [change sequence](openspec/openspine-change-sequence.md) records runtime work that has landed. The [roadmap](https://george-rd.github.io/openspine/roadmap/) separates that from the owner-facing product work still missing.
 
 ## License
 
-Free to use. MIT or Apache 2.0 — pick whichever suits you.
+Free to use. MIT or Apache 2.0, whichever suits you.
