@@ -20,6 +20,7 @@ cargo build --workspace
 ## Configure a real server
 
 1. Copy `.env.example` to `.env` and fill in the values. Compose passes this file into the kernel container. At minimum you need:
+   - `DOCKER_GID`: the numeric group ID of `/var/run/docker.sock`. Use `stat -c '%g' /var/run/docker.sock` on Linux or `stat -f '%g' /var/run/docker.sock` on macOS.
    - `OPENSPINE_TELEGRAM_BOT_TOKEN`: get one from [@BotFather](https://t.me/BotFather).
    - `OPENSPINE_ARTIFACT_KEY`: a random 32-byte key from `openssl rand -hex 32`.
    - Your model provider credentials, such as `ANTHROPIC_API_KEY`.
@@ -34,7 +35,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-Compose mounts the Lyra package into the kernel read-only. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package into the kernel read-only and stores runtime data in a Docker-managed volume. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Full setup guides:
 
