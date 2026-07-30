@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const siteUrl = process.env.SITE_URL || 'http://127.0.0.1:4321/openspine/';
 const outputDir = path.resolve(process.cwd(), 'visual-artifacts');
 
-const expectedHeading = 'Give agents access. Keep the authority.';
+const expectedHeading = 'Let AI use your tools. Keep the keys.';
 
 function localRequestFailed(url) {
 	try {
