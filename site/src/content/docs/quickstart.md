@@ -19,19 +19,22 @@ cargo build --workspace
 
 ## Configure a real server
 
-1. Copy `.env.example` to `.env` and fill in the values. This file holds secrets and is ignored by Git. At minimum you need:
+1. Copy `.env.example` to `.env` and fill in the values. Compose passes this file into the kernel container. At minimum you need:
    - `OPENSPINE_TELEGRAM_BOT_TOKEN`: get one from [@BotFather](https://t.me/BotFather).
    - `OPENSPINE_ARTIFACT_KEY`: a random 32-byte key from `openssl rand -hex 32`.
    - Your model provider credentials, such as `ANTHROPIC_API_KEY`.
 2. Copy `openspine.docker.example.yaml` to `openspine.yaml`. Set `owner.telegram_user_id` to your Telegram user ID. Message [@userinfobot](https://t.me/userinfobot) to find it.
-3. To use `/draft`, follow the [Gmail setup guide](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md). Add the Google OAuth environment variables and the `gmail:` block to `openspine.yaml`.
-4. Start the contained runtime:
+3. To use `/draft`, follow the [Gmail setup guide](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md):
+   - fill `OPENSPINE_GMAIL_CLIENT_SECRET` and `OPENSPINE_GMAIL_REFRESH_TOKEN` in `.env`;
+   - add the `gmail:` block to `openspine.yaml`, including your `mailbox_address`.
+4. Build the contained task-worker image expected by the Docker configuration, then start the kernel:
 
 ```sh
+docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package into the kernel read-only. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Full setup guides:
 
