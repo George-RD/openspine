@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: The runtime underneath Lyra: event-to-audit pipeline, crate map, and kernel/shell boundary.
+description: "The runtime underneath Lyra: event-to-audit pipeline, crate map, and kernel/shell boundary."
 ---
 
 OpenSpine is the self-hosted system. Lyra is the default assistant package. This page covers the governed runtime underneath it: the part that verifies requests, creates task permissions, holds credentials, checks actions, and records outcomes.
