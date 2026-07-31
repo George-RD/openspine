@@ -14,6 +14,12 @@ if [ ! -x "$openspec_bin" ]; then
   exit 1
 fi
 
+echo "== node --test scripts/capability-map.test.mjs =="
+node --test scripts/capability-map.test.mjs
+
+echo "== node scripts/capability-map.mjs =="
+node scripts/capability-map.mjs
+
 echo "== cargo fmt --check =="
 cargo fmt --check
 
