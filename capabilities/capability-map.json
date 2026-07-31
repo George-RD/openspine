@@ -5,7 +5,9 @@
       "id": "direct-terminal-conversation",
       "owner_outcome": "Talk to Lyra from the local terminal through the governed task path.",
       "state": "wired_into_lyra",
-      "runtime_changes": [],
+      "runtime_changes": [
+        "2026-07-28-add-terminal-chat-onyx-lfm"
+      ],
       "canonical_specs": [
         "openspec/specs/direct-terminal-chat/spec.md"
       ],
