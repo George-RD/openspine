@@ -192,19 +192,19 @@ function evidenceMarkdown(capability) {
   const pieces = [];
   for (const changeId of capability.runtime_changes ?? []) {
     pieces.push(
-      `[`${changeId}`](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)`,
+      `[${changeId}](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)`,
     );
   }
   if ((capability.runtime_changes ?? []).length === 0) {
     for (const specPath of capability.canonical_specs ?? []) {
       pieces.push(
-        `[`${path.basename(path.dirname(specPath))}`](https://github.com/George-RD/openspine/blob/main/${specPath})`,
+        `[${path.basename(path.dirname(specPath))}](https://github.com/George-RD/openspine/blob/main/${specPath})`,
       );
     }
   }
   for (const test of capability.owner_path_tests ?? []) {
     pieces.push(
-      `[`${test.test}`](https://github.com/George-RD/openspine/blob/main/${test.path})`,
+      `[${test.test}](https://github.com/George-RD/openspine/blob/main/${test.path})`,
     );
   }
   return pieces.join("<br />");
