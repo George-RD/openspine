@@ -178,19 +178,28 @@ This runs formatting, lints, tests, strict OpenSpec validation, and the claims r
 
 ## Run local chat
 
-Configure a model provider, then run:
+Build the binaries and put them on the current shell's path:
 
 ```sh
-cargo run -p openspine-kernel -- chat
+cargo build --workspace --bins
+export PATH="$PWD/target/debug:$PATH"
+```
+
+Copy the terminal example, configure a model provider, and run:
+
+```sh
+cp openspine.terminal.example.yaml openspine.terminal.yaml
+openspine --config openspine.terminal.yaml chat
 ```
 
 For a one-shot smoke test or script:
 
 ```sh
-cargo run -p openspine-kernel -- chat --once "What can you do?"
+openspine --config openspine.terminal.yaml chat \
+  --once "Reply with exactly OPENSPINE_OK and nothing else."
 ```
 
-See the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.
+See [`docs/terminal-chat.md`](docs/terminal-chat.md) and the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.
 
 ## Run the Gmail drafting proof
 
