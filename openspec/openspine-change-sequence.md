@@ -85,6 +85,7 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `wire-authority-equivalence-selection` (D-123..D-129)
 - `implement-reflection-miner` (D-130..D-141)
 - `implement-model-provider-oauth-onboarding` (D-142..D-145)
+- `2026-07-28-add-terminal-chat-onyx-lfm`
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
