@@ -7,123 +7,209 @@ Use the names at the level a reader needs:
 - **OpenSpine is the self-hosted personal AI system a user installs.**
 - **Lyra is the assistant included with OpenSpine and the one the user talks to.**
 - **The OpenSpine runtime is the governed boundary underneath Lyra.**
-- Builders may use that runtime for other agent packages later.
+- Builders may use that runtime for other governed assistant packages later.
 
 Do not describe OpenSpine as an add-on that a finished third-party assistant plugs into. A general compatibility layer and native package resolver do not exist today.
 
+## Core product promise
+
+OpenSpine is designed for an employee-like personal AI whose capability and autonomy grow as the owner delegates more work.
+
+The simple promise is:
+
+> **Let your AI earn more responsibility, one job at a time.**
+
+The supporting truth is:
+
+> **Lyra can learn the job. It cannot promote itself.**
+
+The product is not merely a hard limit around one task. The task boundary is the mechanism that makes progressive delegation possible without one model-controlled process accumulating open-ended authority.
+
 ## Product truth
 
-OpenSpine is a self-hosted personal AI system designed for the point where an assistant starts touching real accounts and data. The runtime keeps permission decisions outside the language model and system prompt. Each event is verified, routed, and resolved into bounded task permissions. Model-driven effects pass through one gate before dispatch. A small set of owner-selected pre-gate metadata reads is separately enumerated, classified, and audited.
+OpenSpine is a self-hosted personal AI system. Lyra is its default owner-facing assistant package. Lyra composes agents, routes, workflows, capability packs, policies, templates, persona overlays, and memory scopes that the runtime loads and constrains.
 
-Lyra is the default owner-facing assistant package. It composes agents, routes, workflows, capability packs, policies, templates, persona overlays, and memory scopes that the runtime loads and constrains.
+For each task, the runtime verifies the request, composes bounded task permission, keeps connector and provider credentials outside contained workers, checks model-driven effects, and records the result. A small set of owner-selected pre-gate metadata reads is separately enumerated, classified, and audited.
 
-The project is alpha. The current user-visible proof is narrow: through a verified Telegram channel, Lyra can read one Gmail thread the owner selected, draft a reply, and create the exact draft the owner approved. Email sending is denied by runtime policy.
+OpenSpine also contains runtime support for governed growth:
 
-The north star is broader: a chief-of-staff-style personal AI that can gain useful capability without gaining open-ended access. Do not present that north star as shipped product breadth.
+- contained workers and structured results;
+- declarative workflows and durable replay;
+- versioned skills and promotion;
+- standing rules with budgets, expiry, drift handling, pause, and revocation;
+- reflection that can propose changes but cannot activate them;
+- persona and preference artifacts kept separate from authority;
+- versioned, diffable artifact lifecycles with provenance.
+
+The intended owner experience is:
+
+1. delegate one clear job;
+2. let Lyra do internal work within that task boundary;
+3. review the result and any real action or disclosure boundary;
+4. let repeated approvals, corrections, and preferences produce a plain-language proposal;
+5. approve, narrow, edit, reject, pause, expire, or revoke the reusable responsibility;
+6. let future matching work require less interruption;
+7. return drift, changed context, or exhausted budgets for review.
+
+The complete owner-facing loop is not shipped yet. Runtime machinery has landed, but the natural product surface that joins it is tracked in [issue #123](https://github.com/George-RD/openspine/issues/123).
+
+## Current alpha truth
+
+The current owner-facing alpha is narrower than the product promise:
+
+- direct local terminal conversation through `openspine chat`;
+- verified Telegram owner control;
+- one Gmail thread selected by the owner;
+- reply drafting through a contained model path;
+- exact-text and target approval before draft creation;
+- email sending denied by runtime policy.
+
+These are first-rung trust proofs. They are not the product ceiling and must not occupy the top of the message hierarchy as though OpenSpine were a Gmail drafting utility.
+
+Do not present runtime-landed capability as a finished Lyra workflow. The roadmap must keep these states separate:
+
+1. runtime landed;
+2. wired into Lyra through an owner-facing path;
+3. owner-facing product surface still missing.
 
 ## The user problem
 
-People already understand the appeal of a personal AI that can use tools, remember context, and handle work. The hesitation arrives when setup asks for a main inbox, files, customer data, infrastructure controls, or another real account.
+People already understand the appeal of personal agents that can use tools, remember context, run workflows, and handle work.
 
-The first question is not about runtimes, authority, or task grants. It is:
+Their unresolved problem is not simply “How do I make an agent safer?” It is:
 
-> Can I let this help without giving it access to everything?
+> How does a useful assistant become more capable over time without quietly accumulating access to everything?
 
-OpenSpine should answer that question before explaining the architecture.
+Most systems leave the owner between two poor choices:
+
+- approve every meaningful action forever; or
+- give a broad agent enough access to act independently from the start.
+
+OpenSpine should explain a third path before teaching the ontology:
+
+> Start with one bounded job. Review the result. Let repetition become a clear, revocable responsibility only after another decision.
 
 Use concrete scenes:
 
-- one selected email thread rather than the whole inbox;
-- a poisoned email that cannot grant access to more mail;
-- a worker that cannot expose a key it never received;
-- an attempted action on the wrong thread, customer, or account;
-- a changed draft or extra recipient that no longer matches the approval;
-- an assistant that cannot quietly give itself broader access.
+- the first task can read one selected thread rather than the whole inbox;
+- a poisoned email cannot grant access to more mail;
+- a worker cannot expose a key it never received;
+- a changed target no longer matches the task or approval;
+- repeated approvals can produce a proposal rather than another prompt;
+- the proposed routine stays inactive until reviewed;
+- a budget, expiry, drift event, pause, or revocation ends the shortcut;
+- preference learning cannot silently widen permission.
 
 ## Audience
 
-### Primary reader: the interested but cautious personal-agent user
+### Primary reader: the interested personal-agent adopter
 
-People who have seen the promise of OpenClaw, Hermes, or similar personal agents and want the practical result. They pause at broad access to sensitive accounts because the possible reach feels too large or too hard to inspect.
+People who have seen OpenClaw, Hermes, or similar systems and want an assistant that becomes genuinely useful rather than remaining a chat interface.
 
-They may understand AI products without knowing security architecture. Start in their language: the job, the account, what stays out of reach, and what happens if the assistant tries something else.
+They are attracted by capability, memory, tools, and autonomy. They hesitate when that capability depends on broad credentials or a permission surface that is difficult to inspect.
+
+They do not begin with `runtime`, `authority`, `task grant`, `artifact lifecycle`, or `standing rule`. Start with the working relationship:
+
+- delegate a job;
+- review it;
+- give more responsibility when the pattern is clear;
+- retain the ability to limit, pause, and revoke it.
 
 ### Current adopter qualification: technical self-hoster
 
-The alpha currently requires someone who can use Docker, configure Telegram, connect a model provider and Gmail OAuth, and follow a repository quickstart. This is an adoption constraint, not the opening language of the offer.
+The alpha currently requires someone who can build the repository, configure a model provider, and optionally configure Telegram and Gmail OAuth.
 
-Do not confuse **who can install the alpha today** with **how a first-time reader understands why it matters**.
+This is an adoption constraint, not the language the hero should use to explain the offer. Do not confuse **who can install the alpha today** with **how a first-time reader understands why OpenSpine matters**.
 
 ### Secondary reader: agent product builder
 
-Engineers and product-minded developers building agents that touch customer, company, or personal systems. They want permissions that remain enforceable when prompts change, models are swapped, skills are added, or external content is hostile.
+Engineers and product-minded developers building agents that touch personal, company, or customer systems.
+
+They need capability and autonomy that can grow without collapsing prompts, memory, policy, approvals, and credentials into one model-controlled process. They value declarative, versioned, testable responsibility and authority boundaries.
 
 ### Wrong fit today
 
 - non-technical users expecting a polished consumer assistant;
-- users choosing mainly on channel and tool breadth;
+- users choosing mainly on current channel and tool breadth;
 - teams expecting production multi-tenant hosting;
-- users expecting inbox-wide autonomy or automatic email sending;
+- users expecting inbox-wide autonomy or automatic email sending now;
 - users expecting a one-click installer;
-- users expecting OpenSpine to run OpenClaw, Hermes, or arbitrary assistants today.
+- users expecting OpenSpine to run OpenClaw, Hermes, or arbitrary assistants today;
+- users expecting the progressive delegation loop to be a finished owner experience already.
 
 ## Visitor scene
 
-Most visitors arrive from GitHub, Hacker News, Reddit, a self-hosted-agent community, or discussion of personal-agent products. They are interested in what capable agents can do and sceptical of the access those agents may require.
+Most visitors arrive from GitHub, Hacker News, Reddit, self-hosted-agent communities, or discussion of capable personal agents.
 
-They scan the first viewport for six answers:
+They scan the first viewport for these answers:
 
-1. Is this a personal AI I can talk to, or infrastructure for developers?
-2. Does it address the reason I have not connected my real accounts?
-3. What can it do today?
-4. What exactly stays out of reach?
-5. Why believe that limit is enforced?
-6. What do I give up compared with a mature agent?
+1. Is this a personal AI system I can talk to?
+2. Will it become more useful as I delegate more work?
+3. How does more autonomy appear without broad access arriving up front?
+4. Can the AI activate its own new routines or permissions?
+5. What is working now, and what is still product direction?
+6. Why should I believe the boundary is structural rather than a prompt promise?
+7. What do I give up compared with a mature personal agent?
 
-The page must answer those before teaching the full ontology.
+The page must answer the first four before leading with the narrow Gmail proof.
 
 ## Landing-page job
 
 The page should:
 
-1. name the desired result: let a personal AI do useful work;
-2. name the hesitation: broad access to inboxes, files, and accounts;
-3. give the plain-English result: one task can use only what that task needs;
+1. name the desired outcome: a personal AI that grows into useful responsibility;
+2. explain the growth model: delegate, review, propose, approve, repeat, revoke;
+3. state the crucial guardrail: Lyra can learn the job but cannot promote itself;
 4. establish that OpenSpine includes Lyra, the assistant the user talks to;
-5. show the current Gmail workflow as proof, not as the whole product;
-6. state the honest trade-off against broader personal agents;
-7. explain the outside-the-model permission boundary;
-8. lead a qualified visitor into the working proof, quickstart, or threat model.
+5. distinguish the product promise from current alpha breadth;
+6. show the Gmail path as proof of the first task boundary, not as the whole offer;
+7. explain the outside-the-model task and capability lifecycle;
+8. state the honest trade-off against broader personal agents;
+9. lead a qualified visitor into the working alpha, proof, roadmap, or source.
 
-Primary action: **See the limits in action.**
+Primary action: **See how responsibility grows.**
 
 Secondary action: **Run the alpha.**
 
 ## Messaging hierarchy
 
-1. **Desire:** let a personal AI do the job.
-2. **Hesitation:** keep the rest of the user's accounts out of reach.
-3. **Plain result:** the user chooses the task; Lyra can use only what that task needs.
-4. **Current proof:** one selected Gmail thread, exact-text approval, draft creation, sending denied.
-5. **Product shape:** OpenSpine system + Lyra assistant + governed runtime.
-6. **Competitive trade-off:** mature personal agents offer more breadth; OpenSpine puts hard task limits first.
-7. **Unique mechanism:** task permission is composed outside the model; model-driven effects cross one gate before dispatch; trusted pre-gate paths are explicit and audited.
-8. **Evidence:** named tests, contained workers, credential separation, and an audit chain.
-9. **Honest limit:** alpha setup is technical and workflow breadth is narrow.
+1. **Dream outcome:** let a personal AI earn more responsibility over time.
+2. **Working relationship:** delegate one job, review it, then turn repetition into a reusable responsibility.
+3. **Guardrail:** Lyra can learn the job; it cannot promote itself.
+4. **Product shape:** OpenSpine system + Lyra assistant + governed runtime.
+5. **Growth mechanism:** reviewable, versioned proposals; owner activation; budgets, expiry, pause, drift review, and revocation.
+6. **Task mechanism:** short-lived task permission, contained workers, kernel-held credentials, and a gate before effects.
+7. **Current alpha:** local chat and one guarded Gmail draft flow.
+8. **Evidence:** named tests, deterministic composition, governed artifact lifecycle, credential separation, and audit.
+9. **Competitive trade-off:** mature personal agents offer far more current breadth; OpenSpine prioritises governed growth.
+10. **Honest limit:** the complete owner-facing progressive delegation loop is still product work.
 
 ## Available proof
 
-- One deterministic runtime path: verify → identify → route → compose → grant → run → gate → audit.
-- Permission is the intersection of route, agent, workflow, capability, policy, caveat, approval, and runtime limits.
+### Task boundary
+
+- One deterministic path: verify → identify → route → compose → grant → run → gate → audit.
 - No matching allow means no grant; explicit deny wins.
 - The contained worker receives no raw connector credentials.
 - External content is wrapped as data and does not become permission.
-- Selected-thread access is bound to a single-use selection token.
+- Selected targets and approvals are bound to the task and exact payload.
 - Effectful worker actions pass through the gate before dispatch.
-- A small set of owner-selected pre-gate metadata reads is separately classified and audited.
-- Approval is digest-bound to the exact payload and target reviewed by the owner.
-- `email.send` is denied regardless of grant or approval state.
-- Documented security claims map to named tests, and the build checks that those tests continue to exist.
+- Email sending is denied regardless of grant or approval state.
+
+### Governed growth
+
+- A proposed capability cannot widen authority before approval.
+- Skills and other governed artifacts use versioned proposal, evaluation, approval, activation, retirement, and revocation paths.
+- Standing rules are budgeted, expiring, revocable composition inputs; they do not replace or widen the task grant.
+- Repeated saturation or drift can move a rule back to review rather than silently widening it.
+- Reflection can propose correction, preference, rule, and consolidation artifacts without direct state mutation or activation.
+- Personality, memory, authority, and task prompts remain separate concerns.
+
+### Claim discipline
+
+- Documented public security claims map to named tests.
+- The build checks that those tests continue to exist.
+- Owner-facing availability requires an end-to-end owner path; runtime existence alone is insufficient.
 
 ## Competitive posture
 
@@ -131,51 +217,71 @@ OpenClaw and Hermes currently provide far more channels, tools, skills, automati
 
 The fair user-facing distinction is:
 
-> OpenClaw and Hermes offer far more features today. OpenSpine makes a different trade: each task gets hard limits before the AI can reach your accounts.
+> **Capability should grow through delegation, not arrive as open-ended access.**
 
 The useful architecture distinction is:
 
-> Mature personal agents optimise for broad capability and add controls around it. OpenSpine starts with the task boundary and grows capability inside it.
+> Mature personal agents optimise for broad capability and add controls around it. OpenSpine starts with bounded tasks and gives reusable responsibility a separate reviewed lifecycle.
 
 Use named mechanisms when comparing. Do not use competitor names as an attack headline.
 
 ## Voice
 
-Direct, plain, concrete, and falsifiable. Lead with the user's desired job and hesitation. Show one bounded example. Then explain the runtime result.
+Direct, plain, concrete, and falsifiable.
 
-A reader should be able to state the desire and hesitation without repeating an architecture term. If they cannot, plain wording has not yet produced plain understanding.
+Lead with the desired working relationship, then explain the growth mechanism. Use the current Gmail path only after the reader understands that it is the first rung.
+
+A reader should be able to explain the offer without repeating an architecture term:
+
+> “I delegate one job. If the work repeats, Lyra can suggest a reusable responsibility. I decide whether it becomes active and can stop it later.”
 
 Prefer:
 
-- “Let a personal AI do the job. Keep the rest of your accounts out of reach.”
-- “OpenSpine comes with Lyra, the assistant you talk to.”
-- “You choose the task. Lyra can use only what that task needs.”
-- “Choose one Gmail thread. Lyra cannot quietly switch to another.”
+- “Let your AI earn more responsibility. One job at a time.”
+- “Lyra can learn the job. It cannot promote itself.”
+- “Delegate, review, then repeat.”
+- “Turn repeated work into a reviewable responsibility.”
+- “You choose what becomes reusable, where it applies, and when it expires.”
+- “Capability grows. Access does not drift.”
 - “The worker never received the key.”
-- “Anything outside the task is blocked or brought back to you.”
 - “OpenClaw and Hermes offer far more features today.”
 - “Run the named test.”
 
 Avoid:
 
-- starting the hero with `runtime`, `authority`, `scope`, `task grant`, or `model-driven worker`;
+- leading with the single Gmail draft as the product promise;
+- describing OpenSpine primarily as a safer email tool;
+- implying the progressive delegation owner experience is already complete;
+- starting the hero with `runtime`, `authority`, `scope`, `task grant`, `standing rule`, or `model-driven worker`;
 - “A permission layer for AI assistants” as the main category;
 - “Use your AI assistant with OpenSpine” until a compatibility interface exists;
 - “Secure AI” without a named mechanism;
 - “Military-grade,” “enterprise-ready,” “unhackable,” or universal safety claims;
 - invented users, adoption, benchmarks, customer logos, or production-readiness claims;
-- treating the north-star chief-of-staff experience as already shipped;
 - treating an LLM, robot, or glowing brain as the product.
 
-## Visual anti-references
+## Visual direction
 
-- Black-and-neon cybersecurity landing pages.
-- Purple-to-blue AI gradients and glowing borders.
-- Literal bones, vertebrae, or medical imagery.
-- Stock robots, humanoid assistants, and abstract neural networks.
-- Equal icon cards used as the whole page structure.
-- Fake dashboards or metrics that imply usage the project has not earned.
+Show progression and governed responsibility, not only denial:
 
-## Decision record
+- one bounded task entering the system;
+- review and receipt;
+- repetition becoming a proposed routine;
+- an owner decision activating a limited, expiring responsibility;
+- a changed target, budget limit, pause, or revocation returning control;
+- current alpha proof clearly labelled as the first rung.
 
-The detailed rerun and paired evaluation live in [`.raw/openspine-layperson-offer-rerun-2026-07-30.md`](../.raw/openspine-layperson-offer-rerun-2026-07-30.md).
+Visual anti-references:
+
+- black-and-neon cybersecurity landing pages;
+- purple-to-blue AI gradients and glowing borders;
+- literal bones, vertebrae, or medical imagery;
+- stock robots, humanoid assistants, and abstract neural networks;
+- equal icon cards used as the whole page structure;
+- fake dashboards or metrics that imply usage the project has not earned.
+
+## Decision records
+
+- [`.raw/openspine-progressive-delegation-positioning-2026-07-31.md`](../.raw/openspine-progressive-delegation-positioning-2026-07-31.md) records the correction from narrow proof to the employee-like progressive delegation promise.
+- [`.raw/openspine-layperson-offer-rerun-2026-07-30.md`](../.raw/openspine-layperson-offer-rerun-2026-07-30.md) records the earlier buyer and trust-gap rerun.
+- [Issue #123](https://github.com/George-RD/openspine/issues/123) owns the missing owner-facing delegation-growth loop.
