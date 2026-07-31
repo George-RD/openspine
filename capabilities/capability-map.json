@@ -17,8 +17,8 @@
       ],
       "owner_path_tests": [
         {
-          "path": "crates/openspine-kernel/src/pipeline/tests/mod.rs",
-          "test": "terminal_owner_message_composes_local_cli_grant_and_persists_input"
+          "path": "crates/openspine-kernel/src/pipeline/tests/terminal_e2e.rs",
+          "test": "terminal_owner_status_reaches_device_through_real_shell"
         }
       ],
       "current_limit": "The owner can converse locally, but this path does not yet expose recurring account work or responsibility growth."
