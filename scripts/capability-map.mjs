@@ -27,6 +27,24 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function stripRustComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+}
+
+function hasRegisteredRustTest(source, testName) {
+  const uncommented = stripRustComments(source);
+  const escapedName = escapeRegExp(testName);
+  const testPattern = new RegExp(
+    `#\\s*\\[\\s*(?:tokio::)?test(?:\\s*\\([^\\]]*\\))?\\s*\\]` +
+      `(?:\\s*#\\s*\\[[^\\]]+\\])*` +
+      `\\s*(?:pub(?:\\([^)]*\\))?\\s+)?(?:async\\s+)?fn\\s+${escapedName}\\s*\\(`,
+    "m",
+  );
+  return testPattern.test(uncommented);
+}
+
 export function parseArchivedChangeIds(markdown) {
   const heading = "## Completed / archived";
   const start = markdown.indexOf(heading);
@@ -39,7 +57,11 @@ export function parseArchivedChangeIds(markdown) {
     ? afterHeading
     : afterHeading.slice(0, nextHeading);
   return new Set(
-    [...section.matchAll(/`([^`]+)`/g)].map((match) => match[1]),
+    section
+      .split("\n")
+      .map((line) => line.match(/^- `([^`]+)`(?:\s|$)/))
+      .filter(Boolean)
+      .map((match) => match[1]),
   );
 }
 
@@ -115,12 +137,9 @@ export function validateCapabilityMap(root, map) {
         continue;
       }
       const testSource = readText(root, ownerTest.path);
-      const testPattern = new RegExp(
-        `\\b(?:async\\s+)?fn\\s+${escapeRegExp(ownerTest.test)}\\s*\\(`,
-      );
-      if (!testPattern.test(testSource)) {
+      if (!hasRegisteredRustTest(testSource, ownerTest.test)) {
         errors.push(
-          `${prefix}: named owner-path test ${ownerTest.test} was not found in ${ownerTest.path}`,
+          `${prefix}: registered owner-path test ${ownerTest.test} was not found in ${ownerTest.path}`,
         );
       }
     }
