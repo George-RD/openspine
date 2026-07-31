@@ -90,12 +90,15 @@ function validMap() {
   };
 }
 
-test("archived change parsing stops before the next ledger section", () => {
+test("archived change parsing accepts only actual list entries", () => {
   const ids = parseArchivedChangeIds(
     [
       "## Completed / archived",
-      "- `done-one`",
+      "- `done-one` (retroactive support for",
+      "  `mentioned-only`)",
       "- `done-two`",
+      "",
+      "A prose reference to `also-not-done` is not evidence.",
       "## Planned",
       "- `not-done`",
     ].join("\n"),
@@ -125,6 +128,24 @@ test("a canonical spec cannot substitute for archived implementation evidence", 
   assert.match(
     validateCapabilityMap(root, map).join("\n"),
     /at least one archived runtime change is required/,
+  );
+});
+
+test("a helper or commented declaration cannot masquerade as an owner-path test", () => {
+  const root = fixtureRoot();
+  write(
+    root,
+    "crates/example/tests/owner.rs",
+    [
+      "// #[tokio::test]",
+      "// async fn owner_can_finish_the_workflow() {}",
+      "async fn owner_can_finish_the_workflow() {}",
+      "",
+    ].join("\n"),
+  );
+  assert.match(
+    validateCapabilityMap(root, validMap()).join("\n"),
+    /registered owner-path test owner_can_finish_the_workflow was not found/,
   );
 });
 
