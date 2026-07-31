@@ -8,7 +8,7 @@ OpenSpine has two kinds of progress:
 1. **Runtime capability**: kernel machinery implemented, specified, and tested.
 2. **Product capability**: something a user can discover and complete through Lyra.
 
-Those are not the same. A worker runtime, standing-rule engine, or skill lifecycle may be real without yet being a useful default assistant workflow.
+Those are not the same. A worker runtime, standing-rule engine, reflection miner, or skill lifecycle may be real without yet being a useful default assistant workflow.
 
 The canonical implementation ledger is [`openspec/openspine-change-sequence.md`](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md). The public security evidence is [`docs/threat-claims.md`](https://github.com/George-RD/openspine/blob/main/docs/threat-claims.md). This page translates those sources into product status.
 
@@ -38,7 +38,7 @@ The current owner-facing alpha proves two bounded paths end to end.
 - email sending denied by global runtime policy;
 - encrypted artifacts, task-grant records, gate decisions, and audit receipts.
 
-These are working trust proofs. They are not yet a broad personal-assistant experience.
+These are working first-rung trust proofs. They are not yet the employee-like personal-assistant experience OpenSpine is designed to become.
 
 ## Landed in the OpenSpine runtime
 
@@ -87,7 +87,7 @@ A runtime item appears here because the canonical change is archived. It should 
 
 ## Product work now raised
 
-The positioning audit exposed three product gaps that the architecture roadmap did not make visible enough.
+The positioning work exposed four product gaps that the architecture roadmap did not make visible enough.
 
 ### [Install OpenSpine as an assistant system](https://github.com/George-RD/openspine/issues/117)
 
@@ -101,24 +101,40 @@ Treat onboarding as product work now, not as polish deferred until a second depl
 
 Create one generated capability map and require an owner-path test before describing a runtime primitive as available through Lyra. Select the next starter workflows from machinery that has already landed.
 
+### [Ship the progressive delegation loop](https://github.com/George-RD/openspine/issues/123)
+
+Join the landed runtime pieces into the product's defining experience:
+
+1. the owner delegates one bounded job;
+2. Lyra completes internal work and asks only at a real boundary;
+3. repeated approvals, corrections, or preferences produce a plain-language proposal;
+4. the owner approves, narrows, edits, rejects, pauses, expires, or revokes the reusable responsibility;
+5. future matching work needs less interruption;
+6. drift, changed context, or exhausted budgets return the responsibility for review.
+
+This is the missing longitudinal product surface. It should feel like managing a good employee, not editing YAML or learning the runtime ontology.
+
 ## Deliberate current limits
 
 - **No email send.** The current Lyra policy denies it in every grant and approval state.
 - **No arbitrary third-party assistant compatibility.** OpenSpine loads Lyra as its default package; a general adapter surface is not shipped.
 - **No broad inbox selection.** The owner currently supplies a Gmail thread ID.
 - **No consumer-grade setup.** The supported path is for technical self-hosters.
-- **No silent capability growth.** New authority remains a reviewed lifecycle event.
+- **No complete progressive-delegation owner loop.** Runtime support exists, but the seamless interaction is still product work.
+- **No silent capability growth.** Learning and proposals do not activate authority by themselves.
 - **No claim that every archived kernel component is a finished Lyra workflow.**
 
 ## Product direction
 
-The north star remains a chief-of-staff-style personal AI:
+The north star remains a chief-of-staff-style personal AI that grows through reviewed delegation:
 
+- start with one clear, bounded job;
 - do internal work without interrupting the owner;
 - ask at a real effect or disclosure boundary;
-- turn repeated decisions into revocable standing rules after explicit confirmation;
+- turn repeated decisions into reviewable, revocable responsibility after explicit confirmation;
 - commission contained workers with only the context and authority they need;
 - learn preferences without turning memory into permission;
+- use budgets, expiry, drift review, pause, and revocation to keep autonomy understandable;
 - show concise receipts and exceptions rather than constant approval prompts.
 
-The next product work should make that experience visible without weakening the runtime invariants. Breadth is useful only when the boundary remains understandable.
+The next product work should make that working relationship visible without weakening the runtime invariants. Breadth is useful only when responsibility remains clear and reversible.
