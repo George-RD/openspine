@@ -23,19 +23,19 @@ cargo build --workspace
 		<meta name="theme-color" content="#eef3f0" />
 		<meta
 			name="description"
-			content="Let a personal AI do the job while keeping the rest of your accounts out of reach. OpenSpine includes Lyra and gives each task hard limits outside the AI model."
+			content="OpenSpine is a self-hosted personal AI system designed to grow through delegation. Lyra can learn repeated work, but new responsibilities stay reviewed, limited, and revocable."
 		/>
 		<meta property="og:type" content="website" />
-		<meta property="og:title" content="OpenSpine — Personal AI with hard limits" />
+		<meta property="og:title" content="OpenSpine — Let your AI earn more responsibility" />
 		<meta
 			property="og:description"
-			content="You choose the task. Lyra can use only what that task needs. Anything else stays out of reach."
+			content="Delegate one task, review the result, and let repeated work become clear, revocable responsibility. Lyra can learn the job; it cannot promote itself."
 		/>
 		<meta property="og:url" content={canonical} />
 		<meta name="twitter:card" content="summary" />
 		<link rel="canonical" href={canonical} />
 		<link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
-		<title>OpenSpine — Personal AI with hard limits</title>
+		<title>OpenSpine — Personal AI that grows through delegation</title>
 		<script is:inline>document.documentElement.classList.add('js');</script>
 	</head>
 	<body>
@@ -55,7 +55,7 @@ cargo build --workspace
 			</a>
 
 			<nav class="primary-nav" aria-label="Primary navigation">
-				<a class="nav-anchor" href="#mechanism">Why it is different</a>
+				<a class="nav-anchor" href="#mechanism">How it grows</a>
 				<a class="nav-anchor" href="#proof">Proof</a>
 				<a href={href('/quickstart/')}>Docs</a>
 				<a class="repo-link" href={repoUrl} target="_blank" rel="noreferrer">
@@ -66,42 +66,42 @@ cargo build --workspace
 
 		<main id="main">
 			<!--
-			THESIS: The buyer wants a useful personal AI but pauses when it asks for broad access to real accounts.
-			OWN-WORLD: A pale safety-case instrument with deep ink, safety orange, clipped panels, permission rails, proof ledgers, and precise status marks.
-			STORY: A personal-agent buyer recognises the broad-access hesitation, sees the narrow Gmail proof, learns that OpenSpine includes Lyra, then inspects how each task is limited outside the model.
-			FIRST VIEWPORT: Desired outcome and hesitation on the left; a live task trace on the right visibly allows one thread, asks before drafting, and denies send.
-			FORM: Asymmetric control-instrument landing page; buyer problem first, current proof second, mechanism third, no literal spine imagery.
+			THESIS: The buyer wants an employee-like personal AI whose useful autonomy grows through delegation, without the AI silently accumulating authority.
+			OWN-WORLD: A pale safety-case instrument with deep ink, safety orange, clipped panels, delegation rails, proof ledgers, and precise status marks.
+			STORY: A personal-agent buyer sees the employee-like promise, learns how repeated work becomes reviewed responsibility, then inspects the first working task boundary and named proof.
+			FIRST VIEWPORT: The growth promise on the left; one real bounded task on the right. The Gmail path is evidence of the first rung, not the product ceiling.
+			FORM: Asymmetric control-instrument landing page; product promise first, growth model second, current alpha and proof third, no literal spine imagery.
 			-->
 			<section class="hero" aria-labelledby="hero-title">
 				<div class="hero-copy" data-reveal>
 					<div class="hero-badge">
 						<span class="hero-badge-dot" aria-hidden="true"></span>
-						Self-hosted personal AI · hard limits · alpha
+						Self-hosted personal AI · grows by delegation · alpha
 					</div>
 					<h1 id="hero-title">
-						Let a personal AI do the job.<br />
-						<span>Keep the rest of your accounts out of reach.</span>
+						Let your AI earn more responsibility.<br />
+						<span>One job at a time.</span>
 					</h1>
 					<p class="hero-lede">
-						OpenSpine comes with Lyra, the assistant you talk to. You choose the task. Lyra can use only what that task needs. Anything else stays out of reach.
+						OpenSpine comes with Lyra, the assistant you talk to. Give it one clear job, review the result, then let repeated work become a responsibility you can inspect, limit, pause, or remove. Lyra can learn the job. It cannot promote itself.
 					</p>
 					<div class="hero-actions">
 						<a class="button button--primary" href="#mechanism">
-							See the limits in action
+							See how responsibility grows
 							<span aria-hidden="true">→</span>
 						</a>
 						<a class="button button--secondary" href={href('/quickstart/')}>
 							Run the alpha
 						</a>
 					</div>
-					<div class="hero-audience" aria-label="Why OpenSpine exists and what works today">
+					<div class="hero-audience" aria-label="Why OpenSpine exists">
 						<div>
-							<strong>Interested in OpenClaw or Hermes?</strong>
-							<span>OpenSpine is for the point where a capable agent asks for broad access to your inbox, files, and accounts.</span>
+							<strong>Seen what OpenClaw or Hermes can do?</strong>
+							<span>OpenSpine is built for what comes next: delegate, review, then let useful autonomy grow through clear responsibilities.</span>
 						</div>
 						<div>
-							<strong>What works now?</strong>
-							<span>Choose one Gmail thread. Lyra drafts a reply. Only the exact draft you approve is created. Sending stays blocked.</span>
+							<strong>No silent promotion</strong>
+							<span>New routines and permissions stay inactive until you approve them. Pause or revoke them later.</span>
 						</div>
 					</div>
 				</div>
@@ -114,11 +114,12 @@ cargo build --workspace
 			<section class="mechanism-section" id="mechanism" aria-labelledby="mechanism-title">
 				<div class="section-shell mechanism-layout">
 					<div class="mechanism-intro" data-reveal>
-						<span class="section-marker">Why choose a different system</span>
-						<h2 id="mechanism-title">Useful access should not mean access to everything.</h2>
-						<p>OpenClaw and Hermes offer far more features today. OpenSpine makes a different trade: each task gets a hard limit before the AI can reach your accounts.</p>
-						<a class="text-link text-link--light" href={href('/comparison/')}>
-							Compare the trade-offs <span aria-hidden="true">↗</span>
+						<span class="section-marker">How autonomy grows</span>
+						<h2 id="mechanism-title">Delegation becomes capability, one reviewed step at a time.</h2>
+						<p>You should not have to choose between an assistant that asks forever and one that starts with broad access.</p>
+						<p><strong>Alpha status:</strong> the runtime support exists, but the complete owner-facing delegation loop is still being wired into Lyra.</p>
+						<a class="text-link text-link--light" href={href('/why-openspine/')}>
+							Why the growth model matters <span aria-hidden="true">↗</span>
 						</a>
 					</div>
 
@@ -128,10 +129,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M17 3 28 7.5v8.4c0 6.7-4.4 11.8-11 14.1C10.4 27.7 6 22.6 6 15.9V7.5L17 3Z" /><path d="m11.8 16.7 3.2 3.2 7.2-7.2" /></svg>
 							</div>
 							<div>
-								<h3>The AI does not get your account keys</h3>
-								<p>OpenSpine keeps the real credentials. Lyra's worker gets a short-lived task pass, so it cannot print or reuse a key it never received.</p>
+								<h3>Start with one clear job</h3>
+								<p>Lyra gets only the context, tools, and actions needed for that task. The task ends; its access ends with it.</p>
 							</div>
-							<code>credential → OpenSpine only</code>
+							<code>delegate → bounded task</code>
 						</article>
 
 						<article class="boundary-row">
@@ -139,10 +140,10 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 8h24M8 17h18M11 26h12" /><circle cx="11" cy="8" r="2.5" /><circle cx="21" cy="17" r="2.5" /><circle cx="15" cy="26" r="2.5" /></svg>
 							</div>
 							<div>
-								<h3>The task sets the limit</h3>
-								<p>If you selected one Gmail thread, that is the only thread the worker can read. No matching permission means no access.</p>
+								<h3>Turn repetition into a proposal</h3>
+								<p>Repeated approvals, corrections, and preferences can produce a reviewable proposal for a routine or rule. Nothing changes yet.</p>
 							</div>
-							<code>one task → one limit</code>
+							<code>repeat → reviewable proposal</code>
 						</article>
 
 						<article class="boundary-row">
@@ -150,16 +151,16 @@ cargo build --workspace
 								<svg viewBox="0 0 34 34"><path d="M5 17h24" /><path d="M17 5v24" /><circle cx="17" cy="17" r="6" /><path d="m14.2 17 2 2 4-4" /></svg>
 							</div>
 							<div>
-								<h3>Anything outside the task stops here</h3>
-								<p>Before an AI-requested account action runs, OpenSpine allows it, blocks it, or asks you. The result is recorded.</p>
+								<h3>Approve the responsibility, not unlimited access</h3>
+								<p>You choose the targets, actions, budget, and expiry. Matching work needs less interruption; drift or a changed context comes back to you.</p>
 							</div>
-							<code>action → allow | ask | deny</code>
+							<code>approve → revocable rule</code>
 						</article>
 					</div>
 				</div>
 
 				<div class="spine-statement" aria-hidden="true">
-					<span>request</span><i></i><span>verify</span><i></i><span>limit</span><i></i><span>grant</span><i></i><span>run</span><i></i><span>gate</span><i></i><span>receipt</span>
+					<span>delegate</span><i></i><span>work</span><i></i><span>review</span><i></i><span>propose</span><i></i><span>approve</span><i></i><span>repeat</span><i></i><span>revoke</span>
 				</div>
 			</section>
 
@@ -167,12 +168,12 @@ cargo build --workspace
 				<div class="section-shell">
 					<header class="section-heading section-heading--split" data-reveal>
 						<div>
-							<span class="section-marker">What you install</span>
-							<h2 id="lyra-title">OpenSpine is the system.<br />Lyra is the assistant.</h2>
+							<span class="section-marker">First working rungs</span>
+							<h2 id="lyra-title">OpenSpine is the system.<br />Lyra grows through delegated work.</h2>
 						</div>
 						<div class="section-heading-copy">
-							<p>Today, you send Lyra one Gmail thread. It drafts a reply. You review the exact text and target before OpenSpine creates the draft. Sending is blocked.</p>
-							<span class="scope-note">Current alpha scope. The interface below is illustrative.</span>
+							<p>Today, Lyra can chat locally and complete one guarded Gmail drafting flow. Those paths prove the first task boundary. Underneath them, OpenSpine already has contained workers, declarative workflows, standing rules, and governed learning.</p>
+							<span class="scope-note">Current owner-facing breadth is narrow. The natural progression from one task to reusable responsibility is tracked in <a href={`${repoUrl}/issues/123`} target="_blank" rel="noreferrer">issue #123</a>.</span>
 						</div>
 					</header>
 
@@ -186,10 +187,10 @@ cargo build --workspace
 				<div class="section-shell">
 					<header class="proof-heading" data-reveal>
 						<div>
-							<span class="section-marker">Why believe the limit</span>
-							<h2 id="proof-title">Do not trust the promise. Run the failure.</h2>
+							<span class="section-marker">Why believe it cannot promote itself</span>
+							<h2 id="proof-title">Lyra can propose. The runtime decides what becomes active.</h2>
 						</div>
-						<p>Each public security claim points to a named test. If the test disappears, the build fails.</p>
+						<p>Each public boundary claim points to a named test. If the test disappears, the build fails.</p>
 					</header>
 
 					<div class="claim-ledger" data-reveal data-reveal-delay="1">
@@ -199,9 +200,9 @@ cargo build --workspace
 							<span>Named test</span>
 						</div>
 						<article class="claim-row">
-							<strong>A spoofed owner ID</strong>
-							<p>Denied because the source was not verified.</p>
-							<code>spoofed_owner_id_without_verified_source_is_denied</code>
+							<strong>A proposed capability change</strong>
+							<p>Stays inactive until the owner-approved lifecycle completes.</p>
+							<code>widening_via_a_proposed_pack_requires_approval_first</code>
 						</article>
 						<article class="claim-row">
 							<strong>A different Gmail thread</strong>
@@ -233,15 +234,15 @@ cargo build --workspace
 				<div class="section-shell start-layout">
 					<div class="start-copy" data-reveal>
 						<span class="section-marker section-marker--dark">Current alpha</span>
-						<h2 id="start-title">Prove the limit.<br />Then decide if it is worth the setup.</h2>
-						<p>The alpha is narrow and technical. Clone OpenSpine, run the same test and claim checks used by CI, then connect Telegram, Gmail, and a model provider.</p>
+						<h2 id="start-title">Try the first rung.<br />Inspect the system built to grow.</h2>
+						<p>The alpha is narrow and technical. Start with local chat or connect Telegram and Gmail for the guarded draft flow. Then inspect the same tests and claims used by CI.</p>
 						<div class="start-actions">
 							<a class="button button--dark" href={href('/quickstart/')}>
 								Run the alpha <span aria-hidden="true">→</span>
 							</a>
-							<a class="button button--ghost-dark" href={href('/roadmap/')}>See what is missing</a>
+							<a class="button button--ghost-dark" href={href('/roadmap/')}>See the product roadmap</a>
 						</div>
-						<p class="alpha-note"><strong>Alpha:</strong> Lyra runs end to end for selected-thread Gmail drafting. OpenSpine is not yet a feature-complete personal assistant.</p>
+						<p class="alpha-note"><strong>Alpha:</strong> current owner-facing workflows are narrow. The progressive delegation loop is the next product milestone, not a shipped claim.</p>
 					</div>
 
 					<div class="command-panel" data-reveal data-reveal-delay="1">
@@ -273,7 +274,7 @@ cargo build --workspace
 					</svg>
 					<span class="brand-word">OpenSpine</span>
 				</a>
-				<p>A personal AI system that keeps each task inside hard limits.</p>
+				<p>A personal AI system where responsibility grows through reviewed delegation.</p>
 			</div>
 			<nav class="footer-nav" aria-label="Footer navigation">
 				<a href={href('/why-openspine/')}>Why OpenSpine</a>
