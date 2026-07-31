@@ -118,6 +118,16 @@ test("an unarchived runtime change fails validation", () => {
   );
 });
 
+test("a canonical spec cannot substitute for archived implementation evidence", () => {
+  const root = fixtureRoot();
+  const map = validMap();
+  map.capabilities[0].runtime_changes = [];
+  assert.match(
+    validateCapabilityMap(root, map).join("\n"),
+    /at least one archived runtime change is required/,
+  );
+});
+
 test("a wired capability without an owner-path test fails validation", () => {
   const root = fixtureRoot();
   const map = validMap();
