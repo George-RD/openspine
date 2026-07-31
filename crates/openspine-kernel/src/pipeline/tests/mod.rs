@@ -17,6 +17,7 @@ mod route_ambiguity;
 mod secret_intake_integration;
 mod skill_command_tests;
 mod task_board;
+mod terminal_e2e;
 mod token_rotation;
 pub(crate) use approval::approval_fixture_grant;
 
