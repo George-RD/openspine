@@ -81,8 +81,8 @@ export function validateCapabilityMap(root, map) {
 
     const runtimeChanges = capability.runtime_changes ?? [];
     const canonicalSpecs = capability.canonical_specs ?? [];
-    if (runtimeChanges.length === 0 && canonicalSpecs.length === 0) {
-      errors.push(`${prefix}: at least one runtime change or canonical spec is required`);
+    if (runtimeChanges.length === 0) {
+      errors.push(`${prefix}: at least one archived runtime change is required`);
     }
     for (const changeId of runtimeChanges) {
       if (!archivedChanges.has(changeId)) {
