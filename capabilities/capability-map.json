@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "capabilities": [
+    {
+      "id": "direct-terminal-conversation",
+      "owner_outcome": "Talk to Lyra from the local terminal through the governed task path.",
+      "state": "wired_into_lyra",
+      "runtime_changes": [
+        "2026-07-28-add-terminal-chat-onyx-lfm"
+      ],
+      "canonical_specs": [
+        "openspec/specs/direct-terminal-chat/spec.md"
+      ],
+      "lyra_artifacts": [
+        "artifacts/lyra/routes/owner_cli_main_assistant.yaml",
+        "artifacts/lyra/agents/main_terminal_assistant_agent.yaml",
+        "artifacts/lyra/workflows/owner_terminal_conversation.yaml",
+        "artifacts/lyra/packs/owner_terminal_basic_pack.yaml"
+      ],
+      "owner_path_tests": [
+        {
+          "path": "crates/openspine-kernel/src/pipeline/tests/terminal_e2e.rs",
+          "test": "terminal_owner_status_reaches_device_through_real_shell"
+        }
+      ],
+      "current_limit": "The owner can converse locally, but this path does not yet expose recurring account work or responsibility growth."
+    },
+    {
+      "id": "selected-gmail-draft",
+      "owner_outcome": "Choose one Gmail thread, review the exact reply, and create only the approved draft.",
+      "state": "wired_into_lyra",
+      "runtime_changes": [
+        "implement-selected-thread-email-preview-slice",
+        "implement-digest-bound-draft-approval"
+      ],
+      "canonical_specs": [
+        "openspec/specs/selected-thread-email-preview-slice/spec.md",
+        "openspec/specs/digest-bound-draft-approval/spec.md"
+      ],
+      "lyra_artifacts": [
+        "artifacts/lyra/routes/owner_email_selected_thread.yaml",
+        "artifacts/lyra/agents/email_reply_drafter.yaml",
+        "artifacts/lyra/workflows/selected_thread_email_reply_draft.yaml",
+        "artifacts/lyra/packs/selected_thread_email_draft_pack.yaml"
+      ],
+      "owner_path_tests": [
+        {
+          "path": "crates/openspine-kernel/src/pipeline/tests/draft.rs",
+          "test": "draft_command_for_a_real_thread_composes_a_bound_selection_grant"
+        },
+        {
+          "path": "crates/openspine-kernel/src/pipeline/tests/approval.rs",
+          "test": "a_double_tap_on_approve_creates_only_one_gmail_draft"
+        }
+      ],
+      "current_limit": "The owner still supplies a thread ID and approves each draft; email sending remains denied."
+    },
+    {
+      "id": "recurring-draft-responsibility",
+      "owner_outcome": "Let Lyra prepare narrowly defined recurring Gmail drafts after the responsibility has been reviewed.",
+      "state": "product_surface_missing",
+      "runtime_changes": [
+        "implement-standing-rules",
+        "implement-reflection-miner",
+        "implement-overlay-eval-gate"
+      ],
+      "canonical_specs": [
+        "openspec/specs/standing-rules/spec.md",
+        "openspec/specs/reflection-miner/spec.md"
+      ],
+      "lyra_artifacts": [],
+      "owner_path_tests": [],
+      "current_limit": "The runtime can propose, evaluate, budget, expire, match, and revoke reusable authority, but Lyra has no plain-language owner loop that joins those pieces."
+    },
+    {
+      "id": "task-and-reminder-commitments",
+      "owner_outcome": "Give Lyra a commitment and have it return at the right time with durable task state.",
+      "state": "product_surface_missing",
+      "runtime_changes": [
+        "implement-task-board",
+        "implement-durable-workflow-replay",
+        "implement-workflow-state-machines",
+        "implement-seed-workflows"
+      ],
+      "canonical_specs": [
+        "openspec/specs/task-board/spec.md"
+      ],
+      "lyra_artifacts": [],
+      "owner_path_tests": [],
+      "current_limit": "Task objects, timers, replay, and seed workflows exist in the runtime, but Lyra has no supported owner-facing commitment flow."
+    },
+    {
+      "id": "disclosure-controlled-research-brief",
+      "owner_outcome": "Ask Lyra to research and return a brief without silently disclosing private context.",
+      "state": "product_surface_missing",
+      "runtime_changes": [
+        "implement-disclosure-policy",
+        "implement-briefcase-packing",
+        "implement-worker-runtime"
+      ],
+      "canonical_specs": [
+        "openspec/specs/disclosure-policy/spec.md"
+      ],
+      "lyra_artifacts": [],
+      "owner_path_tests": [],
+      "current_limit": "Disclosure classes, bounded context, and contained workers have landed, but no complete research-and-brief workflow is wired into Lyra."
+    },
+    {
+      "id": "contained-worker-substrate",
+      "owner_outcome": "Commission contained workers with bounded context and receive structured results.",
+      "state": "runtime_landed",
+      "runtime_changes": [
+        "implement-worker-runtime",
+        "implement-worker-supervision"
+      ],
+      "canonical_specs": [
+        "openspec/specs/core-runtime-schemas/spec.md"
+      ],
+      "lyra_artifacts": [],
+      "owner_path_tests": [],
+      "current_limit": "This is kernel machinery, not a workflow that should be exposed to the owner as a worker-management primitive."
+    },
+    {
+      "id": "governed-skill-lifecycle",
+      "owner_outcome": "Use versioned skills without allowing a skill or model to install or promote itself.",
+      "state": "runtime_landed",
+      "runtime_changes": [
+        "implement-skill-artifact-class"
+      ],
+      "canonical_specs": [
+        "openspec/specs/skill-artifact-class/spec.md"
+      ],
+      "lyra_artifacts": [],
+      "owner_path_tests": [],
+      "current_limit": "The lifecycle and containment tests exist, but Lyra does not yet present a useful owner outcome around installing and applying a skill."
+    }
+  ],
+  "starter_workflow_candidates": [
+    {
+      "id": "recurring-gmail-draft-responsibility",
+      "selected": true,
+      "uses_capabilities": [
+        "selected-gmail-draft",
+        "recurring-draft-responsibility"
+      ],
+      "owner_outcome": "Let Lyra prepare recurring drafts for one known relationship without asking the same approval every time.",
+      "reason": "This is the smallest useful progression because it reuses the working Gmail proof, adds no new connector, and demonstrates the product's defining promise: repeated approved work can become narrow, budgeted, expiring, and revocable responsibility without permitting email send.",
+      "task_boundary": "One configured mailbox, one counterparty key, draft creation only, a small weekly volume budget, and a fixed expiry; recipient changes and email sending remain approval-required or denied.",
+      "proof_sequence": [
+        "The owner selects a Gmail thread and approves an exact draft through the existing flow.",
+        "After a repeated matching approval, Lyra proposes the responsibility in ordinary language, including mailbox, relationship, action, budget, expiry, and what stays blocked.",
+        "The owner narrows or approves the proposal; activation still uses the governed artifact lifecycle.",
+        "The next matching draft is created with a concise receipt instead of another approval prompt.",
+        "A changed recipient, exhausted budget, drift trigger, pause, expiry, or revocation returns the action for review or denies it."
+      ],
+      "tracking_issue": 123
+    },
+    {
+      "id": "task-and-reminder",
+      "selected": false,
+      "uses_capabilities": [
+        "task-and-reminder-commitments"
+      ],
+      "owner_outcome": "Ask Lyra to remember a commitment and return at the right time.",
+      "reason": "Useful and low-risk, but it does not exercise the external-effect boundary or authority-growth loop as directly as the recurring draft proof."
+    },
+    {
+      "id": "research-and-brief",
+      "selected": false,
+      "uses_capabilities": [
+        "disclosure-controlled-research-brief",
+        "contained-worker-substrate"
+      ],
+      "owner_outcome": "Delegate a private-context research brief with explicit disclosure control.",
+      "reason": "Compelling, but it requires a larger new owner surface and egress configuration before it can prove progressive delegation."
+    },
+    {
+      "id": "skill-install-proof",
+      "selected": false,
+      "uses_capabilities": [
+        "governed-skill-lifecycle"
+      ],
+      "owner_outcome": "Install and use a reviewed skill while poisoned effects remain blocked.",
+      "reason": "Strong containment evidence, but skill installation is an implementation concept rather than the clearest first employee-like owner outcome."
+    }
+  ]
+}

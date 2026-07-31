@@ -17,6 +17,7 @@ mod route_ambiguity;
 mod secret_intake_integration;
 mod skill_command_tests;
 mod task_board;
+mod terminal_e2e;
 mod token_rotation;
 pub(crate) use approval::approval_fixture_grant;
 
@@ -74,6 +75,39 @@ async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat(
     assert_eq!(stored_grant, expected);
     assert_eq!(bound_chat_id, 555);
     assert_eq!(state.artifacts.get(&pending_ref).unwrap(), b"hello lyra");
+    assert!(state.store.verify_audit_chain().unwrap());
+}
+
+#[tokio::test]
+async fn terminal_owner_message_composes_local_cli_grant_and_persists_input() {
+    let state = test_state();
+    // Like the Telegram owner-path contract above, this test stops at the
+    // persisted grant because the unit-test process does not put the real
+    // openspine-shell binary on PATH. The local CLI event must still traverse
+    // verify, identify, route, compose, and grant before the spawn attempt.
+    let grant = handle_terminal_message(&state, "hello from terminal".to_string())
+        .await
+        .unwrap()
+        .expect("terminal owner message must compose a grant");
+
+    assert_eq!(grant.agent_id, "main_terminal_assistant_agent");
+    assert_eq!(grant.workflow_id, "owner_terminal_conversation");
+    assert_eq!(grant.route_id, "owner_cli_main_assistant");
+    assert_eq!(grant.capability_pack_id, "owner_terminal_basic_pack");
+
+    let (stored_grant, pending_ref, bound_chat_id) = state
+        .store
+        .find_task_grant_by_token(&grant.task_token)
+        .unwrap()
+        .expect("terminal grant must be persisted");
+    let mut expected = grant.clone();
+    expected.task_token = String::new();
+    assert_eq!(stored_grant, expected);
+    assert_eq!(bound_chat_id, state.owner_user_id);
+    assert_eq!(
+        state.artifacts.get(&pending_ref).unwrap(),
+        b"hello from terminal"
+    );
     assert!(state.store.verify_audit_chain().unwrap());
 }
 
