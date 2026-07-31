@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
   <title id="title">OpenSpine</title>
-  <desc id="desc">Let a personal AI do the job. Keep the rest of your accounts out of reach. A self-hosted personal AI system with hard task limits.</desc>
+  <desc id="desc">Let your AI earn more responsibility, one job at a time. Lyra can learn the job, but it cannot promote itself.</desc>
   <rect width="1200" height="360" fill="#eef3f0"/>
   <path d="M744 0h456v308H744z" fill="#0b1c24"/>
   <path d="M0 308h1200v52H0z" fill="#ff6438"/>
@@ -12,10 +12,10 @@
 
   <g font-family="Arial, sans-serif" fill="#0b1c24">
     <text x="64" y="55" font-size="22" font-weight="700" letter-spacing="2">OPENSPINE</text>
-    <text x="64" y="124" font-size="44" font-weight="900" letter-spacing="-1.3">LET A PERSONAL AI</text>
-    <text x="64" y="176" font-size="44" font-weight="900" letter-spacing="-1.3">DO THE JOB.</text>
-    <text x="64" y="226" font-size="36" font-weight="900" letter-spacing="-1.4" fill="#b52f10">KEEP THE REST OUT OF REACH.</text>
-    <text x="64" y="269" font-size="18" fill="#385058">One task gets only the account access it needs.</text>
+    <text x="64" y="120" font-size="43" font-weight="900" letter-spacing="-1.3">LET YOUR AI EARN</text>
+    <text x="64" y="171" font-size="43" font-weight="900" letter-spacing="-1.3">MORE RESPONSIBILITY.</text>
+    <text x="64" y="222" font-size="40" font-weight="900" letter-spacing="-1.4" fill="#b52f10">ONE JOB AT A TIME.</text>
+    <text x="64" y="267" font-size="18" fill="#385058">Lyra can learn the job. It cannot promote itself.</text>
     <text x="64" y="342" font-size="17" font-family="monospace" font-weight="700" letter-spacing=".8">SELF-HOSTED PERSONAL AI · OPEN SOURCE · ALPHA</text>
   </g>
 
