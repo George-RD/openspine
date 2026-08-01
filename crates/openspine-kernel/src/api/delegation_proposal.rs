@@ -263,9 +263,8 @@ mod tests {
         let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
 
         assert!(rendered.contains("If a request is over these limits, Lyra will ask you first."));
-        assert!(rendered.contains(
-            "If you do not respond within 10 minutes, that request will stay blocked."
-        ));
+        assert!(rendered
+            .contains("If you do not respond within 10 minutes, that request will stay blocked."));
     }
 
     #[test]
@@ -304,9 +303,8 @@ mod tests {
         assert!(!rendered.contains("calendar.book_appointment"));
         assert!(!rendered.contains("For matching work"));
         assert!(rendered.contains("This version is limited by action and budgets only."));
-        assert!(rendered.contains(
-            "It is not locked to a specific account, person, item, or set of details."
-        ));
+        assert!(rendered
+            .contains("It is not locked to a specific account, person, item, or set of details."));
         assert!(rendered.contains("Up to 2 uses per day."));
         assert!(rendered.contains("No faster than 1 use per hour."));
         assert!(rendered.contains("expires after 14 days without a successful use."));
