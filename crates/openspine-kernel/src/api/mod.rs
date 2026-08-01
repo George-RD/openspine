@@ -19,6 +19,7 @@ mod briefcase;
 #[cfg(test)]
 mod briefcase_tests;
 pub(crate) mod connector_breaker;
+mod delegation_proposal;
 pub(crate) mod overlay_export_restore;
 pub(crate) mod skill_context;
 pub(crate) mod worker;
