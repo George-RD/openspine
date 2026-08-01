@@ -1,6 +1,8 @@
 //! Owner-facing language for reviewed delegation proposals.
 
-use openspine_schemas::standing_rule::StandingRuleManifest;
+use openspine_schemas::standing_rule::{
+    DarkWindowDefault, StandingRuleManifest, STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS,
+};
 
 const MINUTE_SECONDS: i64 = 60;
 const HOUR_SECONDS: i64 = 60 * MINUTE_SECONDS;
@@ -8,31 +10,29 @@ const DAY_SECONDS: i64 = 24 * HOUR_SECONDS;
 const WEEK_SECONDS: i64 = 7 * DAY_SECONDS;
 
 /// Render one reviewed responsibility proposal without exposing runtime ontology.
-pub(super) fn render_standing_rule_proposal(
-    rule: &StandingRuleManifest,
-    _eval_summary: &str,
-) -> String {
+/// The caller can reach this function only after both proposal checks pass;
+/// their detailed evidence remains persisted rather than copied into Telegram.
+pub(super) fn render_standing_rule_proposal(rule: &StandingRuleManifest) -> String {
     let action_id = rule.action_id.as_str();
     let email_draft = action_id == "email.create_draft";
-    let description = owner_description(rule, email_draft);
-    let action_phrase = if email_draft {
-        "create Gmail drafts".to_string()
+    let description = owner_description(rule);
+    let action_phrase = owner_action_phrase(action_id);
+    let scope_detail = if email_draft {
+        "It is not locked to one contact or mailbox."
     } else {
-        format!("run `{action_id}`")
+        "It is not locked to a specific account, person, item, or set of details."
     };
-    let next_step = if email_draft {
-        format!(
-            concat!(
-                "Lyra may {action_phrase} without asking again each time.\n\n",
-                "Current scope\n",
-                "This version is limited by action and budgets only.\n",
-                "It is not locked to one contact or mailbox."
-            ),
-            action_phrase = action_phrase
-        )
-    } else {
-        format!("For matching work, Lyra may {action_phrase} without asking again each time.")
-    };
+    let next_step = format!(
+        concat!(
+            "Lyra may {action_phrase} without asking again each time.\n\n",
+            "Current scope\n",
+            "This version is limited by action and budgets only.\n",
+            "{scope_detail}"
+        ),
+        action_phrase = action_phrase,
+        scope_detail = scope_detail,
+    );
+    let dark_window = dark_window_copy(rule);
     let blocked = if email_draft {
         "Sending email remains blocked. Anything outside this draft responsibility still follows its existing approval or deny boundary."
     } else {
@@ -49,7 +49,8 @@ pub(super) fn render_standing_rule_proposal(
             "Limits\n",
             "- Up to {quota_max} {quota_noun} per {quota_period}.\n",
             "- No faster than {rate_max} {rate_noun} per {rate_period}.\n",
-            "- This responsibility expires after {expiry} without a successful use.\n\n",
+            "- This responsibility expires after {expiry} without a successful use.\n",
+            "{dark_window}\n",
             "What stays blocked\n",
             "{blocked}\n\n",
             "Control\n",
@@ -68,11 +69,12 @@ pub(super) fn render_standing_rule_proposal(
         rate_noun = usage_noun(rule.rate.max, email_draft),
         rate_period = budget_period(rule.rate.window_secs),
         expiry = duration_label(rule.expires_after_secs),
+        dark_window = dark_window,
         blocked = blocked,
     )
 }
 
-fn owner_description(rule: &StandingRuleManifest, email_draft: bool) -> String {
+fn owner_description(rule: &StandingRuleManifest) -> String {
     let description = rule.description.trim();
     let miner_suffix = format!(" ({})", rule.action_id);
     let miner_generated = description
@@ -84,14 +86,67 @@ fn owner_description(rule: &StandingRuleManifest, email_draft: bool) -> String {
         return description.to_string();
     }
 
-    if email_draft {
-        "Prepare Gmail drafts for the same kind of work you have already approved.".to_string()
-    } else {
-        format!(
-            "Repeat `{}` only for matching work you have already approved.",
-            rule.action_id
-        )
+    match rule.action_id.as_str() {
+        "email.create_draft" => {
+            "Prepare Gmail drafts for the same kind of work you have already approved.".to_string()
+        }
+        "calendar.book_appointment" => {
+            "Book calendar appointments you have approved before.".to_string()
+        }
+        action_id => format!(
+            "Let Lyra {} under the action-and-budget limits below.",
+            owner_action_phrase(action_id)
+        ),
     }
+}
+
+fn owner_action_phrase(action_id: &str) -> String {
+    match action_id {
+        "email.create_draft" => "create Gmail drafts".to_string(),
+        "email.send" => "send email".to_string(),
+        "email.read_thread:selected_no_attachments" => {
+            "read the selected email thread without attachments".to_string()
+        }
+        "calendar.book_appointment" => "book calendar appointments".to_string(),
+        "telegram.reply:owner_channel" => "reply in your Telegram chat".to_string(),
+        "terminal.reply:owner_device" => "reply on your device".to_string(),
+        "artifact.revoke" => "revoke an approved responsibility".to_string(),
+        "workflow.invoke:approved" => "run an approved workflow".to_string(),
+        "setup.workflow.start" => "start an approved setup workflow".to_string(),
+        "worker.commission" => "assign work to a limited worker".to_string(),
+        "worker.report_result" => "record a worker result".to_string(),
+        "openspine.status.read" => "check OpenSpine's status".to_string(),
+        other => {
+            let unqualified = other.split(':').next().unwrap_or(other);
+            let leaf = unqualified.rsplit('.').next().unwrap_or(unqualified);
+            let words = leaf.replace('_', " ");
+            if words.trim().is_empty() {
+                "perform this action".to_string()
+            } else {
+                words
+            }
+        }
+    }
+}
+
+fn dark_window_copy(rule: &StandingRuleManifest) -> String {
+    let Some(config) = rule.dark_window else {
+        return String::new();
+    };
+    let outcome = match config.default {
+        DarkWindowDefault::Allow => "that one request will be allowed.",
+        DarkWindowDefault::Deny => "that request will stay blocked.",
+    };
+    format!(
+        concat!(
+            "\nOver-limit requests\n",
+            "If a request is over these limits, Lyra will ask you first.\n",
+            "If you do not respond within {timeout}, {outcome}\n",
+            "Other safety checks still apply."
+        ),
+        timeout = duration_label(config.timeout_secs),
+        outcome = outcome,
+    )
 }
 
 fn usage_noun(count: u32, email_draft: bool) -> &'static str {
@@ -134,6 +189,8 @@ mod tests {
     use openspine_schemas::standing_rule::{
         BudgetWindow, DarkWindowConfig, DarkWindowDefault, StandingRuleManifest,
     };
+
+    use crate::api::telegram_truncate::TELEGRAM_MAX_MESSAGE_UTF16_UNITS;
 
     use super::render_standing_rule_proposal;
 
@@ -178,7 +235,7 @@ mod tests {
     fn gmail_draft_proposal_explains_the_responsibility_and_its_limits() {
         let rule = gmail_proposal("Prepare a reply draft for this known relationship");
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         for expected in [
             "Lyra noticed you approved the same kind of work more than once.",
@@ -210,14 +267,10 @@ mod tests {
     }
 
     #[test]
-    fn technical_eval_evidence_is_reduced_to_an_owner_facing_result() {
+    fn review_result_stays_plain_and_contains_no_eval_internals() {
         let rule = gmail_proposal("Prepare a reply draft");
-        let technical = concat!(
-            "AD-142 overlay eval gate — replay: passed ({\"turns\":3}); ",
-            "risk judge: passed ({\"catalog\":\"ok\"})"
-        );
 
-        let rendered = render_standing_rule_proposal(&rule, technical);
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains(
             "OpenSpine replayed prior examples and ran a risk check. Both checks passed."
@@ -244,7 +297,7 @@ mod tests {
             default: DarkWindowDefault::Allow,
         });
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains("If a request is over these limits, Lyra will ask you first."));
         assert!(rendered.contains(
@@ -260,11 +313,34 @@ mod tests {
             default: DarkWindowDefault::Deny,
         });
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains("If a request is over these limits, Lyra will ask you first."));
         assert!(rendered
             .contains("If you do not respond within 10 minutes, that request will stay blocked."));
+    }
+
+    #[test]
+    fn maximum_valid_description_keeps_the_complete_message_within_telegram_limit() {
+        let description = "😀".repeat(STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS / 2);
+        assert_eq!(
+            description.encode_utf16().count(),
+            STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS
+        );
+        let mut rule = gmail_proposal(&description);
+        rule.dark_window = Some(DarkWindowConfig {
+            timeout_secs: 30 * 60,
+            default: DarkWindowDefault::Allow,
+        });
+
+        let rendered = render_standing_rule_proposal(&rule);
+
+        assert!(rendered.contains(&description));
+        assert!(
+            rendered.encode_utf16().count() <= TELEGRAM_MAX_MESSAGE_UTF16_UNITS,
+            "owner message exceeded Telegram limit: {} units",
+            rendered.encode_utf16().count()
+        );
     }
 
     #[test]
@@ -273,7 +349,7 @@ mod tests {
             "Recurring owner approval of selected_thread_email_reply_draft (email.create_draft)",
         );
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered
             .contains("Prepare Gmail drafts for the same kind of work you have already approved."));
@@ -297,7 +373,7 @@ mod tests {
             14 * 24 * 60 * 60,
         );
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains("book calendar appointments"));
         assert!(!rendered.contains("calendar.book_appointment"));
@@ -328,7 +404,7 @@ mod tests {
             14 * 24 * 60 * 60,
         );
 
-        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+        let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains("Book calendar appointments you have approved before."));
         assert!(!rendered.contains("opaque_digest"));
