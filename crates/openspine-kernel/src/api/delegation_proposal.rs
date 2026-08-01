@@ -217,8 +217,9 @@ mod tests {
 
         let rendered = render_standing_rule_proposal(&rule, technical);
 
-        assert!(rendered
-            .contains("OpenSpine replayed prior examples and ran a risk check. Both checks passed."));
+        assert!(rendered.contains(
+            "OpenSpine replayed prior examples and ran a risk check. Both checks passed."
+        ));
         for leaked in [
             "AD-142",
             "overlay eval gate",
@@ -226,7 +227,10 @@ mod tests {
             "{\"turns\"",
             "{\"catalog\"",
         ] {
-            assert!(!rendered.contains(leaked), "leaked `{leaked}` in:\n{rendered}");
+            assert!(
+                !rendered.contains(leaked),
+                "leaked `{leaked}` in:\n{rendered}"
+            );
         }
     }
 
