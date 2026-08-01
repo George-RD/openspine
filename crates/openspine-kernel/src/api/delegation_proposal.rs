@@ -192,7 +192,7 @@ mod tests {
 
     use crate::api::telegram_truncate::TELEGRAM_MAX_MESSAGE_UTF16_UNITS;
 
-    use super::render_standing_rule_proposal;
+    use super::{render_standing_rule_proposal, STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS};
 
     fn proposal(
         action_id: &str,
