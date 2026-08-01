@@ -347,7 +347,7 @@ pub(crate) async fn dispatch_artifact_propose(
         .map_err(|err| DispatchError::Resource(err.into()))?;
     let summary = match &parsed {
         ParsedProposal::StandingRule(rule) => {
-            super::delegation_proposal::render_standing_rule_proposal(rule, &eval.summary)
+            super::delegation_proposal::render_standing_rule_proposal(rule)
         }
         _ => format!(
             "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
