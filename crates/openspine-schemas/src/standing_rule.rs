@@ -90,9 +90,7 @@ impl StandingRuleManifest {
     /// behaviour. Called at proposal-parse time (`artifact_loader`) and again
     /// at activation (`Store::activate_standing_rule`) as defense in depth.
     pub fn validate(&self) -> Result<(), String> {
-        if self.description.encode_utf16().count()
-            > STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS
-        {
+        if self.description.encode_utf16().count() > STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS {
             return Err(format!(
                 "description must be at most {STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS} UTF-16 units"
             ));
