@@ -131,7 +131,9 @@ fn duration_label(seconds: i64) -> String {
 mod tests {
     use openspine_schemas::action::ActionId;
     use openspine_schemas::artifact::Lifecycle;
-    use openspine_schemas::standing_rule::{BudgetWindow, StandingRuleManifest};
+    use openspine_schemas::standing_rule::{
+        BudgetWindow, DarkWindowConfig, DarkWindowDefault, StandingRuleManifest,
+    };
 
     use super::render_standing_rule_proposal;
 
@@ -235,6 +237,38 @@ mod tests {
     }
 
     #[test]
+    fn allow_dark_window_discloses_the_timeout_and_default() {
+        let mut rule = gmail_proposal("Prepare a reply draft");
+        rule.dark_window = Some(DarkWindowConfig {
+            timeout_secs: 30 * 60,
+            default: DarkWindowDefault::Allow,
+        });
+
+        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+
+        assert!(rendered.contains("If a request is over these limits, Lyra will ask you first."));
+        assert!(rendered.contains(
+            "If you do not respond within 30 minutes, that one request will be allowed."
+        ));
+    }
+
+    #[test]
+    fn deny_dark_window_discloses_that_silence_stays_blocked() {
+        let mut rule = gmail_proposal("Prepare a reply draft");
+        rule.dark_window = Some(DarkWindowConfig {
+            timeout_secs: 10 * 60,
+            default: DarkWindowDefault::Deny,
+        });
+
+        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+
+        assert!(rendered.contains("If a request is over these limits, Lyra will ask you first."));
+        assert!(rendered.contains(
+            "If you do not respond within 10 minutes, that request will stay blocked."
+        ));
+    }
+
+    #[test]
     fn mined_gmail_description_does_not_expose_internal_workflow_ids() {
         let rule = gmail_proposal(
             "Recurring owner approval of selected_thread_email_reply_draft (email.create_draft)",
@@ -249,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn non_email_proposal_stays_action_specific_without_email_claims() {
+    fn non_email_proposal_uses_plain_action_language_and_discloses_action_only_scope() {
         let rule = proposal(
             "calendar.book_appointment",
             "Book routine appointments in the agreed calendar",
@@ -266,11 +300,40 @@ mod tests {
 
         let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
 
-        assert!(rendered.contains("run `calendar.book_appointment`"));
+        assert!(rendered.contains("book calendar appointments"));
+        assert!(!rendered.contains("calendar.book_appointment"));
+        assert!(!rendered.contains("For matching work"));
+        assert!(rendered.contains("This version is limited by action and budgets only."));
+        assert!(rendered.contains(
+            "It is not locked to a specific account, person, item, or set of details."
+        ));
         assert!(rendered.contains("Up to 2 uses per day."));
         assert!(rendered.contains("No faster than 1 use per hour."));
         assert!(rendered.contains("expires after 14 days without a successful use."));
         assert!(!rendered.contains("Gmail"));
         assert!(!rendered.contains("Sending email"));
+    }
+
+    #[test]
+    fn mined_non_email_description_does_not_fall_back_to_a_raw_action_id() {
+        let rule = proposal(
+            "calendar.book_appointment",
+            "Recurring owner approval of opaque_digest (calendar.book_appointment)",
+            BudgetWindow {
+                max: 2,
+                window_secs: 24 * 60 * 60,
+            },
+            BudgetWindow {
+                max: 1,
+                window_secs: 60 * 60,
+            },
+            14 * 24 * 60 * 60,
+        );
+
+        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+
+        assert!(rendered.contains("Book calendar appointments you have approved before."));
+        assert!(!rendered.contains("opaque_digest"));
+        assert!(!rendered.contains("calendar.book_appointment"));
     }
 }
