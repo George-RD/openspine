@@ -21,6 +21,8 @@ mod briefcase_tests;
 pub(crate) mod connector_breaker;
 mod delegation_proposal;
 #[cfg(test)]
+mod delegation_proposal_action_tests;
+#[cfg(test)]
 mod delegation_proposal_policy_tests;
 pub(crate) mod overlay_export_restore;
 pub(crate) mod skill_context;
