@@ -38,6 +38,17 @@ struct ArtifactProposePayload {
     yaml: String,
 }
 
+fn active_policy_denying_action(state: &AppState, action: &ActionId) -> Option<String> {
+    let registry = state.registry.read();
+    registry
+        .policies
+        .values()
+        .find(|policy| {
+            policy.lifecycle_state == Lifecycle::Active && policy.denied_actions.contains(action)
+        })
+        .map(|policy| policy.id.clone())
+}
+
 pub(crate) async fn dispatch_artifact_propose(
     state: &AppState,
     grant: &TaskGrant,
@@ -111,6 +122,12 @@ pub(crate) async fn dispatch_artifact_propose(
         if let Err(reason) = rule.validate() {
             return Err(DispatchError::BadRequest(format!(
                 "standing_rule manifest invalid: {reason}"
+            )));
+        }
+        if let Some(policy_id) = active_policy_denying_action(state, &rule.action_id) {
+            return Err(DispatchError::BadRequest(format!(
+                "standing_rule action `{}` is denied by active policy `{policy_id}`",
+                rule.action_id
             )));
         }
     }
