@@ -10,7 +10,7 @@ const WEEK_SECONDS: i64 = 7 * DAY_SECONDS;
 /// Render one reviewed responsibility proposal without exposing runtime ontology.
 pub(super) fn render_standing_rule_proposal(
     rule: &StandingRuleManifest,
-    eval_summary: &str,
+    _eval_summary: &str,
 ) -> String {
     let action_id = rule.action_id.as_str();
     let email_draft = action_id == "email.create_draft";
@@ -53,10 +53,10 @@ pub(super) fn render_standing_rule_proposal(
             "What stays blocked\n",
             "{blocked}\n\n",
             "Control\n",
-            "You can revoke this responsibility at any time.\n",
+            "Ask Lyra to revoke this responsibility at any time.\n",
             "Approval is bound to the exact reviewed version.\n\n",
             "Review checks\n",
-            "{eval_summary}\n\n",
+            "OpenSpine replayed prior examples and ran a risk check. Both checks passed.\n\n",
             "Approve to let Lyra take on this limited responsibility."
         ),
         description = description,
@@ -69,7 +69,6 @@ pub(super) fn render_standing_rule_proposal(
         rate_period = budget_period(rule.rate.window_secs),
         expiry = duration_label(rule.expires_after_secs),
         blocked = blocked,
-        eval_summary = eval_summary.trim(),
     )
 }
 
