@@ -20,6 +20,19 @@ pub(super) fn render_standing_rule_proposal(
     } else {
         format!("run `{action_id}`")
     };
+    let next_step = if email_draft {
+        format!(
+            concat!(
+                "Lyra may {action_phrase} without asking again each time.\n\n",
+                "Current scope\n",
+                "This version is limited by action and budgets only.\n",
+                "It is not locked to one contact or mailbox."
+            ),
+            action_phrase = action_phrase
+        )
+    } else {
+        format!("For matching work, Lyra may {action_phrase} without asking again each time.")
+    };
     let blocked = if email_draft {
         "Sending email remains blocked. Anything outside this draft responsibility still follows its existing approval or deny boundary."
     } else {
@@ -32,7 +45,7 @@ pub(super) fn render_standing_rule_proposal(
             "Proposed responsibility\n",
             "{description}\n\n",
             "What would happen next\n",
-            "For matching work, Lyra may {action_phrase} without asking again each time.\n\n",
+            "{next_step}\n\n",
             "Limits\n",
             "- Up to {quota_max} {quota_noun} per {quota_period}.\n",
             "- No faster than {rate_max} {rate_noun} per {rate_period}.\n",
@@ -47,7 +60,7 @@ pub(super) fn render_standing_rule_proposal(
             "Approve to let Lyra take on this limited responsibility."
         ),
         description = description,
-        action_phrase = action_phrase,
+        next_step = next_step,
         quota_max = rule.quota.max,
         quota_noun = usage_noun(rule.quota.max, email_draft),
         quota_period = budget_period(rule.quota.window_secs),
