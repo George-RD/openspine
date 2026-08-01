@@ -55,7 +55,7 @@ pub(super) fn render_standing_rule_proposal(rule: &StandingRuleManifest) -> Stri
             "Ask Lyra to revoke this responsibility at any time.\n",
             "Approval is bound to the exact reviewed version.\n\n",
             "Review checks\n",
-            "OpenSpine replayed prior examples and ran a risk check. Both checks passed.\n\n",
+            "OpenSpine confirmed prior owner-control history is available and checked that this action is known and not currently denied.\n\n",
             "Approve to let Lyra take on this limited responsibility."
         ),
         description = description,
