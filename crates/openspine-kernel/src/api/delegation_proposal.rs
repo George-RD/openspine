@@ -1,8 +1,6 @@
 //! Owner-facing language for reviewed delegation proposals.
 
-use openspine_schemas::standing_rule::{
-    DarkWindowDefault, StandingRuleManifest, STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS,
-};
+use openspine_schemas::standing_rule::{DarkWindowDefault, StandingRuleManifest};
 
 const MINUTE_SECONDS: i64 = 60;
 const HOUR_SECONDS: i64 = 60 * MINUTE_SECONDS;
@@ -188,11 +186,12 @@ mod tests {
     use openspine_schemas::artifact::Lifecycle;
     use openspine_schemas::standing_rule::{
         BudgetWindow, DarkWindowConfig, DarkWindowDefault, StandingRuleManifest,
+        STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS,
     };
 
     use crate::api::telegram_truncate::TELEGRAM_MAX_MESSAGE_UTF16_UNITS;
 
-    use super::{render_standing_rule_proposal, STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS};
+    use super::render_standing_rule_proposal;
 
     fn proposal(
         action_id: &str,
