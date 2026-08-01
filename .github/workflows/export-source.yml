@@ -1,9 +1,9 @@
 name: Export source snapshot
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/responsibility-contract
+      - main
     paths:
       - .github/workflows/export-source.yml
 
