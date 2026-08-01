@@ -18,6 +18,12 @@ use crate::action::ActionId;
 use crate::artifact::Lifecycle;
 use crate::ids::ArtifactId;
 
+/// Maximum owner-supplied description size before a standing-rule proposal
+/// is rejected. The approval message is delivered through Telegram, whose
+/// limit is measured in UTF-16 units; keeping this field bounded leaves room
+/// for the action, budgets, expiry, conditional default, and control copy.
+pub const STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS: usize = 1_000;
+
 /// One sliding-window budget: at most `max` uses within the trailing
 /// `window_secs`. Quota (volume, e.g. 5/week) and rate (velocity, e.g.
 /// 1/hour) are each one of these (AD-106).
@@ -76,16 +82,21 @@ pub struct StandingRuleManifest {
 }
 
 impl StandingRuleManifest {
-    /// Positive-value invariants a manifest MUST satisfy before it may ever
-    /// reach owner approval or activation (P1 finding: a non-positive
-    /// `window_secs` makes every trailing-window count exclude all prior
-    /// usage — `now - window_secs*1e9` lands at or after `now` — so both
-    /// hard caps silently admit every request; a non-positive
-    /// `dark_window.timeout_secs` collapses the conditional owner-response
-    /// window into an immediately-due authority path instead of failing
-    /// closed). Called at proposal-parse time (`artifact_loader`) and again
+    /// Invariants a manifest MUST satisfy before it may ever reach owner
+    /// approval or activation. The description bound keeps the complete
+    /// responsibility review deliverable through Telegram before any
+    /// proposal row is persisted. Positive time windows prevent hard caps
+    /// and conditional defaults from collapsing into silently permissive
+    /// behaviour. Called at proposal-parse time (`artifact_loader`) and again
     /// at activation (`Store::activate_standing_rule`) as defense in depth.
     pub fn validate(&self) -> Result<(), String> {
+        if self.description.encode_utf16().count()
+            > STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS
+        {
+            return Err(format!(
+                "description must be at most {STANDING_RULE_DESCRIPTION_MAX_UTF16_UNITS} UTF-16 units"
+            ));
+        }
         if self.quota.window_secs <= 0 {
             return Err("quota.window_secs must be positive".to_string());
         }
