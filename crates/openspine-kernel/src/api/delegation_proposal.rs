@@ -266,15 +266,16 @@ mod tests {
     }
 
     #[test]
-    fn review_result_stays_plain_and_contains_no_eval_internals() {
+    fn review_result_describes_current_checks_without_claiming_proposal_replay() {
         let rule = gmail_proposal("Prepare a reply draft");
 
         let rendered = render_standing_rule_proposal(&rule);
 
         assert!(rendered.contains(
-            "OpenSpine replayed prior examples and ran a risk check. Both checks passed."
+            "OpenSpine confirmed prior owner-control history is available and checked that this action is known and not currently denied."
         ));
         for leaked in [
+            "replayed prior examples",
             "AD-142",
             "overlay eval gate",
             "risk judge",
