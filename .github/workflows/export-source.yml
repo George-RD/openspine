@@ -15,17 +15,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - name: Pack source
-        run: tar --exclude=.git -czf "$RUNNER_TEMP/openspine-source.tgz" .
+      - name: Install repository Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+
+      - name: Fetch locked Rust dependencies
+        run: |
+          cargo fetch --locked
+          mkdir -p "$HOME/.cargo/git" "$HOME/.cargo/registry"
+
+      - name: Pack source and local development environment
+        run: |
+          tar --exclude=.git -czf "$RUNNER_TEMP/openspine-source.tgz" .
+          tar -C "$HOME" -czf "$RUNNER_TEMP/openspine-dev-env.tgz" \
+            .rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu \
+            .cargo/git \
+            .cargo/registry
 
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
           name: openspine-source
           path: ${{ runner.temp }}/openspine-source.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload local development environment
+        uses: actions/upload-artifact@v4
+        with:
+          name: openspine-dev-env
+          path: ${{ runner.temp }}/openspine-dev-env.tgz
           if-no-files-found: error
           retention-days: 1
