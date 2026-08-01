@@ -108,9 +108,8 @@ impl StandingRuleManifest {
 mod tests {
     use super::*;
 
-    #[test]
-    fn standing_rule_manifest_round_trips_through_serde() {
-        let manifest = StandingRuleManifest {
+    fn manifest() -> StandingRuleManifest {
+        StandingRuleManifest {
             id: "appointment_booking".to_string(),
             schema_version: 1,
             version: 1,
@@ -130,7 +129,12 @@ mod tests {
                 timeout_secs: 1800,
                 default: DarkWindowDefault::Deny,
             }),
-        };
+        }
+    }
+
+    #[test]
+    fn standing_rule_manifest_round_trips_through_serde() {
+        let manifest = manifest();
         let json = serde_json::to_string(&manifest).unwrap();
         let back: StandingRuleManifest = serde_json::from_str(&json).unwrap();
         assert_eq!(manifest, back);
@@ -141,5 +145,24 @@ mod tests {
         let yaml = "id: no_dark_window\nschema_version: 1\nversion: 1\nlifecycle_state: proposed\naction_id: telegram.reply:owner_channel\ndescription: test\nquota: {max: 1, window_secs: 60}\nrate: {max: 1, window_secs: 60}\nexpires_after_secs: 60\n";
         let manifest: StandingRuleManifest = serde_yaml::from_str(yaml).unwrap();
         assert!(manifest.dark_window.is_none());
+    }
+
+    #[test]
+    fn description_must_fit_the_owner_approval_surface_in_utf16_units() {
+        let mut manifest = manifest();
+        manifest.description = "😀".repeat(501);
+
+        assert_eq!(
+            manifest.validate(),
+            Err("description must be at most 1000 UTF-16 units".to_string())
+        );
+    }
+
+    #[test]
+    fn description_at_the_owner_approval_limit_is_valid() {
+        let mut manifest = manifest();
+        manifest.description = "😀".repeat(500);
+
+        assert_eq!(manifest.validate(), Ok(()));
     }
 }
