@@ -85,6 +85,31 @@ mod tests {
     }
 
     #[test]
+    fn mined_gmail_description_does_not_expose_internal_workflow_ids() {
+        let rule = proposal(
+            "email.create_draft",
+            "Recurring owner approval of selected_thread_email_reply_draft (email.create_draft)",
+            BudgetWindow {
+                max: 5,
+                window_secs: 7 * 24 * 60 * 60,
+            },
+            BudgetWindow {
+                max: 1,
+                window_secs: 60 * 60,
+            },
+            90 * 24 * 60 * 60,
+        );
+
+        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
+
+        assert!(rendered.contains(
+            "Prepare Gmail drafts for the same kind of work you have already approved."
+        ));
+        assert!(!rendered.contains("selected_thread_email_reply_draft"));
+        assert!(!rendered.contains("(email.create_draft)"));
+    }
+
+    #[test]
     fn non_email_proposal_stays_action_specific_without_email_claims() {
         let rule = proposal(
             "calendar.book_appointment",
