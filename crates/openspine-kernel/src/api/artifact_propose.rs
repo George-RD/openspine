@@ -345,11 +345,16 @@ pub(crate) async fn dispatch_artifact_propose(
         .store
         .insert_action_request(&request)
         .map_err(|err| DispatchError::Resource(err.into()))?;
-    let summary = format!(
-        "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
-        eval.summary,
-        digest = yaml_ref.digest
-    );
+    let summary = match &parsed {
+        ParsedProposal::StandingRule(rule) => {
+            super::delegation_proposal::render_standing_rule_proposal(rule, &eval.summary)
+        }
+        _ => format!(
+            "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
+            eval.summary,
+            digest = yaml_ref.digest
+        ),
+    };
     crate::spend::guard_connector_for(state, grant)
         .await
         .map_err(DispatchError::Resource)?;
