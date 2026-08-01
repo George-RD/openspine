@@ -157,11 +157,10 @@ mod tests {
         }
     }
 
-    #[test]
-    fn gmail_draft_proposal_explains_the_responsibility_and_its_limits() {
-        let rule = proposal(
+    fn gmail_proposal(description: &str) -> StandingRuleManifest {
+        proposal(
             "email.create_draft",
-            "Prepare a reply draft for this known relationship",
+            description,
             BudgetWindow {
                 max: 5,
                 window_secs: 7 * 24 * 60 * 60,
@@ -171,9 +170,14 @@ mod tests {
                 window_secs: 60 * 60,
             },
             90 * 24 * 60 * 60,
-        );
+        )
+    }
 
-        let rendered = render_standing_rule_proposal(&rule, "Replay and risk checks passed.");
+    #[test]
+    fn gmail_draft_proposal_explains_the_responsibility_and_its_limits() {
+        let rule = gmail_proposal("Prepare a reply draft for this known relationship");
+
+        let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
 
         for expected in [
             "Lyra noticed you approved the same kind of work more than once.",
@@ -185,9 +189,8 @@ mod tests {
             "This version is limited by action and budgets only.",
             "It is not locked to one contact or mailbox.",
             "Sending email remains blocked.",
-            "revoke this responsibility",
+            "Ask Lyra to revoke this responsibility at any time.",
             "exact reviewed version",
-            "Replay and risk checks passed.",
         ] {
             assert!(
                 rendered.contains(expected),
@@ -206,19 +209,32 @@ mod tests {
     }
 
     #[test]
+    fn technical_eval_evidence_is_reduced_to_an_owner_facing_result() {
+        let rule = gmail_proposal("Prepare a reply draft");
+        let technical = concat!(
+            "AD-142 overlay eval gate — replay: passed ({\"turns\":3}); ",
+            "risk judge: passed ({\"catalog\":\"ok\"})"
+        );
+
+        let rendered = render_standing_rule_proposal(&rule, technical);
+
+        assert!(rendered
+            .contains("OpenSpine replayed prior examples and ran a risk check. Both checks passed."));
+        for leaked in [
+            "AD-142",
+            "overlay eval gate",
+            "risk judge",
+            "{\"turns\"",
+            "{\"catalog\"",
+        ] {
+            assert!(!rendered.contains(leaked), "leaked `{leaked}` in:\n{rendered}");
+        }
+    }
+
+    #[test]
     fn mined_gmail_description_does_not_expose_internal_workflow_ids() {
-        let rule = proposal(
-            "email.create_draft",
+        let rule = gmail_proposal(
             "Recurring owner approval of selected_thread_email_reply_draft (email.create_draft)",
-            BudgetWindow {
-                max: 5,
-                window_secs: 7 * 24 * 60 * 60,
-            },
-            BudgetWindow {
-                max: 1,
-                window_secs: 60 * 60,
-            },
-            90 * 24 * 60 * 60,
         );
 
         let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
