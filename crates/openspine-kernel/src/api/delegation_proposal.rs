@@ -169,6 +169,8 @@ mod tests {
             "Up to 5 drafts per week.",
             "No faster than 1 draft per hour.",
             "expires after 90 days without a successful use.",
+            "This version is limited by action and budgets only.",
+            "It is not locked to one contact or mailbox.",
             "Sending email remains blocked.",
             "revoke this responsibility",
             "exact reviewed version",
@@ -179,6 +181,7 @@ mod tests {
                 "missing `{expected}` in:\n{rendered}"
             );
         }
+        assert!(!rendered.contains("For matching work"));
 
         let lower = rendered.to_lowercase();
         for internal_term in ["standing rule", "task grant", "artifact lifecycle"] {
@@ -207,9 +210,8 @@ mod tests {
 
         let rendered = render_standing_rule_proposal(&rule, "Checks passed.");
 
-        assert!(rendered.contains(
-            "Prepare Gmail drafts for the same kind of work you have already approved."
-        ));
+        assert!(rendered
+            .contains("Prepare Gmail drafts for the same kind of work you have already approved."));
         assert!(!rendered.contains("selected_thread_email_reply_draft"));
         assert!(!rendered.contains("(email.create_draft)"));
     }
