@@ -1,8 +1,78 @@
-use openspine_schemas::action::{ActionEgressDeclaration, ActionId};
+use std::collections::BTreeSet;
+
+use openspine_schemas::action::{
+    ActionDescriptor, ActionEgressDeclaration, ActionId, ActionSemantics, BudgetWindowBounds,
+    DarkWindowPolicy, DataDestination, DelegationDefaults, DelegationPolicyBounds,
+    DelegationProposalMode, EffectKind, EffectReversibility, ReviewedScopeDimension,
+};
 use openspine_schemas::egress::EgressClass;
+use openspine_schemas::standing_rule::BudgetWindow;
 
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
+}
+
+/// Protocol-neutral semantics for actions that may eventually participate in
+/// reusable delegation. A descriptor does not assert that a concrete
+/// resolver/executor exists; that independent readiness axis lands in #127.
+pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
+    vec![ActionDescriptor {
+        schema_version: 1,
+        descriptor_version: 1,
+        action_id: id("email.create_draft"),
+        semantics: ActionSemantics {
+            owner_verb: "create".to_string(),
+            owner_object: "email draft".to_string(),
+            owner_target: "reviewed mailbox conversation".to_string(),
+            effect_kind: EffectKind::OwnerAccountWrite,
+            reversibility: EffectReversibility::Reversible,
+            destination: DataDestination::OwnerCloudAccount,
+        },
+        reusable_delegation: true,
+        required_scope_dimensions: BTreeSet::from([
+            ReviewedScopeDimension::ConnectorImplementation,
+            ReviewedScopeDimension::ConnectorInstance,
+            ReviewedScopeDimension::AccountRole,
+            ReviewedScopeDimension::AccountIdentity,
+            ReviewedScopeDimension::Target,
+            ReviewedScopeDimension::Counterparty,
+            ReviewedScopeDimension::RelationshipTier,
+            ReviewedScopeDimension::EffectDestination,
+            ReviewedScopeDimension::Workflow,
+            ReviewedScopeDimension::TaskShape,
+        ]),
+        delegation_policy: Some(DelegationPolicyBounds {
+            schema_version: 1,
+            policy_version: 1,
+            quota: BudgetWindowBounds {
+                minimum_max: 1,
+                maximum_max: 20,
+                minimum_window_secs: 60,
+                maximum_window_secs: 30 * 24 * 3600,
+            },
+            rate: BudgetWindowBounds {
+                minimum_max: 1,
+                maximum_max: 5,
+                minimum_window_secs: 60,
+                maximum_window_secs: 24 * 3600,
+            },
+            maximum_lapse_secs: 90 * 24 * 3600,
+            proposal_mode: DelegationProposalMode::DefaultsPermitted,
+            defaults: Some(DelegationDefaults {
+                quota: BudgetWindow {
+                    max: 5,
+                    window_secs: 7 * 24 * 3600,
+                },
+                rate: BudgetWindow {
+                    max: 1,
+                    window_secs: 3600,
+                },
+                expires_after_secs: 90 * 24 * 3600,
+            }),
+            dark_window_policy: DarkWindowPolicy::Prohibited,
+            fresh_target_selection_required: true,
+        }),
+    }]
 }
 
 /// Explicit egress metadata for every canonical action. `None/None` is a

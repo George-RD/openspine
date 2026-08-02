@@ -94,6 +94,7 @@ pub fn canonical_catalog() -> ActionCatalog {
             SelectionTokenType::email_thread_selection(),
         )])
         .with_egress_declarations(decls)
+        .with_delegation_descriptors(action_catalog_data::delegation_descriptors())
         .with_effect_paths([
             EffectPath {
                 name: "notify_owner_best_effort".to_string(),
@@ -185,6 +186,9 @@ pub fn canonical_catalog() -> ActionCatalog {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openspine_schemas::action::{
+        ActionImplementationId, DarkWindowPolicy, DelegationCatalogError,
+    };
     use openspine_schemas::egress::EgressClass;
     #[test]
     fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
@@ -300,6 +304,29 @@ mod tests {
                 "{id} must not name an output channel"
             );
         }
+    }
+
+    #[test]
+    fn email_draft_has_a_reviewed_descriptor_but_no_delegated_executor_yet() {
+        let catalog = canonical_catalog();
+        let descriptor = catalog
+            .delegation_descriptor_for(&id("email.create_draft"))
+            .expect("email draft delegation semantics must be catalog-owned");
+        assert!(descriptor.reusable_delegation);
+        assert!(matches!(
+            descriptor
+                .delegation_policy
+                .as_ref()
+                .expect("delegation policy")
+                .dark_window_policy,
+            DarkWindowPolicy::Prohibited
+        ));
+        let implementation_id = ActionImplementationId::new("gmail.email.create_draft");
+        assert_eq!(
+            catalog.validated_delegation_contract(&id("email.create_draft"), &implementation_id),
+            Err(DelegationCatalogError::MissingImplementationDescriptor { implementation_id }),
+            "#127 must land the shared real executor before reusable admission is ready"
+        );
     }
 
     #[test]

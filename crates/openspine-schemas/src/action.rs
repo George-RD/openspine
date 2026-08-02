@@ -12,6 +12,13 @@ use ulid::Ulid;
 
 use crate::selection::SelectionTokenType;
 
+pub use crate::delegation_contract::{
+    validate_delegation_contract, ActionDescriptor, ActionImplementationDescriptor,
+    ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy, DataDestination,
+    DelegationCatalogError, DelegationDefaults, DelegationEligibilityError, DelegationPolicyBounds,
+    DelegationProposalMode, EffectKind, EffectReversibility, ReviewedScopeDimension,
+};
+
 use crate::artifact::ArtifactRef;
 use crate::egress::EgressClass;
 use crate::event::TargetRef;
@@ -119,6 +126,12 @@ pub struct ActionCatalog {
     /// mandatory output-channel + egress-class declaration. Enforcement reads
     /// ONLY this map; connector metadata is never consulted.
     egress_declarations: HashMap<ActionId, ActionEgressDeclaration>,
+    /// Protocol-neutral declarations for actions eligible to participate in
+    /// reusable delegation. Absence is a fail-closed ineligibility signal.
+    delegation_descriptors: HashMap<ActionId, ActionDescriptor>,
+    /// Concrete resolver/executor declarations. An action descriptor alone
+    /// never proves that a live effect path is ready for delegation.
+    implementation_descriptors: HashMap<ActionImplementationId, ActionImplementationDescriptor>,
 }
 
 impl ActionCatalog {
@@ -131,6 +144,8 @@ impl ActionCatalog {
             effect_paths: Vec::new(),
             counterparty_facing_actions: HashSet::new(),
             egress_declarations: HashMap::new(),
+            delegation_descriptors: HashMap::new(),
+            implementation_descriptors: HashMap::new(),
         }
     }
 
@@ -221,6 +236,73 @@ impl ActionCatalog {
     ) -> Self {
         self.egress_declarations = declarations.into_iter().collect();
         self
+    }
+
+    /// Register protocol-neutral delegation descriptors. The builder keeps
+    /// the catalog pattern used by the other independent classification axes;
+    /// proposal code must still call [`validate_delegation_contract`] with a
+    /// concrete implementation before presenting reusable authority.
+    pub fn with_delegation_descriptors(
+        mut self,
+        descriptors: impl IntoIterator<Item = ActionDescriptor>,
+    ) -> Self {
+        self.delegation_descriptors = descriptors
+            .into_iter()
+            .map(|descriptor| (descriptor.action_id.clone(), descriptor))
+            .collect();
+        self
+    }
+
+    /// Register concrete resolver/executor declarations.
+    pub fn with_implementation_descriptors(
+        mut self,
+        descriptors: impl IntoIterator<Item = ActionImplementationDescriptor>,
+    ) -> Self {
+        self.implementation_descriptors = descriptors
+            .into_iter()
+            .map(|descriptor| (descriptor.implementation_id.clone(), descriptor))
+            .collect();
+        self
+    }
+
+    /// Return the reviewed delegation declaration for a canonical action.
+    pub fn delegation_descriptor_for(&self, id: &ActionId) -> Option<&ActionDescriptor> {
+        self.delegation_descriptors.get(id)
+    }
+
+    /// Return one concrete resolver/executor declaration by stable id.
+    pub fn implementation_descriptor_for(
+        &self,
+        id: &ActionImplementationId,
+    ) -> Option<&ActionImplementationDescriptor> {
+        self.implementation_descriptors.get(id)
+    }
+
+    /// Resolve and validate both independent delegation-readiness axes.
+    /// Missing catalog membership, semantic declaration, implementation,
+    /// resolver, executor, scope, or policy fails before owner review.
+    pub fn validated_delegation_contract(
+        &self,
+        action_id: &ActionId,
+        implementation_id: &ActionImplementationId,
+    ) -> Result<(&ActionDescriptor, &ActionImplementationDescriptor), DelegationCatalogError> {
+        if !self.contains(action_id) {
+            return Err(DelegationCatalogError::UnknownAction {
+                action_id: action_id.clone(),
+            });
+        }
+        let descriptor = self.delegation_descriptor_for(action_id).ok_or_else(|| {
+            DelegationCatalogError::MissingActionDescriptor {
+                action_id: action_id.clone(),
+            }
+        })?;
+        let implementation = self
+            .implementation_descriptor_for(implementation_id)
+            .ok_or_else(|| DelegationCatalogError::MissingImplementationDescriptor {
+                implementation_id: implementation_id.clone(),
+            })?;
+        validate_delegation_contract(descriptor, implementation)?;
+        Ok((descriptor, implementation))
     }
 
     /// True if a denial of `id` faces an external counterparty and must
