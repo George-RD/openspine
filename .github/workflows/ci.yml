@@ -37,7 +37,8 @@ jobs:
           test "$(git hash-object openspec/openspine-change-sequence.md)" = 2af58b90f8bbed36508db4ccc6402497141c6a9f
           test "$(git hash-object openspec/specs/core-runtime-schemas/spec.md)" = 59a2f7a9a66ed05fc0c06ab9c57f66f954f28863
           git checkout 47f46c6c529b458474300d01664e3f0854c2b32a -- .github/workflows/ci.yml
-          git rm .github/workflows/apply-responsibility-contract.yml "$patch"
+          git rm .github/workflows/apply-responsibility-contract.yml
+          git rm -f "$patch"
           git add -A
           git diff --cached --check
           test "$(git write-tree)" = 5e23da22583b2faebb8aab3cb2632bb8b8a5374a
