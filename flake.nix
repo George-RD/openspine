@@ -1,5 +1,5 @@
 {
-  description = "OpenSpine dev shell (convenience only — Docker + rustup remain the supported path)";
+  description = "OpenSpine kernel, shell, and development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -17,6 +17,34 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
+      packages = forAllSystems (pkgs:
+        let
+          openspine = pkgs.rustPlatform.buildRustPackage {
+            pname = "openspine";
+            version = "0.1.0";
+
+            src = self;
+            cargoLock = {
+              lockFile = ./Cargo.lock;
+            };
+            cargoBuildFlags = [ "--workspace" ];
+
+            # `scripts/check.sh` is the test gate (it needs a built shell binary,
+            # network access, and Docker). The Nix build only produces binaries.
+            doCheck = false;
+
+            meta = {
+              description = "OpenSpine governed AI assistant kernel and shell";
+              license = with pkgs.lib.licenses; [ mit asl20 ];
+              mainProgram = "openspine";
+            };
+          };
+        in
+        {
+          default = openspine;
+          openspine = openspine;
+        });
+
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
           packages = with pkgs; [
@@ -34,5 +62,7 @@
           '';
         };
       });
+
+      nixosModules.default = import ./nixos-module.nix { inherit self; };
     };
 }
