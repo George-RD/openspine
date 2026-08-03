@@ -2,9 +2,7 @@ mod responsibility_review_support;
 
 use std::collections::BTreeSet;
 
-use openspine_schemas::action::{
-    ActionCatalog, ActionEgressDeclaration, ReviewedScopeDimension,
-};
+use openspine_schemas::action::{ActionCatalog, ActionEgressDeclaration, ReviewedScopeDimension};
 use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::delegation_evidence::{
     DelegationEvidence, DelegationEvidenceError, OwnerApprovalEvidence,
