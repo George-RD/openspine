@@ -307,6 +307,18 @@ mod tests {
     }
 
     #[test]
+    fn every_delegation_descriptor_names_a_catalogued_action() {
+        let catalog = canonical_catalog();
+        for descriptor in action_catalog_data::delegation_descriptors() {
+            assert!(
+                catalog.contains(&descriptor.action_id),
+                "delegation descriptor names uncatalogued action {}",
+                descriptor.action_id
+            );
+        }
+    }
+
+    #[test]
     fn email_draft_has_a_reviewed_descriptor_but_no_delegated_executor_yet() {
         let catalog = canonical_catalog();
         let descriptor = catalog
