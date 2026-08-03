@@ -1,0 +1,127 @@
+.business-run {
+	position: relative;
+	padding: 0.8rem 0 0.65rem;
+	border-top: 1px solid var(--line-light);
+	border-bottom: 1px solid var(--line-light);
+}
+
+.business-run-rail {
+	position: absolute;
+	top: 1.48rem;
+	right: 7%;
+	left: 7%;
+	height: 2px;
+	overflow: hidden;
+	background: rgba(238, 243, 240, 0.18);
+}
+
+.business-run-rail span {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 0;
+	background: var(--mint);
+	box-shadow: 0 0 12px rgba(140, 222, 198, 0.55);
+}
+
+.business-run ol {
+	position: relative;
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.55rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.business-run li {
+	display: grid;
+	justify-items: center;
+	gap: 0.18rem;
+	min-width: 0;
+	text-align: center;
+}
+
+.story-number {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	width: 1.45rem;
+	height: 1.45rem;
+	margin-bottom: 0.25rem;
+	place-items: center;
+	background: var(--ink);
+	border: 1px solid rgba(238, 243, 240, 0.55);
+	border-radius: 50%;
+	font-family: var(--font-mono);
+	font-size: 0.52rem;
+	font-weight: 700;
+	box-shadow: 0 0 0 4px var(--ink);
+}
+
+.business-run strong {
+	font-family: var(--font-display);
+	font-size: clamp(0.78rem, 1.12vw, 0.94rem);
+	line-height: 1.05;
+}
+
+.business-run small {
+	max-width: 11rem;
+	color: rgba(238, 243, 240, 0.52);
+	font-family: var(--font-mono);
+	font-size: clamp(0.46rem, 0.7vw, 0.55rem);
+	line-height: 1.35;
+}
+
+.responsibility-proposal {
+	display: grid;
+	grid-template-columns: minmax(0, 1.15fr) minmax(10rem, 0.85fr);
+	gap: 0.85rem;
+	align-items: center;
+	margin-top: 0.85rem;
+	padding: 0.75rem;
+	background: rgba(140, 222, 198, 0.09);
+	border: 1px solid rgba(140, 222, 198, 0.27);
+}
+
+.proposal-copy {
+	display: grid;
+	gap: 0.12rem;
+}
+
+.proposal-copy span,
+.proposal-copy small {
+	font-family: var(--font-mono);
+	font-size: 0.5rem;
+}
+
+.proposal-copy span {
+	color: var(--mint);
+	font-weight: 700;
+	letter-spacing: 0.035em;
+	text-transform: uppercase;
+}
+
+.proposal-copy strong {
+	font-family: var(--font-display);
+	font-size: 1rem;
+	line-height: 1.05;
+}
+
+.proposal-copy small {
+	color: rgba(238, 243, 240, 0.55);
+}
+
+.proposal-controls {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.32rem;
+}
+
+.proposal-controls span {
+	padding: 0.3rem 0.42rem;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-mono);
+	font-size: 0.48rem;
+	font-weight: 700;
+}
