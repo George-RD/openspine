@@ -86,6 +86,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `implement-reflection-miner` (D-130..D-141)
 - `implement-model-provider-oauth-onboarding` (D-142..D-145)
 - `2026-07-28-add-terminal-chat-onyx-lfm`
+- `define-responsibility-contract` (D-146; brief stays in place — downstream
+  progressive-delegation changes depend on it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
@@ -462,6 +464,180 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   classes.
 - **Done when:** a pack granted search-class egress cannot submit a web form
   under test.
+
+### Progressive delegation contract and proofs
+
+#### define-responsibility-contract
+
+- **Canon:** D-146; AD-036; AD-120; AD-012 as narrowed by D-146.
+- **Requires:** implement-standing-rules; refactor-kernel-registries;
+  implement-identity-store-and-principal.
+- **Scope:** define responsibility, standing rule, action semantics,
+  implementation readiness, kernel-resolved context, reviewed scope,
+  delegation evidence, and channel-neutral owner review as separate,
+  versioned contracts; register `email.create_draft` semantics without
+  pretending its shared reusable executor exists; reject communication
+  dark-window `Allow` defaults.
+- **Invariant:** responsibility and evidence are never live authority; every
+  task still receives a task grant and every effect still passes through the
+  governed kernel path.
+- **Done when:** a synthetic non-Gmail communication implementation can be
+  described and scope-compared with generic contracts; missing descriptor,
+  resolver, executor, or required scope fails closed; drift produces
+  `needs_review`; existing Gmail behavior is unchanged.
+
+#### separate-progressive-delegation-roadmap-truth
+
+- **Canon:** D-146.
+- **Requires:** define-responsibility-contract **HARD**.
+- **Scope:** change the checked capability-map schema and deterministic public
+  roadmap renderer so protocol-neutral progressive delegation is the generic
+  capability, recurring Gmail drafts are one selected proof, second-protocol
+  conformance is separate portability evidence, and whole-responsibility
+  composition is a later maturity stage; open issues remain blockers rather
+  than implementation evidence.
+- **Done when:** CI rejects a wired capability without real owner-path tests,
+  rejects portability without second-protocol evidence, and renders the
+  generic capability/proof/maturity dependency structure without treating an
+  issue or runtime primitive as shipped product behavior.
+
+#### unify-approved-and-delegated-effect-execution
+
+- **Canon:** D-146; D-011; D-055; D-107.
+- **Requires:** define-responsibility-contract **HARD**.
+- **Scope:** introduce one kernel-owned effect-executor registry; make missing
+  executors a typed failure rather than a successful stub; extract the real
+  Gmail draft write so exact approval and future scoped delegation call the
+  same immutable executor; finalize or cancel standing-rule reservations only
+  according to the truthful effect outcome.
+- **Invariant:** approval source cannot select a different connector
+  implementation, trusted target, or payload semantics.
+- **Done when:** `email.create_draft` has one real executor used by both
+  admission sources, an effectful missing handler cannot report success, and
+  delivery-unknown/idempotency/audit behavior remains truthful under test.
+
+#### add-channel-neutral-responsibility-review
+
+- **Canon:** D-146; D-011; D-107.
+- **Requires:** define-responsibility-contract **HARD**.
+- **Scope:** persist the canonical owner-review object; add principal-bound
+  Approve, Reject, Narrow, Pause, Resume, Revoke, inspect, and receipt intents;
+  render and submit the same digest-bound decision through Telegram and the
+  local terminal; add paused state and compatibility revalidation on resume.
+- **Invariant:** owner channels are authenticated presentation/input adapters,
+  never authority or lifecycle logic.
+- **Done when:** Telegram and terminal decide the same stored review object;
+  narrow creates a new immutable digest; pause/resume/revoke are replay-safe;
+  proposal copy cannot outrun evidence, enforceable scope, or executor
+  readiness.
+
+#### mine-and-match-reusable-authority-by-scope
+
+- **Canon:** D-146; D-107; AD-036; AD-120.
+- **Requires:** define-responsibility-contract **HARD**;
+  unify-approved-and-delegated-effect-execution **HARD**.
+- **Scope:** construct resolved context at the kernel boundary; group repeated
+  owner approvals by complete context class; bind standing rules to reviewed
+  scopes; allow disjoint scoped rules for one action; fail closed on ambiguous
+  overlap; match exactly one compatible rule before quota/rate reservation or
+  timer scheduling; invalidate on descriptor, executor, connector, account,
+  identity, workflow, or policy drift.
+- **Invariant:** no fuzzy widening, cross-account reuse, cross-target evidence
+  aggregation, or budget pooling between responsibilities sharing an action.
+- **Done when:** two different accounts/targets cannot form one pattern;
+  disjoint rules coexist; overlap and mismatch consume no budget; changed
+  context restores ordinary approval before effect.
+
+#### bound-dark-window-exceptions
+
+- **Canon:** D-146; D-107; AD-012 as narrowed by D-146.
+- **Requires:** define-responsibility-contract **HARD**;
+  mine-and-match-reusable-authority-by-scope **HARD** for the full scoped
+  pending-cap implementation. The fail-closed communication restriction is
+  already part of `define-responsibility-contract`.
+- **Scope:** atomically cap outstanding pending exceptions per reviewed scoped
+  rule, bind fingerprints and fired tokens to resolved context, count silence
+  allowances separately from normal quota, bound owner notifications, and
+  stale every pending exception on pause/revoke/expiry/drift or compatibility
+  change.
+- **Invariant:** varying payload, target, grant, or owner-surface identifiers
+  cannot turn exhausted quota into an unbounded silence queue.
+- **Done when:** many distinct over-budget requests create at most the reviewed
+  pending allowance, concurrent requests cannot cross the final slot, and no
+  communication `Allow` default is accepted without a later explicit catalog
+  decision and proposal-specific proof.
+
+#### make-reusable-authority-evaluation-proposal-specific
+
+- **Canon:** D-146; D-060; D-107.
+- **Requires:** define-responsibility-contract **HARD**;
+  mine-and-match-reusable-authority-by-scope **HARD**.
+- **Scope:** replace corpus-presence ceremony with a structural judge and real
+  replay/simulation bound to the exact proposal, descriptor, implementation,
+  reviewed scope, evidence set, budgets, policy, connector/account, and
+  compatibility epochs; persist reproducible structured verdicts and stale
+  them when any bound epoch changes; include dark-window adversarial cases
+  from `bound-dark-window-exceptions` whenever a proposal uses that policy.
+- **Invariant:** evaluation neither grants nor activates authority, and owner
+  copy may state only what the stored exact-proposal verdicts prove.
+- **Done when:** incomplete, unexecutable, policy-denied, incoherent, or
+  ambiguously overlapping proposals cannot reach owner review; "replay" means
+  concrete matching and changed-context cases actually ran.
+
+#### ship-recurring-gmail-draft-proof
+
+- **Canon:** D-146; D-011; D-055; D-060; D-107.
+- **Requires:** define-responsibility-contract **HARD**;
+  unify-approved-and-delegated-effect-execution **HARD**;
+  mine-and-match-reusable-authority-by-scope **HARD**;
+  add-channel-neutral-responsibility-review **HARD**;
+  make-reusable-authority-evaluation-proposal-specific **HARD**. If the proof
+  enables a dark-window `Allow`, it additionally requires
+  bound-dark-window-exceptions **HARD**; the default proof does not enable it.
+- **Scope:** use the existing selected-thread Gmail path to prove two exact
+  approvals become one evidence-backed, evaluated, narrowly scoped review;
+  activation lets a later matching task create one real draft through the same
+  executor with a concise receipt, while send remains denied.
+- **Invariant:** Gmail is the first vertical proof, not the generic
+  architecture or evidence that other protocols work.
+- **Done when:** the positive path creates a real reusable Gmail draft and
+  connector/account/target/counterparty mismatch, overlap, budget, pause,
+  expiry, drift, policy, evaluation staleness, or revocation all fall back
+  before effect through named owner-path tests.
+
+#### prove-progressive-delegation-portability
+
+- **Canon:** D-146.
+- **Requires:** ship-recurring-gmail-draft-proof **HARD**.
+- **Scope:** add a materially different communication shape through the same
+  descriptor, resolver, executor, scope, evidence, evaluation, owner-review,
+  lifecycle, receipt, and fallback contracts; a deterministic test connector
+  is acceptable, but it must model workspace/DM/channel visibility rather than
+  rename Gmail fields.
+- **Invariant:** adding a connector supplies reviewed adapters and fixtures; it
+  cannot self-authorize delegation or require protocol branches in generic
+  matching, evaluation, review, or lifecycle code.
+- **Done when:** the second shape completes propose → evaluate → review →
+  activate → scoped reuse → receipt → controls, and cross-protocol/account/
+  target/visibility confusion tests pass without changing the generic engine.
+
+#### compose-whole-responsibilities
+
+- **Canon:** D-146; D-107; AD-030.
+- **Requires:** ship-recurring-gmail-draft-proof **HARD**.
+- **Scope:** compose triggers/routes, workflows, skills, reviewed scope,
+  standing-rule shortcuts, budgets, exception policy, outputs, receipts, and
+  lifecycle controls into one atomic digest-bound owner-facing responsibility
+  without duplicating their enforcement or creating a new authority object;
+  consume `prove-progressive-delegation-portability` as design evidence before
+  finalizing connector/task-shape abstractions.
+- **Invariant:** component drift cannot silently widen the whole job; partial
+  activation/rollback cannot leave a trigger live without matching authority
+  and controls.
+- **Done when:** one ordinary-language owner delegation activates and controls
+  the whole job atomically, runs from trigger through workflow and scoped
+  effects to result/receipt, and exposes one coherent diff and lifecycle
+  surface rather than internal artifact management.
 
 ### Delegation & containment
 

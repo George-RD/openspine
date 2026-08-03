@@ -138,6 +138,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-143 | Encrypted vault storage in SecretStore for OAuth refresh/access tokens and identity metadata | Accepted |
 | D-144 | Preemptive single-flight background token refresher (`OAuthRefresher`) with 300s expiration skew window and credential disabling | Accepted |
 | D-145 | Model gateway bearer token resolution with automatic single-retry on HTTP 401 Unauthorized after inline token refresh | Accepted |
+| D-146 | Reusable responsibilities use protocol-neutral reviewed context and remain reference views over ordinary workflow/standing-rule authority | Accepted |
 
 ---
 
@@ -3425,6 +3426,44 @@ Provider APIs return non-standard auth error codes requiring alternative retry t
 
 ---
 
+# D-146 — Protocol-neutral reviewed responsibility contract above standing rules
+
+## Decision
+
+A reusable responsibility is an owner-facing reference/view over an ordinary reviewed workflow plus bounded standing-rule input. It is never a task grant or second live authority object. Reusable-delegation review requires two independent catalog declarations: protocol-neutral action semantics and a concrete versioned resolver/executor implementation. The kernel derives a sealed resolved context; owner-reviewed scope is expressed only through generic dimensions and is digest-bound with evidence, limits, compatibility versions, decisions, and lifecycle controls.
+
+For communication and connector-write effects, dark-window `Allow` is forbidden. Missing descriptors, resolver/executor implementation, connector/account resolution, required scope, or compatibility versions fail closed before reusable execution; later drift moves the responsibility to `needs_review` rather than silently remapping it.
+
+## Rationale
+
+Standing rules already provide bounded composition input, but an action id plus quota is not enough to explain a delegated job or prove what the owner reviewed. A Gmail-specific wrapper would couple the autonomy model to one connector and would not survive adding WhatsApp, Slack, Outlook, or other protocols. Separating semantic action identity from concrete implementation identity makes connector and executor changes review-visible. A generic reviewed context also lets the same matcher and review contract apply to synthetic and future protocols without protocol branches.
+
+Keeping responsibility as a reference view preserves D-007: every task still receives a fresh task grant and crosses `gate()`. Distinct evidence classes prevent explicit requests or manually supplied artifacts from being presented as learned repeated patterns. Forbidding communication Allow defaults avoids turning owner silence into an external write.
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Treat each standing rule as the responsibility | Minimal new schema | Poor owner legibility; no implementation/context compatibility; standing rule can be mistaken for authority |
+| Build Gmail-specific progressive delegation | Fastest first demo | Connector lock-in, duplicated matching/review logic, unsafe protocol expansion |
+| Protocol-neutral two-axis contract and reference-view responsibility | Honest capability readiness, reusable across protocols, explicit drift | More schema and versioning before the first autonomous proof |
+
+## Consequences
+
+- `ActionCatalog` gains independent semantic and concrete implementation descriptor axes.
+- `email.create_draft` may declare reviewed semantics while remaining fail-closed until a shared real implementation lands.
+- `ResolvedActionContext`, `ReviewedActionScope`, `DelegationEvidence`, `OwnerReviewRequest`, and `ResponsibilityManifest` are explicit versioned schemas.
+- Scope comparison and drift assessment use generic dimensions and typed reasons, not connector names.
+- Connector/account removal cannot create a zombie responsibility; unresolved context requires review.
+- Telegram, terminal, and future owner surfaces render one semantic review object.
+- Existing per-instance Gmail selected-thread and approved-draft behavior remains unchanged by the contract slice.
+
+## Would change if
+
+A future adversarially verified design demonstrates that a tightly bounded communication Allow default is safer than explicit review, or if task grants cease to be the sole live authority object under a separately accepted replacement for D-007.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -3472,4 +3511,5 @@ Provider APIs return non-standard auth error codes requiring alternative retry t
 | 2026-07-24 | Added D-123 (production adoption at ambiguous route resolution), D-124 (canonical tied candidate ids), D-125 (lexicographic within-class selection), D-126 (invalid/failed competitors escalate), D-127 (all-non-applicable ties are silent non-matches), D-128 (rated-egress production guard), and D-129 (persist the selected composition snapshot), settled while implementing `wire-authority-equivalence-selection`. |
 | 2026-07-24 | Added D-130–D-141 (pure proposed-only miner boundary, authenticated bounded grants, verified encrypted-reference evidence, derived exact-match repetition, correction/probe separation, fail-closed provenance, independent durable budgets, scoped consolidation, declarative scheduled grant composition, and owner-bound cross-grant evidence), settled while implementing `implement-reflection-miner`. |
 | 2026-07-24 | Added D-142 (native OAuth 2.0 PKCE authentication), D-143 (encrypted vault storage in SecretStore), D-144 (preemptive single-flight background token refresher), and D-145 (gateway bearer token resolution with automatic single-retry on 401), settled while implementing `implement-model-provider-oauth-onboarding`. |
+| 2026-08-03 | Added D-146 (protocol-neutral two-axis responsibility contract; responsibility remains a reference view over workflow/standing-rule inputs; communication dark-window Allow forbidden; drift fails to `needs_review`), settled while implementing `define-responsibility-contract`. |
 
