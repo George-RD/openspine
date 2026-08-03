@@ -377,7 +377,11 @@ fn provenance_copy_is_derived_from_the_evidence_kind() {
     )
     .unwrap();
     assert_eq!(explicit.provenance.summary, "Explicit owner request");
-    assert!(!explicit.provenance.summary.to_lowercase().contains("pattern"));
+    assert!(!explicit
+        .provenance
+        .summary
+        .to_lowercase()
+        .contains("pattern"));
 }
 
 #[test]
@@ -443,11 +447,9 @@ fn owner_review_requires_reject_revoke_and_a_valid_scope() {
 #[test]
 fn owner_review_is_digest_bound_serializable_and_channel_neutral() {
     let scope = ReviewedActionScope::derive(&resolved()).unwrap();
-    let review = OwnerReviewRequest::try_new(
-        review_input(scope.clone(), evidence_for(&scope)),
-        &policy(),
-    )
-    .unwrap();
+    let review =
+        OwnerReviewRequest::try_new(review_input(scope.clone(), evidence_for(&scope)), &policy())
+            .unwrap();
 
     let json = serde_json::to_string(&review).unwrap();
     assert!(!json.contains("telegram"));
