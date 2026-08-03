@@ -1,0 +1,123 @@
+.business-explainer.is-running .risk-signal {
+	animation: business-risk 720ms 260ms var(--ease-out) both;
+}
+
+.business-explainer.is-running .contrast-arrow svg {
+	animation: business-arrow 780ms 620ms var(--ease-out) both;
+}
+
+.business-explainer.is-running .job-pass {
+	animation: business-pass-land 760ms 880ms var(--ease-out) both;
+}
+
+.business-explainer.is-running .business-run-rail span {
+	animation: business-rail 2.45s 1.35s var(--ease-out) both;
+}
+
+.business-explainer.is-running .business-run li {
+	animation: business-step 540ms calc(1.35s + var(--story-step) * 560ms) var(--ease-out) both;
+}
+
+.business-explainer.is-running .responsibility-proposal {
+	animation: business-proposal 720ms 3.75s var(--ease-out) both;
+}
+
+.technical-explainer.is-running .action-request {
+	animation: technical-request 680ms 260ms var(--ease-out) both;
+}
+
+.technical-explainer.is-running .request-packet {
+	animation: technical-packet 900ms 720ms var(--ease-out) both;
+}
+
+.technical-explainer.is-running .gate-checks {
+	animation: technical-gate 650ms 1.12s var(--ease-out) both;
+}
+
+.technical-explainer.is-running .gate-decision {
+	animation: technical-decision 520ms var(--ease-out) both;
+}
+
+.technical-explainer.is-running .gate-decision:nth-child(1) { animation-delay: 1.45s; }
+.technical-explainer.is-running .gate-decision:nth-child(2) { animation-delay: 1.7s; }
+.technical-explainer.is-running .gate-decision:nth-child(3) { animation-delay: 1.95s; }
+
+.technical-explainer.is-running .runtime-vault {
+	animation: technical-vault 640ms 2.18s var(--ease-out) both;
+}
+
+.technical-explainer.is-running .decision-packet {
+	animation: technical-decision-packet 760ms 2.4s var(--ease-out) both;
+}
+
+.technical-explainer.is-running .technical-result {
+	animation: technical-result 650ms 2.72s var(--ease-out) both;
+}
+
+@keyframes technical-request {
+	0% { opacity: 0.3; transform: translateY(0.45rem); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes technical-packet {
+	0% { opacity: 0.25; transform: translateX(-0.55rem); }
+	100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes technical-gate {
+	0% { opacity: 0.35; box-shadow: inset 0 0 0 0 rgba(140, 222, 198, 0); }
+	55% { opacity: 1; box-shadow: inset 0 0 0 2px rgba(140, 222, 198, 0.34); }
+	100% { opacity: 1; box-shadow: inset 0 0 0 0 rgba(140, 222, 198, 0); }
+}
+
+@keyframes technical-decision {
+	0% { opacity: 0.25; transform: translateX(0.45rem); }
+	100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes technical-vault {
+	0% { opacity: 0.25; transform: scale(0.96); }
+	100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes technical-decision-packet {
+	0% { opacity: 0.2; transform: translateX(0.45rem); }
+	100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes technical-result {
+	0% { opacity: 0; transform: translateY(0.45rem); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes business-risk {
+	0% { opacity: 0.25; transform: translateX(-0.5rem); }
+	45% { opacity: 1; transform: translateX(0); box-shadow: 0 0 0 5px rgba(255, 100, 56, 0.09); }
+	100% { opacity: 1; transform: translateX(0); box-shadow: none; }
+}
+
+@keyframes business-arrow {
+	0% { opacity: 0.2; transform: translateX(-0.4rem); }
+	100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes business-pass-land {
+	0% { opacity: 0; transform: translateY(-0.8rem) rotate(-2deg) scale(0.96); }
+	100% { opacity: 1; transform: translateY(0) rotate(-0.45deg) scale(1); }
+}
+
+@keyframes business-rail {
+	0% { width: 0; }
+	100% { width: 100%; }
+}
+
+@keyframes business-step {
+	0% { opacity: 0.38; transform: translateY(0.45rem); }
+	55% { opacity: 1; transform: translateY(0); }
+	100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes business-proposal {
+	0% { opacity: 0; transform: translateY(0.65rem); }
+	100% { opacity: 1; transform: translateY(0); }
+}

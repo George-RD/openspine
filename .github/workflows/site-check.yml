@@ -24,6 +24,7 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run build
       - name: Install visual-check browser
         run: |
@@ -50,6 +51,7 @@ jobs:
           fi
 
           SITE_URL=http://127.0.0.1:4321/openspine/ node scripts/capture-site.cjs
+          SITE_URL=http://127.0.0.1:4321/openspine/ node scripts/capture-explainers.cjs
       - name: Upload visual QA artifact
         if: always()
         id: visual-artifact

@@ -1,0 +1,288 @@
+<section class="audience-explainer" data-audience-explainer aria-label="Two ways to understand how OpenSpine works">
+	<div class="explainer-switch">
+		<div class="explainer-switch-copy">
+			<span>Choose your view</span>
+			<strong>Same boundary. Different level of detail.</strong>
+		</div>
+		<div class="explainer-tabs" role="tablist" aria-label="Explanation level">
+			<button
+				class="explainer-tab"
+				id="explainer-tab-business"
+				type="button"
+				role="tab"
+				aria-selected="true"
+				aria-controls="explainer-business"
+				data-explainer-tab="business"
+			>
+				<span>Business view</span>
+				<small>What it changes</small>
+			</button>
+			<button
+				class="explainer-tab"
+				id="explainer-tab-technical"
+				type="button"
+				role="tab"
+				aria-selected="false"
+				aria-controls="explainer-technical"
+				tabindex="-1"
+				data-explainer-tab="technical"
+			>
+				<span>Technical view</span>
+				<small>How it is enforced</small>
+			</button>
+		</div>
+	</div>
+
+	<div
+		class="explainer-panel"
+		id="explainer-business"
+		role="tabpanel"
+		aria-labelledby="explainer-tab-business"
+		data-explainer-panel="business"
+	>
+		<section class="business-explainer" data-business-animation data-explainer-animation aria-label="A temporary job pass instead of standing access">
+			<div class="business-bar">
+				<div class="business-bar-label">
+					<span class="status-light" aria-hidden="true"></span>
+					<span>One business task, explained without the plumbing</span>
+				</div>
+				<button class="business-replay" type="button" data-business-replay data-explainer-replay>
+					<span aria-hidden="true">↻</span>
+					Replay
+				</button>
+			</div>
+
+			<div class="access-contrast">
+				<article class="access-card access-card--broad">
+					<div class="access-card-heading">
+						<span>Broad-access setup</span>
+						<strong>One assistant holds the keyring</strong>
+					</div>
+					<div class="keyring-scene" aria-hidden="true">
+						<div class="assistant-badge assistant-badge--broad">AI</div>
+						<svg class="keyring-icon" viewBox="0 0 74 56">
+							<circle cx="21" cy="28" r="13" />
+							<path d="M34 28h30M52 28v10M61 28v7" />
+						</svg>
+						<div class="system-stack">
+							<span>Inbox</span>
+							<span>CRM</span>
+							<span>Files</span>
+						</div>
+						<div class="risk-signal"><span>!</span>Wrong or hostile instruction</div>
+					</div>
+					<p>The same standing access sits behind every request.</p>
+				</article>
+
+				<div class="contrast-arrow" aria-hidden="true">
+					<span>instead</span>
+					<svg viewBox="0 0 54 22"><path d="M2 11h42M36 3l8 8-8 8" /></svg>
+				</div>
+
+				<article class="access-card access-card--bounded">
+					<div class="access-card-heading">
+						<span>OpenSpine</span>
+						<strong>This job gets a temporary pass</strong>
+					</div>
+					<div class="job-pass" aria-label="Example temporary job pass">
+						<div class="job-pass-head">
+							<span>JOB PASS · 042</span>
+							<strong>Draft replies for 3 customers</strong>
+						</div>
+						<dl>
+							<div class="pass-rule pass-rule--allow" aria-label="Read 3 selected threads">
+								<dt>Read</dt>
+								<dd>3 selected threads</dd>
+							</div>
+							<div class="pass-rule pass-rule--allow" aria-label="Create draft replies">
+								<dt>Create</dt>
+								<dd>Draft replies</dd>
+							</div>
+							<div class="pass-rule pass-rule--deny">
+								<dt>Send email</dt>
+								<dd>Blocked</dd>
+							</div>
+							<div class="pass-rule">
+								<dt>Ends</dt>
+								<dd>When the task ends</dd>
+							</div>
+						</dl>
+					</div>
+					<p>Enough room to do this job. It cannot turn that pass into a different one.</p>
+				</article>
+			</div>
+
+			<div class="business-run" aria-label="Four steps in one bounded task">
+				<div class="business-run-rail" aria-hidden="true"><span></span></div>
+				<ol>
+					<li style="--story-step: 0">
+						<span class="story-number">1</span>
+						<strong>You delegate</strong>
+						<small>“Prepare these replies.”</small>
+					</li>
+					<li style="--story-step: 1">
+						<span class="story-number">2</span>
+						<strong>OpenSpine limits the job</strong>
+						<small>Target, actions, budget, expiry.</small>
+					</li>
+					<li style="--story-step: 2">
+						<span class="story-number">3</span>
+						<strong>Lyra works inside it</strong>
+						<small>Extra requests hit the boundary.</small>
+					</li>
+					<li style="--story-step: 3">
+						<span class="story-number">4</span>
+						<strong>You get the result</strong>
+						<small>The temporary pass expires.</small>
+					</li>
+				</ol>
+			</div>
+
+			<div class="responsibility-proposal">
+				<div class="proposal-copy">
+					<span>After the same work succeeds repeatedly</span>
+					<strong>“Make customer-reply drafting a responsibility?”</strong>
+					<small>Proposal only · nothing becomes active by itself</small>
+				</div>
+				<div class="proposal-controls" aria-label="Owner controls for a reusable responsibility">
+					<span>Choose customers</span>
+					<span>Set volume and expiry</span>
+					<span>Pause or revoke</span>
+				</div>
+			</div>
+		</section>
+	</div>
+
+	<div
+		class="explainer-panel"
+		id="explainer-technical"
+		role="tabpanel"
+		aria-labelledby="explainer-tab-technical"
+		data-explainer-panel="technical"
+		hidden
+	>
+		<section class="technical-explainer" data-explainer-animation aria-label="The process boundary between the model and business accounts">
+			<div class="technical-bar">
+				<div class="technical-bar-label">
+					<span class="status-light" aria-hidden="true"></span>
+					<span>The model proposes effects. The runtime owns authority.</span>
+				</div>
+				<button class="technical-replay" type="button" data-explainer-replay>
+					<span aria-hidden="true">↻</span>
+					Replay
+				</button>
+			</div>
+
+			<div class="technical-boundary">
+				<article class="technical-zone technical-zone--worker">
+					<header>
+						<span>Untrusted process</span>
+						<strong>Contained worker + model</strong>
+					</header>
+					<div class="worker-receives">
+						<span>scoped context</span>
+						<span>short-lived grant</span>
+					</div>
+					<div class="credential-absence">
+						<svg viewBox="0 0 22 22" aria-hidden="true"><path d="m5 5 12 12M8.5 11.2A4 4 0 1 1 14.8 8M14 11h6M18 11v3" /></svg>
+						<strong>Credentials stay outside the worker</strong>
+					</div>
+					<div class="action-request action-request--out">
+						<span>ACTION REQUEST</span>
+						<code>email.create_draft</code>
+					</div>
+				</article>
+
+				<div class="boundary-channel" aria-hidden="true">
+					<span class="request-packet">request</span>
+					<svg viewBox="0 0 58 22"><path d="M2 11h46M40 3l8 8-8 8" /></svg>
+					<span class="decision-packet">decision</span>
+				</div>
+
+				<article class="technical-zone technical-zone--runtime">
+					<header>
+						<span>Trusted boundary</span>
+						<strong>OpenSpine runtime</strong>
+					</header>
+					<div class="gate-checks">
+						<span>action</span><i></i><span>target</span><i></i><span>budget</span><i></i><span>expiry</span>
+					</div>
+					<div class="gate-decisions">
+						<div class="gate-decision gate-decision--allow"><strong>Allow</strong><code>read:selected</code></div>
+						<div class="gate-decision gate-decision--ask"><strong>Ask</strong><code>create_draft</code></div>
+						<div class="gate-decision gate-decision--deny"><strong>Deny</strong><code>email.send</code></div>
+					</div>
+					<div class="runtime-vault">
+						<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+						<div><span>Runtime vault</span><strong>OAuth + connector client</strong></div>
+					</div>
+				</article>
+			</div>
+
+			<div class="technical-result">
+				<div><span>Policy rule</span><strong>Explicit deny wins</strong></div>
+				<code>request → gate → connector → audit</code>
+				<div><span>Audit chain</span><strong>Every decision is recorded</strong></div>
+			</div>
+		</section>
+	</div>
+
+	<p class="explainer-alpha-truth">
+		<strong>Alpha truth:</strong> the current Gmail proof demonstrates the one-task boundary. The seamless recurring-responsibility experience shown above is still being built.
+	</p>
+</section>
+
+<script>
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	const replayPanel = (panel) => {
+		const animation = panel?.querySelector('[data-explainer-animation]');
+		if (!(animation instanceof HTMLElement) || reducedMotion.matches) return;
+		animation.classList.remove('is-running');
+		void animation.offsetWidth;
+		animation.classList.add('is-running');
+	};
+
+	document.querySelectorAll('[data-audience-explainer]').forEach((explainer) => {
+		const tabs = Array.from(explainer.querySelectorAll('[data-explainer-tab]'));
+		const panels = Array.from(explainer.querySelectorAll('[data-explainer-panel]'));
+
+		const activate = (name, moveFocus = false) => {
+			let activePanel = null;
+			tabs.forEach((tab) => {
+				const selected = tab.getAttribute('data-explainer-tab') === name;
+				tab.setAttribute('aria-selected', String(selected));
+				if (tab instanceof HTMLButtonElement) tab.tabIndex = selected ? 0 : -1;
+				if (selected && moveFocus && tab instanceof HTMLButtonElement) tab.focus();
+			});
+			panels.forEach((panel) => {
+				const selected = panel.getAttribute('data-explainer-panel') === name;
+				if (panel instanceof HTMLElement) panel.hidden = !selected;
+				if (selected) activePanel = panel;
+			});
+			window.setTimeout(() => replayPanel(activePanel), 40);
+		};
+
+		tabs.forEach((tab, index) => {
+			tab.addEventListener('click', () => activate(tab.getAttribute('data-explainer-tab')));
+			tab.addEventListener('keydown', (event) => {
+				if (!(event instanceof KeyboardEvent)) return;
+				let nextIndex = index;
+				if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+				else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+				else if (event.key === 'Home') nextIndex = 0;
+				else if (event.key === 'End') nextIndex = tabs.length - 1;
+				else return;
+				event.preventDefault();
+				activate(tabs[nextIndex]?.getAttribute('data-explainer-tab'), true);
+			});
+		});
+
+		explainer.querySelectorAll('[data-explainer-replay]').forEach((button) => {
+			button.addEventListener('click', () => replayPanel(button.closest('[data-explainer-panel]')));
+		});
+
+		const initial = tabs.find((tab) => tab.getAttribute('aria-selected') === 'true');
+		window.setTimeout(() => activate(initial?.getAttribute('data-explainer-tab') || 'business'), 420);
+	});
+</script>
