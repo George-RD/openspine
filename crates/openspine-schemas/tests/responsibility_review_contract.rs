@@ -2,9 +2,9 @@ use std::collections::BTreeSet;
 
 use openspine_schemas::action::{
     ActionCatalog, ActionDescriptor, ActionEgressDeclaration, ActionImplementationDescriptor,
-    ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy,
-    DataDestination, DelegationDefaults, DelegationPolicyBounds, DelegationProposalMode,
-    EffectKind, EffectReversibility, ReviewedScopeDimension,
+    ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy, DataDestination,
+    DelegationDefaults, DelegationPolicyBounds, DelegationProposalMode, EffectKind,
+    EffectReversibility, ReviewedScopeDimension,
 };
 use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::delegation_evidence::{
@@ -260,12 +260,7 @@ fn resolved_context_fails_closed_when_required_scope_is_missing() {
     let mut missing_account = context_input();
     missing_account.account_identity_digest = None;
     assert_eq!(
-        ResolvedActionContext::try_new(
-            &catalog,
-            &action_id,
-            &implementation_id,
-            missing_account,
-        ),
+        ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, missing_account,),
         Err(ResolvedActionContextError::MissingScopeDimension {
             dimension: ReviewedScopeDimension::AccountIdentity,
         })
@@ -458,9 +453,7 @@ fn responsibility_is_a_reference_view_and_drift_requires_review() {
         assert_eq!(
             manifest(status).assess(Some(&context), 4, 3),
             ResponsibilityAssessment::NeedsReview {
-                reasons: BTreeSet::from([
-                    ResponsibilityDriftReason::ResponsibilityNotActive,
-                ]),
+                reasons: BTreeSet::from([ResponsibilityDriftReason::ResponsibilityNotActive,]),
             },
             "{status:?} must never assess as compatible"
         );
