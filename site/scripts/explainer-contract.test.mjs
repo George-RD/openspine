@@ -81,11 +81,13 @@ test('explainer motion remains useful with reduced motion and on small screens',
 	assert.match(css, /\[hidden\]/);
 });
 
-test('rendered-site QA exercises both explanations', async () => {
+test('rendered-site QA exercises both explanations on desktop and reduced-motion mobile', async () => {
 	const capture = await read('scripts/capture-explainers.cjs');
 	assert.match(capture, /data-explainer-tab="technical"/);
 	assert.match(capture, /landing-desktop-business/);
 	assert.match(capture, /landing-desktop-technical/);
+	assert.match(capture, /landing-mobile-business-reduced-motion/);
+	assert.match(capture, /landing-mobile-technical-reduced-motion/);
 	assert.match(capture, /Business view/);
 	assert.match(capture, /Technical view/);
 });
