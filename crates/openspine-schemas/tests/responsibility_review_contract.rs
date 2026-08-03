@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
 use openspine_schemas::action::{
-    ActionDescriptor, ActionImplementationDescriptor, ActionImplementationId, ActionSemantics,
-    BudgetWindowBounds, DarkWindowPolicy, DataDestination, DelegationDefaults,
-    DelegationPolicyBounds, DelegationProposalMode, EffectKind, EffectReversibility,
-    ReviewedScopeDimension,
+    ActionCatalog, ActionDescriptor, ActionEgressDeclaration, ActionImplementationDescriptor,
+    ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy,
+    DataDestination, DelegationDefaults, DelegationPolicyBounds, DelegationProposalMode,
+    EffectKind, EffectReversibility, ReviewedScopeDimension,
 };
 use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::delegation_evidence::{
@@ -14,9 +14,9 @@ use openspine_schemas::digest::Digest;
 use openspine_schemas::event::{AccountRole, TargetRef, TargetRefKind};
 use openspine_schemas::identity::RelationshipKind;
 use openspine_schemas::owner_review::{
-    BoundaryBehavior, OwnerReviewDecision, OwnerReviewRequest, OwnerReviewRequestInput,
-    ProposalKind, ProposalProvenance, ResponsibilityLifecycleControl, ReviewFallbackBehavior,
-    ReviewLimits,
+    BoundaryBehavior, OwnerReviewDecision, OwnerReviewRequest, OwnerReviewRequestError,
+    OwnerReviewRequestInput, ProposalKind, ProposalProvenance, ProposalProvenanceError,
+    ResponsibilityLifecycleControl, ReviewFallbackBehavior, ReviewLimits,
 };
 use openspine_schemas::resolved_context::{
     ResolvedActionContext, ResolvedActionContextError, ResolvedActionContextInput,
@@ -107,6 +107,10 @@ fn implementation() -> ActionImplementationDescriptor {
     }
 }
 
+fn policy() -> DelegationPolicyBounds {
+    descriptor().delegation_policy.unwrap()
+}
+
 fn context_input() -> ResolvedActionContextInput {
     ResolvedActionContextInput {
         connector_instance_id: "matrix-primary".into(),
@@ -128,8 +132,20 @@ fn context_input() -> ResolvedActionContextInput {
     }
 }
 
+fn resolved_with(input: ResolvedActionContextInput) -> ResolvedActionContext {
+    let descriptor = descriptor();
+    let implementation = implementation();
+    let action_id = descriptor.action_id.clone();
+    let implementation_id = implementation.implementation_id.clone();
+    let catalog = ActionCatalog::new([action_id.clone()])
+        .with_egress_declarations([(action_id.clone(), ActionEgressDeclaration::default())])
+        .with_delegation_descriptors([descriptor])
+        .with_implementation_descriptors([implementation]);
+    ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, input).unwrap()
+}
+
 fn resolved() -> ResolvedActionContext {
-    ResolvedActionContext::try_new(&descriptor(), &implementation(), context_input()).unwrap()
+    resolved_with(context_input())
 }
 
 fn evidence() -> DelegationEvidence {
@@ -161,12 +177,95 @@ fn limits() -> ReviewLimits {
     }
 }
 
+fn review_input(
+    reviewed_scope: ReviewedActionScope,
+    evidence: DelegationEvidence,
+) -> OwnerReviewRequestInput {
+    OwnerReviewRequestInput {
+        id: Ulid::from(200_u128),
+        schema_version: 1,
+        review_version: 1,
+        proposal_kind: ProposalKind::Responsibility,
+        evidence,
+        provenance_summary: "Two matching owner approvals for this reviewed context".into(),
+        title: "Prepare replies for this client".into(),
+        description: "Create drafts in the reviewed mailbox and relationship scope.".into(),
+        reviewed_scope,
+        automatic_effects: vec!["Create a draft in the owner account".into()],
+        remaining_boundaries: vec!["Sending remains denied".into()],
+        limits: limits(),
+        fallback_behavior: ReviewFallbackBehavior {
+            scope_mismatch: BoundaryBehavior::RequireApproval,
+            compatibility_drift: BoundaryBehavior::RequireApproval,
+            budget_exhaustion: BoundaryBehavior::RequireApproval,
+            timeout: BoundaryBehavior::Deny,
+        },
+        proposal_digest: digest('6'),
+        compatibility_digest: resolved().compatibility_digest().clone(),
+        available_decisions: BTreeSet::from([
+            OwnerReviewDecision::Approve,
+            OwnerReviewDecision::Reject,
+            OwnerReviewDecision::Narrow,
+            OwnerReviewDecision::Edit,
+        ]),
+        lifecycle_controls: BTreeSet::from([
+            ResponsibilityLifecycleControl::Pause,
+            ResponsibilityLifecycleControl::Resume,
+            ResponsibilityLifecycleControl::Expire,
+            ResponsibilityLifecycleControl::Revoke,
+        ]),
+    }
+}
+
+fn manifest(status: ResponsibilityStatus) -> ResponsibilityManifest {
+    let context = resolved();
+    ResponsibilityManifest {
+        id: "client_reply_drafts".into(),
+        schema_version: 1,
+        version: 1,
+        status,
+        workflow_id: "reply_workflow".into(),
+        standing_rule_id: "client_reply_draft_rule".into(),
+        reviewed_scope: ReviewedActionScope::derive(&context).unwrap(),
+        limits: limits(),
+        compatibility: ResponsibilityCompatibilityBinding {
+            schema_version: 1,
+            descriptor_version: context.descriptor_version(),
+            implementation_version: context.implementation_version(),
+            delegation_policy_version: context.delegation_policy_version(),
+            workflow_version: 3,
+            owner_review_binding_digest: digest('7'),
+        },
+        controls: BTreeSet::from([
+            ResponsibilityLifecycleControl::Pause,
+            ResponsibilityLifecycleControl::Resume,
+            ResponsibilityLifecycleControl::Expire,
+            ResponsibilityLifecycleControl::Revoke,
+        ]),
+        provenance_digest: evidence().evidence_set_digest().unwrap().clone(),
+    }
+}
+
 #[test]
 fn resolved_context_fails_closed_when_required_scope_is_missing() {
+    let descriptor = descriptor();
+    let implementation = implementation();
+    let action_id = descriptor.action_id.clone();
+    let implementation_id = implementation.implementation_id.clone();
+    let catalog = ActionCatalog::new([action_id.clone()])
+        .with_egress_declarations([(action_id.clone(), ActionEgressDeclaration::default())])
+        .with_delegation_descriptors([descriptor])
+        .with_implementation_descriptors([implementation]);
+
     let mut missing_account = context_input();
     missing_account.account_identity_digest = None;
     assert_eq!(
-        ResolvedActionContext::try_new(&descriptor(), &implementation(), missing_account),
+        ResolvedActionContext::try_new(
+            &catalog,
+            &action_id,
+            &implementation_id,
+            missing_account,
+        ),
         Err(ResolvedActionContextError::MissingScopeDimension {
             dimension: ReviewedScopeDimension::AccountIdentity,
         })
@@ -178,7 +277,12 @@ fn resolved_context_fails_closed_when_required_scope_is_missing() {
         identifier: "@someone:example.test".into(),
     });
     assert_eq!(
-        ResolvedActionContext::try_new(&descriptor(), &implementation(), unresolved_counterparty,),
+        ResolvedActionContext::try_new(
+            &catalog,
+            &action_id,
+            &implementation_id,
+            unresolved_counterparty,
+        ),
         Err(ResolvedActionContextError::CounterpartyMustBeBound)
     );
 }
@@ -218,50 +322,79 @@ fn repeated_approval_evidence_rejects_weak_or_recursive_sets() {
     tampered["approval_count"] = serde_json::json!(3);
     let tampered: DelegationEvidence = serde_json::from_value(tampered).unwrap();
     assert!(!tampered.integrity_is_valid());
+    assert_eq!(
+        ProposalProvenance::try_from_evidence(&tampered, "Observed pattern".into()),
+        Err(ProposalProvenanceError::InvalidEvidence)
+    );
+
+    let scope = ReviewedActionScope::derive(&resolved()).unwrap();
+    assert_eq!(
+        OwnerReviewRequest::try_new(review_input(scope, tampered), &policy()),
+        Err(OwnerReviewRequestError::InvalidEvidence)
+    );
+}
+
+#[test]
+fn owner_review_rejects_limits_outside_catalog_policy() {
+    let scope = ReviewedActionScope::derive(&resolved()).unwrap();
+
+    let mut quota = review_input(scope.clone(), evidence());
+    quota.limits.quota.max = policy().quota.maximum_max + 1;
+    assert_eq!(
+        OwnerReviewRequest::try_new(quota, &policy()),
+        Err(OwnerReviewRequestError::LimitsOutOfBounds)
+    );
+
+    let mut rate = review_input(scope.clone(), evidence());
+    rate.limits.rate.window_secs = policy().rate.maximum_window_secs + 1;
+    assert_eq!(
+        OwnerReviewRequest::try_new(rate, &policy()),
+        Err(OwnerReviewRequestError::LimitsOutOfBounds)
+    );
+
+    let mut expiry = review_input(scope, evidence());
+    expiry.limits.expires_after_secs = policy().maximum_lapse_secs + 1;
+    assert_eq!(
+        OwnerReviewRequest::try_new(expiry, &policy()),
+        Err(OwnerReviewRequestError::LimitsOutOfBounds)
+    );
+}
+
+#[test]
+fn owner_review_requires_reject_revoke_and_a_valid_scope() {
+    let scope = ReviewedActionScope::derive(&resolved()).unwrap();
+
+    let mut missing_reject = review_input(scope.clone(), evidence());
+    missing_reject
+        .available_decisions
+        .remove(&OwnerReviewDecision::Reject);
+    assert_eq!(
+        OwnerReviewRequest::try_new(missing_reject, &policy()),
+        Err(OwnerReviewRequestError::MissingRequiredDecisions)
+    );
+
+    let mut missing_revoke = review_input(scope.clone(), evidence());
+    missing_revoke
+        .lifecycle_controls
+        .remove(&ResponsibilityLifecycleControl::Revoke);
+    assert_eq!(
+        OwnerReviewRequest::try_new(missing_revoke, &policy()),
+        Err(OwnerReviewRequestError::MissingRequiredControls)
+    );
+
+    let mut tampered_scope = serde_json::to_value(scope).unwrap();
+    tampered_scope["context_class_digest"] = serde_json::json!(digest('0'));
+    let tampered_scope: ReviewedActionScope = serde_json::from_value(tampered_scope).unwrap();
+    assert_eq!(
+        OwnerReviewRequest::try_new(review_input(tampered_scope, evidence()), &policy()),
+        Err(OwnerReviewRequestError::InvalidReviewedScope)
+    );
 }
 
 #[test]
 fn owner_review_is_digest_bound_serializable_and_channel_neutral() {
-    let scope = ReviewedActionScope::derive(&descriptor(), &resolved()).unwrap();
-    let evidence = evidence();
-    let provenance = ProposalProvenance::from_evidence(
-        &evidence,
-        "Two matching owner approvals for this reviewed context".into(),
-    );
-    let review = OwnerReviewRequest::try_new(OwnerReviewRequestInput {
-        id: Ulid::from(200_u128),
-        schema_version: 1,
-        review_version: 1,
-        proposal_kind: ProposalKind::Responsibility,
-        provenance,
-        title: "Prepare replies for this client".into(),
-        description: "Create drafts in the reviewed mailbox and relationship scope.".into(),
-        reviewed_scope: scope,
-        automatic_effects: vec!["Create a draft in the owner account".into()],
-        remaining_boundaries: vec!["Sending remains denied".into()],
-        limits: limits(),
-        fallback_behavior: ReviewFallbackBehavior {
-            scope_mismatch: BoundaryBehavior::RequireApproval,
-            compatibility_drift: BoundaryBehavior::RequireApproval,
-            budget_exhaustion: BoundaryBehavior::RequireApproval,
-            timeout: BoundaryBehavior::Deny,
-        },
-        proposal_digest: digest('6'),
-        compatibility_digest: resolved().compatibility_digest().clone(),
-        available_decisions: BTreeSet::from([
-            OwnerReviewDecision::Approve,
-            OwnerReviewDecision::Reject,
-            OwnerReviewDecision::Narrow,
-            OwnerReviewDecision::Edit,
-        ]),
-        lifecycle_controls: BTreeSet::from([
-            ResponsibilityLifecycleControl::Pause,
-            ResponsibilityLifecycleControl::Resume,
-            ResponsibilityLifecycleControl::Expire,
-            ResponsibilityLifecycleControl::Revoke,
-        ]),
-    })
-    .unwrap();
+    let scope = ReviewedActionScope::derive(&resolved()).unwrap();
+    let review = OwnerReviewRequest::try_new(review_input(scope, evidence()), &policy()).unwrap();
 
     let json = serde_json::to_string(&review).unwrap();
     assert!(!json.contains("telegram"));
@@ -282,11 +415,11 @@ fn owner_review_is_digest_bound_serializable_and_channel_neutral() {
 
 #[test]
 fn responsibility_is_a_reference_view_and_drift_requires_review() {
-    let descriptor = descriptor();
     let context = resolved();
-    let scope = ReviewedActionScope::derive(&descriptor, &context).unwrap();
-    assert!(scope.binding_is_valid());
-    let mut tampered_scope = serde_json::to_value(&scope).unwrap();
+    let active = manifest(ResponsibilityStatus::Active);
+    assert!(active.reviewed_scope.binding_is_valid());
+
+    let mut tampered_scope = serde_json::to_value(&active.reviewed_scope).unwrap();
     tampered_scope["context_class_digest"] = serde_json::json!(digest('0'));
     let tampered_scope: ReviewedActionScope = serde_json::from_value(tampered_scope).unwrap();
     assert_eq!(
@@ -294,48 +427,18 @@ fn responsibility_is_a_reference_view_and_drift_requires_review() {
         ScopeComparison::InvalidReviewedScope
     );
 
-    let manifest = ResponsibilityManifest {
-        id: "client_reply_drafts".into(),
-        schema_version: 1,
-        version: 1,
-        status: ResponsibilityStatus::Active,
-        workflow_id: "reply_workflow".into(),
-        standing_rule_id: "client_reply_draft_rule".into(),
-        reviewed_scope: scope,
-        limits: limits(),
-        compatibility: ResponsibilityCompatibilityBinding {
-            schema_version: 1,
-            descriptor_version: descriptor.descriptor_version,
-            implementation_version: context.implementation_version(),
-            delegation_policy_version: descriptor
-                .delegation_policy
-                .as_ref()
-                .unwrap()
-                .policy_version,
-            workflow_version: 3,
-            owner_review_binding_digest: digest('7'),
-        },
-        controls: BTreeSet::from([
-            ResponsibilityLifecycleControl::Pause,
-            ResponsibilityLifecycleControl::Resume,
-            ResponsibilityLifecycleControl::Expire,
-            ResponsibilityLifecycleControl::Revoke,
-        ]),
-        provenance_digest: evidence().evidence_set_digest().unwrap().clone(),
-    };
-
     assert_eq!(
-        manifest.assess(Some(&context), 4, 3),
+        active.assess(Some(&context), 4, 3),
         ResponsibilityAssessment::Compatible
     );
     assert_eq!(
-        manifest.assess(None, 4, 3),
+        active.assess(None, 4, 3),
         ResponsibilityAssessment::NeedsReview {
             reasons: BTreeSet::from([ResponsibilityDriftReason::ResolvedContextUnavailable]),
         }
     );
     assert_eq!(
-        manifest.assess(Some(&context), 5, 4),
+        active.assess(Some(&context), 5, 4),
         ResponsibilityAssessment::NeedsReview {
             reasons: BTreeSet::from([
                 ResponsibilityDriftReason::DelegationPolicyVersionChanged,
@@ -344,11 +447,30 @@ fn responsibility_is_a_reference_view_and_drift_requires_review() {
         }
     );
 
-    let json = serde_json::to_string(&manifest).unwrap();
+    for status in [
+        ResponsibilityStatus::Proposed,
+        ResponsibilityStatus::ReviewRequired,
+        ResponsibilityStatus::Paused,
+        ResponsibilityStatus::NeedsReview,
+        ResponsibilityStatus::Expired,
+        ResponsibilityStatus::Revoked,
+    ] {
+        assert_eq!(
+            manifest(status).assess(Some(&context), 4, 3),
+            ResponsibilityAssessment::NeedsReview {
+                reasons: BTreeSet::from([
+                    ResponsibilityDriftReason::ResponsibilityNotActive,
+                ]),
+            },
+            "{status:?} must never assess as compatible"
+        );
+    }
+
+    let json = serde_json::to_string(&active).unwrap();
     assert!(!json.contains("task_grant"));
     assert!(!json.contains("allowed_actions"));
     assert_eq!(
         serde_json::from_str::<ResponsibilityManifest>(&json).unwrap(),
-        manifest
+        active
     );
 }
