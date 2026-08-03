@@ -39,17 +39,30 @@ pub enum ProposalProvenanceError {
 impl ProposalProvenance {
     pub fn try_from_evidence(
         evidence: &DelegationEvidence,
-        summary: String,
     ) -> Result<Self, ProposalProvenanceError> {
         if !evidence.integrity_is_valid() {
             return Err(ProposalProvenanceError::InvalidEvidence);
         }
+        let kind = evidence.kind();
+        let evidence_count = evidence.evidence_count();
+        let summary = match kind {
+            DelegationEvidenceKind::RepeatedApprovals => {
+                format!("{evidence_count} matching owner approvals")
+            }
+            DelegationEvidenceKind::ExplicitOwnerRequest => "Explicit owner request".to_string(),
+            DelegationEvidenceKind::CorrectionOrWorkflowProposal => {
+                "Correction or workflow proposal".to_string()
+            }
+            DelegationEvidenceKind::ManuallySuppliedArtifact => {
+                "Manually supplied artifact".to_string()
+            }
+        };
         Ok(Self {
             schema_version: 1,
-            kind: evidence.kind(),
+            kind,
             summary,
             evidence_digest: evidence.provenance_digest().clone(),
-            evidence_count: evidence.evidence_count(),
+            evidence_count,
         })
     }
 }
@@ -103,7 +116,6 @@ pub struct OwnerReviewRequestInput {
     pub review_version: u32,
     pub proposal_kind: ProposalKind,
     pub evidence: DelegationEvidence,
-    pub provenance_summary: String,
     pub title: String,
     pub description: String,
     pub reviewed_scope: ReviewedActionScope,
@@ -147,6 +159,8 @@ pub enum OwnerReviewRequestError {
     Incomplete { field: &'static str },
     #[error("delegation evidence failed its integrity check")]
     InvalidEvidence,
+    #[error("repeated-approval evidence belongs to a different reviewed scope")]
+    EvidenceScopeMismatch,
     #[error("owner review contains an invalid reviewed scope binding")]
     InvalidReviewedScope,
     #[error("owner review limits must be finite and positive")]
@@ -167,10 +181,6 @@ impl OwnerReviewRequest {
         for (field, invalid) in [
             ("schema_version", input.schema_version == 0),
             ("review_version", input.review_version == 0),
-            (
-                "provenance_summary",
-                input.provenance_summary.trim().is_empty(),
-            ),
             ("title", input.title.trim().is_empty()),
             ("description", input.description.trim().is_empty()),
             ("automatic_effects", input.automatic_effects.is_empty()),
@@ -186,9 +196,15 @@ impl OwnerReviewRequest {
         if !input.reviewed_scope.binding_is_valid() {
             return Err(OwnerReviewRequestError::InvalidReviewedScope);
         }
-        let provenance =
-            ProposalProvenance::try_from_evidence(&input.evidence, input.provenance_summary)
-                .map_err(|_| OwnerReviewRequestError::InvalidEvidence)?;
+        let provenance = ProposalProvenance::try_from_evidence(&input.evidence)
+            .map_err(|_| OwnerReviewRequestError::InvalidEvidence)?;
+        if input
+            .evidence
+            .context_class_digest()
+            .is_some_and(|digest| digest != input.reviewed_scope.context_class_digest())
+        {
+            return Err(OwnerReviewRequestError::EvidenceScopeMismatch);
+        }
         if input.limits.quota.max == 0
             || input.limits.quota.window_secs <= 0
             || input.limits.rate.max == 0
