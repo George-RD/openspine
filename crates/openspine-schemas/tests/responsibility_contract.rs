@@ -314,28 +314,28 @@ fn resolved_classifications_come_from_the_action_catalog() {
 
 #[test]
 fn resolved_context_fails_closed_without_catalog_classifications() {
-    let descriptor = descriptor();
-    let implementation = implementation();
-    let action_id = descriptor.action_id.clone();
-    let implementation_id = implementation.implementation_id.clone();
+    let missing_egress_descriptor = descriptor();
+    let missing_egress_implementation = implementation();
+    let action_id = missing_egress_descriptor.action_id.clone();
+    let implementation_id = missing_egress_implementation.implementation_id.clone();
     let catalog = ActionCatalog::new([action_id.clone()])
-        .with_delegation_descriptors([descriptor])
-        .with_implementation_descriptors([implementation]);
+        .with_delegation_descriptors([missing_egress_descriptor])
+        .with_implementation_descriptors([missing_egress_implementation]);
     assert_eq!(
         ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, context_input(),),
         Err(ResolvedActionContextError::MissingCatalogEgressDeclaration { action_id })
     );
 
-    let mut descriptor = descriptor();
-    descriptor
+    let mut disclosure_descriptor = descriptor();
+    disclosure_descriptor
         .required_scope_dimensions
         .insert(ReviewedScopeDimension::DisclosureClass);
-    let implementation = implementation();
-    let action_id = descriptor.action_id.clone();
-    let implementation_id = implementation.implementation_id.clone();
+    let disclosure_implementation = implementation();
+    let action_id = disclosure_descriptor.action_id.clone();
+    let implementation_id = disclosure_implementation.implementation_id.clone();
     let catalog = catalog_with(
-        descriptor,
-        implementation,
+        disclosure_descriptor,
+        disclosure_implementation,
         ActionEgressDeclaration::default(),
     );
     assert_eq!(
