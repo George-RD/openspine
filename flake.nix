@@ -29,6 +29,11 @@
             };
             cargoBuildFlags = [ "--workspace" ];
 
+            # A transitive dependency (native-tls via hyper-tls) links OpenSSL on
+            # Linux; reqwest itself uses rustls. pkg-config finds it at build time.
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl ];
+
             # `scripts/check.sh` is the test gate (it needs a built shell binary,
             # network access, and Docker). The Nix build only produces binaries.
             doCheck = false;
