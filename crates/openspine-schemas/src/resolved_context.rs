@@ -6,29 +6,17 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use ulid::Ulid;
 
 use crate::action::{
-    validate_delegation_contract, ActionDescriptor, ActionId, ActionImplementationDescriptor,
-    ActionImplementationId, DataDestination, DelegationEligibilityError, ReviewedScopeDimension,
+    ActionCatalog, ActionId, ActionImplementationId, DataDestination, DelegationCatalogError,
+    ReviewedScopeDimension,
 };
 use crate::briefcase::{CounterpartyRef, RelationshipTier};
 use crate::digest::{digest_of, Digest};
 use crate::egress::EgressClass;
 use crate::event::{AccountRole, DataClassification, TargetRef, TargetRefKind};
-
-/// Extra catalog-owned classifications carried when they apply to an effect.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(deny_unknown_fields)]
-pub struct ResolvedActionClassifications {
-    #[serde(default)]
-    pub egress_class: Option<EgressClass>,
-    #[serde(default)]
-    pub disclosure_class: Option<DataClassification>,
-    #[serde(default)]
-    pub output_channels: BTreeSet<String>,
-}
 
 /// Kernel inputs that remain after action and implementation declarations are selected.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,15 +33,16 @@ pub struct ResolvedActionContextInput {
     pub task_shape_digest: Option<Digest>,
 }
 
-/// A sealed context class. Fields are private so downstream callers cannot
-/// widen trusted scope by constructing a value directly.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// A sealed context class. It can be created only from catalog-selected action
+/// semantics, implementation readiness, and catalog-owned effect metadata.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResolvedActionContext {
     schema_version: u32,
     action_id: ActionId,
     descriptor_version: u32,
     delegation_policy_version: u32,
+    required_scope_dimensions: BTreeSet<ReviewedScopeDimension>,
     implementation_id: ActionImplementationId,
     implementation_version: u32,
     connector_kind: String,
@@ -82,7 +71,9 @@ pub struct ResolvedActionContext {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ResolvedActionContextError {
     #[error(transparent)]
-    InvalidDelegationContract(#[from] DelegationEligibilityError),
+    InvalidDelegationCatalog(#[from] DelegationCatalogError),
+    #[error("action {action_id} has no catalog-owned egress declaration")]
+    MissingCatalogEgressDeclaration { action_id: ActionId },
     #[error("required reviewed scope dimension {dimension:?} is missing")]
     MissingScopeDimension { dimension: ReviewedScopeDimension },
     #[error("reusable delegation requires an identity-bound counterparty")]
@@ -93,25 +84,18 @@ pub enum ResolvedActionContextError {
 
 impl ResolvedActionContext {
     pub fn try_new(
-        descriptor: &ActionDescriptor,
-        implementation: &ActionImplementationDescriptor,
+        catalog: &ActionCatalog,
+        action_id: &ActionId,
+        implementation_id: &ActionImplementationId,
         input: ResolvedActionContextInput,
     ) -> Result<Self, ResolvedActionContextError> {
-        Self::try_new_with_classifications(
-            descriptor,
-            implementation,
-            input,
-            ResolvedActionClassifications::default(),
-        )
-    }
-
-    pub fn try_new_with_classifications(
-        descriptor: &ActionDescriptor,
-        implementation: &ActionImplementationDescriptor,
-        input: ResolvedActionContextInput,
-        classifications: ResolvedActionClassifications,
-    ) -> Result<Self, ResolvedActionContextError> {
-        validate_delegation_contract(descriptor, implementation)?;
+        let (descriptor, implementation) =
+            catalog.validated_delegation_contract(action_id, implementation_id)?;
+        let egress_declaration = catalog.egress_decl_for(action_id).ok_or_else(|| {
+            ResolvedActionContextError::MissingCatalogEgressDeclaration {
+                action_id: action_id.clone(),
+            }
+        })?;
 
         let (counterparty_identity_id, relationship_tier) = match input.counterparty {
             Some(CounterpartyRef::Bound {
@@ -151,6 +135,12 @@ impl ResolvedActionContext {
             .delegation_policy
             .as_ref()
             .map_or(0, |policy| policy.policy_version);
+        let output_channels = egress_declaration
+            .output_channels
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
         let compatibility_digest = digest_of(&serde_json::json!({
             "action_id": descriptor.action_id,
             "descriptor_version": descriptor.descriptor_version,
@@ -164,6 +154,8 @@ impl ResolvedActionContext {
             "resolver_version": implementation.resolver_version,
             "effect_destination": descriptor.semantics.destination,
             "required_scope_dimensions": descriptor.required_scope_dimensions,
+            "egress_class": egress_declaration.egress_class,
+            "output_channels": egress_declaration.output_channels,
         }));
 
         let context = Self {
@@ -171,6 +163,7 @@ impl ResolvedActionContext {
             action_id: descriptor.action_id.clone(),
             descriptor_version: descriptor.descriptor_version,
             delegation_policy_version: policy_version,
+            required_scope_dimensions: descriptor.required_scope_dimensions.clone(),
             implementation_id: implementation.implementation_id.clone(),
             implementation_version: implementation.implementation_version,
             connector_kind: implementation.connector_kind.clone(),
@@ -188,22 +181,19 @@ impl ResolvedActionContext {
             target_digest: input.target_digest,
             payload_digest: input.payload_digest,
             effect_destination: descriptor.semantics.destination,
-            egress_class: classifications.egress_class,
-            disclosure_class: classifications.disclosure_class,
-            output_channels: classifications.output_channels,
+            egress_class: egress_declaration.egress_class,
+            disclosure_class: None,
+            output_channels,
             workflow_id: input.workflow_id,
             task_shape_digest: input.task_shape_digest,
             compatibility_digest,
         };
-        context.validate_required_dimensions(&descriptor.required_scope_dimensions)?;
+        context.validate_required_dimensions()?;
         Ok(context)
     }
 
-    fn validate_required_dimensions(
-        &self,
-        dimensions: &BTreeSet<ReviewedScopeDimension>,
-    ) -> Result<(), ResolvedActionContextError> {
-        for dimension in dimensions {
+    fn validate_required_dimensions(&self) -> Result<(), ResolvedActionContextError> {
+        for dimension in &self.required_scope_dimensions {
             let present = match dimension {
                 ReviewedScopeDimension::Action
                 | ReviewedScopeDimension::Descriptor
@@ -244,78 +234,107 @@ impl ResolvedActionContext {
     pub fn action_id(&self) -> &ActionId {
         &self.action_id
     }
+
     pub fn descriptor_version(&self) -> u32 {
         self.descriptor_version
     }
+
     pub fn delegation_policy_version(&self) -> u32 {
         self.delegation_policy_version
     }
+
+    pub(crate) fn required_scope_dimensions(&self) -> &BTreeSet<ReviewedScopeDimension> {
+        &self.required_scope_dimensions
+    }
+
     pub fn implementation_id(&self) -> &ActionImplementationId {
         &self.implementation_id
     }
+
     pub fn implementation_version(&self) -> u32 {
         self.implementation_version
     }
+
     pub fn connector_kind(&self) -> &str {
         &self.connector_kind
     }
+
     pub fn connector_instance_id(&self) -> &str {
         &self.connector_instance_id
     }
+
     pub fn executor_id(&self) -> &str {
         &self.executor_id
     }
+
     pub fn executor_version(&self) -> u32 {
         self.executor_version
     }
+
     pub fn resolver_id(&self) -> &str {
         &self.resolver_id
     }
+
     pub fn resolver_version(&self) -> u32 {
         self.resolver_version
     }
+
     pub fn account_role(&self) -> Option<AccountRole> {
         self.account_role
     }
+
     pub fn account_identity_digest(&self) -> Option<&Digest> {
         self.account_identity_digest.as_ref()
     }
+
     pub fn target_refs(&self) -> &[TargetRef] {
         &self.target_refs
     }
+
     pub fn counterparty_identity_id(&self) -> Option<Ulid> {
         self.counterparty_identity_id
     }
+
     pub fn relationship_tier(&self) -> Option<RelationshipTier> {
         self.relationship_tier
     }
+
     pub fn bound_parameters(&self) -> &BTreeMap<String, String> {
         &self.bound_parameters
     }
+
     pub fn target_digest(&self) -> Option<&Digest> {
         self.target_digest.as_ref()
     }
+
     pub fn payload_digest(&self) -> Option<&Digest> {
         self.payload_digest.as_ref()
     }
+
     pub fn effect_destination(&self) -> DataDestination {
         self.effect_destination
     }
+
     pub fn egress_class(&self) -> Option<EgressClass> {
         self.egress_class
     }
+
     pub fn disclosure_class(&self) -> Option<DataClassification> {
         self.disclosure_class
     }
+
     pub fn output_channels(&self) -> &BTreeSet<String> {
         &self.output_channels
     }
+
     pub fn workflow_id(&self) -> Option<&str> {
         self.workflow_id.as_deref()
     }
+
     pub fn task_shape_digest(&self) -> Option<&Digest> {
         self.task_shape_digest.as_ref()
     }
+
     pub fn compatibility_digest(&self) -> &Digest {
         &self.compatibility_digest
     }
