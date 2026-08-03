@@ -295,13 +295,9 @@ fn resolved_classifications_come_from_the_action_catalog() {
         },
     );
 
-    let context = ResolvedActionContext::try_new(
-        &catalog,
-        &action_id,
-        &implementation_id,
-        context_input(),
-    )
-    .unwrap();
+    let context =
+        ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, context_input())
+            .unwrap();
     assert_eq!(context.egress_class(), Some(EgressClass::WebFormPost));
     assert_eq!(
         context.output_channels(),
@@ -326,15 +322,8 @@ fn resolved_context_fails_closed_without_catalog_classifications() {
         .with_delegation_descriptors([descriptor])
         .with_implementation_descriptors([implementation]);
     assert_eq!(
-        ResolvedActionContext::try_new(
-            &catalog,
-            &action_id,
-            &implementation_id,
-            context_input(),
-        ),
-        Err(ResolvedActionContextError::MissingCatalogEgressDeclaration {
-            action_id,
-        })
+        ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, context_input(),),
+        Err(ResolvedActionContextError::MissingCatalogEgressDeclaration { action_id })
     );
 
     let mut descriptor = descriptor();
@@ -350,12 +339,7 @@ fn resolved_context_fails_closed_without_catalog_classifications() {
         ActionEgressDeclaration::default(),
     );
     assert_eq!(
-        ResolvedActionContext::try_new(
-            &catalog,
-            &action_id,
-            &implementation_id,
-            context_input(),
-        ),
+        ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, context_input(),),
         Err(ResolvedActionContextError::MissingScopeDimension {
             dimension: ReviewedScopeDimension::DisclosureClass,
         })
