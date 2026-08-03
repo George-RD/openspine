@@ -100,6 +100,7 @@
 }
 
 .explainer-alpha-truth {
+	max-width: none;
 	margin: 0.75rem 0 0;
 	padding: 0.65rem 0.75rem;
 	background: rgba(255, 216, 201, 0.46);
