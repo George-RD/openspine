@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
+use crate::action::DelegationPolicyBounds;
 use crate::delegation_evidence::{DelegationEvidence, DelegationEvidenceKind};
 use crate::digest::{digest_of, Digest};
 use crate::reviewed_scope::ReviewedActionScope;
@@ -29,15 +30,27 @@ pub struct ProposalProvenance {
     pub evidence_count: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ProposalProvenanceError {
+    #[error("delegation evidence failed its integrity check")]
+    InvalidEvidence,
+}
+
 impl ProposalProvenance {
-    pub fn from_evidence(evidence: &DelegationEvidence, summary: String) -> Self {
-        Self {
+    pub fn try_from_evidence(
+        evidence: &DelegationEvidence,
+        summary: String,
+    ) -> Result<Self, ProposalProvenanceError> {
+        if !evidence.integrity_is_valid() {
+            return Err(ProposalProvenanceError::InvalidEvidence);
+        }
+        Ok(Self {
             schema_version: 1,
             kind: evidence.kind(),
             summary,
             evidence_digest: evidence.provenance_digest().clone(),
             evidence_count: evidence.evidence_count(),
-        }
+        })
     }
 }
 
@@ -89,7 +102,8 @@ pub struct OwnerReviewRequestInput {
     pub schema_version: u32,
     pub review_version: u32,
     pub proposal_kind: ProposalKind,
-    pub provenance: ProposalProvenance,
+    pub evidence: DelegationEvidence,
+    pub provenance_summary: String,
     pub title: String,
     pub description: String,
     pub reviewed_scope: ReviewedActionScope,
@@ -131,8 +145,14 @@ pub struct OwnerReviewRequest {
 pub enum OwnerReviewRequestError {
     #[error("owner review field {field} is incomplete")]
     Incomplete { field: &'static str },
+    #[error("delegation evidence failed its integrity check")]
+    InvalidEvidence,
+    #[error("owner review contains an invalid reviewed scope binding")]
+    InvalidReviewedScope,
     #[error("owner review limits must be finite and positive")]
     InvalidLimits,
+    #[error("owner review limits exceed the catalog policy bounds")]
+    LimitsOutOfBounds,
     #[error("owner review must offer approve, reject, and narrow decisions")]
     MissingRequiredDecisions,
     #[error("owner review must expose pause and revoke lifecycle controls")]
@@ -140,13 +160,16 @@ pub enum OwnerReviewRequestError {
 }
 
 impl OwnerReviewRequest {
-    pub fn try_new(input: OwnerReviewRequestInput) -> Result<Self, OwnerReviewRequestError> {
+    pub fn try_new(
+        input: OwnerReviewRequestInput,
+        policy: &DelegationPolicyBounds,
+    ) -> Result<Self, OwnerReviewRequestError> {
         for (field, invalid) in [
             ("schema_version", input.schema_version == 0),
             ("review_version", input.review_version == 0),
             (
-                "provenance.summary",
-                input.provenance.summary.trim().is_empty(),
+                "provenance_summary",
+                input.provenance_summary.trim().is_empty(),
             ),
             ("title", input.title.trim().is_empty()),
             ("description", input.description.trim().is_empty()),
@@ -160,6 +183,14 @@ impl OwnerReviewRequest {
                 return Err(OwnerReviewRequestError::Incomplete { field });
             }
         }
+        if !input.reviewed_scope.binding_is_valid() {
+            return Err(OwnerReviewRequestError::InvalidReviewedScope);
+        }
+        let provenance = ProposalProvenance::try_from_evidence(
+            &input.evidence,
+            input.provenance_summary,
+        )
+        .map_err(|_| OwnerReviewRequestError::InvalidEvidence)?;
         if input.limits.quota.max == 0
             || input.limits.quota.window_secs <= 0
             || input.limits.rate.max == 0
@@ -167,6 +198,12 @@ impl OwnerReviewRequest {
             || input.limits.expires_after_secs <= 0
         {
             return Err(OwnerReviewRequestError::InvalidLimits);
+        }
+        if !policy.quota.contains(input.limits.quota)
+            || !policy.rate.contains(input.limits.rate)
+            || input.limits.expires_after_secs > policy.maximum_lapse_secs
+        {
+            return Err(OwnerReviewRequestError::LimitsOutOfBounds);
         }
         if ![
             OwnerReviewDecision::Approve,
@@ -193,7 +230,7 @@ impl OwnerReviewRequest {
             schema_version: input.schema_version,
             review_version: input.review_version,
             proposal_kind: input.proposal_kind,
-            provenance: input.provenance,
+            provenance,
             title: input.title,
             description: input.description,
             reviewed_scope: input.reviewed_scope,
@@ -223,23 +260,12 @@ impl OwnerReviewRequest {
     }
 
     fn calculate_binding_digest(&self) -> Digest {
-        digest_of(&serde_json::json!({
-            "id": self.id,
-            "schema_version": self.schema_version,
-            "review_version": self.review_version,
-            "proposal_kind": self.proposal_kind,
-            "provenance": self.provenance,
-            "title": self.title,
-            "description": self.description,
-            "reviewed_scope": self.reviewed_scope,
-            "automatic_effects": self.automatic_effects,
-            "remaining_boundaries": self.remaining_boundaries,
-            "limits": self.limits,
-            "fallback_behavior": self.fallback_behavior,
-            "proposal_digest": self.proposal_digest,
-            "compatibility_digest": self.compatibility_digest,
-            "available_decisions": self.available_decisions,
-            "lifecycle_controls": self.lifecycle_controls,
-        }))
+        let mut value =
+            serde_json::to_value(self).expect("owner review contains only serializable fields");
+        value
+            .as_object_mut()
+            .expect("owner review serializes as an object")
+            .remove("binding_digest");
+        digest_of(&value)
     }
 }
