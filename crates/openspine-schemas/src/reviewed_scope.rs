@@ -5,9 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
-use crate::action::{
-    ActionDescriptor, ActionId, ActionImplementationId, DataDestination, ReviewedScopeDimension,
-};
+use crate::action::{ActionId, ActionImplementationId, DataDestination, ReviewedScopeDimension};
 use crate::briefcase::RelationshipTier;
 use crate::digest::{digest_of, Digest};
 use crate::egress::EgressClass;
@@ -81,26 +79,12 @@ pub enum ScopeComparison {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ReviewedScopeError {
-    #[error("descriptor and resolved context name different actions")]
-    ActionMismatch,
-    #[error("descriptor version changed before scope derivation")]
-    DescriptorVersionMismatch,
     #[error("resolved context is missing required scope dimension {dimension:?}")]
     MissingDimension { dimension: ReviewedScopeDimension },
 }
 
 impl ReviewedActionScope {
-    pub fn derive(
-        descriptor: &ActionDescriptor,
-        context: &ResolvedActionContext,
-    ) -> Result<Self, ReviewedScopeError> {
-        if &descriptor.action_id != context.action_id() {
-            return Err(ReviewedScopeError::ActionMismatch);
-        }
-        if descriptor.descriptor_version != context.descriptor_version() {
-            return Err(ReviewedScopeError::DescriptorVersionMismatch);
-        }
-
+    pub fn derive(context: &ResolvedActionContext) -> Result<Self, ReviewedScopeError> {
         let mut dimensions = BTreeMap::new();
         dimensions.insert(
             ReviewedScopeDimension::Action,
@@ -110,7 +94,7 @@ impl ReviewedActionScope {
             ReviewedScopeDimension::Descriptor,
             ReviewedScopeValue::DescriptorVersion(context.descriptor_version()),
         );
-        for dimension in &descriptor.required_scope_dimensions {
+        for dimension in context.required_scope_dimensions() {
             let value =
                 value_for(*dimension, context).ok_or(ReviewedScopeError::MissingDimension {
                     dimension: *dimension,
@@ -118,23 +102,16 @@ impl ReviewedActionScope {
             dimensions.insert(*dimension, value);
         }
 
-        let schema_version = 1;
-        let scope_version = 1;
-        let context_class_digest = calculate_context_class_digest(
-            schema_version,
-            scope_version,
-            context.action_id(),
-            context.descriptor_version(),
-            &dimensions,
-        );
-        Ok(Self {
-            schema_version,
-            scope_version,
+        let mut scope = Self {
+            schema_version: 1,
+            scope_version: 1,
             action_id: context.action_id().clone(),
             descriptor_version: context.descriptor_version(),
             dimensions,
-            context_class_digest,
-        })
+            context_class_digest: digest_of(&serde_json::Value::Null),
+        };
+        scope.context_class_digest = scope.calculate_context_class_digest();
+        Ok(scope)
     }
 
     pub fn compare(&self, context: &ResolvedActionContext) -> ScopeComparison {
@@ -199,31 +176,18 @@ impl ReviewedActionScope {
         {
             return false;
         }
-        self.context_class_digest
-            == calculate_context_class_digest(
-                self.schema_version,
-                self.scope_version,
-                &self.action_id,
-                self.descriptor_version,
-                &self.dimensions,
-            )
+        self.context_class_digest == self.calculate_context_class_digest()
     }
-}
 
-fn calculate_context_class_digest(
-    schema_version: u32,
-    scope_version: u32,
-    action_id: &ActionId,
-    descriptor_version: u32,
-    dimensions: &BTreeMap<ReviewedScopeDimension, ReviewedScopeValue>,
-) -> Digest {
-    digest_of(&serde_json::json!({
-        "schema_version": schema_version,
-        "scope_version": scope_version,
-        "action_id": action_id,
-        "descriptor_version": descriptor_version,
-        "dimensions": dimensions,
-    }))
+    fn calculate_context_class_digest(&self) -> Digest {
+        let mut value = serde_json::to_value(self)
+            .expect("reviewed action scope contains only serializable fields");
+        value
+            .as_object_mut()
+            .expect("reviewed action scope serializes as an object")
+            .remove("context_class_digest");
+        digest_of(&value)
+    }
 }
 
 fn value_for(
