@@ -89,3 +89,8 @@ test('rendered-site QA exercises both explanations', async () => {
 	assert.match(capture, /Business view/);
 	assert.match(capture, /Technical view/);
 });
+
+test('the docs workflow executes the explainer-specific rendered QA', async () => {
+	const workflow = await read('../.github/workflows/site-check.yml');
+	assert.match(workflow, /node scripts\/capture-explainers\.cjs/);
+});
