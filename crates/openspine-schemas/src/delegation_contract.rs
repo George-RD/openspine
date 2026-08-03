@@ -89,6 +89,7 @@ impl DataDestination {
                 | Self::BoundCounterparty
                 | Self::SharedWorkspace
                 | Self::Public
+                | Self::ExternalService
         )
     }
 }
@@ -140,7 +141,7 @@ pub struct BudgetWindowBounds {
 }
 
 impl BudgetWindowBounds {
-    fn contains(self, value: BudgetWindow) -> bool {
+    pub fn contains(self, value: BudgetWindow) -> bool {
         (self.minimum_max..=self.maximum_max).contains(&value.max)
             && (self.minimum_window_secs..=self.maximum_window_secs).contains(&value.window_secs)
     }
@@ -299,6 +300,7 @@ pub fn validate_delegation_contract(
             ReviewedScopeDimension::AccountRole,
             ReviewedScopeDimension::AccountIdentity,
             ReviewedScopeDimension::Target,
+            ReviewedScopeDimension::Counterparty,
             ReviewedScopeDimension::EffectDestination,
             ReviewedScopeDimension::Workflow,
             ReviewedScopeDimension::TaskShape,
