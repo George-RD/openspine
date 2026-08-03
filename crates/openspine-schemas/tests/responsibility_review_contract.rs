@@ -148,7 +148,7 @@ fn resolved() -> ResolvedActionContext {
     resolved_with(context_input())
 }
 
-fn evidence() -> DelegationEvidence {
+fn repeated_evidence(context_class_digest: Digest) -> DelegationEvidence {
     let owner = Ulid::from(7_u128);
     let approvals = [101_u128, 102_u128]
         .into_iter()
@@ -160,7 +160,20 @@ fn evidence() -> DelegationEvidence {
             payload_digest: digest(if id == 101 { '3' } else { '4' }),
         })
         .collect();
-    DelegationEvidence::repeated_approvals(digest('5'), approvals).unwrap()
+    DelegationEvidence::repeated_approvals(context_class_digest, approvals).unwrap()
+}
+
+fn evidence_for(scope: &ReviewedActionScope) -> DelegationEvidence {
+    repeated_evidence(scope.context_class_digest().clone())
+}
+
+fn explicit_owner_request_evidence() -> DelegationEvidence {
+    DelegationEvidence::ExplicitOwnerRequest {
+        schema_version: 1,
+        decision_event_id: Ulid::from(103_u128),
+        owner_principal_id: Ulid::from(7_u128),
+        request_digest: digest('8'),
+    }
 }
 
 fn limits() -> ReviewLimits {
@@ -187,7 +200,6 @@ fn review_input(
         review_version: 1,
         proposal_kind: ProposalKind::Responsibility,
         evidence,
-        provenance_summary: "Two matching owner approvals for this reviewed context".into(),
         title: "Prepare replies for this client".into(),
         description: "Create drafts in the reviewed mailbox and relationship scope.".into(),
         reviewed_scope,
@@ -219,6 +231,11 @@ fn review_input(
 
 fn manifest(status: ResponsibilityStatus) -> ResponsibilityManifest {
     let context = resolved();
+    let reviewed_scope = ReviewedActionScope::derive(&context).unwrap();
+    let provenance_digest = evidence_for(&reviewed_scope)
+        .evidence_set_digest()
+        .unwrap()
+        .clone();
     ResponsibilityManifest {
         id: "client_reply_drafts".into(),
         schema_version: 1,
@@ -226,7 +243,7 @@ fn manifest(status: ResponsibilityStatus) -> ResponsibilityManifest {
         status,
         workflow_id: "reply_workflow".into(),
         standing_rule_id: "client_reply_draft_rule".into(),
-        reviewed_scope: ReviewedActionScope::derive(&context).unwrap(),
+        reviewed_scope,
         limits: limits(),
         compatibility: ResponsibilityCompatibilityBinding {
             schema_version: 1,
@@ -242,7 +259,7 @@ fn manifest(status: ResponsibilityStatus) -> ResponsibilityManifest {
             ResponsibilityLifecycleControl::Expire,
             ResponsibilityLifecycleControl::Revoke,
         ]),
-        provenance_digest: evidence().evidence_set_digest().unwrap().clone(),
+        provenance_digest,
     }
 }
 
@@ -311,14 +328,14 @@ fn repeated_approval_evidence_rejects_weak_or_recursive_sets() {
         })
     );
 
-    let valid = evidence();
+    let valid = repeated_evidence(digest('5'));
     assert!(valid.integrity_is_valid());
     let mut tampered = serde_json::to_value(&valid).unwrap();
     tampered["approval_count"] = serde_json::json!(3);
     let tampered: DelegationEvidence = serde_json::from_value(tampered).unwrap();
     assert!(!tampered.integrity_is_valid());
     assert_eq!(
-        ProposalProvenance::try_from_evidence(&tampered, "Observed pattern".into()),
+        ProposalProvenance::try_from_evidence(&tampered),
         Err(ProposalProvenanceError::InvalidEvidence)
     );
 
@@ -330,24 +347,58 @@ fn repeated_approval_evidence_rejects_weak_or_recursive_sets() {
 }
 
 #[test]
+fn repeated_approval_evidence_must_match_the_reviewed_scope() {
+    let scope = ReviewedActionScope::derive(&resolved()).unwrap();
+    let mismatched_evidence = repeated_evidence(digest('5'));
+    assert_ne!(
+        mismatched_evidence.context_class_digest(),
+        Some(scope.context_class_digest())
+    );
+    assert_eq!(
+        OwnerReviewRequest::try_new(review_input(scope, mismatched_evidence), &policy()),
+        Err(OwnerReviewRequestError::EvidenceScopeMismatch)
+    );
+}
+
+#[test]
+fn provenance_copy_is_derived_from_the_evidence_kind() {
+    let repeated_scope = ReviewedActionScope::derive(&resolved()).unwrap();
+    let repeated = OwnerReviewRequest::try_new(
+        review_input(repeated_scope.clone(), evidence_for(&repeated_scope)),
+        &policy(),
+    )
+    .unwrap();
+    assert_eq!(repeated.provenance.summary, "2 matching owner approvals");
+
+    let explicit_scope = ReviewedActionScope::derive(&resolved()).unwrap();
+    let explicit = OwnerReviewRequest::try_new(
+        review_input(explicit_scope, explicit_owner_request_evidence()),
+        &policy(),
+    )
+    .unwrap();
+    assert_eq!(explicit.provenance.summary, "Explicit owner request");
+    assert!(!explicit.provenance.summary.to_lowercase().contains("pattern"));
+}
+
+#[test]
 fn owner_review_rejects_limits_outside_catalog_policy() {
     let scope = ReviewedActionScope::derive(&resolved()).unwrap();
 
-    let mut quota = review_input(scope.clone(), evidence());
+    let mut quota = review_input(scope.clone(), evidence_for(&scope));
     quota.limits.quota.max = policy().quota.maximum_max + 1;
     assert_eq!(
         OwnerReviewRequest::try_new(quota, &policy()),
         Err(OwnerReviewRequestError::LimitsOutOfBounds)
     );
 
-    let mut rate = review_input(scope.clone(), evidence());
+    let mut rate = review_input(scope.clone(), evidence_for(&scope));
     rate.limits.rate.window_secs = policy().rate.maximum_window_secs + 1;
     assert_eq!(
         OwnerReviewRequest::try_new(rate, &policy()),
         Err(OwnerReviewRequestError::LimitsOutOfBounds)
     );
 
-    let mut expiry = review_input(scope, evidence());
+    let mut expiry = review_input(scope.clone(), evidence_for(&scope));
     expiry.limits.expires_after_secs = policy().maximum_lapse_secs + 1;
     assert_eq!(
         OwnerReviewRequest::try_new(expiry, &policy()),
@@ -359,7 +410,7 @@ fn owner_review_rejects_limits_outside_catalog_policy() {
 fn owner_review_requires_reject_revoke_and_a_valid_scope() {
     let scope = ReviewedActionScope::derive(&resolved()).unwrap();
 
-    let mut missing_reject = review_input(scope.clone(), evidence());
+    let mut missing_reject = review_input(scope.clone(), evidence_for(&scope));
     missing_reject
         .available_decisions
         .remove(&OwnerReviewDecision::Reject);
@@ -368,7 +419,7 @@ fn owner_review_requires_reject_revoke_and_a_valid_scope() {
         Err(OwnerReviewRequestError::MissingRequiredDecisions)
     );
 
-    let mut missing_revoke = review_input(scope.clone(), evidence());
+    let mut missing_revoke = review_input(scope.clone(), evidence_for(&scope));
     missing_revoke
         .lifecycle_controls
         .remove(&ResponsibilityLifecycleControl::Revoke);
@@ -377,11 +428,14 @@ fn owner_review_requires_reject_revoke_and_a_valid_scope() {
         Err(OwnerReviewRequestError::MissingRequiredControls)
     );
 
-    let mut tampered_scope = serde_json::to_value(scope).unwrap();
+    let mut tampered_scope = serde_json::to_value(scope.clone()).unwrap();
     tampered_scope["context_class_digest"] = serde_json::json!(digest('0'));
     let tampered_scope: ReviewedActionScope = serde_json::from_value(tampered_scope).unwrap();
     assert_eq!(
-        OwnerReviewRequest::try_new(review_input(tampered_scope, evidence()), &policy()),
+        OwnerReviewRequest::try_new(
+            review_input(tampered_scope, evidence_for(&scope)),
+            &policy(),
+        ),
         Err(OwnerReviewRequestError::InvalidReviewedScope)
     );
 }
@@ -389,7 +443,11 @@ fn owner_review_requires_reject_revoke_and_a_valid_scope() {
 #[test]
 fn owner_review_is_digest_bound_serializable_and_channel_neutral() {
     let scope = ReviewedActionScope::derive(&resolved()).unwrap();
-    let review = OwnerReviewRequest::try_new(review_input(scope, evidence()), &policy()).unwrap();
+    let review = OwnerReviewRequest::try_new(
+        review_input(scope.clone(), evidence_for(&scope)),
+        &policy(),
+    )
+    .unwrap();
 
     let json = serde_json::to_string(&review).unwrap();
     assert!(!json.contains("telegram"));
@@ -453,7 +511,7 @@ fn responsibility_is_a_reference_view_and_drift_requires_review() {
         assert_eq!(
             manifest(status).assess(Some(&context), 4, 3),
             ResponsibilityAssessment::NeedsReview {
-                reasons: BTreeSet::from([ResponsibilityDriftReason::ResponsibilityNotActive,]),
+                reasons: BTreeSet::from([ResponsibilityDriftReason::ResponsibilityNotActive]),
             },
             "{status:?} must never assess as compatible"
         );
