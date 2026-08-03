@@ -186,11 +186,9 @@ impl OwnerReviewRequest {
         if !input.reviewed_scope.binding_is_valid() {
             return Err(OwnerReviewRequestError::InvalidReviewedScope);
         }
-        let provenance = ProposalProvenance::try_from_evidence(
-            &input.evidence,
-            input.provenance_summary,
-        )
-        .map_err(|_| OwnerReviewRequestError::InvalidEvidence)?;
+        let provenance =
+            ProposalProvenance::try_from_evidence(&input.evidence, input.provenance_summary)
+                .map_err(|_| OwnerReviewRequestError::InvalidEvidence)?;
         if input.limits.quota.max == 0
             || input.limits.quota.window_secs <= 0
             || input.limits.rate.max == 0
