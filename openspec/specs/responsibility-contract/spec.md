@@ -49,6 +49,18 @@ Repeated approvals, explicit owner requests, correction/workflow proposals, and 
 - **THEN** construction MUST fail
 - **AND** the proposal MUST NOT claim an observed pattern
 
+#### Scenario: Repeated approvals belong to a different context class
+
+- **WHEN** repeated-approval evidence carries a context-class digest different from the reviewed scope
+- **THEN** owner-review construction MUST fail with a scope-mismatch outcome
+- **AND** those approvals MUST NOT support the proposed responsibility
+
+#### Scenario: Non-pattern evidence is rendered
+
+- **WHEN** provenance is constructed from an explicit owner request, correction/workflow proposal, or manually supplied artifact
+- **THEN** owner-facing provenance copy MUST be derived from the structured evidence kind
+- **AND** it MUST NOT claim that an observed pattern exists
+
 ### Requirement: Owner review MUST be channel-neutral and digest-bound
 
 One semantic owner-review object MUST carry provenance, exact reviewed scope, automatic effects, remaining boundaries, limits, fallback behavior, proposal/compatibility digests, decisions, and lifecycle controls. Transport adapters MUST render and submit against that object rather than inventing channel-specific semantics.
