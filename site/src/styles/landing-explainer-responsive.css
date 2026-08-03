@@ -1,0 +1,166 @@
+@media (max-width: 1180px) {
+	.explainer-switch {
+		grid-template-columns: 1fr;
+	}
+
+	.explainer-switch-copy {
+		display: none;
+	}
+
+	.access-contrast {
+		grid-template-columns: minmax(0, 0.82fr) 2.6rem minmax(0, 1.18fr);
+	}
+
+	.contrast-arrow span {
+		display: none;
+	}
+}
+
+@media (max-width: 720px) {
+	.explainer-switch {
+		padding: 0.4rem;
+		box-shadow: 4px 5px 0 rgba(11, 28, 36, 0.12);
+	}
+
+	.explainer-tab {
+		padding: 0.56rem 0.5rem;
+	}
+
+	.explainer-tab span {
+		font-size: 0.9rem;
+	}
+
+	.business-explainer {
+		clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 0 100%);
+	}
+
+	.business-bar-label {
+		max-width: 13rem;
+		line-height: 1.25;
+	}
+
+	.access-contrast {
+		grid-template-columns: 1fr;
+		gap: 0.65rem;
+	}
+
+	.contrast-arrow {
+		height: 2rem;
+		transform: rotate(90deg);
+	}
+
+	.keyring-scene {
+		min-height: 8.6rem;
+	}
+
+	.business-run-rail {
+		display: none;
+	}
+
+	.business-run ol {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.8rem 0.5rem;
+	}
+
+	.responsibility-proposal,
+	.technical-boundary {
+		grid-template-columns: 1fr;
+	}
+
+	.proposal-controls {
+		justify-content: flex-start;
+	}
+
+	.technical-explainer {
+		clip-path: polygon(0 0, calc(100% - 1.5rem) 0, 100% 1.5rem, 100% 100%, 0 100%);
+	}
+
+	.boundary-channel {
+		height: 2.2rem;
+		transform: rotate(90deg);
+	}
+
+	.boundary-channel span {
+		display: none;
+	}
+
+	.technical-result {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.technical-result > div:last-child {
+		text-align: left;
+	}
+
+	.explainer-alpha-truth {
+		font-size: 0.66rem;
+	}
+}
+
+@media (max-width: 480px) {
+	.explainer-tab small {
+		display: none;
+	}
+
+	.business-bar,
+	.technical-bar {
+		font-size: 0.54rem;
+	}
+
+	.business-bar-label .status-light,
+	.technical-bar-label .status-light {
+		display: none;
+	}
+
+	.business-replay,
+	.technical-replay {
+		padding: 0.28rem 0.4rem;
+	}
+
+	.pass-rule {
+		grid-template-columns: 4.6rem minmax(0, 1fr);
+	}
+
+	.business-run ol {
+		grid-template-columns: 1fr;
+	}
+
+	.business-run li {
+		grid-template-columns: 1.6rem minmax(0, 1fr);
+		justify-items: start;
+		gap: 0.08rem 0.5rem;
+		text-align: left;
+	}
+
+	.story-number {
+		grid-row: 1 / span 2;
+		margin: 0;
+	}
+
+	.business-run small {
+		max-width: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.business-explainer.is-running .risk-signal,
+	.business-explainer.is-running .contrast-arrow svg,
+	.business-explainer.is-running .job-pass,
+	.business-explainer.is-running .business-run-rail span,
+	.business-explainer.is-running .business-run li,
+	.business-explainer.is-running .responsibility-proposal,
+	.technical-explainer.is-running .action-request,
+	.technical-explainer.is-running .request-packet,
+	.technical-explainer.is-running .gate-checks,
+	.technical-explainer.is-running .gate-decision,
+	.technical-explainer.is-running .runtime-vault,
+	.technical-explainer.is-running .decision-packet,
+	.technical-explainer.is-running .technical-result {
+		animation: none;
+	}
+
+	.business-run-rail span {
+		width: 100%;
+	}
+}
