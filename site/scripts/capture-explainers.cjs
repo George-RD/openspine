@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
 
 const siteUrl = process.env.SITE_URL || 'http://127.0.0.1:4321/openspine/';
 const outputDir = path.resolve(process.cwd(), 'visual-artifacts');
+const componentScreenshotStyle = '.skip-link { display: none !important; }';
 
 async function inspectExplainer(page) {
 	return page.locator('[data-audience-explainer]').evaluate((element) => {
@@ -62,7 +63,10 @@ async function captureDesktop(browser) {
 	}
 	if (!business.businessRunning) issues.push('Business animation did not start');
 	if (business.scrollWidth > business.clientWidth + 1) issues.push('Business explainer overflows horizontally');
-	await explainer.screenshot({ path: path.join(outputDir, 'landing-desktop-business.png') });
+	await explainer.screenshot({
+		path: path.join(outputDir, 'landing-desktop-business.png'),
+		style: componentScreenshotStyle,
+	});
 
 	const businessTab = page.locator('[data-explainer-tab="business"]');
 	const technicalTab = page.locator('[data-explainer-tab="technical"]');
@@ -83,7 +87,10 @@ async function captureDesktop(browser) {
 	}
 	if (!technical.technicalRunning) issues.push('Technical animation did not start');
 	if (technical.scrollWidth > technical.clientWidth + 1) issues.push('Technical explainer overflows horizontally');
-	await explainer.screenshot({ path: path.join(outputDir, 'landing-desktop-technical.png') });
+	await explainer.screenshot({
+		path: path.join(outputDir, 'landing-desktop-technical.png'),
+		style: componentScreenshotStyle,
+	});
 
 	await context.close();
 	return { business, technical, issues };
@@ -101,7 +108,10 @@ async function captureMobileReduced(browser) {
 	if (business.selectedView !== 'business') issues.push('Reduced-motion mobile did not open on Business view');
 	if (business.businessRunning) issues.push('Reduced-motion business animation should remain static');
 	if (business.scrollWidth > business.clientWidth + 1) issues.push('Reduced-motion mobile business view overflows horizontally');
-	await explainer.screenshot({ path: path.join(outputDir, 'landing-mobile-business-reduced-motion.png') });
+	await explainer.screenshot({
+		path: path.join(outputDir, 'landing-mobile-business-reduced-motion.png'),
+		style: componentScreenshotStyle,
+	});
 
 	await page.locator('[data-explainer-tab="technical"]').click();
 	await page.waitForSelector('[data-explainer-panel="technical"]', { state: 'visible' });
@@ -111,7 +121,10 @@ async function captureMobileReduced(browser) {
 	if (!technical.selectedText.includes('Technical view')) issues.push('Reduced-motion technical tab label is missing');
 	if (technical.technicalRunning) issues.push('Reduced-motion technical animation should remain static');
 	if (technical.scrollWidth > technical.clientWidth + 1) issues.push('Reduced-motion mobile technical view overflows horizontally');
-	await explainer.screenshot({ path: path.join(outputDir, 'landing-mobile-technical-reduced-motion.png') });
+	await explainer.screenshot({
+		path: path.join(outputDir, 'landing-mobile-technical-reduced-motion.png'),
+		style: componentScreenshotStyle,
+	});
 
 	await context.close();
 	return { business, technical, issues };
