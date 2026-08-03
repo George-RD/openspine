@@ -55,6 +55,7 @@ pub struct ResponsibilityManifest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResponsibilityDriftReason {
+    ResponsibilityNotActive,
     ResolvedContextUnavailable,
     ScopeChanged,
     DescriptorVersionChanged,
@@ -82,6 +83,11 @@ impl ResponsibilityManifest {
         current_policy_version: u32,
         current_workflow_version: u32,
     ) -> ResponsibilityAssessment {
+        if !matches!(self.status, ResponsibilityStatus::Active) {
+            return ResponsibilityAssessment::NeedsReview {
+                reasons: BTreeSet::from([ResponsibilityDriftReason::ResponsibilityNotActive]),
+            };
+        }
         let Some(context) = live_context else {
             return ResponsibilityAssessment::NeedsReview {
                 reasons: BTreeSet::from([ResponsibilityDriftReason::ResolvedContextUnavailable]),
