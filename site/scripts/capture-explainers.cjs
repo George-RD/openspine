@@ -95,13 +95,26 @@ async function captureMobileReduced(browser) {
 		reducedMotion: 'reduce',
 	});
 	const explainer = page.locator('[data-audience-explainer]');
-	const business = await inspectExplainer(page);
 	const issues = errors;
+
+	const business = await inspectExplainer(page);
 	if (business.selectedView !== 'business') issues.push('Reduced-motion mobile did not open on Business view');
-	if (business.scrollWidth > business.clientWidth + 1) issues.push('Reduced-motion mobile explainer overflows horizontally');
+	if (business.businessRunning) issues.push('Reduced-motion business animation should remain static');
+	if (business.scrollWidth > business.clientWidth + 1) issues.push('Reduced-motion mobile business view overflows horizontally');
 	await explainer.screenshot({ path: path.join(outputDir, 'landing-mobile-business-reduced-motion.png') });
+
+	await page.locator('[data-explainer-tab="technical"]').click();
+	await page.waitForSelector('[data-explainer-panel="technical"]', { state: 'visible' });
+	await page.waitForTimeout(120);
+	const technical = await inspectExplainer(page);
+	if (technical.selectedView !== 'technical') issues.push('Reduced-motion mobile did not switch to Technical view');
+	if (!technical.selectedText.includes('Technical view')) issues.push('Reduced-motion technical tab label is missing');
+	if (technical.technicalRunning) issues.push('Reduced-motion technical animation should remain static');
+	if (technical.scrollWidth > technical.clientWidth + 1) issues.push('Reduced-motion mobile technical view overflows horizontally');
+	await explainer.screenshot({ path: path.join(outputDir, 'landing-mobile-technical-reduced-motion.png') });
+
 	await context.close();
-	return { business, issues };
+	return { business, technical, issues };
 }
 
 async function main() {
