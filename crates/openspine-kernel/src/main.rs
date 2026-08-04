@@ -13,6 +13,7 @@ mod connectors;
 mod counterparty_erasure;
 mod counterparty_keys;
 pub(crate) mod disclosure;
+mod env_file;
 mod escalation;
 mod failure_surfacing;
 mod gmail;
@@ -157,7 +158,11 @@ pub(crate) struct Cli {
 #[derive(Debug, Subcommand)]
 pub(crate) enum Commands {
     /// Interactive onboarding setup wizard
-    Setup,
+    Setup {
+        /// Print the readiness report and exit non-zero when anything blocks.
+        #[arg(long)]
+        check: bool,
+    },
     /// Open a direct local terminal conversation with Lyra
     Chat {
         /// Send one message, print the reply, and exit (for smoke tests/scripts)
@@ -181,11 +186,28 @@ pub(crate) enum ProviderCommands {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> std::process::ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
     let cli = Cli::parse();
+    let config_path = cli.config.clone();
+    // Key material is read from the process environment, so the owner-only file
+    // beside the configuration has to be exported before anything reads it.
+    if let Err(error) = env_file::load_adjacent(&config_path) {
+        eprintln!("openspine failed to start: {error}");
+        return std::process::ExitCode::FAILURE;
+    }
+    match run(cli).await {
+        Ok(code) => code,
+        Err(error) => {
+            cli::remedy::report_failure(&error, &config_path);
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     let terminal_chat_request = match &cli.command {
         Some(Commands::Chat { once }) => Some(once.clone()),
         _ => None,
@@ -198,22 +220,22 @@ async fn main() -> anyhow::Result<()> {
     let boot_started_at = jiff::Timestamp::now();
     if cli.benchmark {
         benchmark::run_benchmarks()?;
-        return Ok(());
+        return Ok(std::process::ExitCode::SUCCESS);
     }
-    if let Some(Commands::Setup) = &cli.command {
-        println!("======================================================");
-        println!("  Welcome to OpenSpine - Governed AI Personal Assistant");
-        println!("======================================================");
-        println!("Setup wizard initialized for {}", cli.config.display());
-        return Ok(());
+    if let Some(Commands::Setup { check }) = &cli.command {
+        let ready = cli::wizard::run_setup(&cli.config, *check).await?;
+        return Ok(if ready {
+            std::process::ExitCode::SUCCESS
+        } else {
+            std::process::ExitCode::FAILURE
+        });
     }
     if let Some(Commands::Provider {
         command: ProviderCommands::Login { provider },
     }) = &cli.command
     {
-        let pid = provider.as_deref().unwrap_or("google-antigravity");
-        println!("Initiating OAuth login for {pid}...");
-        return Ok(());
+        cli::login::run_provider_login(&cli.config, provider.as_deref()).await?;
+        return Ok(std::process::ExitCode::SUCCESS);
     }
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
@@ -543,7 +565,35 @@ async fn main() -> anyhow::Result<()> {
     if let Some(once) = terminal_chat_request {
         let receiver = terminal_reply_rx
             .ok_or_else(|| anyhow::anyhow!("terminal reply channel was not initialized"))?;
-        return run_terminal_chat(state, listener, receiver, once).await;
+        // Assessed with the vault this process already holds open, so the
+        // report reflects real credential state without a second data-root lock.
+        let mut readiness = cli::readiness::assess(
+            &cli.config,
+            &cli::readiness::process_env,
+            Some(secrets.as_ref()),
+        );
+        let onboarding_complete = cli::onboarding::is_complete(&cfg.data_dir);
+        // Every static check passes on a host with a generated API key and no
+        // model server, so recording completion on those alone would silence
+        // the guidance while every turn fails. The probe costs one small model
+        // call and runs only while onboarding is unrecorded, which is the only
+        // moment its answer changes what happens next.
+        if once.is_none() && !onboarding_complete && readiness.is_ready() {
+            readiness
+                .checks
+                .push(cli::setup::verify_default_provider(&cfg, Some(secrets.as_ref())).await);
+        }
+        run_terminal_chat(
+            state,
+            listener,
+            receiver,
+            once,
+            readiness,
+            onboarding_complete,
+            &cfg.data_dir,
+        )
+        .await?;
+        return Ok(std::process::ExitCode::SUCCESS);
     }
 
     for (request_id, summary) in &pending_reconfirm_buttons {
@@ -746,7 +796,7 @@ async fn main() -> anyhow::Result<()> {
             unreachable!("standing-rule dark-window consumer loops forever")
         }
     }
-    Ok(())
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 /// Append digest-safe requested + completed/rolled-back audit for a finalized
@@ -906,6 +956,9 @@ async fn run_terminal_chat(
     listener: tokio::net::TcpListener,
     mut receiver: tokio::sync::mpsc::UnboundedReceiver<String>,
     once: Option<String>,
+    readiness: cli::readiness::Readiness,
+    onboarding_complete: bool,
+    data_dir: &Path,
 ) -> anyhow::Result<()> {
     let server_state = state.clone();
     let http_server = tokio::spawn(async move {
@@ -915,13 +968,26 @@ async fn run_terminal_chat(
     });
 
     let result = if let Some(message) = once {
+        // One-shot output stays exactly the reply: scripts and smoke tests parse
+        // it, so no notice may reach stdout on this path.
         let reply = run_terminal_turn(&state, &mut receiver, message).await?;
         println!("{reply}");
         Ok(())
     } else {
         use std::io::Write as _;
 
-        eprintln!("OpenSpine direct terminal chat. Type /exit or press Ctrl-D to leave.");
+        let first_start = cli::onboarding::first_start(&readiness, onboarding_complete);
+        if let Some(notice) = &first_start.notice {
+            eprintln!();
+            eprint!("{notice}");
+        }
+        if first_start.record_completion {
+            if let Err(error) = cli::onboarding::record_complete(data_dir, None) {
+                tracing::warn!(%error, "could not record onboarding completion");
+            }
+        }
+
+        eprintln!("OpenSpine direct terminal chat. Type /help for commands, /exit to leave.");
         let stdin = std::io::stdin();
         loop {
             print!("you> ");
@@ -937,8 +1003,19 @@ async fn run_terminal_chat(
                 break;
             }
             let line = line.trim_end_matches(['\r', '\n']).to_string();
-            if matches!(line.trim(), "/exit" | "/quit") {
-                break;
+            // Local commands are answered here: they mint no event and consume
+            // no task grant.
+            match line.trim() {
+                "/exit" | "/quit" => break,
+                "/help" => {
+                    print!("{}", cli::onboarding::help_text());
+                    continue;
+                }
+                "/status" => {
+                    print!("{}", readiness.render());
+                    continue;
+                }
+                _ => {}
             }
             match run_terminal_turn(&state, &mut receiver, line).await {
                 Ok(reply) => println!("lyra> {reply}"),

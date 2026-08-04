@@ -1,172 +1,164 @@
-//! Interactive Onboarding & Provider Login CLI Wizard.
+//! Model provider OAuth login, verification, and role binding.
+//!
+//! The authorization step is split into [`begin`] and [`finish`] so the caller
+//! owns the interaction. That ordering matters: the loopback listener has to be
+//! bound before the owner opens the authorization URL, and a headless owner
+//! needs the URL printed rather than handed to a browser that does not exist.
 
+use crate::cli::readiness::Check;
 use crate::config::{Config, ProviderAuth, ProviderConfig, ProviderKind};
 use crate::model_gateway::{
     build_prompt, PromptMessage, PromptRole, PromptTemplate, ProviderClient,
 };
-use crate::oauth::callback_server::CallbackServer;
 use crate::oauth::pkce::PkceChallenge;
-use crate::secret_store::SecretStore;
+use crate::oauth::providers::{anthropic, google_antigravity, openai_codex, TokenResponse};
+use crate::secret_store::{OAuthIdentityMetadata, SecretStore};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::workflow::ReasoningTier;
 use std::path::Path;
 
-#[allow(dead_code)]
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct SetupResult {
+/// The providers this build can log in to.
+pub const OAUTH_PROVIDER_IDS: [&str; 3] = ["anthropic", "openai-codex", "google-antigravity"];
+
+/// An authorization in progress: the URL to visit and the PKCE material the
+/// token exchange has to echo back.
+#[derive(Debug)]
+pub struct Authorization {
     pub provider_id: String,
-    pub verified: bool,
-    pub roles_bound: Vec<String>,
+    pub url: String,
+    pub port: u16,
+    pkce: PkceChallenge,
 }
 
-#[allow(dead_code)]
-pub async fn run_provider_login(
-    provider_id: &str,
-    secret_store: &SecretStore,
-    client: &reqwest::Client,
-    manual_code_override: Option<&str>,
-    token_url_override: Option<&str>,
-) -> Result<String, anyhow::Error> {
-    let pkce = PkceChallenge::new();
-
-    match provider_id {
-        "google-antigravity" => {
-            let (code, port) = if let Some(code) = manual_code_override {
-                (code.to_string(), 51121)
-            } else {
-                let cb = CallbackServer::bind(51121).await?;
-                let port = cb.port();
-                let _url = crate::oauth::providers::google_antigravity::build_authorization_url(
-                    port, &pkce,
-                );
-                let code = cb.wait_for_code(&pkce.state).await?;
-                (code, port)
-            };
-
-            let token_res = crate::oauth::providers::google_antigravity::exchange_code(
-                client,
-                port,
-                &code,
-                &pkce.code_verifier,
-                token_url_override,
-            )
-            .await?;
-
-            let expires_in = token_res.expires_in.max(300);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let expires_at = (now_sec + expires_in).to_string();
-
-            let meta = crate::secret_store::OAuthIdentityMetadata {
-                account_email: token_res.account_email,
-                account_id: token_res.account_id,
-                identity_key: None,
-            };
-
-            let refresh_tok = token_res
-                .refresh_token
-                .unwrap_or_else(|| "mock-refresh-token".to_string());
-
-            secret_store.store_oauth_tokens(
-                provider_id,
-                &refresh_tok,
-                &token_res.access_token,
-                &expires_at,
-                Some(meta),
-            )?;
-
-            Ok(token_res.access_token)
-        }
-        "openai-codex" => {
-            let (code, port) = if let Some(code) = manual_code_override {
-                (code.to_string(), 1455)
-            } else {
-                let cb = CallbackServer::bind(1455).await?;
-                let port = cb.port();
-                let _url =
-                    crate::oauth::providers::openai_codex::build_authorization_url(port, &pkce);
-                let code = cb.wait_for_code(&pkce.state).await?;
-                (code, port)
-            };
-
-            let token_res = crate::oauth::providers::openai_codex::exchange_code(
-                client,
-                port,
-                &code,
-                &pkce.code_verifier,
-                token_url_override,
-            )
-            .await?;
-
-            let expires_in = token_res.expires_in.max(300);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let expires_at = (now_sec + expires_in).to_string();
-
-            let refresh_tok = token_res
-                .refresh_token
-                .unwrap_or_else(|| "mock-refresh-token".to_string());
-
-            secret_store.store_oauth_tokens(
-                provider_id,
-                &refresh_tok,
-                &token_res.access_token,
-                &expires_at,
-                None,
-            )?;
-
-            Ok(token_res.access_token)
-        }
-        "anthropic" => {
-            let (code, port) = if let Some(code) = manual_code_override {
-                (code.to_string(), 54545)
-            } else {
-                let cb = CallbackServer::bind(54545).await?;
-                let port = cb.port();
-                let _url = crate::oauth::providers::anthropic::build_authorization_url(port, &pkce);
-                let code = cb.wait_for_code(&pkce.state).await?;
-                (code, port)
-            };
-
-            let token_res = crate::oauth::providers::anthropic::exchange_code(
-                client,
-                port,
-                &code,
-                &pkce.code_verifier,
-                token_url_override,
-            )
-            .await?;
-
-            let expires_in = token_res.expires_in.max(300);
-            let now_sec = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let expires_at = (now_sec + expires_in).to_string();
-
-            let refresh_tok = token_res
-                .refresh_token
-                .unwrap_or_else(|| "mock-refresh-token".to_string());
-
-            secret_store.store_oauth_tokens(
-                provider_id,
-                &refresh_tok,
-                &token_res.access_token,
-                &expires_at,
-                None,
-            )?;
-
-            Ok(token_res.access_token)
-        }
-        _ => anyhow::bail!("Unsupported provider for OAuth login: {provider_id}"),
+impl Authorization {
+    /// The `state` value the loopback callback must return.
+    pub fn state(&self) -> &str {
+        &self.pkce.state
     }
 }
 
-#[allow(dead_code)]
+/// What a completed login stored, for reporting. Deliberately carries no token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredCredential {
+    pub provider_id: String,
+    pub account_email: Option<String>,
+}
+
+/// The loopback port a provider's registered redirect URI expects.
+pub fn default_port(provider_id: &str) -> Result<u16, anyhow::Error> {
+    match provider_id {
+        "google-antigravity" => Ok(google_antigravity::spec().default_port),
+        "openai-codex" => Ok(openai_codex::spec().default_port),
+        "anthropic" => Ok(anthropic::spec().default_port),
+        other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
+    }
+}
+
+/// Build the authorization URL for `provider_id`, redirecting to
+/// `127.0.0.1:{redirect_port}/callback`.
+pub fn begin(provider_id: &str, redirect_port: u16) -> Result<Authorization, anyhow::Error> {
+    let pkce = PkceChallenge::new();
+    let url = match provider_id {
+        "google-antigravity" => google_antigravity::build_authorization_url(redirect_port, &pkce),
+        "openai-codex" => openai_codex::build_authorization_url(redirect_port, &pkce),
+        "anthropic" => anthropic::build_authorization_url(redirect_port, &pkce),
+        other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
+    };
+    Ok(Authorization {
+        provider_id: provider_id.to_string(),
+        url,
+        port: redirect_port,
+        pkce,
+    })
+}
+
+/// Exchange `code` for tokens and store them encrypted in the vault.
+pub async fn finish(
+    auth: &Authorization,
+    code: &str,
+    secret_store: &SecretStore,
+    client: &reqwest::Client,
+    token_url_override: Option<&str>,
+) -> Result<StoredCredential, anyhow::Error> {
+    let verifier = &auth.pkce.code_verifier;
+    let tokens = match auth.provider_id.as_str() {
+        "google-antigravity" => {
+            google_antigravity::exchange_code(client, auth.port, code, verifier, token_url_override)
+                .await?
+        }
+        "openai-codex" => {
+            openai_codex::exchange_code(client, auth.port, code, verifier, token_url_override)
+                .await?
+        }
+        "anthropic" => {
+            anthropic::exchange_code(client, auth.port, code, verifier, token_url_override).await?
+        }
+        other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
+    };
+    store_tokens(&auth.provider_id, tokens, secret_store)
+}
+
+fn store_tokens(
+    provider_id: &str,
+    tokens: TokenResponse,
+    secret_store: &SecretStore,
+) -> Result<StoredCredential, anyhow::Error> {
+    // Never fabricate a refresh token: a placeholder stores a credential that
+    // looks fine now and dies at the first renewal, with the background
+    // refresher disabling it under a confusing `invalid_grant`.
+    //
+    // Providers commonly issue a refresh token only on the first authorization,
+    // so a re-login that omits one keeps the real token already in the vault.
+    // Only a provider that has never issued one is a failure, and the owner is
+    // still at the terminal to act on it.
+    let reissued = tokens
+        .refresh_token
+        .clone()
+        .filter(|token| !token.is_empty());
+    let refresh_token = match reissued {
+        Some(token) => token,
+        None => secret_store
+            .get_oauth_tokens(provider_id)?
+            .map(|stored| stored.refresh_token)
+            .filter(|token| !token.is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "{provider_id} returned no refresh token and none is stored, so OpenSpine \
+                     could not renew this credential once it expires. Re-run the login and \
+                     grant offline access."
+                )
+            })?,
+    };
+
+    let expires_in = tokens.expires_in.max(300);
+    let now_sec = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let expires_at = (now_sec + expires_in).to_string();
+
+    let metadata = OAuthIdentityMetadata {
+        account_email: tokens.account_email.clone(),
+        account_id: tokens.account_id.clone(),
+        identity_key: None,
+    };
+
+    secret_store.store_oauth_tokens(
+        provider_id,
+        &refresh_token,
+        &tokens.access_token,
+        &expires_at,
+        Some(metadata),
+    )?;
+
+    Ok(StoredCredential {
+        provider_id: provider_id.to_string(),
+        account_email: tokens.account_email,
+    })
+}
+
+/// A lightweight generate through the model gateway, used to prove a provider
+/// actually answers before its credential is bound to model roles.
 pub async fn run_preflight_verification_ping(
     provider_client: &ProviderClient,
     secret_store: &SecretStore,
@@ -198,117 +190,135 @@ pub async fn run_preflight_verification_ping(
     Ok(!res.is_empty())
 }
 
-#[allow(dead_code)]
+/// Bind `selected_provider_id` to OAuth mode in `openspine.yaml` and make it
+/// the provider the kernel routes to.
+///
+/// The promotion is the point. `select_default_provider_id` takes the first
+/// configured provider, so appending a freshly authorized provider would leave
+/// the previous one serving every turn: the owner completes a login and nothing
+/// observable changes.
 pub fn update_openspine_yaml_roles(
     config_path: &Path,
     selected_provider_id: &str,
     provider_kind: ProviderKind,
+    model: &str,
 ) -> Result<(), anyhow::Error> {
     let content = std::fs::read_to_string(config_path)?;
     let mut config: Config = serde_yaml::from_str(&content)?;
 
-    let mut found = false;
-    for p in &mut config.providers {
-        if p.id == selected_provider_id {
-            p.auth = ProviderAuth::Oauth;
-            found = true;
-            break;
-        }
-    }
-
-    if !found {
-        config.providers.push(ProviderConfig {
+    let position = config
+        .providers
+        .iter()
+        .position(|provider| provider.id == selected_provider_id);
+    let mut selected = match position {
+        Some(index) => config.providers.remove(index),
+        None => ProviderConfig {
             id: selected_provider_id.to_string(),
             kind: provider_kind,
             base_url: None,
-            model: "gemini-2.5-flash".to_string(),
+            model: model.to_string(),
             auth: ProviderAuth::Oauth,
-        });
-    }
+        },
+    };
+    selected.auth = ProviderAuth::Oauth;
+    config.providers.insert(0, selected);
 
     let updated_yaml = serde_yaml::to_string(&config)?;
     std::fs::write(config_path, updated_yaml)?;
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+/// Verify the provider the kernel will actually route to, through the model
+/// gateway, as a readiness check.
+///
+/// Static checks can all pass on a host with no model server at all: a
+/// generated API key satisfies the credential check while nothing is listening.
+/// This is the only check that proves the install can produce a reply.
+pub async fn verify_default_provider(config: &Config, vault: Option<&SecretStore>) -> Check {
+    const ID: &str = "provider.reachable";
+    const LABEL: &str = "model endpoint";
 
-    #[tokio::test]
-    async fn setup_wizard_runs_preflight_verification_ping() {
-        let server = MockServer::start().await;
-        Mock::given(method("POST"))
-            .and(path("/v1/messages"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-                "content": [{"type": "text", "text": "verified ping response"}]
-            })))
-            .mount(&server)
-            .await;
+    let Some(provider) = config.providers.first() else {
+        return Check::fail(
+            ID,
+            LABEL,
+            "no providers configured".to_string(),
+            "add a `providers:` entry".to_string(),
+        );
+    };
+    let remedy = format!(
+        "check that {} is serving model `{}`",
+        provider.base_url.as_deref().unwrap_or("the provider"),
+        provider.model
+    );
+    let (Ok(api_key), Some(vault)) = (crate::config::provider_api_key(provider), vault) else {
+        return Check::warn(
+            ID,
+            LABEL,
+            "not probed (provider credentials unresolved)".to_string(),
+            "resolve the provider checks above, then re-run".to_string(),
+        );
+    };
 
-        let dir = tempfile::tempdir().expect("tempdir");
-        let store = SecretStore::open(dir.path().join("credentials"), [20; 32]).expect("open");
-
-        store
-            .store_oauth_tokens(
-                "anthropic",
-                "ref-token",
-                "valid-ping-access-token",
-                "9999999999",
-                None,
-            )
-            .expect("store oauth");
-
-        let client = ProviderClient::Anthropic {
-            client: reqwest::Client::new(),
-            api_key: "oauth:anthropic".to_string(),
-            base_url: server.uri(),
-            model: "test-model".to_string(),
-        };
-
-        let verified = run_preflight_verification_ping(&client, &store, "anthropic")
-            .await
-            .expect("ping");
-
-        assert!(verified);
-    }
-
-    #[tokio::test]
-    async fn setup_wizard_binds_active_model_roles_only_on_successful_verification() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        let yaml_path = dir.path().join("openspine.yaml");
-
-        let initial_yaml = r#"
-data_dir: data
-sandbox:
-  driver: process
-owner:
-  telegram_user_id: 123456789
-  display_name: George
-providers:
-  - id: google-antigravity
-    kind: google_antigravity
-    model: gemini-2.5-flash
-    auth:
-      mode: oauth
-spend_cap:
-  model_calls_per_day: 100
-  connector_calls_per_day: 500
-unsafe_allow_uncontained_private_data: false
-"#;
-        std::fs::write(&yaml_path, initial_yaml).expect("write initial config");
-
-        update_openspine_yaml_roles(
-            &yaml_path,
-            "google-antigravity",
-            ProviderKind::GoogleAntigravity,
-        )
-        .expect("update roles");
-
-        let reloaded = std::fs::read_to_string(&yaml_path).expect("read updated config");
-        assert!(reloaded.contains("google-antigravity"));
-        assert!(reloaded.contains("mode: oauth"));
+    let client = ProviderClient::from_config(provider, api_key.clone());
+    match run_preflight_verification_ping(&client, vault, &provider.id).await {
+        Ok(true) => Check::pass(
+            ID,
+            LABEL,
+            format!("{} answered a verification request", provider.id),
+        ),
+        // A completion the probe caps at 10 tokens can legitimately be empty:
+        // a reasoning or vision model may emit nothing that short. The HTTP
+        // round trip already proved the endpoint and the model id resolve, so
+        // this is worth saying and not worth blocking on.
+        Ok(false) => Check::warn(
+            ID,
+            LABEL,
+            format!(
+                "{} answered, but produced no text for a short probe",
+                provider.id
+            ),
+            remedy,
+        ),
+        // A gateway error quotes the provider response body verbatim, and that
+        // body can echo the credential that was sent. For an API-key provider
+        // that is the resolved key; for an OAuth provider the key is only the
+        // `oauth:<id>` sentinel and the real bearer is the vault's access token,
+        // so both have to go.
+        Err(error) => Check::fail(
+            ID,
+            LABEL,
+            format!(
+                "{} did not answer: {}",
+                provider.id,
+                redact_credentials(&error.to_string(), &api_key, vault, &provider.id)
+            ),
+            remedy,
+        ),
     }
 }
+
+/// Replace every credential this call could have transmitted.
+///
+/// No length floor. A short credential is still a credential: the starter
+/// configuration's local API key is the literal `local`, and skipping it would
+/// print it verbatim. Redacting a short common word can mangle surrounding
+/// prose, which is the correct trade against leaking the key.
+fn redact_credentials(text: &str, api_key: &str, vault: &SecretStore, provider_id: &str) -> String {
+    let mut secrets = vec![api_key.to_string()];
+    if let Ok(Some(tokens)) = vault.get_oauth_tokens(provider_id) {
+        secrets.push(tokens.access_token);
+        secrets.push(tokens.refresh_token);
+    }
+    let mut out = text.to_string();
+    for secret in secrets {
+        if !secret.is_empty() {
+            out = out.replace(&secret, "<redacted>");
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+#[path = "setup_tests.rs"]
+mod tests;
