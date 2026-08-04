@@ -15,7 +15,7 @@ use crate::env_file;
 use crate::overlay_export_restore::{self, OverlayOperations};
 use crate::secret_store::SecretStore;
 use anyhow::Context as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// An open credential vault together with the data-root lifetime lock that
 /// guarantees no kernel is writing the same state underneath us.
@@ -54,6 +54,12 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
         println!();
         if !config_path.exists() {
             bootstrap(config_path).await?;
+        } else {
+            // A configuration written by a packaging wrapper, or copied from
+            // another host, can exist with no key file at all. Without this the
+            // "run `openspine setup`" remedy on the key checks would send the
+            // owner back to the command they just ran.
+            ensure_key_material(config_path)?;
         }
     }
 
@@ -194,6 +200,75 @@ async fn bootstrap(config_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Fill in key material an existing configuration is missing.
+///
+/// Only names the file does not already define are added, so an existing key
+/// keeps the value the vault on disk was encrypted under.
+fn ensure_key_material(config_path: &Path) -> anyhow::Result<()> {
+    let env_path = env_file::path_for(config_path);
+    let entries = starter::key_entries(&readiness::process_env);
+    let missing: Vec<&str> = entries
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .filter(|name| readiness::process_env(name).is_none())
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    // The artifact key encrypts the credential vault, the artifact store, and
+    // the counterparty key ring. Minting a fresh one over an existing data root
+    // does not fail loudly: it silently makes every stored credential
+    // undecryptable. Refuse, and name the recovery.
+    if missing.contains(&"OPENSPINE_ARTIFACT_KEY") {
+        if let Some(state) = encrypted_state_in(config_path) {
+            anyhow::bail!(
+                "{} already holds encrypted state but OPENSPINE_ARTIFACT_KEY is not set. \
+                 Restore the original key into {}: generating a new one would make the \
+                 existing vault permanently unreadable.",
+                state.display(),
+                env_path.display()
+            );
+        }
+    }
+
+    println!("This install has no value for {}.", missing.join(", "));
+    if !confirm("Generate the missing key material now?", true)? {
+        return Ok(());
+    }
+
+    let added = env_file::merge_owner_only(&env_path, &entries)?;
+    if added.is_empty() {
+        println!("  {} already defines them", env_path.display());
+    } else {
+        println!(
+            "  added {} to {} (mode 0600)",
+            added.join(", "),
+            env_path.display()
+        );
+    }
+    env_file::load_adjacent(config_path)?;
+    println!();
+    Ok(())
+}
+
+/// The first piece of artifact-key-encrypted state in the configured data root,
+/// or `None` for a genuinely new one.
+///
+/// Uses the configured `data_dir` rather than the overlay controller's canonical
+/// root so it needs no lock: this runs before the vault is opened.
+fn encrypted_state_in(config_path: &Path) -> Option<PathBuf> {
+    let data_dir = Config::load(config_path).ok()?.data_dir;
+    ["credentials", "artifacts", "kernel.db"]
+        .iter()
+        .map(|entry| data_dir.join(entry))
+        .find(|path| match std::fs::read_dir(path) {
+            Ok(mut entries) => entries.next().is_some(),
+            // Not a directory: `kernel.db` is a file, so existence is enough.
+            Err(_) => path.exists(),
+        })
+}
+
 /// Offer the model ids the endpoint actually serves. A model string this binary
 /// invented would be a guess that fails on the first turn.
 async fn choose_model(base_url: &str) -> anyhow::Result<String> {
@@ -256,6 +331,68 @@ mod tests {
 
         assert!(second.is_err(), "the lock must be exclusive");
         drop(held);
+    }
+
+    fn config_with_data_dir(dir: &Path) -> PathBuf {
+        let config_path = dir.join("openspine.yaml");
+        std::fs::write(
+            &config_path,
+            format!(
+                "data_dir: {}\nsandbox:\n  driver: process\nowner:\n  telegram_user_id: 1\n  \
+                 display_name: o\nspend_cap: {{}}\n",
+                dir.join("data").display()
+            ),
+        )
+        .unwrap();
+        config_path
+    }
+
+    /// A fresh data root may be keyed freely.
+    #[test]
+    fn a_new_data_root_reports_no_encrypted_state() {
+        let dir = std::env::temp_dir().join(format!("openspine-fresh-{}", ulid::Ulid::new()));
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        let config_path = config_with_data_dir(&dir);
+
+        assert_eq!(encrypted_state_in(&config_path), None);
+    }
+
+    /// An empty vault directory holds nothing to orphan, so it must not block
+    /// key generation.
+    #[test]
+    fn an_empty_vault_directory_reports_no_encrypted_state() {
+        let dir = std::env::temp_dir().join(format!("openspine-empty-{}", ulid::Ulid::new()));
+        std::fs::create_dir_all(dir.join("data").join("credentials")).unwrap();
+        let config_path = config_with_data_dir(&dir);
+
+        assert_eq!(encrypted_state_in(&config_path), None);
+    }
+
+    /// Minting a fresh artifact key over a populated data root does not fail
+    /// loudly: it silently makes every stored credential undecryptable.
+    #[test]
+    fn a_populated_data_root_is_detected_so_no_new_artifact_key_is_minted() {
+        let dir = std::env::temp_dir().join(format!("openspine-keyed-{}", ulid::Ulid::new()));
+        let credentials = dir.join("data").join("credentials");
+        std::fs::create_dir_all(&credentials).unwrap();
+        std::fs::write(credentials.join("provider.anthropic.access_token"), b"x").unwrap();
+        let config_path = config_with_data_dir(&dir);
+
+        assert_eq!(encrypted_state_in(&config_path), Some(credentials));
+    }
+
+    /// `kernel.db` is a file, not a directory: existence alone is the signal.
+    #[test]
+    fn an_existing_kernel_database_is_detected() {
+        let dir = std::env::temp_dir().join(format!("openspine-db-{}", ulid::Ulid::new()));
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        std::fs::write(dir.join("data").join("kernel.db"), b"sqlite").unwrap();
+        let config_path = config_with_data_dir(&dir);
+
+        assert_eq!(
+            encrypted_state_in(&config_path),
+            Some(dir.join("data").join("kernel.db"))
+        );
     }
 
     #[test]

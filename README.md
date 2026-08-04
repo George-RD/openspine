@@ -185,18 +185,39 @@ cargo build --workspace --bins
 export PATH="$PWD/target/debug:$PATH"
 ```
 
-Copy the terminal example, configure a model provider, and run:
+Run the wizard. It writes a configuration and an owner-only key file when they
+are absent, offers the models your endpoint actually serves, and finishes by
+sending a verification request through the model gateway:
 
 ```sh
-cp openspine.terminal.example.yaml openspine.terminal.yaml
-openspine --config openspine.terminal.yaml chat
+openspine --config openspine.local.yaml setup
+openspine --config openspine.local.yaml chat
 ```
 
-For a one-shot smoke test or script:
+Inside the conversation, `/status` prints the readiness report and `/help` lists
+the commands. On first start, a configured install prints a short orientation
+once; an install that cannot answer yet prints what is blocking it every time.
+
+To check an install without prompts, in a script or over SSH:
 
 ```sh
-openspine --config openspine.terminal.yaml chat \
+openspine --config openspine.local.yaml setup --check
+```
+
+It exits non-zero and names the remedy for every gap that blocks a reply.
+
+For a one-shot smoke test, where stdout is exactly the reply:
+
+```sh
+openspine --config openspine.local.yaml chat \
   --once "Reply with exactly OPENSPINE_OK and nothing else."
+```
+
+To log in to a hosted model provider, including from a headless or SSH session,
+where the authorization URL is printed and the code is pasted back:
+
+```sh
+openspine --config openspine.local.yaml provider login anthropic
 ```
 
 See [`docs/terminal-chat.md`](docs/terminal-chat.md) and the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.

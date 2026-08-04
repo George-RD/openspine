@@ -178,6 +178,63 @@ pub fn render(entries: &[(String, String)]) -> String {
     out
 }
 
+/// Add the entries the file does not already define, preserving everything in
+/// it, and return the names that were added.
+///
+/// An existing name is never overwritten: its value is what the vault on disk
+/// was encrypted under, and replacing it would orphan that vault.
+pub fn merge_owner_only(
+    path: &Path,
+    entries: &[(String, String)],
+) -> Result<Vec<String>, EnvFileError> {
+    let existing = match std::fs::read_to_string(path) {
+        Ok(text) => {
+            reject_shared_readable(path)?;
+            text
+        }
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(source) => {
+            return Err(EnvFileError::Read {
+                path: path.to_path_buf(),
+                source,
+            })
+        }
+    };
+    let defined: Vec<String> = parse(&existing, path)?
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+
+    let mut appended = String::new();
+    let mut added = Vec::new();
+    for (name, value) in entries {
+        if defined.iter().any(|held| held == name) {
+            continue;
+        }
+        appended.push_str(&format!("{name}={value}\n"));
+        added.push(name.clone());
+    }
+    if added.is_empty() {
+        return Ok(added);
+    }
+
+    let mut merged = if existing.is_empty() {
+        String::from("# Written by `openspine setup`. Key material: keep this file at mode 0600.\n")
+    } else {
+        let mut text = existing;
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text
+    };
+    merged.push_str(&appended);
+    write_owner_only(path, &merged).map_err(|source| EnvFileError::Read {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    Ok(added)
+}
+
 /// Write `contents` to `path` so that no other account can ever read it.
 ///
 /// Key material is written into a file that is created fresh at mode `0600` and
