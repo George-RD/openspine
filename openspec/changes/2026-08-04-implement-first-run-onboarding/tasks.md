@@ -16,6 +16,10 @@
 - [x] Wrap startup failures with their remedy in `main.rs`.
 - [x] Promote a verified OAuth provider to `providers[0]`, since
       `select_default_provider_id` routes to the first entry.
+- [x] Resolve each provider's OAuth client id from its environment variable and
+      refuse before producing an authorization URL when it is unset, replacing
+      the hardcoded placeholder client ids.
+- [x] Render the blocking checklist, not only one remedy, when startup fails.
 
 ## Verification
 
@@ -44,4 +48,9 @@
 - [x] Confirm the verification request reaches the provider through the model
       gateway rather than a direct HTTP call.
 - [x] Run `./scripts/check.sh 2026-08-04-implement-first-run-onboarding`.
-- [ ] Smoke test the built binary on the gascity NixOS host over SSH.
+- [x] Test that a provider with no registered client is refused before a URL
+      exists, and that the token exchange presents the authorizing client id.
+- [x] Test that a startup failure lists every blocking check.
+- [x] Smoke test the built binary on the gascity NixOS host over SSH: fresh
+      install, interactive bootstrap, first and second chat start, one-shot
+      reply, a configuration with no key file, and headless provider login.

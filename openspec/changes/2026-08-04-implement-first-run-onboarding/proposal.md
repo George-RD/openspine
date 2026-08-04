@@ -82,6 +82,15 @@ configuration undiscoverable.
   raw lock path.
 - `./scripts/check.sh 2026-08-04-implement-first-run-onboarding` passes.
 
+## Prerequisite this change surfaces
+
+The three OAuth provider specs shipped hardcoded placeholder client ids, so a
+login would have been rejected by the provider on arrival. Client ids now come
+from `OPENSPINE_ANTHROPIC_CLIENT_ID`, `OPENSPINE_CODEX_CLIENT_ID`, and
+`OPENSPINE_ANTIGRAVITY_CLIENT_ID`, and login refuses with those names when they
+are unset. Registering the OAuth applications remains an administrative step
+outside this repository.
+
 ## Out of Scope
 
 - A vault-backed API key intake path. Readiness names the environment variable a

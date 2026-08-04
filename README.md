@@ -217,8 +217,15 @@ To log in to a hosted model provider, including from a headless or SSH session,
 where the authorization URL is printed and the code is pasted back:
 
 ```sh
+export OPENSPINE_ANTHROPIC_CLIENT_ID="<your registered client id>"
 openspine --config openspine.local.yaml provider login anthropic
 ```
+
+Register the OAuth application yourself and set the matching variable
+(`OPENSPINE_ANTHROPIC_CLIENT_ID`, `OPENSPINE_CODEX_CLIENT_ID`, or
+`OPENSPINE_ANTIGRAVITY_CLIENT_ID`) with redirect URI
+`http://127.0.0.1:<port>/callback`. There is no built-in client id: login refuses
+and names the variable rather than sending you to a page the provider rejects.
 
 See [`docs/terminal-chat.md`](docs/terminal-chat.md) and the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.
 

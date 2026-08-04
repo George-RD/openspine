@@ -99,10 +99,17 @@ impl OAuthRefresher {
             anyhow::bail!("OAuth credential for {provider_id} is disabled");
         }
 
+        // A refresh presents the same client id the authorization did.
+        //
+        // Resolved before the request and propagated, never substituted: sending
+        // a placeholder would draw a 400, and the definitive-failure arm below
+        // would then disable a stored credential that is perfectly valid.
+        let client_id = super::providers::configured_client_id(provider_id)?;
         let refresh_res = match provider_id {
             "google-antigravity" => {
                 super::providers::google_antigravity::refresh_token(
                     &self.client,
+                    &client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -111,6 +118,7 @@ impl OAuthRefresher {
             "openai-codex" => {
                 super::providers::openai_codex::refresh_token(
                     &self.client,
+                    &client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -119,6 +127,7 @@ impl OAuthRefresher {
             "anthropic" => {
                 super::providers::anthropic::refresh_token(
                     &self.client,
+                    &client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -193,8 +202,15 @@ mod tests {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
+    /// Every test here refreshes `anthropic`, which now resolves a registered
+    /// client id before the request. Set-only, so it cannot race a sibling.
+    fn registered_anthropic_client() {
+        std::env::set_var("OPENSPINE_ANTHROPIC_CLIENT_ID", "test-client-id");
+    }
+
     #[tokio::test]
     async fn oauth_refresher_renews_token_within_skew_window() {
+        registered_anthropic_client();
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/token"))
@@ -242,6 +258,7 @@ mod tests {
 
     #[tokio::test]
     async fn oauth_refresher_single_flights_concurrent_refreshes() {
+        registered_anthropic_client();
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/token"))
@@ -280,6 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn oauth_refresher_handles_definitive_failure_and_enqueues_notification() {
+        registered_anthropic_client();
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/token"))
@@ -314,6 +332,7 @@ mod tests {
 
     #[tokio::test]
     async fn oauth_refresher_retains_credential_on_transient_network_failure() {
+        registered_anthropic_client();
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/token"))

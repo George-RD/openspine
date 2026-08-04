@@ -37,7 +37,8 @@ pub struct OAuthProviderSpec {
     pub device_endpoint: Option<&'static str>,
     pub scope: &'static str,
     pub default_port: u16,
-    pub client_id: &'static str,
+    /// Env var naming the OAuth client id registered with this provider.
+    pub client_id_env: &'static str,
 }
 
 #[allow(dead_code)]
@@ -48,4 +49,31 @@ pub fn get_provider_spec(provider_id: &str) -> Option<OAuthProviderSpec> {
         "anthropic" => Some(anthropic::spec()),
         _ => None,
     }
+}
+
+/// The OAuth client id registered with `provider_id`, from its environment
+/// variable.
+///
+/// There is no built-in default. A hardcoded placeholder would let onboarding
+/// print an authorization URL the provider rejects, which is a worse failure
+/// than refusing before the owner opens a browser: OpenSpine cannot register an
+/// OAuth application on the owner's behalf.
+pub fn configured_client_id(provider_id: &str) -> Result<String, anyhow::Error> {
+    let spec = get_provider_spec(provider_id)
+        .ok_or_else(|| anyhow::anyhow!("unsupported provider for OAuth login: {provider_id}"))?;
+    std::env::var(spec.client_id_env)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "{} has no registered OAuth client. Register an OAuth application with \
+                 {} using redirect URI http://127.0.0.1:{}/callback, then set {} to its \
+                 client id. Until then, configure an API-key or local provider in \
+                 openspine.yaml instead.",
+                provider_id,
+                spec.display_name,
+                spec.default_port,
+                spec.client_id_env
+            )
+        })
 }

@@ -15,18 +15,22 @@ pub fn spec() -> OAuthProviderSpec {
         device_endpoint: None,
         scope: "org:read user:read",
         default_port: 54545,
-        client_id: "openspine-anthropic-client-id",
+        client_id_env: "OPENSPINE_ANTHROPIC_CLIENT_ID",
     }
 }
 
 #[allow(dead_code)]
-pub fn build_authorization_url(redirect_port: u16, pkce: &PkceChallenge) -> String {
+pub fn build_authorization_url(
+    redirect_port: u16,
+    pkce: &PkceChallenge,
+    client_id: &str,
+) -> String {
     let s = spec();
     let redirect_uri = format!("http://127.0.0.1:{redirect_port}/callback");
     format!(
         "{}?response_type=code&client_id={}&redirect_uri={}&scope={}&state={}&code_challenge={}&code_challenge_method={}",
         s.auth_endpoint,
-        url_encode(s.client_id),
+        url_encode(client_id),
         url_encode(&redirect_uri),
         url_encode(s.scope),
         url_encode(&pkce.state),
@@ -37,6 +41,7 @@ pub fn build_authorization_url(redirect_port: u16, pkce: &PkceChallenge) -> Stri
 
 pub async fn exchange_code(
     client: &reqwest::Client,
+    client_id: &str,
     redirect_port: u16,
     code: &str,
     code_verifier: &str,
@@ -48,7 +53,7 @@ pub async fn exchange_code(
 
     let mut params = HashMap::new();
     params.insert("grant_type", "authorization_code");
-    params.insert("client_id", s.client_id);
+    params.insert("client_id", client_id);
     params.insert("code", code);
     params.insert("redirect_uri", &redirect_uri);
     params.insert("code_verifier", code_verifier);
@@ -65,6 +70,7 @@ pub async fn exchange_code(
 
 pub async fn refresh_token(
     client: &reqwest::Client,
+    client_id: &str,
     refresh_token: &str,
     token_url_override: Option<&str>,
 ) -> Result<TokenResponse, anyhow::Error> {
@@ -73,7 +79,7 @@ pub async fn refresh_token(
 
     let mut params = HashMap::new();
     params.insert("grant_type", "refresh_token");
-    params.insert("client_id", s.client_id);
+    params.insert("client_id", client_id);
     params.insert("refresh_token", refresh_token);
 
     let res = client.post(url).form(&params).send().await?;
@@ -114,9 +120,16 @@ mod tests {
         let verifier = "test-pkce-verifier-string-32-bytes";
         let token_url = format!("{}/v1/oauth/token", server.uri());
 
-        let res = exchange_code(&http, 54545, manual_pasted_code, verifier, Some(&token_url))
-            .await
-            .expect("exchange manual code");
+        let res = exchange_code(
+            &http,
+            "test-client-id",
+            54545,
+            manual_pasted_code,
+            verifier,
+            Some(&token_url),
+        )
+        .await
+        .expect("exchange manual code");
 
         assert_eq!(res.access_token, "manual-pasted-access-token-123");
         assert_eq!(

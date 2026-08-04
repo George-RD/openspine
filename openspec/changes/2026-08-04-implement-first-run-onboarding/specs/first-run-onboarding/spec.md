@@ -110,6 +110,33 @@ binary does not depend on where it was invoked.
 - **THEN** it MUST report that an instance is already running
 - **AND** it MUST NOT open a second view of the credential vault.
 
+### Requirement: Provider login MUST refuse before offering an unregistered client
+
+Provider OAuth login MUST resolve the provider's registered OAuth client id from
+its environment variable and MUST refuse before producing an authorization URL
+when that variable is unset. There MUST NOT be a built-in client id default.
+
+OpenSpine cannot register an OAuth application on the owner's behalf. Printing an
+authorization URL that the provider rejects on arrival reproduces the failure
+this change exists to remove, so the refusal MUST name the variable, the redirect
+URI the registration needs, and the API-key alternative.
+
+#### Scenario: Owner logs in to a provider with no registered client
+
+- **GIVEN** `OPENSPINE_ANTHROPIC_CLIENT_ID` is unset
+- **WHEN** the owner runs `openspine provider login anthropic`
+- **THEN** the command MUST fail before any authorization URL is printed
+- **AND** the failure MUST name `OPENSPINE_ANTHROPIC_CLIENT_ID`
+- **AND** it MUST name the loopback redirect URI the registration requires
+- **AND** it MUST name configuring an API-key or local provider instead.
+
+#### Scenario: Token exchange presents the authorizing client
+
+- **GIVEN** an authorization begun with a resolved client id
+- **WHEN** the code is exchanged for tokens
+- **THEN** the exchange MUST present the same client id the authorization URL
+  carried.
+
 ### Requirement: Model roles MUST be bound only after successful verification
 
 The wizard MUST send a verification request through the model gateway after a
@@ -175,6 +202,14 @@ When startup fails for a cause with a known remedy, the kernel MUST print that
 remedy alongside the error. Covered causes MUST include a held data-root
 lifetime lock, an already-bound listener address, absent required key material,
 and an absent configuration file.
+
+#### Scenario: A startup failure shows every blocking check
+
+- **GIVEN** neither a configuration file nor key material exists
+- **WHEN** any command fails at startup
+- **THEN** the printed report MUST list every blocking check, not only the
+  remedy for the first failure
+- **AND** it MUST name `openspine setup --check`.
 
 #### Scenario: A second instance starts
 

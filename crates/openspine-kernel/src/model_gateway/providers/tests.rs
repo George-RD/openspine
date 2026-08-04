@@ -258,6 +258,10 @@ async fn gateway_recovers_from_transient_401_via_inline_token_refresh() {
         .mount(&api_server)
         .await;
 
+    // The inline refresh presents the provider's registered client id, so this
+    // test registers one instead of relying on a sibling to have set it.
+    std::env::set_var("OPENSPINE_ANTHROPIC_CLIENT_ID", "test-client-id");
+
     let dir = tempfile::tempdir().expect("tempdir");
     let store = crate::secret_store::SecretStore::open(dir.path().join("credentials"), [19; 32])
         .expect("open");

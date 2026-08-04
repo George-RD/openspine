@@ -27,6 +27,9 @@ pub struct Authorization {
     pub provider_id: String,
     pub url: String,
     pub port: u16,
+    /// Held so the token exchange presents the same client id the
+    /// authorization URL did.
+    client_id: String,
     pkce: PkceChallenge,
 }
 
@@ -56,18 +59,35 @@ pub fn default_port(provider_id: &str) -> Result<u16, anyhow::Error> {
 
 /// Build the authorization URL for `provider_id`, redirecting to
 /// `127.0.0.1:{redirect_port}/callback`.
+///
+/// Refuses before producing a URL when the provider has no registered OAuth
+/// client: an authorization page that rejects the request on arrival is a worse
+/// experience than being told what is missing.
 pub fn begin(provider_id: &str, redirect_port: u16) -> Result<Authorization, anyhow::Error> {
+    let client_id = crate::oauth::providers::configured_client_id(provider_id)?;
+    begin_with_client_id(provider_id, redirect_port, &client_id)
+}
+
+/// [`begin`] with the client id supplied rather than read from the environment.
+pub fn begin_with_client_id(
+    provider_id: &str,
+    redirect_port: u16,
+    client_id: &str,
+) -> Result<Authorization, anyhow::Error> {
     let pkce = PkceChallenge::new();
     let url = match provider_id {
-        "google-antigravity" => google_antigravity::build_authorization_url(redirect_port, &pkce),
-        "openai-codex" => openai_codex::build_authorization_url(redirect_port, &pkce),
-        "anthropic" => anthropic::build_authorization_url(redirect_port, &pkce),
+        "google-antigravity" => {
+            google_antigravity::build_authorization_url(redirect_port, &pkce, client_id)
+        }
+        "openai-codex" => openai_codex::build_authorization_url(redirect_port, &pkce, client_id),
+        "anthropic" => anthropic::build_authorization_url(redirect_port, &pkce, client_id),
         other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
     };
     Ok(Authorization {
         provider_id: provider_id.to_string(),
         url,
         port: redirect_port,
+        client_id: client_id.to_string(),
         pkce,
     })
 }
@@ -83,15 +103,37 @@ pub async fn finish(
     let verifier = &auth.pkce.code_verifier;
     let tokens = match auth.provider_id.as_str() {
         "google-antigravity" => {
-            google_antigravity::exchange_code(client, auth.port, code, verifier, token_url_override)
-                .await?
+            google_antigravity::exchange_code(
+                client,
+                &auth.client_id,
+                auth.port,
+                code,
+                verifier,
+                token_url_override,
+            )
+            .await?
         }
         "openai-codex" => {
-            openai_codex::exchange_code(client, auth.port, code, verifier, token_url_override)
-                .await?
+            openai_codex::exchange_code(
+                client,
+                &auth.client_id,
+                auth.port,
+                code,
+                verifier,
+                token_url_override,
+            )
+            .await?
         }
         "anthropic" => {
-            anthropic::exchange_code(client, auth.port, code, verifier, token_url_override).await?
+            anthropic::exchange_code(
+                client,
+                &auth.client_id,
+                auth.port,
+                code,
+                verifier,
+                token_url_override,
+            )
+            .await?
         }
         other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
     };

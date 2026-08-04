@@ -58,6 +58,10 @@ fn full_env() -> HashMap<String, String> {
         ),
         ("OPENSPINE_GRANT_HMAC_KEY".to_string(), "grant".to_string()),
         ("OPENSPINE_WEBHOOK_HMAC_KEY".to_string(), "hook".to_string()),
+        (
+            "OPENSPINE_ANTHROPIC_CLIENT_ID".to_string(),
+            "client".to_string(),
+        ),
     ])
 }
 
@@ -316,4 +320,34 @@ fn render_blocking_shows_only_failures() {
 
     assert!(blocking.contains("SOME_KEY"), "{blocking}");
     assert!(!blocking.contains("[ok"), "{blocking}");
+}
+
+/// The refresher presents the same client id the authorization used, so a stored
+/// credential whose client id is gone dies at its next expiry. Reporting it as
+/// ready would describe an assistant that stops answering tomorrow.
+#[test]
+fn a_stored_credential_blocks_when_its_client_id_is_gone() {
+    let dir = temp_dir("oauth-noclient");
+    let path = write_config(&dir, &oauth_provider());
+    let mut env = full_env();
+    env.remove("OPENSPINE_ANTHROPIC_CLIENT_ID");
+    let store = vault(&dir);
+    store
+        .store_oauth_tokens("anthropic", "refresh", "access", "9999999999", None)
+        .unwrap();
+
+    let readiness = assess(&path, &lookup(&env), Some(&store));
+
+    let check = find(&readiness, "provider.anthropic").unwrap();
+    assert_eq!(check.state, CheckState::Fail);
+    assert!(
+        check.detail.contains("OPENSPINE_ANTHROPIC_CLIENT_ID"),
+        "{}",
+        check.detail
+    );
+    assert!(
+        check.remedy.as_deref().unwrap().contains("can be renewed"),
+        "{:?}",
+        check.remedy
+    );
 }

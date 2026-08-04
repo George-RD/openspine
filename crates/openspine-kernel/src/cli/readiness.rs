@@ -300,14 +300,20 @@ fn provider_check(
                 ),
             }
         }
-        ProviderAuth::Oauth => oauth_provider_check(&id, &label, &provider.id, vault),
+        ProviderAuth::Oauth => oauth_provider_check(&id, &label, &provider.id, env, vault),
     }
+}
+
+/// The env var naming a provider's registered OAuth client id.
+fn client_id_env_for(provider_id: &str) -> Option<&'static str> {
+    crate::oauth::providers::get_provider_spec(provider_id).map(|spec| spec.client_id_env)
 }
 
 fn oauth_provider_check(
     id: &str,
     label: &str,
     provider_id: &str,
+    env: EnvLookup<'_>,
     vault: Option<&SecretStore>,
 ) -> Check {
     let login = format!("run `openspine provider login {provider_id}`");
@@ -326,6 +332,22 @@ fn oauth_provider_check(
             "stored OAuth credential is disabled".to_string(),
             login,
         ),
+        // A stored credential whose client id is gone cannot be renewed: the
+        // background refresher needs the same client id the authorization used,
+        // so this credential dies at its next expiry.
+        Ok(Some(_))
+            if client_id_env_for(provider_id)
+                .and_then(|name| env(name).filter(|value| !value.trim().is_empty()))
+                .is_none() =>
+        {
+            let name = client_id_env_for(provider_id).unwrap_or("the client id variable");
+            Check::fail(
+                id,
+                label,
+                format!("OAuth credential stored, but {name} is not set"),
+                format!("set {name} so the stored credential can be renewed"),
+            )
+        }
         Ok(Some(tokens)) => Check::pass(
             id,
             label,

@@ -4,6 +4,8 @@ use super::*;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+const TEST_CLIENT_ID: &str = "test-client-id";
+
 fn vault(tag: &str) -> (tempfile::TempDir, SecretStore) {
     let dir = tempfile::tempdir().expect("tempdir");
     let store = SecretStore::open(dir.path().join(tag), [20; 32]).expect("open");
@@ -14,7 +16,7 @@ fn vault(tag: &str) -> (tempfile::TempDir, SecretStore) {
 fn every_supported_provider_builds_a_loopback_authorization_url() {
     for provider_id in OAUTH_PROVIDER_IDS {
         let port = default_port(provider_id).expect("port");
-        let auth = begin(provider_id, port).expect("begin");
+        let auth = begin_with_client_id(provider_id, port, TEST_CLIENT_ID).expect("begin");
 
         assert!(
             auth.url.contains(&format!("127.0.0.1%3A{port}%2Fcallback"))
@@ -31,7 +33,25 @@ fn every_supported_provider_builds_a_loopback_authorization_url() {
 #[test]
 fn an_unsupported_provider_is_refused_before_any_network_call() {
     assert!(default_port("not-a-provider").is_err());
-    assert!(begin("not-a-provider", 1234).is_err());
+    assert!(begin_with_client_id("not-a-provider", 1234, TEST_CLIENT_ID).is_err());
+}
+
+/// OpenSpine cannot register an OAuth application for the owner. Printing an
+/// authorization URL the provider rejects on arrival is a worse failure than
+/// saying so before a browser opens.
+#[test]
+fn a_provider_with_no_registered_client_is_refused_before_a_url_exists() {
+    std::env::remove_var("OPENSPINE_ANTIGRAVITY_CLIENT_ID");
+
+    let error = begin("google-antigravity", 51121).expect_err("must refuse");
+
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("OPENSPINE_ANTIGRAVITY_CLIENT_ID"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("redirect URI"), "{rendered}");
+    assert!(rendered.contains("API-key or local provider"), "{rendered}");
 }
 
 /// The headless path is the one an SSH owner actually takes: the URL is printed,
@@ -51,7 +71,7 @@ async fn a_pasted_authorization_code_completes_the_login_and_stores_the_credenti
         .mount(&server)
         .await;
     let (_dir, store) = vault("credentials");
-    let auth = begin("anthropic", 54545).expect("begin");
+    let auth = begin_with_client_id("anthropic", 54545, TEST_CLIENT_ID).expect("begin");
 
     let stored = finish(
         &auth,
@@ -121,7 +141,7 @@ async fn exchange_without_refresh_token(
         })))
         .mount(&server)
         .await;
-    let auth = begin("anthropic", 54545).expect("begin");
+    let auth = begin_with_client_id("anthropic", 54545, TEST_CLIENT_ID).expect("begin");
 
     finish(
         &auth,
