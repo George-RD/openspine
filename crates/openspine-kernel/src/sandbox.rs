@@ -80,6 +80,17 @@ impl Default for ProcessDriver {
 }
 
 impl ProcessDriver {
+    /// Driver whose per-task scratch directories live under the kernel's own
+    /// data root. The default is relative, so a kernel started from a
+    /// read-only or unrelated working directory could not create scratch
+    /// space and every worker failed to start.
+    pub fn with_data_root(data_root: &Path) -> Self {
+        Self {
+            scratch_root: data_root.join("scratch"),
+            ..Self::default()
+        }
+    }
+
     /// Resolve the worker executable while the kernel still has its
     /// startup environment. The spawned worker keeps a cleared
     /// environment, so executable lookup cannot depend on child PATH.

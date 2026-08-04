@@ -38,6 +38,9 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 parking_lot = "0.12.5"
 hmac-sha256.workspace = true
+# Per-architecture O_* / syscall constants. Hardcoding them breaks on arm64,
+# where O_DIRECTORY and O_NOFOLLOW differ from the asm-generic values.
+libc = "0.2.180"
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -225,50 +225,14 @@ fn is_eloop(error: &io::Error) -> bool {
         || error.kind() == io::ErrorKind::TooManyLinks
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+// Per-architecture values from libc: aarch64 defines O_NOFOLLOW as 0o100000,
+// not the asm-generic 0o400000.
 fn o_nofollow() -> i32 {
-    0x20000
+    libc::O_NOFOLLOW
 }
 
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
-fn o_nofollow() -> i32 {
-    0x100
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
 fn o_nonblock() -> i32 {
-    0o4000
-}
-
-#[cfg(any(
-    target_os = "macos",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly"
-))]
-fn o_nonblock() -> i32 {
-    0x4
-}
-
-#[cfg(any(target_os = "illumos", target_os = "solaris"))]
-fn o_nonblock() -> i32 {
-    0x80
-}
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "macos",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly",
-    target_os = "illumos",
-    target_os = "solaris"
-)))]
-fn o_nonblock() -> i32 {
-    0x4
+    libc::O_NONBLOCK
 }
 
 #[cfg(target_os = "linux")]

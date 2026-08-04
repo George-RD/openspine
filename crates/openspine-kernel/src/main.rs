@@ -306,7 +306,7 @@ async fn main() -> anyhow::Result<()> {
 
     let sandbox = match cfg.sandbox.driver {
         config::SandboxDriverKind::Process => {
-            sandbox::Sandbox::Process(sandbox::ProcessDriver::default())
+            sandbox::Sandbox::Process(sandbox::ProcessDriver::with_data_root(&data_root))
         }
         config::SandboxDriverKind::Docker => sandbox::Sandbox::Docker(sandbox::DockerDriver {
             image_tag: cfg

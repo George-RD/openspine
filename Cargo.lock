@@ -1618,6 +1618,7 @@ dependencies = [
  "clap",
  "hmac-sha256",
  "jiff",
+ "libc",
  "openspine-authority",
  "openspine-gate",
  "openspine-schemas",

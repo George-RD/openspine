@@ -27,67 +27,27 @@ fn is_allowed_platform_redirect(source: &Path, target: &Path) -> bool {
             | (Some("/etc"), Some("private/etc"))
     )
 }
-const O_RDONLY: i32 = 0;
-const O_RDWR: i32 = 2;
+// Open flags come from libc so each architecture gets its own values. arm64
+// (and arm, mips, sparc) define O_DIRECTORY and O_NOFOLLOW differently from
+// the asm-generic constants: on aarch64 the generic O_DIRECTORY bit is
+// O_DIRECT, so a hardcoded directory open failed with EINVAL.
+const O_RDONLY: i32 = libc::O_RDONLY;
+const O_RDWR: i32 = libc::O_RDWR;
 
 fn o_creat() -> i32 {
-    #[cfg(target_os = "linux")]
-    {
-        64
-    }
-    #[cfg(target_os = "macos")]
-    {
-        0x0200
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        0
-    }
+    libc::O_CREAT
 }
 
 fn o_nofollow() -> i32 {
-    #[cfg(target_os = "linux")]
-    {
-        0o400000
-    }
-    #[cfg(target_os = "macos")]
-    {
-        0x0100
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        0
-    }
+    libc::O_NOFOLLOW
 }
 
 fn o_directory() -> i32 {
-    #[cfg(target_os = "linux")]
-    {
-        0o200000
-    }
-    #[cfg(target_os = "macos")]
-    {
-        0x0010_0000
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        0
-    }
+    libc::O_DIRECTORY
 }
 
 fn o_cloexec() -> i32 {
-    #[cfg(target_os = "linux")]
-    {
-        0o2000000
-    }
-    #[cfg(target_os = "macos")]
-    {
-        0x0100_0000
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    {
-        0
-    }
+    libc::O_CLOEXEC
 }
 
 unsafe extern "C" {

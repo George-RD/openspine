@@ -267,85 +267,22 @@ fn libc_dup_checked(fd: RawFd, path: &Path) -> Result<RawFd, BundleError> {
     Ok(duplicated)
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
+// Per-architecture values from libc. On aarch64 the asm-generic O_DIRECTORY
+// bit is actually O_DIRECT, which makes a directory open fail with EINVAL.
 fn o_nofollow() -> i32 {
-    0x20000
+    libc::O_NOFOLLOW
 }
 
-#[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
-fn o_nofollow() -> i32 {
-    0x100
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
 fn o_directory() -> i32 {
-    0o200000
+    libc::O_DIRECTORY
 }
 
-#[cfg(target_os = "macos")]
-fn o_directory() -> i32 {
-    0x100000
-}
-
-#[cfg(all(
-    unix,
-    not(any(target_os = "linux", target_os = "android", target_os = "macos"))
-))]
-fn o_directory() -> i32 {
-    0
-}
-
-#[cfg(any(target_os = "linux", target_os = "android"))]
 fn o_nonblock() -> i32 {
-    0o4000
+    libc::O_NONBLOCK
 }
 
-#[cfg(any(
-    target_os = "macos",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly"
-))]
-fn o_nonblock() -> i32 {
-    0x4
-}
-
-#[cfg(any(target_os = "illumos", target_os = "solaris"))]
-fn o_nonblock() -> i32 {
-    0x80
-}
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "macos",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd",
-    target_os = "dragonfly",
-    target_os = "illumos",
-    target_os = "solaris"
-)))]
-fn o_nonblock() -> i32 {
-    0x4
-}
-#[cfg(any(target_os = "linux", target_os = "android"))]
 fn o_cloexec() -> i32 {
-    0o2000000
-}
-
-#[cfg(target_os = "macos")]
-fn o_cloexec() -> i32 {
-    0x1000000
-}
-
-#[cfg(all(
-    unix,
-    not(any(target_os = "linux", target_os = "android", target_os = "macos"))
-))]
-fn o_cloexec() -> i32 {
-    0
+    libc::O_CLOEXEC
 }
 
 unsafe fn libc_openat(dir_fd: RawFd, path: *const std::os::raw::c_char, flags: i32) -> RawFd {
