@@ -26,18 +26,43 @@ pub(super) struct OpenVault {
 
 pub(super) enum Vault {
     /// Boxed: the open variant carries a kilobyte of controller state, and an
-    /// unboxed enum would pay for it in every `Unavailable` too.
+    /// unboxed enum would pay for it in every unit variant too.
     Open(Box<OpenVault>),
     /// Key material is absent, so the vault cannot be decrypted. Readiness
     /// already reports this; onboarding continues without credential state.
     Unavailable,
+    /// A running kernel holds the data-root lifetime lock.
+    ///
+    /// Reporting readiness must still work here. `openspine chat` holds this
+    /// lock for as long as it runs, and its own first-run notice tells the owner
+    /// to run `openspine setup`: refusing outright would make following that
+    /// advice from a second terminal fail instead of explaining anything.
+    /// Actions that write the vault are refused individually.
+    Locked,
 }
 
 impl Vault {
     pub(super) fn store(&self) -> Option<&SecretStore> {
         match self {
             Self::Open(open) => Some(&open.store),
-            Self::Unavailable => None,
+            Self::Unavailable | Self::Locked => None,
+        }
+    }
+
+    /// Whether vault-writing actions can run.
+    pub(super) fn writable(&self) -> bool {
+        matches!(self, Self::Open(_))
+    }
+
+    /// Why a writing action cannot run, for the owner.
+    pub(super) fn write_refusal(&self) -> &'static str {
+        match self {
+            Self::Locked => {
+                "another OpenSpine instance is using this data directory, so nothing can be \
+                 written to the credential vault. Stop it (an `openspine chat` in another \
+                 terminal holds the lock for as long as it runs) and re-run."
+            }
+            _ => "the credential vault is not open; resolve the key material checks above first.",
         }
     }
 }
@@ -64,6 +89,11 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
     }
 
     let mut vault = open_vault(config_path)?;
+    if matches!(vault, Vault::Locked) {
+        println!("{}", vault.write_refusal());
+        println!("Reporting readiness only.");
+        println!();
+    }
     let mut current = report(config_path, &vault).await;
     if check_only {
         return Ok(current.is_ready());
@@ -80,6 +110,7 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
             break;
         };
         match choice.as_str() {
+            "1" if !vault.writable() => println!("  {}", vault.write_refusal()),
             "1" => {
                 if let Err(error) = login_flow(config_path, vault.store(), &client, None).await {
                     eprintln!("login failed: {error:#}");
@@ -135,8 +166,18 @@ pub(super) fn open_vault(config_path: &Path) -> anyhow::Result<Vault> {
     let Ok(artifact_key) = config::artifact_key_bytes() else {
         return Ok(Vault::Unavailable);
     };
-    let lock = overlay_export_restore::acquire(&config.data_dir, &artifact_key)
-        .context("acquiring the data-root lifetime lock")?;
+    let lock = match overlay_export_restore::acquire(&config.data_dir, &artifact_key) {
+        Ok(lock) => lock,
+        // Degrade instead of failing: readiness has to be reportable while a
+        // kernel is running, and readiness already treats a closed vault as
+        // unchecked rather than guessing.
+        Err(error) if overlay_export_restore::is_already_locked(&error) => {
+            return Ok(Vault::Locked)
+        }
+        Err(error) => {
+            return Err(anyhow::Error::new(error).context("acquiring the data-root lifetime lock"))
+        }
+    };
     let store = SecretStore::open(lock.canonical_data_root().join("credentials"), artifact_key)
         .context("opening the credential vault")?;
     Ok(Vault::Open(Box::new(OpenVault { _lock: lock, store })))
@@ -317,6 +358,33 @@ async fn verify_configured_provider(config_path: &Path, vault: &Vault) -> anyhow
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `openspine chat` holds the data-root lock for as long as it runs, and its
+    /// own first-run notice tells the owner to run `openspine setup`. Refusing
+    /// outright would make following that advice from a second terminal fail
+    /// instead of explaining anything.
+    #[test]
+    fn a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error() {
+        let dir = std::env::temp_dir().join(format!("openspine-locked-{}", ulid::Ulid::new()));
+        let data_dir = dir.join("data");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let config_path = config_with_data_dir(&dir);
+        let key = "aa11bb22cc33dd44ee55ff6600778899aa11bb22cc33dd44ee55ff6600778899";
+        std::env::set_var("OPENSPINE_ARTIFACT_KEY", key);
+        let held = overlay_export_restore::acquire(&data_dir, &[0xaa; 32]).expect("hold the lock");
+
+        let vault = open_vault(&config_path).expect("must not error");
+
+        assert!(matches!(vault, Vault::Locked));
+        assert!(vault.store().is_none());
+        assert!(!vault.writable());
+        assert!(
+            vault.write_refusal().contains("another OpenSpine instance"),
+            "{}",
+            vault.write_refusal()
+        );
+        drop(held);
+    }
 
     /// Why [`refresh_vault`] refuses to reopen an open vault: the data-root
     /// lock is exclusive even against the process already holding it, so a

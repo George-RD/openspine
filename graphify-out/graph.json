@@ -3490,7 +3490,7 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_api_actions_mediate_and_dispatch_action",
-      "community": 32,
+      "community": 7,
       "norm_label": "mediate_and_dispatch_action()"
     },
     {
@@ -3590,7 +3590,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_rs",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_activation_tests.rs"
     },
     {
@@ -3600,7 +3600,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_approve_callback_update",
-      "community": 315,
+      "community": 32,
       "norm_label": "approve_callback_update()"
     },
     {
@@ -3620,7 +3620,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_telegram_stub",
-      "community": 315,
+      "community": 32,
       "norm_label": "telegram_stub()"
     },
     {
@@ -3650,7 +3650,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_mount_send_message_ok",
-      "community": 315,
+      "community": 32,
       "norm_label": "mount_send_message_ok()"
     },
     {
@@ -3660,7 +3660,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_approved_artifact_activates_into_registry_and_overlay",
-      "community": 315,
+      "community": 32,
       "norm_label": "approved_artifact_activates_into_registry_and_overlay()"
     },
     {
@@ -3670,7 +3670,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_standing_rule_activation_ceremony_reaches_live_consultation",
-      "community": 315,
+      "community": 32,
       "norm_label": "standing_rule_activation_ceremony_reaches_live_consultation()"
     },
     {
@@ -3680,7 +3680,7 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_activation_with_mutated_payload_is_denied",
-      "community": 315,
+      "community": 32,
       "norm_label": "activation_with_mutated_payload_is_denied()"
     },
     {
@@ -3690,7 +3690,7 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_artifact_activation_tests_model_swap_ceremony_switches_real_generate_provider",
-      "community": 315,
+      "community": 32,
       "norm_label": "model_swap_ceremony_switches_real_generate_provider()"
     },
     {
@@ -3700,7 +3700,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_artifact_nominate_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "artifact_nominate.rs"
     },
     {
@@ -3710,7 +3710,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_artifact_nominate_artifactnominatepayload",
-      "community": 680,
+      "community": 118,
       "norm_label": "artifactnominatepayload"
     },
     {
@@ -3730,7 +3730,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_artifact_nominate_dispatch_artifact_nominate",
-      "community": 698,
+      "community": 315,
       "norm_label": "dispatch_artifact_nominate()"
     },
     {
@@ -3770,7 +3770,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "artifact_propose.rs"
     },
     {
@@ -3780,7 +3780,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_artifactproposepayload",
-      "community": 680,
+      "community": 118,
       "norm_label": "artifactproposepayload"
     },
     {
@@ -3800,7 +3800,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_dispatch_artifact_propose",
-      "community": 315,
+      "community": 32,
       "norm_label": "dispatch_artifact_propose()"
     },
     {
@@ -3840,7 +3840,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_miner_tests_rs",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_miner_tests.rs"
     },
     {
@@ -3850,7 +3850,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_miner_tests_artifact_propose_accepts_persona_kind",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_accepts_persona_kind()"
     },
     {
@@ -3860,7 +3860,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_miner_tests_artifact_propose_accepts_miner_reflection_correction_route",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_accepts_miner_reflection_correction_route()"
     },
     {
@@ -3870,7 +3870,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_miner_tests_reflection_miner_runtime_wires_ad135_route_through_lifecycle",
-      "community": 315,
+      "community": 32,
       "norm_label": "reflection_miner_runtime_wires_ad135_route_through_lifecycle()"
     },
     {
@@ -3880,7 +3880,7 @@
       "source_location": "L381",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_miner_tests_scheduled_reflection_miner_tick_mines_repeated_approval",
-      "community": 315,
+      "community": 32,
       "norm_label": "scheduled_reflection_miner_tick_mines_repeated_approval()"
     },
     {
@@ -3890,7 +3890,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_rs",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_tests.rs"
     },
     {
@@ -3900,7 +3900,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_route_yaml",
-      "community": 315,
+      "community": 32,
       "norm_label": "route_yaml()"
     },
     {
@@ -3920,7 +3920,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_persists_and_sends_approval_button",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_persists_and_sends_approval_button()"
     },
     {
@@ -3930,7 +3930,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_malformed_yaml",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_malformed_yaml()"
     },
     {
@@ -3940,7 +3940,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_unknown_kind",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_unknown_kind()"
     },
     {
@@ -3950,7 +3950,7 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_template_kind",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_template_kind()"
     },
     {
@@ -3960,7 +3960,7 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_non_proposed_persona_kind",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_non_proposed_persona_kind()"
     },
     {
@@ -3970,7 +3970,7 @@
       "source_location": "L302",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_duplicate_id_version",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_duplicate_id_version()"
     },
     {
@@ -3980,7 +3980,7 @@
       "source_location": "L366",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_artifact_propose_tests_artifact_propose_rejects_non_proposed_lifecycle",
-      "community": 315,
+      "community": 32,
       "norm_label": "artifact_propose_rejects_non_proposed_lifecycle()"
     },
     {
@@ -4970,7 +4970,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry",
-      "community": 136,
+      "community": 764,
       "norm_label": "handler_registry.rs"
     },
     {
@@ -5040,7 +5040,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_rs_option",
-      "community": 136,
+      "community": 764,
       "norm_label": "option"
     },
     {
@@ -5070,7 +5070,7 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_artifact_revoke",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_artifact_revoke()"
     },
     {
@@ -5080,7 +5080,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_rs_value",
-      "community": 136,
+      "community": 764,
       "norm_label": "value"
     },
     {
@@ -5090,7 +5090,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_rs_handlerfuture",
-      "community": 136,
+      "community": 764,
       "norm_label": "handlerfuture"
     },
     {
@@ -5100,7 +5100,7 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_status_read",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_status_read()"
     },
     {
@@ -5110,7 +5110,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_telegram_reply",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_telegram_reply()"
     },
     {
@@ -5120,7 +5120,7 @@
       "source_location": "L189",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_terminal_reply",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_terminal_reply()"
     },
     {
@@ -5130,7 +5130,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_read_selected_thread",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_read_selected_thread()"
     },
     {
@@ -5140,7 +5140,7 @@
       "source_location": "L226",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_lyra_preview",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_lyra_preview()"
     },
     {
@@ -5150,7 +5150,7 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_plan_propose",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_plan_propose()"
     },
     {
@@ -5160,7 +5160,7 @@
       "source_location": "L266",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_artifact_propose",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_artifact_propose()"
     },
     {
@@ -5170,7 +5170,7 @@
       "source_location": "L282",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_artifact_nominate",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_artifact_nominate()"
     },
     {
@@ -5180,7 +5180,7 @@
       "source_location": "L297",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_workflow_invoke",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_workflow_invoke()"
     },
     {
@@ -5190,7 +5190,7 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_setup_workflow_start",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_setup_workflow_start()"
     },
     {
@@ -5200,7 +5200,7 @@
       "source_location": "L320",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_handler_registry_handle_skill_context",
-      "community": 136,
+      "community": 764,
       "norm_label": "handle_skill_context()"
     },
     {
@@ -5290,7 +5290,7 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_mod_router",
-      "community": 124,
+      "community": 284,
       "norm_label": "router()"
     },
     {
@@ -5440,7 +5440,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_api_model_swap_fault_tests_rs",
-      "community": 19,
+      "community": 504,
       "norm_label": "model_swap_fault_tests.rs"
     },
     {
@@ -5460,7 +5460,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_model_swap_ceremony_crates_openspine_kernel_src_api_model_swap_http_tests_rs",
-      "community": 19,
+      "community": 504,
       "norm_label": "model_swap_http_tests.rs"
     },
     {
@@ -5480,7 +5480,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_rs",
-      "community": 698,
+      "community": 315,
       "norm_label": "nominate_tests.rs"
     },
     {
@@ -5490,7 +5490,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_learned_route",
-      "community": 698,
+      "community": 315,
       "norm_label": "learned_route()"
     },
     {
@@ -5500,7 +5500,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_approve_callback",
-      "community": 698,
+      "community": 315,
       "norm_label": "approve_callback()"
     },
     {
@@ -5520,7 +5520,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_telegram_ok",
-      "community": 698,
+      "community": 315,
       "norm_label": "telegram_ok()"
     },
     {
@@ -5540,7 +5540,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_nomination_requires_explicit_depersonalized_assertion",
-      "community": 698,
+      "community": 315,
       "norm_label": "nomination_requires_explicit_depersonalized_assertion()"
     },
     {
@@ -5550,7 +5550,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_nomination_rejects_persona_kind_without_compatible_learned_artifact",
-      "community": 698,
+      "community": 315,
       "norm_label": "nomination_rejects_persona_kind_without_compatible_learned_artifact()"
     },
     {
@@ -5560,7 +5560,7 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_reflection_miner_crates_openspine_kernel_src_api_nominate_tests_nomination_owner_tap_persists_nominated_status_and_audit",
-      "community": 698,
+      "community": 315,
       "norm_label": "nomination_owner_tap_persists_nominated_status_and_audit()"
     },
     {
@@ -5810,7 +5810,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_plan_rs",
-      "community": 193,
+      "community": 680,
       "norm_label": "plan.rs"
     },
     {
@@ -5820,7 +5820,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_plan_dispatch_plan_preview",
-      "community": 193,
+      "community": 680,
       "norm_label": "dispatch_plan_preview()"
     },
     {
@@ -5890,7 +5890,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_proposal_rs",
-      "community": 680,
+      "community": 158,
       "norm_label": "proposal.rs"
     },
     {
@@ -5900,7 +5900,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_proposal_proposalerror",
-      "community": 680,
+      "community": 158,
       "norm_label": "proposalerror"
     },
     {
@@ -5920,7 +5920,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_proposal_proposalerror_failure_class",
-      "community": 680,
+      "community": 158,
       "norm_label": ".failure_class()"
     },
     {
@@ -5930,7 +5930,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_api_proposal_propose_draft_creation",
-      "community": 680,
+      "community": 158,
       "norm_label": "propose_draft_creation()"
     },
     {
@@ -6400,7 +6400,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_rs",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_mediation_tests.rs"
     },
     {
@@ -6410,7 +6410,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_reserved_usage_count",
-      "community": 32,
+      "community": 7,
       "norm_label": "reserved_usage_count()"
     },
     {
@@ -6430,7 +6430,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_committed_usage_count",
-      "community": 32,
+      "community": 7,
       "norm_label": "committed_usage_count()"
     },
     {
@@ -6440,7 +6440,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_pending_token_consumed_at",
-      "community": 32,
+      "community": 7,
       "norm_label": "pending_token_consumed_at()"
     },
     {
@@ -6460,7 +6460,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_standing_rule_full_mediate_flow_with_activated_rule",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_full_mediate_flow_with_activated_rule()"
     },
     {
@@ -6470,7 +6470,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_standing_rule_effective_allow_audit_failure_cancels_reservation",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_effective_allow_audit_failure_cancels_reservation()"
     },
     {
@@ -6480,7 +6480,7 @@
       "source_location": "L178",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_standing_rule_normal_deny_exposes_no_headroom",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_normal_deny_exposes_no_headroom()"
     },
     {
@@ -6490,7 +6490,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_standing_rule_delivery_unknown_finalizes_live_reservation",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_delivery_unknown_finalizes_live_reservation()"
     },
     {
@@ -6500,7 +6500,7 @@
       "source_location": "L404",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_artifact_revoke_dispatch_removes_rule_from_live_consultation",
-      "community": 32,
+      "community": 7,
       "norm_label": "artifact_revoke_dispatch_removes_rule_from_live_consultation()"
     },
     {
@@ -6510,7 +6510,7 @@
       "source_location": "L462",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_api_standing_rule_mediation_tests_standing_rule_fired_path_audit_failure_rearms_token_once",
-      "community": 32,
+      "community": 7,
       "norm_label": "standing_rule_fired_path_audit_failure_rearms_token_once()"
     },
     {
@@ -6690,7 +6690,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_telegram_truncate",
-      "community": 193,
+      "community": 680,
       "norm_label": "telegram_truncate.rs"
     },
     {
@@ -6700,7 +6700,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_telegram_truncate_truncate_for_telegram",
-      "community": 193,
+      "community": 680,
       "norm_label": "truncate_for_telegram()"
     },
     {
@@ -6710,7 +6710,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_telegram_truncate_rs_string",
-      "community": 193,
+      "community": 680,
       "norm_label": "string"
     },
     {
@@ -6720,7 +6720,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_api_telegram_truncate_truncate_with_notice",
-      "community": 193,
+      "community": 680,
       "norm_label": "truncate_with_notice()"
     },
     {
@@ -7300,7 +7300,7 @@
       "source_location": "L219",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_worker_handle_worker_commission",
-      "community": 29,
+      "community": 418,
       "norm_label": "handle_worker_commission()"
     },
     {
@@ -7330,7 +7330,7 @@
       "source_location": "L647",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_api_worker_handle_worker_report_result",
-      "community": 337,
+      "community": 219,
       "norm_label": "handle_worker_report_result()"
     },
     {
@@ -9240,7 +9240,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_benchmark",
-      "community": 680,
+      "community": 136,
       "norm_label": "benchmark.rs"
     },
     {
@@ -9250,7 +9250,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_benchmark_run_benchmarks",
-      "community": 680,
+      "community": 136,
       "norm_label": "run_benchmarks()"
     },
     {
@@ -9260,7 +9260,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_benchmark_rs_result",
-      "community": 680,
+      "community": 136,
       "norm_label": "result"
     },
     {
@@ -9657,7 +9657,7 @@
       "label": "login_flow()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_login_flow",
       "community": 555,
@@ -9677,7 +9677,7 @@
       "label": "complete_login()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_complete_login",
       "community": 555,
@@ -9687,7 +9687,7 @@
       "label": "provider_entry()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_provider_entry",
       "community": 555,
@@ -9697,7 +9697,7 @@
       "label": "choose_provider()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L167",
+      "source_location": "L166",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_choose_provider",
       "community": 555,
@@ -9717,7 +9717,7 @@
       "label": "headless()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L184",
+      "source_location": "L183",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_headless",
       "community": 555,
@@ -9727,7 +9727,7 @@
       "label": "open_in_browser()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L195",
+      "source_location": "L194",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_open_in_browser",
       "community": 555,
@@ -9737,7 +9737,7 @@
       "label": "an_ssh_session_is_treated_as_headless()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L215",
+      "source_location": "L214",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_an_ssh_session_is_treated_as_headless",
       "community": 555,
@@ -9747,7 +9747,7 @@
       "label": "every_supported_provider_maps_to_a_gateway_kind()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L229",
+      "source_location": "L228",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_every_supported_provider_maps_to_a_gateway_kind",
       "community": 555,
@@ -9757,7 +9757,7 @@
       "label": "an_unsupported_provider_is_refused_before_prompting()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L248",
+      "source_location": "L247",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_login_an_unsupported_provider_is_refused_before_prompting",
       "community": 555,
@@ -10757,7 +10757,7 @@
       "label": "config_remedy()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L43",
+      "source_location": "L50",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_config_remedy",
       "community": 203,
@@ -10767,7 +10767,7 @@
       "label": "failure_report()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L74",
+      "source_location": "L81",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_failure_report",
       "community": 203,
@@ -10777,7 +10777,7 @@
       "label": "report_failure()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L93",
+      "source_location": "L100",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_report_failure",
       "community": 203,
@@ -10787,7 +10787,7 @@
       "label": "config_path()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L102",
+      "source_location": "L109",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_config_path",
       "community": 203,
@@ -10807,7 +10807,7 @@
       "label": "a_held_data_root_lock_names_the_running_instance()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L107",
+      "source_location": "L118",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_a_held_data_root_lock_names_the_running_instance",
       "community": 203,
@@ -10817,7 +10817,7 @@
       "label": "a_bound_listener_address_names_the_configuration_key()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L121",
+      "source_location": "L134",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_a_bound_listener_address_names_the_configuration_key",
       "community": 203,
@@ -10827,7 +10827,7 @@
       "label": "absent_key_material_names_the_variable_and_the_env_file()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L135",
+      "source_location": "L148",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_absent_key_material_names_the_variable_and_the_env_file",
       "community": 203,
@@ -10837,7 +10837,7 @@
       "label": "an_absent_configuration_file_points_at_setup()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L150",
+      "source_location": "L163",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_an_absent_configuration_file_points_at_setup",
       "community": 203,
@@ -10847,7 +10847,7 @@
       "label": "a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L167",
+      "source_location": "L180",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy",
       "community": 203,
@@ -10857,7 +10857,7 @@
       "label": "an_unmatched_failure_has_no_invented_remedy()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L189",
+      "source_location": "L202",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_remedy_an_unmatched_failure_has_no_invented_remedy",
       "community": 203,
@@ -11617,7 +11617,7 @@
       "label": ".store()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L37",
+      "source_location": "L45",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_vault_store",
       "community": 306,
@@ -11634,10 +11634,30 @@
       "norm_label": "option"
     },
     {
+      "label": ".writable()",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L53",
+      "_origin": "ast",
+      "id": "crates_openspine_kernel_src_cli_wizard_vault_writable",
+      "community": 306,
+      "norm_label": ".writable()"
+    },
+    {
+      "label": ".write_refusal()",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L58",
+      "_origin": "ast",
+      "id": "crates_openspine_kernel_src_cli_wizard_vault_write_refusal",
+      "community": 306,
+      "norm_label": ".write_refusal()"
+    },
+    {
       "label": "run_setup()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L46",
+      "source_location": "L71",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "community": 306,
@@ -11667,7 +11687,7 @@
       "label": "report()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L115",
+      "source_location": "L146",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_report",
       "community": 306,
@@ -11677,7 +11697,7 @@
       "label": "open_vault()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L131",
+      "source_location": "L162",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_open_vault",
       "community": 306,
@@ -11687,7 +11707,7 @@
       "label": "refresh_vault()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L151",
+      "source_location": "L192",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
       "community": 306,
@@ -11697,7 +11717,7 @@
       "label": "bootstrap()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L160",
+      "source_location": "L201",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_bootstrap",
       "community": 306,
@@ -11707,7 +11727,7 @@
       "label": "ensure_key_material()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L207",
+      "source_location": "L248",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
       "community": 306,
@@ -11717,7 +11737,7 @@
       "label": "encrypted_state_in()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L260",
+      "source_location": "L301",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
       "community": 306,
@@ -11737,7 +11757,7 @@
       "label": "choose_model()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L274",
+      "source_location": "L315",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_choose_model",
       "community": 306,
@@ -11757,17 +11777,27 @@
       "label": "verify_configured_provider()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L303",
+      "source_location": "L344",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
       "community": 306,
       "norm_label": "verify_configured_provider()"
     },
     {
+      "label": "a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error()",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L367",
+      "_origin": "ast",
+      "id": "crates_openspine_kernel_src_cli_wizard_a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error",
+      "community": 306,
+      "norm_label": "a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error()"
+    },
+    {
       "label": "the_data_root_lock_cannot_be_acquired_twice()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L325",
+      "source_location": "L393",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_the_data_root_lock_cannot_be_acquired_twice",
       "community": 306,
@@ -11777,7 +11807,7 @@
       "label": "config_with_data_dir()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L336",
+      "source_location": "L404",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
       "community": 306,
@@ -11787,7 +11817,7 @@
       "label": "a_new_data_root_reports_no_encrypted_state()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L352",
+      "source_location": "L420",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_a_new_data_root_reports_no_encrypted_state",
       "community": 306,
@@ -11797,7 +11827,7 @@
       "label": "an_empty_vault_directory_reports_no_encrypted_state()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L363",
+      "source_location": "L431",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_an_empty_vault_directory_reports_no_encrypted_state",
       "community": 306,
@@ -11807,7 +11837,7 @@
       "label": "a_populated_data_root_is_detected_so_no_new_artifact_key_is_minted()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L374",
+      "source_location": "L442",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_a_populated_data_root_is_detected_so_no_new_artifact_key_is_minted",
       "community": 306,
@@ -11817,7 +11847,7 @@
       "label": "an_existing_kernel_database_is_detected()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L386",
+      "source_location": "L454",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_an_existing_kernel_database_is_detected",
       "community": 306,
@@ -11827,7 +11857,7 @@
       "label": "refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration()",
       "file_type": "code",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L399",
+      "source_location": "L467",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_cli_wizard_refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration",
       "community": 306,
@@ -11910,7 +11940,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_config_spendcapconfig",
-      "community": 27,
+      "community": 19,
       "norm_label": "spendcapconfig"
     },
     {
@@ -11930,7 +11960,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_config_providerkind",
-      "community": 19,
+      "community": 153,
       "norm_label": "providerkind"
     },
     {
@@ -15600,7 +15630,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file",
-      "community": 24,
+      "community": 11,
       "norm_label": "env_file.rs"
     },
     {
@@ -15610,7 +15640,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_envfileerror",
-      "community": 24,
+      "community": 11,
       "norm_label": "envfileerror"
     },
     {
@@ -15620,7 +15650,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_pathbuf",
-      "community": 24,
+      "community": 11,
       "norm_label": "pathbuf"
     },
     {
@@ -15630,7 +15660,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_error",
-      "community": 24,
+      "community": 11,
       "norm_label": "error"
     },
     {
@@ -15640,7 +15670,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_loaded",
-      "community": 24,
+      "community": 11,
       "norm_label": "loaded"
     },
     {
@@ -15650,7 +15680,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_option",
-      "community": 24,
+      "community": 11,
       "norm_label": "option"
     },
     {
@@ -15660,7 +15690,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_vec",
-      "community": 24,
+      "community": 11,
       "norm_label": "vec"
     },
     {
@@ -15670,7 +15700,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_string",
-      "community": 24,
+      "community": 11,
       "norm_label": "string"
     },
     {
@@ -15680,7 +15710,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_path_for",
-      "community": 24,
+      "community": 11,
       "norm_label": "path_for()"
     },
     {
@@ -15690,7 +15720,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_path",
-      "community": 24,
+      "community": 11,
       "norm_label": "path"
     },
     {
@@ -15700,7 +15730,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_load_adjacent",
-      "community": 24,
+      "community": 11,
       "norm_label": "load_adjacent()"
     },
     {
@@ -15710,7 +15740,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_rs_result",
-      "community": 24,
+      "community": 11,
       "norm_label": "result"
     },
     {
@@ -15720,7 +15750,7 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_reject_shared_readable",
-      "community": 24,
+      "community": 11,
       "norm_label": "reject_shared_readable()"
     },
     {
@@ -15730,7 +15760,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_parse",
-      "community": 24,
+      "community": 11,
       "norm_label": "parse()"
     },
     {
@@ -15740,7 +15770,7 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_is_identifier",
-      "community": 24,
+      "community": 11,
       "norm_label": "is_identifier()"
     },
     {
@@ -15750,7 +15780,7 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_unquote",
-      "community": 24,
+      "community": 11,
       "norm_label": "unquote()"
     },
     {
@@ -15760,7 +15790,7 @@
       "source_location": "L168",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_render",
-      "community": 24,
+      "community": 11,
       "norm_label": "render()"
     },
     {
@@ -15770,7 +15800,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_merge_owner_only",
-      "community": 24,
+      "community": 11,
       "norm_label": "merge_owner_only()"
     },
     {
@@ -15780,7 +15810,7 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_write_owner_only",
-      "community": 24,
+      "community": 11,
       "norm_label": "write_owner_only()"
     },
     {
@@ -15790,7 +15820,7 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_temp_dir",
-      "community": 24,
+      "community": 11,
       "norm_label": "temp_dir()"
     },
     {
@@ -15800,7 +15830,7 @@
       "source_location": "L294",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_env_file_sits_beside_the_config_file",
-      "community": 24,
+      "community": 11,
       "norm_label": "env_file_sits_beside_the_config_file()"
     },
     {
@@ -15810,7 +15840,7 @@
       "source_location": "L306",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_parse_reads_comments_exports_and_quotes",
-      "community": 24,
+      "community": 11,
       "norm_label": "parse_reads_comments_exports_and_quotes()"
     },
     {
@@ -15820,7 +15850,7 @@
       "source_location": "L323",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_parse_rejects_a_line_without_an_assignment",
-      "community": 24,
+      "community": 11,
       "norm_label": "parse_rejects_a_line_without_an_assignment()"
     },
     {
@@ -15830,7 +15860,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_parse_rejects_a_name_that_is_not_an_identifier",
-      "community": 24,
+      "community": 11,
       "norm_label": "parse_rejects_a_name_that_is_not_an_identifier()"
     },
     {
@@ -15840,7 +15870,7 @@
       "source_location": "L341",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_absent_env_file_is_not_an_error",
-      "community": 24,
+      "community": 11,
       "norm_label": "absent_env_file_is_not_an_error()"
     },
     {
@@ -15850,7 +15880,7 @@
       "source_location": "L349",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_group_readable_env_file_is_refused_with_its_mode",
-      "community": 24,
+      "community": 11,
       "norm_label": "group_readable_env_file_is_refused_with_its_mode()"
     },
     {
@@ -15860,7 +15890,7 @@
       "source_location": "L369",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_generated_key_file_is_never_readable_by_other_accounts",
-      "community": 24,
+      "community": 11,
       "norm_label": "generated_key_file_is_never_readable_by_other_accounts()"
     },
     {
@@ -15870,7 +15900,7 @@
       "source_location": "L396",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_write_owner_only_produces_a_loadable_file",
-      "community": 24,
+      "community": 11,
       "norm_label": "write_owner_only_produces_a_loadable_file()"
     },
     {
@@ -15880,7 +15910,7 @@
       "source_location": "L412",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_env_file_a_set_variable_is_retained_over_the_file",
-      "community": 24,
+      "community": 11,
       "norm_label": "a_set_variable_is_retained_over_the_file()"
     },
     {
@@ -20859,9 +20889,19 @@
       "source_file": "crates/openspine-kernel/src/overlay_export_restore.rs",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_rs",
-      "community": 1914,
+      "id": "crates_openspine_kernel_src_overlay_export_restore",
+      "community": 20,
       "norm_label": "overlay_export_restore.rs"
+    },
+    {
+      "label": "is_already_locked()",
+      "file_type": "code",
+      "source_file": "crates/openspine-kernel/src/overlay_export_restore.rs",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "crates_openspine_kernel_src_overlay_export_restore_is_already_locked",
+      "community": 20,
+      "norm_label": "is_already_locked()"
     },
     {
       "label": "bundle.rs",
@@ -23100,7 +23140,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_overlay_export_restore_control_acquire_resolvedrootidentity",
-      "community": 880,
+      "community": 305,
       "norm_label": "resolvedrootidentity"
     },
     {
@@ -23110,7 +23150,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_overlay_export_restore_control_acquire_rs_pathbuf",
-      "community": 880,
+      "community": 305,
       "norm_label": "pathbuf"
     },
     {
@@ -23120,7 +23160,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_overlay_export_restore_control_acquire_rs_string",
-      "community": 880,
+      "community": 305,
       "norm_label": "string"
     },
     {
@@ -23500,7 +23540,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_fs_rs",
-      "community": 99,
+      "community": 302,
       "norm_label": "fs.rs"
     },
     {
@@ -23510,7 +23550,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_fs_cleanup_temp",
-      "community": 99,
+      "community": 302,
       "norm_label": "cleanup_temp()"
     },
     {
@@ -23540,7 +23580,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_fs_atomic_write",
-      "community": 99,
+      "community": 302,
       "norm_label": "atomic_write()"
     },
     {
@@ -23550,7 +23590,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_fs_remove_durable",
-      "community": 99,
+      "community": 302,
       "norm_label": "remove_durable()"
     },
     {
@@ -23560,7 +23600,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_fs_sync_dir",
-      "community": 99,
+      "community": 302,
       "norm_label": "sync_dir()"
     },
     {
@@ -24140,7 +24180,7 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_control_wire_malformed",
-      "community": 24,
+      "community": 11,
       "norm_label": "malformed()"
     },
     {
@@ -26550,7 +26590,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_pipeline_artifact_activation_rs",
-      "community": 197,
+      "community": 749,
       "norm_label": "artifact_activation.rs"
     },
     {
@@ -26560,7 +26600,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_pipeline_artifact_activation_activate_approved_artifact",
-      "community": 197,
+      "community": 749,
       "norm_label": "activate_approved_artifact()"
     },
     {
@@ -26630,7 +26670,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_pipeline_artifact_reconfirmation_rs",
-      "community": 1595,
+      "community": 30,
       "norm_label": "artifact_reconfirmation.rs"
     },
     {
@@ -26640,7 +26680,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_pipeline_artifact_reconfirmation_reinstate_artifact",
-      "community": 197,
+      "community": 30,
       "norm_label": "reinstate_artifact()"
     },
     {
@@ -26890,7 +26930,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver",
-      "community": 27,
+      "community": 479,
       "norm_label": "driver.rs"
     },
     {
@@ -26910,7 +26950,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_rs_vec",
-      "community": 27,
+      "community": 479,
       "norm_label": "vec"
     },
     {
@@ -26920,7 +26960,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_rs_result",
-      "community": 27,
+      "community": 479,
       "norm_label": "result"
     },
     {
@@ -26930,7 +26970,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_rs_option",
-      "community": 27,
+      "community": 479,
       "norm_label": "option"
     },
     {
@@ -26940,7 +26980,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_run_pipeline_with_envelope",
-      "community": 27,
+      "community": 479,
       "norm_label": "run_pipeline_with_envelope()"
     },
     {
@@ -26950,7 +26990,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_driver_rs_artifactref",
-      "community": 27,
+      "community": 479,
       "norm_label": "artifactref"
     },
     {
@@ -27310,7 +27350,7 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_lanes_terminal_owner_lane",
-      "community": 305,
+      "community": 136,
       "norm_label": "terminal_owner_lane()"
     },
     {
@@ -27330,7 +27370,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_lanes_scheduled_internal_lane",
-      "community": 27,
+      "community": 478,
       "norm_label": "scheduled_internal_lane()"
     },
     {
@@ -27730,7 +27770,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_rs_string",
-      "community": 305,
+      "community": 136,
       "norm_label": "string"
     },
     {
@@ -27770,7 +27810,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "instant",
-      "community": 680,
+      "community": 136,
       "norm_label": "instant"
     },
     {
@@ -27830,7 +27870,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_appstate_lock_conversation",
-      "community": 305,
+      "community": 136,
       "norm_label": ".lock_conversation()"
     },
     {
@@ -27840,7 +27880,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ownedmutexguard",
-      "community": 305,
+      "community": 136,
       "norm_label": "ownedmutexguard"
     },
     {
@@ -27870,7 +27910,7 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_bounded_preview",
-      "community": 305,
+      "community": 136,
       "norm_label": "bounded_preview()"
     },
     {
@@ -27880,7 +27920,7 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_content_diff_summary",
-      "community": 129,
+      "community": 136,
       "norm_label": "content_diff_summary()"
     },
     {
@@ -27900,7 +27940,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_rs_result",
-      "community": 305,
+      "community": 136,
       "norm_label": "result"
     },
     {
@@ -27910,7 +27950,7 @@
       "source_location": "L896",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_mod_handle_terminal_message",
-      "community": 305,
+      "community": 136,
       "norm_label": "handle_terminal_message()"
     },
     {
@@ -27920,7 +27960,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_rs",
-      "community": 357,
+      "community": 110,
       "norm_label": "offset.rs"
     },
     {
@@ -27930,7 +27970,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_initialize_telegram_bot_id",
-      "community": 357,
+      "community": 110,
       "norm_label": "initialize_telegram_bot_id()"
     },
     {
@@ -27950,7 +27990,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_initialize_telegram_bot_id_until_ready",
-      "community": 357,
+      "community": 110,
       "norm_label": "initialize_telegram_bot_id_until_ready()"
     },
     {
@@ -27970,7 +28010,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_resolve_telegram_offset",
-      "community": 357,
+      "community": 110,
       "norm_label": "resolve_telegram_offset()"
     },
     {
@@ -28000,7 +28040,7 @@
       "source_location": "L87",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_is_already_processed",
-      "community": 357,
+      "community": 110,
       "norm_label": "is_already_processed()"
     },
     {
@@ -28010,7 +28050,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_resolve_telegram_offset_for_test",
-      "community": 357,
+      "community": 110,
       "norm_label": "resolve_telegram_offset_for_test()"
     },
     {
@@ -28020,7 +28060,7 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_offset_dispatch_polled_updates_for_test",
-      "community": 357,
+      "community": 110,
       "norm_label": "dispatch_polled_updates_for_test()"
     },
     {
@@ -28090,7 +28130,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_polling_rs",
-      "community": 357,
+      "community": 110,
       "norm_label": "polling.rs"
     },
     {
@@ -28100,7 +28140,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_polling_run_telegram_poll_loop",
-      "community": 357,
+      "community": 110,
       "norm_label": "run_telegram_poll_loop()"
     },
     {
@@ -28120,7 +28160,7 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_polling_dispatch_polled_updates",
-      "community": 357,
+      "community": 110,
       "norm_label": "dispatch_polled_updates()"
     },
     {
@@ -28160,7 +28200,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_polling_poll_telegram_once_for_test",
-      "community": 357,
+      "community": 110,
       "norm_label": "poll_telegram_once_for_test()"
     },
     {
@@ -28490,7 +28530,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_task_board_crates_openspine_kernel_src_pipeline_stages_rs",
-      "community": 27,
+      "community": 479,
       "norm_label": "stages.rs"
     },
     {
@@ -28500,7 +28540,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_task_board_crates_openspine_kernel_src_pipeline_stages_pipelinestage",
-      "community": 27,
+      "community": 479,
       "norm_label": "pipelinestage"
     },
     {
@@ -29070,7 +29110,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_failure_surfacing_contract_crates_openspine_kernel_src_pipeline_tests_callback_ack_failed_callback_ack_does_not_abort_approval_and_is_durable",
-      "community": 32,
+      "community": 504,
       "norm_label": "failed_callback_ack_does_not_abort_approval_and_is_durable()"
     },
     {
@@ -29080,7 +29120,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_day2_operations_crates_openspine_kernel_src_pipeline_tests_concurrency_rs",
-      "community": 952,
+      "community": 110,
       "norm_label": "concurrency.rs"
     },
     {
@@ -29090,7 +29130,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_day2_operations_crates_openspine_kernel_src_pipeline_tests_concurrency_firstcallbackgate",
-      "community": 952,
+      "community": 110,
       "norm_label": "firstcallbackgate"
     },
     {
@@ -29130,7 +29170,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "sender",
-      "community": 952,
+      "community": 110,
       "norm_label": "sender"
     },
     {
@@ -29140,7 +29180,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "receiver",
-      "community": 952,
+      "community": 110,
       "norm_label": "receiver"
     },
     {
@@ -29150,7 +29190,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "respond",
-      "community": 952,
+      "community": 110,
       "norm_label": "respond"
     },
     {
@@ -29160,7 +29200,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_day2_operations_crates_openspine_kernel_src_pipeline_tests_concurrency_firstcallbackgate_respond",
-      "community": 952,
+      "community": 110,
       "norm_label": ".respond()"
     },
     {
@@ -29170,7 +29210,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "request",
-      "community": 952,
+      "community": 110,
       "norm_label": "request"
     },
     {
@@ -29430,7 +29470,7 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_briefcase_packing_crates_openspine_kernel_src_pipeline_tests_draft_draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message",
-      "community": 32,
+      "community": 7,
       "norm_label": "draft_command_composes_email_preview_grant_whose_pending_ref_is_derived_message()"
     },
     {
@@ -29880,7 +29920,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod",
-      "community": 32,
+      "community": 7,
       "norm_label": "mod.rs"
     },
     {
@@ -29890,7 +29930,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_non_owner_update_is_ignored_and_audited_without_a_grant",
-      "community": 32,
+      "community": 7,
       "norm_label": "non_owner_update_is_ignored_and_audited_without_a_grant()"
     },
     {
@@ -29900,7 +29940,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_malformed_secret_command_is_reserved_from_normal_pipeline",
-      "community": 32,
+      "community": 7,
       "norm_label": "malformed_secret_command_is_reserved_from_normal_pipeline()"
     },
     {
@@ -29910,7 +29950,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat",
-      "community": 32,
+      "community": 7,
       "norm_label": "owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat()"
     },
     {
@@ -29920,7 +29960,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_terminal_owner_message_composes_local_cli_grant_and_persists_input",
-      "community": 32,
+      "community": 7,
       "norm_label": "terminal_owner_message_composes_local_cli_grant_and_persists_input()"
     },
     {
@@ -29930,7 +29970,7 @@
       "source_location": "L118",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_audit_payload_refs",
-      "community": 32,
+      "community": 7,
       "norm_label": "audit_payload_refs()"
     },
     {
@@ -29940,7 +29980,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_rs_store",
-      "community": 32,
+      "community": 7,
       "norm_label": "store"
     },
     {
@@ -29950,7 +29990,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_rs_vec",
-      "community": 32,
+      "community": 7,
       "norm_label": "vec"
     },
     {
@@ -29960,7 +30000,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_rs_string",
-      "community": 32,
+      "community": 7,
       "norm_label": "string"
     },
     {
@@ -29990,7 +30030,7 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_mod_owner_update_grant_pins_original_message_raw_ref_through_to_audit",
-      "community": 32,
+      "community": 7,
       "norm_label": "owner_update_grant_pins_original_message_raw_ref_through_to_audit()"
     },
     {
@@ -30120,7 +30160,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_pipeline_tests_plan_plan_preview_records_telegram_failure_counter_on_send_error",
-      "community": 32,
+      "community": 253,
       "norm_label": "plan_preview_records_telegram_failure_counter_on_send_error()"
     },
     {
@@ -30620,7 +30660,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_terminal_e2e",
-      "community": 305,
+      "community": 136,
       "norm_label": "terminal_e2e.rs"
     },
     {
@@ -30630,7 +30670,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_terminal_e2e_shell_binary",
-      "community": 305,
+      "community": 136,
       "norm_label": "shell_binary()"
     },
     {
@@ -30640,7 +30680,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_terminal_e2e_rs_pathbuf",
-      "community": 305,
+      "community": 136,
       "norm_label": "pathbuf"
     },
     {
@@ -30650,7 +30690,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_terminal_e2e_audit_action_count",
-      "community": 305,
+      "community": 136,
       "norm_label": "audit_action_count()"
     },
     {
@@ -30660,7 +30700,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_pipeline_tests_terminal_e2e_terminal_owner_status_reaches_device_through_real_shell",
-      "community": 305,
+      "community": 136,
       "norm_label": "terminal_owner_status_reaches_device_through_real_shell()"
     },
     {
@@ -30840,7 +30880,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_rs",
-      "community": 124,
+      "community": 284,
       "norm_label": "worker_e2e_tests.rs"
     },
     {
@@ -30850,7 +30890,7 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_worker_shell_binary",
-      "community": 124,
+      "community": 284,
       "norm_label": "worker_shell_binary()"
     },
     {
@@ -30870,7 +30910,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_audit_action_count",
-      "community": 124,
+      "community": 284,
       "norm_label": "audit_action_count()"
     },
     {
@@ -30880,7 +30920,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_dispatch_state",
-      "community": 124,
+      "community": 284,
       "norm_label": "dispatch_state()"
     },
     {
@@ -30900,7 +30940,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_parent_grant_for_commission",
-      "community": 124,
+      "community": 284,
       "norm_label": "parent_grant_for_commission()"
     },
     {
@@ -30910,7 +30950,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_parent_briefcase",
-      "community": 124,
+      "community": 284,
       "norm_label": "parent_briefcase()"
     },
     {
@@ -30930,7 +30970,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_commissioned_worker_reports_and_master_relays_through_real_shell",
-      "community": 124,
+      "community": 284,
       "norm_label": "commissioned_worker_reports_and_master_relays_through_real_shell()"
     },
     {
@@ -30940,7 +30980,7 @@
       "source_location": "L339",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_kernel_src_pipeline_worker_e2e_tests_root_pipeline_shell_does_not_report_worker_result",
-      "community": 124,
+      "community": 284,
       "norm_label": "root_pipeline_shell_does_not_report_worker_result()"
     },
     {
@@ -33810,7 +33850,7 @@
       "source_location": "L277",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_skill_tests_containment_gate_denies_denied_action_regardless_of_malicious_skill",
-      "community": 32,
+      "community": 7,
       "norm_label": "containment_gate_denies_denied_action_regardless_of_malicious_skill()"
     },
     {
@@ -34200,7 +34240,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_kernel_src_store_audit_support_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "audit_support.rs"
     },
     {
@@ -34520,7 +34560,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_workflow_state_machines_crates_openspine_kernel_src_store_briefcase_support_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "briefcase_support.rs"
     },
     {
@@ -34530,7 +34570,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_workflow_state_machines_crates_openspine_kernel_src_store_briefcase_support_ensure_schema",
-      "community": 680,
+      "community": 118,
       "norm_label": "ensure_schema()"
     },
     {
@@ -34560,7 +34600,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_workflow_state_machines_crates_openspine_kernel_src_store_briefcase_support_briefcaseaudit",
-      "community": 680,
+      "community": 118,
       "norm_label": "briefcaseaudit"
     },
     {
@@ -36160,7 +36200,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_store_failure_surfacing_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "failure_surfacing.rs"
     },
     {
@@ -36540,7 +36580,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_skill_artifact_class_crates_openspine_kernel_src_store_gate_support_rs",
-      "community": 680,
+      "community": 118,
       "norm_label": "gate_support.rs"
     },
     {
@@ -37010,7 +37050,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_rs",
-      "community": 301,
+      "community": 30,
       "norm_label": "learned_artifacts.rs"
     },
     {
@@ -37020,7 +37060,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_compatibilitystatus",
-      "community": 251,
+      "community": 30,
       "norm_label": "compatibilitystatus"
     },
     {
@@ -37030,7 +37070,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_nominationstatus",
-      "community": 301,
+      "community": 30,
       "norm_label": "nominationstatus"
     },
     {
@@ -37040,7 +37080,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_reconfirmanchor",
-      "community": 1595,
+      "community": 30,
       "norm_label": "reconfirmanchor"
     },
     {
@@ -37070,7 +37110,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_provenance",
-      "community": 1595,
+      "community": 30,
       "norm_label": "provenance"
     },
     {
@@ -37080,7 +37120,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_learnedartifact",
-      "community": 251,
+      "community": 30,
       "norm_label": "learnedartifact"
     },
     {
@@ -37110,7 +37150,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_learnedartifactidentity",
-      "community": 301,
+      "community": 30,
       "norm_label": "learnedartifactidentity"
     },
     {
@@ -37120,7 +37160,7 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_learnedartifactidentity_audit_ref",
-      "community": 301,
+      "community": 30,
       "norm_label": ".audit_ref()"
     },
     {
@@ -37130,7 +37170,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_learnedartifacterasure",
-      "community": 301,
+      "community": 30,
       "norm_label": "learnedartifacterasure"
     },
     {
@@ -37160,7 +37200,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_dependency_fingerprint_allows",
-      "community": 301,
+      "community": 30,
       "norm_label": "dependency_fingerprint_allows()"
     },
     {
@@ -37170,7 +37210,7 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_ensure_schema",
-      "community": 301,
+      "community": 30,
       "norm_label": "ensure_schema()"
     },
     {
@@ -37200,7 +37240,7 @@
       "source_location": "L176",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_table_has_column",
-      "community": 301,
+      "community": 30,
       "norm_label": "table_has_column()"
     },
     {
@@ -37210,7 +37250,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_ensure_closure_triggers",
-      "community": 301,
+      "community": 30,
       "norm_label": "ensure_closure_triggers()"
     },
     {
@@ -37220,7 +37260,7 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_migrate_provenance_column",
-      "community": 301,
+      "community": 30,
       "norm_label": "migrate_provenance_column()"
     },
     {
@@ -37230,7 +37270,7 @@
       "source_location": "L289",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_status_name",
-      "community": 251,
+      "community": 30,
       "norm_label": "status_name()"
     },
     {
@@ -37240,7 +37280,7 @@
       "source_location": "L297",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_nomination_name",
-      "community": 301,
+      "community": 30,
       "norm_label": "nomination_name()"
     },
     {
@@ -37250,7 +37290,7 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_parse_status",
-      "community": 251,
+      "community": 30,
       "norm_label": "parse_status()"
     },
     {
@@ -37260,7 +37300,7 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_parse_nomination",
-      "community": 301,
+      "community": 30,
       "norm_label": "parse_nomination()"
     },
     {
@@ -37270,7 +37310,7 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store",
-      "community": 251,
+      "community": 30,
       "norm_label": "store"
     },
     {
@@ -37280,7 +37320,7 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_record_learned_artifact",
-      "community": 251,
+      "community": 30,
       "norm_label": ".record_learned_artifact()"
     },
     {
@@ -37290,7 +37330,7 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_record_learned_artifact_with_audit",
-      "community": 251,
+      "community": 30,
       "norm_label": ".record_learned_artifact_with_audit()"
     },
     {
@@ -37300,7 +37340,7 @@
       "source_location": "L372",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_quarantine_learned_artifact",
-      "community": 251,
+      "community": 30,
       "norm_label": ".quarantine_learned_artifact()"
     },
     {
@@ -37310,7 +37350,7 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_insert_learned_artifact_conn",
-      "community": 251,
+      "community": 30,
       "norm_label": ".insert_learned_artifact_conn()"
     },
     {
@@ -37320,7 +37360,7 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_list_learned_artifacts",
-      "community": 251,
+      "community": 30,
       "norm_label": ".list_learned_artifacts()"
     },
     {
@@ -37330,7 +37370,7 @@
       "source_location": "L542",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_mark_reconfirmation_required",
-      "community": 251,
+      "community": 30,
       "norm_label": ".mark_reconfirmation_required()"
     },
     {
@@ -37340,7 +37380,7 @@
       "source_location": "L576",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_refresh_owner_accepted_epoch",
-      "community": 251,
+      "community": 30,
       "norm_label": ".refresh_owner_accepted_epoch()"
     },
     {
@@ -37350,7 +37390,7 @@
       "source_location": "L647",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_mark_learned_artifacts_erased",
-      "community": 301,
+      "community": 30,
       "norm_label": ".mark_learned_artifacts_erased()"
     },
     {
@@ -37370,7 +37410,7 @@
       "source_location": "L814",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_erased_counterparty_ids",
-      "community": 251,
+      "community": 30,
       "norm_label": ".erased_counterparty_ids()"
     },
     {
@@ -37380,7 +37420,7 @@
       "source_location": "L828",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_store_learned_artifacts_store_nominate_upstream",
-      "community": 251,
+      "community": 30,
       "norm_label": ".nominate_upstream()"
     },
     {
@@ -37540,7 +37580,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_store_learned_reconfirmation_rs",
-      "community": 1595,
+      "community": 30,
       "norm_label": "learned_reconfirmation.rs"
     },
     {
@@ -37550,7 +37590,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_store_learned_reconfirmation_ownerreconfirmation",
-      "community": 1595,
+      "community": 30,
       "norm_label": "ownerreconfirmation"
     },
     {
@@ -37610,7 +37650,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_store_learned_reconfirmation_store",
-      "community": 1595,
+      "community": 30,
       "norm_label": "store"
     },
     {
@@ -37620,7 +37660,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_counterparty_key_model_crates_openspine_kernel_src_store_learned_reconfirmation_store_commit_owner_reconfirmation",
-      "community": 1595,
+      "community": 30,
       "norm_label": ".commit_owner_reconfirmation()"
     },
     {
@@ -43140,7 +43180,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_kernel_src_store_worker_dispatch_record_worker_commissioned",
-      "community": 953,
+      "community": 219,
       "norm_label": "record_worker_commissioned()"
     },
     {
@@ -43210,7 +43250,7 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_kernel_src_store_worker_dispatch_commissionreceipt",
-      "community": 29,
+      "community": 418,
       "norm_label": "commissionreceipt"
     },
     {
@@ -43220,7 +43260,7 @@
       "source_location": "L174",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_kernel_src_store_worker_dispatch_commissioned_grant_for_receipt",
-      "community": 29,
+      "community": 418,
       "norm_label": "commissioned_grant_for_receipt()"
     },
     {
@@ -43830,7 +43870,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_kernel_src_store_worker_supervision_worker_commission_admission",
-      "community": 29,
+      "community": 421,
       "norm_label": "worker_commission_admission()"
     },
     {
@@ -43840,7 +43880,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "mutexguard",
-      "community": 29,
+      "community": 421,
       "norm_label": "mutexguard"
     },
     {
@@ -43890,7 +43930,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_kernel_src_store_worker_supervision_record_worker_failed",
-      "community": 29,
+      "community": 421,
       "norm_label": "record_worker_failed()"
     },
     {
@@ -44280,7 +44320,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram",
-      "community": 176,
+      "community": 110,
       "norm_label": "telegram.rs"
     },
     {
@@ -44290,7 +44330,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramupdate",
-      "community": 176,
+      "community": 110,
       "norm_label": "telegramupdate"
     },
     {
@@ -44300,7 +44340,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_option",
-      "community": 176,
+      "community": 110,
       "norm_label": "option"
     },
     {
@@ -44310,7 +44350,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_string",
-      "community": 284,
+      "community": 110,
       "norm_label": "string"
     },
     {
@@ -44320,7 +44360,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_callbackqueryupdate",
-      "community": 176,
+      "community": 110,
       "norm_label": "callbackqueryupdate"
     },
     {
@@ -44330,7 +44370,7 @@
       "source_location": "L54",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_project_update",
-      "community": 176,
+      "community": 110,
       "norm_label": "project_update()"
     },
     {
@@ -44340,7 +44380,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "update",
-      "community": 176,
+      "community": 110,
       "norm_label": "update"
     },
     {
@@ -44350,7 +44390,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_verifiedownercontext",
-      "community": 284,
+      "community": 111,
       "norm_label": "verifiedownercontext"
     },
     {
@@ -44360,7 +44400,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_verifiedownercontext_test_new",
-      "community": 284,
+      "community": 110,
       "norm_label": ".test_new()"
     },
     {
@@ -44370,7 +44410,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_self",
-      "community": 284,
+      "community": 110,
       "norm_label": "self"
     },
     {
@@ -44380,7 +44420,7 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_verifiedupdate",
-      "community": 284,
+      "community": 110,
       "norm_label": "verifiedupdate"
     },
     {
@@ -44400,7 +44440,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_approve_callback",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_approve_callback()"
     },
     {
@@ -44410,7 +44450,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_ulid",
-      "community": 176,
+      "community": 110,
       "norm_label": "ulid"
     },
     {
@@ -44420,7 +44460,7 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_approve_plan_callback",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_approve_plan_callback()"
     },
     {
@@ -44430,7 +44470,7 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_standing_rule_callback",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_standing_rule_callback()"
     },
     {
@@ -44440,7 +44480,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_disclosureanswer",
-      "community": 176,
+      "community": 110,
       "norm_label": "disclosureanswer"
     },
     {
@@ -44450,7 +44490,7 @@
       "source_location": "L225",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_disclosure_command",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_disclosure_command()"
     },
     {
@@ -44460,7 +44500,7 @@
       "source_location": "L256",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_draft_command",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_draft_command()"
     },
     {
@@ -44470,7 +44510,7 @@
       "source_location": "L274",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_bind_command",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_bind_command()"
     },
     {
@@ -44480,7 +44520,7 @@
       "source_location": "L288",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_digest_command",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_digest_command()"
     },
     {
@@ -44490,7 +44530,7 @@
       "source_location": "L292",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_digest_detail_command",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_digest_detail_command()"
     },
     {
@@ -44500,7 +44540,7 @@
       "source_location": "L304",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_parse_digest_namespace",
-      "community": 176,
+      "community": 110,
       "norm_label": "parse_digest_namespace()"
     },
     {
@@ -44510,7 +44550,7 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_build_owner_envelope",
-      "community": 1667,
+      "community": 110,
       "norm_label": "build_owner_envelope()"
     },
     {
@@ -44520,7 +44560,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_artifactref",
-      "community": 1667,
+      "community": 110,
       "norm_label": "artifactref"
     },
     {
@@ -44530,7 +44570,7 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector",
-      "community": 302,
+      "community": 110,
       "norm_label": "telegramconnector"
     },
     {
@@ -44540,7 +44580,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_mutex",
-      "community": 302,
+      "community": 110,
       "norm_label": "mutex"
     },
     {
@@ -44550,7 +44590,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_arc",
-      "community": 284,
+      "community": 110,
       "norm_label": "arc"
     },
     {
@@ -44560,7 +44600,7 @@
       "source_location": "L358",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegrambotstate",
-      "community": 284,
+      "community": 110,
       "norm_label": "telegrambotstate"
     },
     {
@@ -44570,7 +44610,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "bot",
-      "community": 284,
+      "community": 110,
       "norm_label": "bot"
     },
     {
@@ -44580,7 +44620,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "url",
-      "community": 284,
+      "community": 110,
       "norm_label": "url"
     },
     {
@@ -44590,7 +44630,7 @@
       "source_location": "L365",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_new",
-      "community": 284,
+      "community": 110,
       "norm_label": ".new()"
     },
     {
@@ -44600,7 +44640,7 @@
       "source_location": "L377",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_new_with_store",
-      "community": 284,
+      "community": 110,
       "norm_label": ".new_with_store()"
     },
     {
@@ -44610,7 +44650,7 @@
       "source_location": "L388",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_current_bot",
-      "community": 302,
+      "community": 110,
       "norm_label": ".current_bot()"
     },
     {
@@ -44620,7 +44660,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_result",
-      "community": 302,
+      "community": 110,
       "norm_label": "result"
     },
     {
@@ -44630,7 +44670,7 @@
       "source_location": "L409",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_current_token_for_test",
-      "community": 302,
+      "community": 110,
       "norm_label": ".current_token_for_test()"
     },
     {
@@ -44640,7 +44680,7 @@
       "source_location": "L415",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_with_api_url",
-      "community": 284,
+      "community": 110,
       "norm_label": ".with_api_url()"
     },
     {
@@ -44650,7 +44690,7 @@
       "source_location": "L428",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_with_store_and_api_url",
-      "community": 284,
+      "community": 110,
       "norm_label": ".with_store_and_api_url()"
     },
     {
@@ -44660,7 +44700,7 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_poll_once",
-      "community": 302,
+      "community": 110,
       "norm_label": ".poll_once()"
     },
     {
@@ -44670,7 +44710,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_rs_vec",
-      "community": 302,
+      "community": 110,
       "norm_label": "vec"
     },
     {
@@ -44680,7 +44720,7 @@
       "source_location": "L464",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_send_reply",
-      "community": 302,
+      "community": 110,
       "norm_label": ".send_reply()"
     },
     {
@@ -44690,7 +44730,7 @@
       "source_location": "L477",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_send_reply_with_approval_button",
-      "community": 302,
+      "community": 110,
       "norm_label": ".send_reply_with_approval_button()"
     },
     {
@@ -44700,7 +44740,7 @@
       "source_location": "L498",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_send_reply_with_standing_rule_buttons",
-      "community": 302,
+      "community": 110,
       "norm_label": ".send_reply_with_standing_rule_buttons()"
     },
     {
@@ -44710,7 +44750,7 @@
       "source_location": "L516",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_send_reply_with_plan_approval_button",
-      "community": 302,
+      "community": 110,
       "norm_label": ".send_reply_with_plan_approval_button()"
     },
     {
@@ -44720,7 +44760,7 @@
       "source_location": "L536",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_telegram_telegramconnector_answer_callback_query",
-      "community": 302,
+      "community": 110,
       "norm_label": ".answer_callback_query()"
     },
     {
@@ -44900,7 +44940,7 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_connector_reality_crates_openspine_kernel_src_telegram_tests_owner_envelope_is_verified_with_owner_id_match_method",
-      "community": 1667,
+      "community": 110,
       "norm_label": "owner_envelope_is_verified_with_owner_id_match_method()"
     },
     {
@@ -45160,7 +45200,7 @@
       "source_location": "L164",
       "_origin": "ast",
       "id": "crates_openspine_kernel_src_test_support_seed_owner_history",
-      "community": 315,
+      "community": 32,
       "norm_label": "seed_owner_history()"
     },
     {
@@ -46680,7 +46720,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action",
-      "community": 680,
+      "community": 118,
       "norm_label": "action.rs"
     },
     {
@@ -46700,7 +46740,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_string",
-      "community": 680,
+      "community": 118,
       "norm_label": "string"
     },
     {
@@ -46810,7 +46850,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_effectpathclass",
-      "community": 680,
+      "community": 118,
       "norm_label": "effectpathclass"
     },
     {
@@ -46820,7 +46860,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_effectpath",
-      "community": 680,
+      "community": 118,
       "norm_label": "effectpath"
     },
     {
@@ -47090,7 +47130,7 @@
       "source_location": "L322",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actioncatalog_requires_selection_token",
-      "community": 118,
+      "community": 82,
       "norm_label": ".requires_selection_token()"
     },
     {
@@ -47130,7 +47170,7 @@
       "source_location": "L344",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actioncatalog_effect_paths",
-      "community": 680,
+      "community": 118,
       "norm_label": ".effect_paths()"
     },
     {
@@ -47140,7 +47180,7 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_denialreason",
-      "community": 680,
+      "community": 118,
       "norm_label": "denialreason"
     },
     {
@@ -47150,7 +47190,7 @@
       "source_location": "L378",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_gatedecision",
-      "community": 680,
+      "community": 118,
       "norm_label": "gatedecision"
     },
     {
@@ -47160,7 +47200,7 @@
       "source_location": "L396",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_skillattributionkind",
-      "community": 680,
+      "community": 118,
       "norm_label": "skillattributionkind"
     },
     {
@@ -47180,7 +47220,7 @@
       "source_location": "L415",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_actionrequest",
-      "community": 680,
+      "community": 118,
       "norm_label": "actionrequest"
     },
     {
@@ -47190,7 +47230,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_ulid",
-      "community": 680,
+      "community": 118,
       "norm_label": "ulid"
     },
     {
@@ -47200,7 +47240,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_artifactref",
-      "community": 680,
+      "community": 118,
       "norm_label": "artifactref"
     },
     {
@@ -47210,7 +47250,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_digest",
-      "community": 680,
+      "community": 118,
       "norm_label": "digest"
     },
     {
@@ -47220,7 +47260,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_rs_btreemap",
-      "community": 680,
+      "community": 118,
       "norm_label": "btreemap"
     },
     {
@@ -47230,7 +47270,7 @@
       "source_location": "L441",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_action_id_qualifier_is_part_of_identity",
-      "community": 680,
+      "community": 118,
       "norm_label": "action_id_qualifier_is_part_of_identity()"
     },
     {
@@ -47240,7 +47280,7 @@
       "source_location": "L448",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_action_id_serializes_as_bare_string",
-      "community": 680,
+      "community": 118,
       "norm_label": "action_id_serializes_as_bare_string()"
     },
     {
@@ -47250,7 +47290,7 @@
       "source_location": "L457",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_gate_decision_round_trips_with_tag",
-      "community": 680,
+      "community": 118,
       "norm_label": "gate_decision_round_trips_with_tag()"
     },
     {
@@ -47260,7 +47300,7 @@
       "source_location": "L469",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_action_approval_required_never_serializes_as_allow",
-      "community": 680,
+      "community": 118,
       "norm_label": "approval_required_never_serializes_as_allow()"
     },
     {
@@ -47270,7 +47310,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent",
-      "community": 71,
+      "community": 24,
       "norm_label": "agent.rs"
     },
     {
@@ -47280,7 +47320,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_persistence",
-      "community": 71,
+      "community": 24,
       "norm_label": "persistence"
     },
     {
@@ -47290,7 +47330,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_modelpolicy",
-      "community": 71,
+      "community": 24,
       "norm_label": "modelpolicy"
     },
     {
@@ -47300,7 +47340,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_rs_vec",
-      "community": 71,
+      "community": 24,
       "norm_label": "vec"
     },
     {
@@ -47310,7 +47350,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_memoryscope",
-      "community": 71,
+      "community": 24,
       "norm_label": "memoryscope"
     },
     {
@@ -47320,7 +47360,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_rs_string",
-      "community": 71,
+      "community": 24,
       "norm_label": "string"
     },
     {
@@ -47330,7 +47370,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_agentlimits",
-      "community": 71,
+      "community": 24,
       "norm_label": "agentlimits"
     },
     {
@@ -47340,7 +47380,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_outputchannels",
-      "community": 71,
+      "community": 24,
       "norm_label": "outputchannels"
     },
     {
@@ -47350,7 +47390,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_agentmanifest",
-      "community": 71,
+      "community": 24,
       "norm_label": "agentmanifest"
     },
     {
@@ -47360,7 +47400,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_rs_artifactid",
-      "community": 71,
+      "community": 24,
       "norm_label": "artifactid"
     },
     {
@@ -47370,7 +47410,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_main_assistant_agent",
-      "community": 71,
+      "community": 24,
       "norm_label": "main_assistant_agent()"
     },
     {
@@ -47380,7 +47420,7 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_round_trips_through_serde",
-      "community": 71,
+      "community": 24,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -47390,7 +47430,7 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_agent_main_assistant_denies_broad_email_access",
-      "community": 71,
+      "community": 24,
       "norm_label": "main_assistant_denies_broad_email_access()"
     },
     {
@@ -47400,7 +47440,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval",
-      "community": 196,
+      "community": 176,
       "norm_label": "approval.rs"
     },
     {
@@ -47410,7 +47450,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvaldecision",
-      "community": 196,
+      "community": 176,
       "norm_label": "approvaldecision"
     },
     {
@@ -47420,7 +47460,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_timeoutbehavior",
-      "community": 196,
+      "community": 176,
       "norm_label": "timeoutbehavior"
     },
     {
@@ -47430,7 +47470,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvalrecord",
-      "community": 196,
+      "community": 176,
       "norm_label": "approvalrecord"
     },
     {
@@ -47440,7 +47480,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_ulid",
-      "community": 196,
+      "community": 176,
       "norm_label": "ulid"
     },
     {
@@ -47450,7 +47490,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_string",
-      "community": 196,
+      "community": 176,
       "norm_label": "string"
     },
     {
@@ -47460,7 +47500,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_rs_digest",
-      "community": 196,
+      "community": 176,
       "norm_label": "digest"
     },
     {
@@ -47470,7 +47510,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_approvalrecord_matches",
-      "community": 196,
+      "community": 176,
       "norm_label": ".matches()"
     },
     {
@@ -47480,7 +47520,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_sample_approval",
-      "community": 196,
+      "community": 176,
       "norm_label": "sample_approval()"
     },
     {
@@ -47490,7 +47530,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_round_trips_through_serde",
-      "community": 196,
+      "community": 176,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -47500,7 +47540,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_requires_both_digests_and_approved_decision",
-      "community": 196,
+      "community": 176,
       "norm_label": "matches_requires_both_digests_and_approved_decision()"
     },
     {
@@ -47510,7 +47550,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_rejects_expired_approval",
-      "community": 196,
+      "community": 176,
       "norm_label": "matches_rejects_expired_approval()"
     },
     {
@@ -47520,7 +47560,7 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_approval_matches_rejects_non_approved_decisions",
-      "community": 196,
+      "community": 176,
       "norm_label": "matches_rejects_non_approved_decisions()"
     },
     {
@@ -47570,7 +47610,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_model_crates_openspine_schemas_src_artifact_artifactnamespace",
-      "community": 197,
+      "community": 749,
       "norm_label": "artifactnamespace"
     },
     {
@@ -47580,7 +47620,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_model_crates_openspine_schemas_src_artifact_lifecycle",
-      "community": 71,
+      "community": 24,
       "norm_label": "lifecycle"
     },
     {
@@ -49790,7 +49830,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "write",
-      "community": 209,
+      "community": 302,
       "norm_label": "write"
     },
     {
@@ -50710,7 +50750,7 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_event_dataclassification",
-      "community": 71,
+      "community": 464,
       "norm_label": "dataclassification"
     },
     {
@@ -51210,7 +51250,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_schemas_src_grant_taskgrant",
-      "community": 136,
+      "community": 764,
       "norm_label": "taskgrant"
     },
     {
@@ -51270,7 +51310,7 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_schemas_src_grant_taskgrant_is_expired",
-      "community": 136,
+      "community": 764,
       "norm_label": ".is_expired()"
     },
     {
@@ -51290,7 +51330,7 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_schemas_src_grant_taskgrant_effectively_approval_required",
-      "community": 136,
+      "community": 764,
       "norm_label": ".effectively_approval_required()"
     },
     {
@@ -51300,7 +51340,7 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_schemas_src_grant_taskgrant_verify_mac",
-      "community": 136,
+      "community": 764,
       "norm_label": ".verify_mac()"
     },
     {
@@ -51310,7 +51350,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_persona_binding_and_headless_lanes_crates_openspine_schemas_src_grant_taskgrant_effectively_allows",
-      "community": 136,
+      "community": 764,
       "norm_label": ".effectively_allows()"
     },
     {
@@ -51950,7 +51990,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_identity_relationshipkind",
-      "community": 111,
+      "community": 97,
       "norm_label": "relationshipkind"
     },
     {
@@ -52290,7 +52330,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model",
-      "community": 71,
+      "community": 251,
       "norm_label": "model.rs"
     },
     {
@@ -52300,7 +52340,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_provider",
-      "community": 71,
+      "community": 24,
       "norm_label": "provider"
     },
     {
@@ -52310,7 +52350,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_redactionrequirement",
-      "community": 71,
+      "community": 251,
       "norm_label": "redactionrequirement"
     },
     {
@@ -52320,7 +52360,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_retentionmode",
-      "community": 71,
+      "community": 251,
       "norm_label": "retentionmode"
     },
     {
@@ -52330,7 +52370,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_storeoutputpolicy",
-      "community": 71,
+      "community": 251,
       "norm_label": "storeoutputpolicy"
     },
     {
@@ -52340,7 +52380,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_instructionsources",
-      "community": 71,
+      "community": 251,
       "norm_label": "instructionsources"
     },
     {
@@ -52350,7 +52390,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_rs_vec",
-      "community": 71,
+      "community": 251,
       "norm_label": "vec"
     },
     {
@@ -52360,7 +52400,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_rs_string",
-      "community": 71,
+      "community": 251,
       "norm_label": "string"
     },
     {
@@ -52370,7 +52410,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_outputpolicy",
-      "community": 71,
+      "community": 251,
       "norm_label": "outputpolicy"
     },
     {
@@ -52380,7 +52420,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_modelrequest",
-      "community": 71,
+      "community": 251,
       "norm_label": "modelrequest"
     },
     {
@@ -52390,7 +52430,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_rs_ulid",
-      "community": 71,
+      "community": 251,
       "norm_label": "ulid"
     },
     {
@@ -52400,7 +52440,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_rs_option",
-      "community": 71,
+      "community": 251,
       "norm_label": "option"
     },
     {
@@ -52410,7 +52450,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_round_trips_through_serde",
-      "community": 71,
+      "community": 251,
       "norm_label": "round_trips_through_serde()"
     },
     {
@@ -52420,7 +52460,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_model_untrusted_data_never_collapses_into_trusted",
-      "community": 71,
+      "community": 251,
       "norm_label": "untrusted_data_never_collapses_into_trusted()"
     },
     {
@@ -54460,7 +54500,7 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_resolved_context_resolvedactioncontext_action_id",
-      "community": 464,
+      "community": 118,
       "norm_label": ".action_id()"
     },
     {
@@ -54500,7 +54540,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_resolved_context_resolvedactioncontext_implementation_id",
-      "community": 464,
+      "community": 334,
       "norm_label": ".implementation_id()"
     },
     {
@@ -54620,7 +54660,7 @@
       "source_location": "L298",
       "_origin": "ast",
       "id": "crates_openspine_schemas_src_resolved_context_resolvedactioncontext_relationship_tier",
-      "community": 23,
+      "community": 464,
       "norm_label": ".relationship_tier()"
     },
     {
@@ -55650,7 +55690,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_rs",
-      "community": 334,
+      "community": 301,
       "norm_label": "standing_rule.rs"
     },
     {
@@ -55670,7 +55710,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_darkwindowconfig",
-      "community": 334,
+      "community": 301,
       "norm_label": "darkwindowconfig"
     },
     {
@@ -55680,7 +55720,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_darkwindowdefault",
-      "community": 334,
+      "community": 301,
       "norm_label": "darkwindowdefault"
     },
     {
@@ -55690,7 +55730,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_standingrulemanifest",
-      "community": 334,
+      "community": 301,
       "norm_label": "standingrulemanifest"
     },
     {
@@ -55730,7 +55770,7 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_standingrulemanifest_validate",
-      "community": 334,
+      "community": 301,
       "norm_label": ".validate()"
     },
     {
@@ -55750,7 +55790,7 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_standing_rule_manifest_round_trips_through_serde",
-      "community": 334,
+      "community": 301,
       "norm_label": "standing_rule_manifest_round_trips_through_serde()"
     },
     {
@@ -55760,7 +55800,7 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_standing_rules_crates_openspine_schemas_src_standing_rule_dark_window_is_optional_and_absent_by_default",
-      "community": 334,
+      "community": 301,
       "norm_label": "dark_window_is_optional_and_absent_by_default()"
     },
     {
@@ -56180,7 +56220,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_schemas_src_worker_workeridentity",
-      "community": 953,
+      "community": 421,
       "norm_label": "workeridentity"
     },
     {
@@ -56200,7 +56240,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_schemas_src_worker_workerfailurereason",
-      "community": 29,
+      "community": 421,
       "norm_label": "workerfailurereason"
     },
     {
@@ -56210,7 +56250,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_worker_supervision_crates_openspine_schemas_src_worker_workerfailed",
-      "community": 29,
+      "community": 421,
       "norm_label": "workerfailed"
     },
     {
@@ -58730,7 +58770,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "site_astro_collections_docs_schema_properties_head",
-      "community": 280,
+      "community": 357,
       "norm_label": "head"
     },
     {
@@ -58740,7 +58780,7 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "site_astro_collections_docs_schema_head_default",
-      "community": 280,
+      "community": 357,
       "norm_label": "default"
     },
     {
@@ -58750,7 +58790,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "site_astro_collections_docs_schema_head_type",
-      "community": 280,
+      "community": 357,
       "norm_label": "type"
     },
     {
@@ -94143,7 +94183,7 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "openspec_specs_artifact_lifecycle_spec_requirement_owner_reconfirmation_must_commit_atomically_before_publication",
-      "community": 1669,
+      "community": 205,
       "norm_label": "requirement: owner reconfirmation must commit atomically before publication"
     },
     {
@@ -94153,7 +94193,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "openspec_specs_artifact_lifecycle_spec_scenario_failed_commit_is_retryable_and_publishes_nothing",
-      "community": 1669,
+      "community": 205,
       "norm_label": "scenario: failed commit is retryable and publishes nothing"
     },
     {
@@ -94193,7 +94233,7 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "openspec_specs_artifact_lifecycle_spec_requirement_personality_seed_must_not_be_kernel_baked_base_fixtures",
-      "community": 205,
+      "community": 698,
       "norm_label": "requirement: personality seed must not be kernel-baked base fixtures"
     },
     {
@@ -94203,7 +94243,7 @@
       "source_location": "L254",
       "_origin": "ast",
       "id": "openspec_specs_artifact_lifecycle_spec_scenario_seed_is_excluded_from_base_identity_and_compatibility",
-      "community": 205,
+      "community": 698,
       "norm_label": "scenario: seed is excluded from base identity and compatibility"
     },
     {
@@ -95373,7 +95413,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_requirement_identity_schemas_must_not_grant_runtime_authority",
-      "community": 207,
+      "community": 952,
       "norm_label": "requirement: identity schemas must not grant runtime authority"
     },
     {
@@ -95383,7 +95423,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_known_owner_identity_exists",
-      "community": 207,
+      "community": 952,
       "norm_label": "scenario: known owner identity exists"
     },
     {
@@ -95553,7 +95593,7 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_requirement_event_bus_subscription_types_must_be_explicit_schemas",
-      "community": 1674,
+      "community": 207,
       "norm_label": "requirement: event bus subscription types must be explicit schemas"
     },
     {
@@ -95563,7 +95603,7 @@
       "source_location": "L183",
       "_origin": "ast",
       "id": "openspec_specs_core_runtime_schemas_spec_scenario_filter_and_checkpoint_types_exist",
-      "community": 1674,
+      "community": 207,
       "norm_label": "scenario: filter and checkpoint types exist"
     },
     {
@@ -126331,7 +126371,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L215",
+      "source_location": "L214",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_an_ssh_session_is_treated_as_headless",
@@ -126341,7 +126381,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L248",
+      "source_location": "L247",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_an_unsupported_provider_is_refused_before_prompting",
@@ -126351,7 +126391,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L167",
+      "source_location": "L166",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_choose_provider",
@@ -126361,7 +126401,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126371,7 +126411,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L229",
+      "source_location": "L228",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_every_supported_provider_maps_to_a_gateway_kind",
@@ -126381,7 +126421,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L184",
+      "source_location": "L183",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_headless",
@@ -126391,7 +126431,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126401,7 +126441,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L195",
+      "source_location": "L194",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_open_in_browser",
@@ -126411,7 +126451,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login",
       "target": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126476,7 +126516,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L27",
+      "source_location": "L26",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_run_provider_login",
       "target": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126530,7 +126570,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126541,7 +126581,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126552,7 +126592,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126563,7 +126603,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126574,7 +126614,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L167",
+      "source_location": "L166",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_login_choose_provider",
@@ -126585,7 +126625,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126596,7 +126636,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126607,7 +126647,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126619,7 +126659,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L51",
+      "source_location": "L50",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
       "target": "crates_openspine_kernel_src_cli_login_choose_provider",
@@ -126630,7 +126670,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L82",
+      "source_location": "L81",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
       "target": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126641,7 +126681,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L55",
+      "source_location": "L54",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
       "target": "crates_openspine_kernel_src_cli_login_headless",
@@ -126652,7 +126692,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L74",
+      "source_location": "L73",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
       "target": "crates_openspine_kernel_src_cli_login_open_in_browser",
@@ -126662,7 +126702,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126675,7 +126715,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L62",
+      "source_location": "L61",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -126684,7 +126724,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L41",
+      "source_location": "L40",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_login_login_flow",
@@ -126697,7 +126737,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L84",
+      "source_location": "L115",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_login_login_flow"
@@ -126706,7 +126746,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126718,7 +126758,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L98",
+      "source_location": "L97",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
       "target": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126728,7 +126768,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126739,7 +126779,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L85",
+      "source_location": "L84",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_login_complete_login",
@@ -126751,7 +126791,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L249",
+      "source_location": "L248",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_an_unsupported_provider_is_refused_before_prompting",
       "target": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126762,7 +126802,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L241",
+      "source_location": "L240",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_every_supported_provider_maps_to_a_gateway_kind",
       "target": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126774,7 +126814,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L153",
+      "source_location": "L152",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_provider_entry",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -126783,7 +126823,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126794,7 +126834,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L131",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_login_provider_entry",
@@ -126805,7 +126845,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L167",
+      "source_location": "L166",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_login_choose_provider",
@@ -126818,7 +126858,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L173",
+      "source_location": "L172",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_choose_provider",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -126828,7 +126868,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/login.rs",
-      "source_location": "L219",
+      "source_location": "L218",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_login_an_ssh_session_is_treated_as_headless",
       "target": "crates_openspine_kernel_src_cli_login_headless",
@@ -127481,7 +127521,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L167",
+      "source_location": "L208",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_bootstrap",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -127492,7 +127532,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L279",
+      "source_location": "L320",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_choose_model",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -127503,7 +127543,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L79",
+      "source_location": "L109",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_prompt_prompt"
@@ -127525,7 +127565,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L162",
+      "source_location": "L203",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_bootstrap",
       "target": "crates_openspine_kernel_src_cli_prompt_confirm"
@@ -127536,7 +127576,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L236",
+      "source_location": "L277",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
       "target": "crates_openspine_kernel_src_cli_prompt_confirm"
@@ -128403,7 +128443,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L115",
+      "source_location": "L146",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_report",
@@ -130239,7 +130279,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L121",
+      "source_location": "L134",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_a_bound_listener_address_names_the_configuration_key",
@@ -130249,7 +130289,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L107",
+      "source_location": "L118",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_a_held_data_root_lock_names_the_running_instance",
@@ -130259,7 +130299,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L167",
+      "source_location": "L180",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy",
@@ -130269,7 +130309,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L135",
+      "source_location": "L148",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_absent_key_material_names_the_variable_and_the_env_file",
@@ -130279,7 +130319,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L150",
+      "source_location": "L163",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_an_absent_configuration_file_points_at_setup",
@@ -130289,7 +130329,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L189",
+      "source_location": "L202",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_an_unmatched_failure_has_no_invented_remedy",
@@ -130299,7 +130339,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L102",
+      "source_location": "L109",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -130309,7 +130349,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L43",
+      "source_location": "L50",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_config_remedy",
@@ -130319,7 +130359,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L74",
+      "source_location": "L81",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_failure_report",
@@ -130329,7 +130369,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L93",
+      "source_location": "L100",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_report_failure",
@@ -130350,7 +130390,7 @@
       "relation": "imports_from",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L100",
+      "source_location": "L107",
       "weight": 1.0,
       "context": "import",
       "source": "crates_openspine_kernel_src_cli_remedy",
@@ -130394,7 +130434,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L128",
+      "source_location": "L141",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_a_bound_listener_address_names_the_configuration_key",
       "target": "crates_openspine_kernel_src_cli_remedy_startup_remedy",
@@ -130405,7 +130445,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L111",
+      "source_location": "L124",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_a_held_data_root_lock_names_the_running_instance",
       "target": "crates_openspine_kernel_src_cli_remedy_startup_remedy",
@@ -130416,7 +130456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L141",
+      "source_location": "L154",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_absent_key_material_names_the_variable_and_the_env_file",
       "target": "crates_openspine_kernel_src_cli_remedy_startup_remedy",
@@ -130427,7 +130467,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L157",
+      "source_location": "L170",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_an_absent_configuration_file_points_at_setup",
       "target": "crates_openspine_kernel_src_cli_remedy_startup_remedy",
@@ -130438,7 +130478,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L76",
+      "source_location": "L83",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_failure_report",
       "target": "crates_openspine_kernel_src_cli_remedy_startup_remedy",
@@ -130503,7 +130543,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L74",
+      "source_location": "L81",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_failure_report",
@@ -130514,7 +130554,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L93",
+      "source_location": "L100",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_report_failure",
@@ -130525,7 +130565,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L43",
+      "source_location": "L50",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_config_remedy",
@@ -130536,7 +130576,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L74",
+      "source_location": "L81",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_failure_report",
@@ -130547,7 +130587,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L93",
+      "source_location": "L100",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_report_failure",
@@ -130558,7 +130598,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L43",
+      "source_location": "L50",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_remedy_config_remedy",
@@ -130569,7 +130609,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L74",
+      "source_location": "L81",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_remedy_failure_report",
@@ -130580,7 +130620,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L43",
+      "source_location": "L50",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_remedy_config_remedy",
@@ -130592,7 +130632,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L177",
+      "source_location": "L190",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy",
       "target": "crates_openspine_kernel_src_cli_remedy_failure_report",
@@ -130603,7 +130643,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L128",
+      "source_location": "L141",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_a_bound_listener_address_names_the_configuration_key",
       "target": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -130614,7 +130654,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L111",
+      "source_location": "L124",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_a_held_data_root_lock_names_the_running_instance",
       "target": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -130625,7 +130665,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L141",
+      "source_location": "L154",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_absent_key_material_names_the_variable_and_the_env_file",
       "target": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -130636,7 +130676,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L152",
+      "source_location": "L165",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_remedy_an_absent_configuration_file_points_at_setup",
       "target": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -130646,7 +130686,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/remedy.rs",
-      "source_location": "L102",
+      "source_location": "L109",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_remedy_config_path",
@@ -132557,7 +132597,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L352",
+      "source_location": "L367",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard",
+      "target": "crates_openspine_kernel_src_cli_wizard_a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L420",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_a_new_data_root_reports_no_encrypted_state",
@@ -132567,7 +132617,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L374",
+      "source_location": "L442",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_a_populated_data_root_is_detected_so_no_new_artifact_key_is_minted",
@@ -132577,7 +132627,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L363",
+      "source_location": "L431",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_an_empty_vault_directory_reports_no_encrypted_state",
@@ -132587,7 +132637,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L386",
+      "source_location": "L454",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_an_existing_kernel_database_is_detected",
@@ -132597,7 +132647,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L160",
+      "source_location": "L201",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_bootstrap",
@@ -132607,7 +132657,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L274",
+      "source_location": "L315",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_choose_model",
@@ -132617,7 +132667,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L336",
+      "source_location": "L404",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -132627,7 +132677,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L260",
+      "source_location": "L301",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
@@ -132637,7 +132687,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L207",
+      "source_location": "L248",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
@@ -132647,7 +132697,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L131",
+      "source_location": "L162",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -132667,7 +132717,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L399",
+      "source_location": "L467",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration",
@@ -132677,7 +132727,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L151",
+      "source_location": "L192",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -132687,7 +132737,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L115",
+      "source_location": "L146",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_report",
@@ -132708,7 +132758,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L46",
+      "source_location": "L71",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_run_setup",
@@ -132718,7 +132768,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L325",
+      "source_location": "L393",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_the_data_root_lock_cannot_be_acquired_twice",
@@ -132738,7 +132788,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L303",
+      "source_location": "L344",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard",
       "target": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
@@ -132803,7 +132853,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L131",
+      "source_location": "L162",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -132814,7 +132864,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L151",
+      "source_location": "L192",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -132825,7 +132875,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L115",
+      "source_location": "L146",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_report",
@@ -132847,17 +132897,37 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L37",
+      "source_location": "L45",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_vault",
       "target": "crates_openspine_kernel_src_cli_wizard_vault_store",
       "confidence_score": 1.0
     },
     {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard_vault",
+      "target": "crates_openspine_kernel_src_cli_wizard_vault_writable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard_vault",
+      "target": "crates_openspine_kernel_src_cli_wizard_vault_write_refusal",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L303",
+      "source_location": "L344",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
@@ -132869,7 +132939,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L116",
+      "source_location": "L147",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_report",
       "target": "crates_openspine_kernel_src_cli_wizard_vault_store",
@@ -132880,7 +132950,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L84",
+      "source_location": "L115",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_vault_store",
@@ -132890,7 +132960,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L37",
+      "source_location": "L45",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_vault_store",
@@ -132901,7 +132971,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L37",
+      "source_location": "L45",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_wizard_vault_store",
@@ -132913,7 +132983,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L306",
+      "source_location": "L347",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
       "target": "crates_openspine_kernel_src_cli_wizard_vault_store",
@@ -132923,7 +132993,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L260",
+      "source_location": "L301",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
@@ -132935,7 +133005,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L56",
+      "source_location": "L113",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
+      "target": "crates_openspine_kernel_src_cli_wizard_vault_writable",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L81",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_bootstrap",
@@ -132946,7 +133027,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L62",
+      "source_location": "L87",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
@@ -132957,7 +133038,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L66",
+      "source_location": "L91",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -132968,7 +133049,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L87",
+      "source_location": "L118",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -132979,7 +133060,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L67",
+      "source_location": "L97",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_report",
@@ -132989,7 +133070,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L46",
+      "source_location": "L71",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
@@ -133000,7 +133081,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L46",
+      "source_location": "L71",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
@@ -133012,7 +133093,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L95",
+      "source_location": "L126",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_run_setup",
       "target": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
@@ -133022,7 +133103,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L160",
+      "source_location": "L201",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_bootstrap",
@@ -133033,7 +133114,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L336",
+      "source_location": "L404",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -133044,7 +133125,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L260",
+      "source_location": "L301",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
@@ -133055,7 +133136,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L207",
+      "source_location": "L248",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
@@ -133066,7 +133147,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L131",
+      "source_location": "L162",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -133077,7 +133158,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L151",
+      "source_location": "L192",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -133088,7 +133169,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L115",
+      "source_location": "L146",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_report",
@@ -133099,7 +133180,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L303",
+      "source_location": "L344",
       "weight": 1.0,
       "context": "parameter_type",
       "source": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
@@ -133110,7 +133191,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L160",
+      "source_location": "L201",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_bootstrap",
@@ -133121,7 +133202,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L274",
+      "source_location": "L315",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_choose_model",
@@ -133132,7 +133213,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L207",
+      "source_location": "L248",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
@@ -133143,7 +133224,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L131",
+      "source_location": "L162",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -133154,7 +133235,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L151",
+      "source_location": "L192",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -133165,7 +133246,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L303",
+      "source_location": "L344",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_verify_configured_provider",
@@ -133177,7 +133258,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L155",
+      "source_location": "L376",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard_a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error",
+      "target": "crates_openspine_kernel_src_cli_wizard_open_vault",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L196",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
       "target": "crates_openspine_kernel_src_cli_wizard_open_vault",
@@ -133188,7 +133280,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L402",
+      "source_location": "L470",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration",
       "target": "crates_openspine_kernel_src_cli_wizard_refresh_vault",
@@ -133199,7 +133291,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L176",
+      "source_location": "L217",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_bootstrap",
       "target": "crates_openspine_kernel_src_cli_wizard_choose_model",
@@ -133210,7 +133302,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L224",
+      "source_location": "L265",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_ensure_key_material",
       "target": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
@@ -133220,7 +133312,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L260",
+      "source_location": "L301",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_wizard_encrypted_state_in",
@@ -133231,7 +133323,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L336",
+      "source_location": "L404",
       "weight": 1.0,
       "context": "return_type",
       "source": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -133242,7 +133334,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L274",
+      "source_location": "L315",
       "weight": 1.0,
       "context": "generic_arg",
       "source": "crates_openspine_kernel_src_cli_wizard_choose_model",
@@ -133254,7 +133346,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L355",
+      "source_location": "L371",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_cli_wizard_a_held_lock_degrades_to_a_reportable_vault_rather_than_an_error",
+      "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
+      "source_location": "L423",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_a_new_data_root_reports_no_encrypted_state",
       "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -133265,7 +133368,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L379",
+      "source_location": "L447",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_a_populated_data_root_is_detected_so_no_new_artifact_key_is_minted",
       "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -133276,7 +133379,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L366",
+      "source_location": "L434",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_an_empty_vault_directory_reports_no_encrypted_state",
       "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -133287,7 +133390,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "crates/openspine-kernel/src/cli/wizard.rs",
-      "source_location": "L390",
+      "source_location": "L458",
       "weight": 1.0,
       "source": "crates_openspine_kernel_src_cli_wizard_an_existing_kernel_database_is_detected",
       "target": "crates_openspine_kernel_src_cli_wizard_config_with_data_dir",
@@ -151071,6 +151174,38 @@
       "weight": 1.0,
       "source": "users_george_repos_openspine_wz_implement_overlay_eval_gate_crates_openspine_kernel_src_overlay_eval_gate_tests_rs",
       "target": "users_george_repos_openspine_wz_implement_overlay_eval_gate_crates_openspine_kernel_src_overlay_eval_gate_tests_generic_review_transition_is_rejected_without_gate_proofs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/overlay_export_restore.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "source": "crates_openspine_kernel_src_overlay_export_restore",
+      "target": "crates_openspine_kernel_src_overlay_export_restore_is_already_locked",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/overlay_export_restore.rs",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import",
+      "source": "crates_openspine_kernel_src_overlay_export_restore",
+      "target": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_types_overlayoperationerror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/openspine-kernel/src/overlay_export_restore.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "source": "crates_openspine_kernel_src_overlay_export_restore_is_already_locked",
+      "target": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_types_overlayoperationerror",
       "confidence_score": 1.0
     },
     {
@@ -264877,5 +265012,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "3e242a6fd2ddb7096578c6c49a1fed7fd15a15df"
+  "built_at_commit": "c104cabcd429301d993f684ffe719d9d2bff746c"
 }

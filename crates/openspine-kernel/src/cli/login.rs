@@ -20,10 +20,9 @@ pub async fn run_provider_login(
     provider_id: Option<&str>,
 ) -> anyhow::Result<()> {
     let vault = open_vault(config_path)?;
-    let store = vault.store().context(
-        "OpenSpine cannot open the credential vault without key material. \
-         Run `openspine setup` first.",
-    )?;
+    let Some(store) = vault.store() else {
+        anyhow::bail!("{}", vault.write_refusal());
+    };
     login_flow(
         config_path,
         Some(store),

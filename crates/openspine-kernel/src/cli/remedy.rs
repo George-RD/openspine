@@ -9,7 +9,7 @@
 use crate::cli::readiness;
 use crate::config::ConfigError;
 use crate::env_file;
-use crate::overlay_export_restore::ControlError;
+use crate::overlay_export_restore::{self, OverlayOperationError};
 use std::path::Path;
 
 /// The action that resolves `error`, or `None` when the failure has no single
@@ -19,7 +19,14 @@ pub fn startup_remedy(error: &anyhow::Error, config_path: &Path) -> Option<Strin
         if let Some(config_error) = cause.downcast_ref::<ConfigError>() {
             return Some(config_remedy(config_error, config_path));
         }
-        if let Some(ControlError::AlreadyLocked(_)) = cause.downcast_ref::<ControlError>() {
+        // Matched through `is_already_locked` on the outer error, not by
+        // downcasting to `ControlError`: `OverlayOperationError::Control` is
+        // `#[error(transparent)]`, so `source()` forwards past the inner
+        // `ControlError` and a chain walk never yields it.
+        if cause
+            .downcast_ref::<OverlayOperationError>()
+            .is_some_and(overlay_export_restore::is_already_locked)
+        {
             return Some(
                 "another OpenSpine instance is already using this data directory. \
                  Stop it (an `openspine chat` in another terminal holds the lock \
@@ -103,10 +110,16 @@ mod tests {
         PathBuf::from("/etc/openspine/openspine.yaml")
     }
 
+    /// Built exactly as `overlay_export_restore::acquire` fails, wrapped in the
+    /// context `main` adds. A bare `ControlError` would pass while the real
+    /// startup path stayed unmatched, because `OverlayOperationError::Control`
+    /// is `#[error(transparent)]`.
     #[test]
     fn a_held_data_root_lock_names_the_running_instance() {
-        let error = anyhow::Error::new(ControlError::AlreadyLocked(PathBuf::from("/data/lock")))
-            .context("acquiring overlay operations lifetime lock");
+        let error = anyhow::Error::new(OverlayOperationError::Control(
+            crate::overlay_export_restore::ControlError::AlreadyLocked(PathBuf::from("/data/lock")),
+        ))
+        .context("acquiring overlay operations lifetime lock");
 
         let remedy = startup_remedy(&error, &config_path()).unwrap();
 

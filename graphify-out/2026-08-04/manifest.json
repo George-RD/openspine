@@ -3435,8 +3435,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
-    "mtime": 1785762827.6219642,
-    "ast_hash": "af0e848182dd51b7797ef3545624da8a",
+    "mtime": 1785854177.891007,
+    "ast_hash": "73cfbdeb1d7c7a2983eb0bbf1ae733d4",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/callback_server.rs": {
@@ -3475,8 +3475,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/refresher.rs": {
-    "mtime": 1785853690.4617379,
-    "ast_hash": "a54d972c6a2714dc0ff0515bd89e218e",
+    "mtime": 1785854030.976264,
+    "ast_hash": "c975d8db2fe04331f6ca683e48cdaa5e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-24-implement-model-provider-oauth-onboarding/design.md": {
@@ -3525,13 +3525,13 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/readiness.rs": {
-    "mtime": 1785848233.940711,
-    "ast_hash": "1778e316a66dbf81d4f18323d5c916d3",
+    "mtime": 1785854064.5607338,
+    "ast_hash": "b43f934908a982e0a7ce4bdaf8d9627a",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/readiness_tests.rs": {
-    "mtime": 1785848103.7660413,
-    "ast_hash": "3417aa808cbbd0b7df3faaef5d0cca23",
+    "mtime": 1785854085.7252407,
+    "ast_hash": "c468d36917c567ae92c0056a891f0e66",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/remedy.rs": {
