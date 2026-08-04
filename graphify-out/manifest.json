@@ -3535,8 +3535,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/remedy.rs": {
-    "mtime": 1785849135.6583774,
-    "ast_hash": "d1fa2d81e8ac12223b4222442e35f459",
+    "mtime": 1785852523.6229498,
+    "ast_hash": "085ead7b21ca4a45a9510bb9fb3cac93",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/setup_tests.rs": {

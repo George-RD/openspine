@@ -1650,6 +1650,7 @@
   "1648": "File",
   "1649": "Metadata",
   "1650": "Path",
+  "1651": "Requirement: Worker result recording MUST be receipt-keyed and fail-closed (D-083)",
   "1653": "ArtifactRef",
   "1654": "Connection",
   "1655": "Duration",

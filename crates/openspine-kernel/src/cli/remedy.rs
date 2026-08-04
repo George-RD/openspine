@@ -6,6 +6,7 @@
 //! the overlay controller, the secret store, and the listener, is a much larger
 //! change than the text justifies.
 
+use crate::cli::readiness;
 use crate::config::ConfigError;
 use crate::env_file;
 use crate::overlay_export_restore::ControlError;
@@ -64,17 +65,33 @@ fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
     }
 }
 
-/// Print `error` with its remedy, for the top of `main`.
+/// The text [`report_failure`] prints, as a value so it can be asserted on.
+///
+/// A startup failure exits before chat can report readiness, so the checklist
+/// has to come from here: otherwise a missing configuration or absent key
+/// material shows one remedy while the other gaps stay invisible until the owner
+/// fixes this one and hits the next.
+pub fn failure_report(error: &anyhow::Error, config_path: &Path) -> String {
+    let mut out = format!("openspine: {error:#}\n");
+    if let Some(remedy) = startup_remedy(error, config_path) {
+        out.push_str(&format!("\nWhat to do: {remedy}\n"));
+    }
+    // No vault: key material may be exactly what is missing. Readiness reports
+    // OAuth credential state as unchecked rather than guessing.
+    let blocking = readiness::assess(config_path, &readiness::process_env, None).render_blocking();
+    if !blocking.is_empty() {
+        out.push_str("\nBlocking:\n");
+        out.push_str(&blocking);
+    }
+    out.push_str("\nRun `openspine setup --check` for the full readiness report.\n");
+    out
+}
+
+/// Print `error` with its remedy and the blocking checklist, for `main`.
 ///
 /// Reached by every command, not only startup, so the prefix stays neutral.
 pub fn report_failure(error: &anyhow::Error, config_path: &Path) {
-    eprintln!("openspine: {error:#}");
-    if let Some(remedy) = startup_remedy(error, config_path) {
-        eprintln!();
-        eprintln!("What to do: {remedy}");
-    }
-    eprintln!();
-    eprintln!("Run `openspine setup --check` for the full readiness report.");
+    eprint!("{}", failure_report(error, config_path));
 }
 
 #[cfg(test)]
@@ -140,6 +157,32 @@ mod tests {
         let remedy = startup_remedy(&error, &config_path()).unwrap();
 
         assert!(remedy.contains("openspine setup"), "{remedy}");
+    }
+
+    /// A startup failure exits before chat can assess readiness, so this report
+    /// is the only place the owner sees the whole picture. Showing one remedy
+    /// while the other gaps stay hidden makes them fix one thing, hit the next,
+    /// and repeat.
+    #[test]
+    fn a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy() {
+        let dir = std::env::temp_dir().join(format!("openspine-report-{}", ulid::Ulid::new()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let config_path = dir.join("openspine.yaml");
+        let error = anyhow::Error::new(ConfigError::Read {
+            path: config_path.clone(),
+            source: std::io::Error::new(std::io::ErrorKind::NotFound, "No such file or directory"),
+        })
+        .context("loading the configuration");
+
+        let report = failure_report(&error, &config_path);
+
+        assert!(report.contains("What to do:"), "{report}");
+        assert!(report.contains("Blocking:"), "{report}");
+        // The absent configuration and all three absent keys, not just the first.
+        for id in ["config", "key.artifact", "key.grant", "key.webhook"] {
+            assert!(report.contains(id), "{id} missing from:\n{report}");
+        }
+        assert!(report.contains("openspine setup --check"), "{report}");
     }
 
     #[test]

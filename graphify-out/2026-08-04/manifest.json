@@ -620,8 +620,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1785762827.6155326,
-    "ast_hash": "654fe216992c34e3538eb3c81fc4b503",
+    "mtime": 1785852373.3962755,
+    "ast_hash": "78504331826db38fc7b0c256b5676930",
     "semantic_hash": ""
   },
   "artifacts/README.md": {
@@ -3550,13 +3550,13 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/wizard.rs": {
-    "mtime": 1785851783.546268,
-    "ast_hash": "62e43d8e1336bd5491a5a6e341616c62",
+    "mtime": 1785852223.5883434,
+    "ast_hash": "a738022968c512429b07ce26613d0529",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/env_file.rs": {
-    "mtime": 1785848103.802785,
-    "ast_hash": "b31d3c924b93cb1acd6a4299aba5a373",
+    "mtime": 1785852031.0429468,
+    "ast_hash": "231dea9c33c20f7fed1cdce9de65a1a6",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/terminal_e2e.rs": {
@@ -3730,8 +3730,8 @@
     "semantic_hash": ""
   },
   "docs/terminal-chat.md": {
-    "mtime": 1785762827.6311862,
-    "ast_hash": "f630b1a9e17b45e26388a566be604be7",
+    "mtime": 1785852400.296995,
+    "ast_hash": "77f74621a624140cac71aed450f27e4f",
     "semantic_hash": ""
   },
   "openspec/changes/2026-07-28-productize-lyra/design.md": {
@@ -3775,8 +3775,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/2026-08-04-implement-first-run-onboarding/tasks.md": {
-    "mtime": 1785846304.8607304,
-    "ast_hash": "a11009452da620e86979940fe90cbfc3",
+    "mtime": 1785852343.8758454,
+    "ast_hash": "a9ba23df6af8f11bbe853c69703a924e",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-30-2026-07-28-add-terminal-chat-onyx-lfm/design.md": {
