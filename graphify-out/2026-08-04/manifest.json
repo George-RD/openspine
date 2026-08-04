@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1785836786.8183112,
-    "ast_hash": "2c1d8a0e4eb38d3f38b88b3ceb80b33d",
+    "mtime": 1785762827.62142,
+    "ast_hash": "25c8235cfaf5594ce50c49901cf3580d",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/mod.rs": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/sandbox.rs": {
-    "mtime": 1785836769.8053875,
-    "ast_hash": "6c02854e5436d8ae918c16cf1a93e70a",
+    "mtime": 1785762827.6243346,
+    "ast_hash": "bac78bcafce5093ae0908c0c076a19ee",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/budget_support.rs": {
