@@ -34,6 +34,13 @@
             nativeBuildInputs = [ pkgs.pkg-config ];
             buildInputs = [ pkgs.openssl ];
 
+            # The kernel loads the Lyra package (agents, workflows, policies,
+            # packs) from `lyra_dir`; ship it so a deployment needs no checkout.
+            postInstall = ''
+              mkdir -p "$out/share/openspine"
+              cp -R artifacts/lyra "$out/share/openspine/lyra"
+            '';
+
             # `scripts/check.sh` is the test gate (it needs a built shell binary,
             # network access, and Docker). The Nix build only produces binaries.
             doCheck = false;
