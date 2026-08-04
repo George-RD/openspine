@@ -305,9 +305,9 @@ async fn main() -> anyhow::Result<()> {
         .context("seeding nerve advisee limits from agent manifests")?;
 
     let sandbox = match cfg.sandbox.driver {
-        config::SandboxDriverKind::Process => sandbox::Sandbox::Process(
-            sandbox::ProcessDriver::with_data_root(&data_root),
-        ),
+        config::SandboxDriverKind::Process => {
+            sandbox::Sandbox::Process(sandbox::ProcessDriver::with_data_root(&data_root))
+        }
         config::SandboxDriverKind::Docker => sandbox::Sandbox::Docker(sandbox::DockerDriver {
             image_tag: cfg
                 .sandbox

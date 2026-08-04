@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1785836786.8183112,
-    "ast_hash": "2c1d8a0e4eb38d3f38b88b3ceb80b33d",
+    "mtime": 1785839867.8355083,
+    "ast_hash": "0acb91655335e17fe168c7d51f6d35ec",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/mod.rs": {
