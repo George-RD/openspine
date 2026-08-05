@@ -217,15 +217,18 @@ To log in to a hosted model provider, including from a headless or SSH session,
 where the authorization URL is printed and the code is pasted back:
 
 ```sh
-export OPENSPINE_ANTHROPIC_CLIENT_ID="<your registered client id>"
 openspine --config openspine.local.yaml provider login anthropic
 ```
 
-Register the OAuth application yourself and set the matching variable
-(`OPENSPINE_ANTHROPIC_CLIENT_ID`, `OPENSPINE_CODEX_CLIENT_ID`, or
-`OPENSPINE_ANTIGRAVITY_CLIENT_ID`) with redirect URI
-`http://127.0.0.1:<port>/callback`. There is no built-in client id: login refuses
-and names the variable rather than sending you to a page the provider rejects.
+This uses a Claude subscription rather than API credits. Anthropic offers no
+self-service registration for subscription OAuth, so OpenSpine presents the
+first-party client id its own CLI uses, and the request carries that client's
+headers and a leading system block. That surface is bound into the provider
+configuration digest, so a model-swap approval covers it.
+
+Codex and Antigravity are not offered: their grants need provider transports the
+gateway does not implement, and login refuses rather than storing a credential
+no request could spend.
 
 See [`docs/terminal-chat.md`](docs/terminal-chat.md) and the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.
 

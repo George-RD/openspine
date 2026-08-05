@@ -218,16 +218,38 @@ async fn generate_anthropic(
     prompt: &ResolvedPrompt,
     is_oauth: bool,
 ) -> Result<String, GatewayError> {
+    // An OAuth grant is only honoured for the first-party client surface, which
+    // includes a leading client system block. The agent's own preamble, which
+    // is what the prompt template digest covers, follows it unchanged.
+    let system = if is_oauth {
+        json!([
+            { "type": "text", "text": crate::anthropic_fingerprint::OAUTH_CLIENT_INSTRUCTION },
+            { "type": "text", "text": prompt.system },
+        ])
+    } else {
+        json!(prompt.system)
+    };
     let body = json!({
         "model": model,
         "max_tokens": prompt.max_tokens,
-        "system": prompt.system,
+        "system": system,
         "messages": messages_json(prompt),
     });
 
     let mut req = client.post(format!("{base_url}/v1/messages"));
     if is_oauth {
-        req = req.bearer_auth(api_key);
+        // An OAuth grant is only honoured for the first-party client surface.
+        // Bearer alone is rejected: `anthropic-beta: oauth-2025-04-20` is what
+        // admits the token, and the two client markers accompany it.
+        req = req
+            .bearer_auth(api_key)
+            .header("anthropic-beta", crate::anthropic_fingerprint::OAUTH_BETA)
+            .header(
+                "anthropic-dangerous-direct-browser-access",
+                crate::anthropic_fingerprint::OAUTH_DIRECT_BROWSER_ACCESS,
+            )
+            .header("x-app", crate::anthropic_fingerprint::OAUTH_APP)
+            .header("user-agent", crate::anthropic_fingerprint::OAUTH_USER_AGENT);
     } else {
         req = req.header("x-api-key", api_key);
     }

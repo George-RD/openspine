@@ -16,9 +16,12 @@
 - [x] Wrap startup failures with their remedy in `main.rs`.
 - [x] Promote a verified OAuth provider to `providers[0]`, since
       `select_default_provider_id` routes to the first entry.
-- [x] Resolve each provider's OAuth client id from its environment variable and
-      refuse before producing an authorization URL when it is unset, replacing
-      the hardcoded placeholder client ids.
+- [x] Replace the placeholder client ids with the providers' public first-party
+      ids, and offer login only where the credential can be spent.
+- [x] Implement the Anthropic OAuth wire contract: inference scopes, `code=true`,
+      JSON token exchange carrying `state`, `code#state` paste splitting, and the
+      client headers, user agents, and system block on inference and refresh.
+- [x] Bind the client fingerprint into `provider_config_digest`.
 - [x] Render the blocking checklist, not only one remedy, when startup fails.
 
 ## Verification
@@ -48,8 +51,12 @@
 - [x] Confirm the verification request reaches the provider through the model
       gateway rather than a direct HTTP call.
 - [x] Run `./scripts/check.sh 2026-08-04-implement-first-run-onboarding`.
-- [x] Test that a provider with no registered client is refused before a URL
-      exists, and that the token exchange presents the authorizing client id.
+- [x] Test that a provider whose credential cannot be spent is refused before a
+      URL exists, and that the token exchange presents the authorizing client id.
+- [x] Test the OAuth wire contract: authorize params, `code#state` split, JSON
+      exchange body, inference headers and system-block ordering, refresh
+      headers, and that an API-key request carries none of it.
+- [x] Test that the client fingerprint participates in the provider digest.
 - [x] Test that a startup failure lists every blocking check.
 - [x] Smoke test the built binary on the gascity NixOS host over SSH: fresh
       install, interactive bootstrap, first and second chat start, one-shot

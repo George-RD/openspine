@@ -110,25 +110,55 @@ binary does not depend on where it was invoked.
 - **THEN** it MUST report that an instance is already running
 - **AND** it MUST NOT open a second view of the credential vault.
 
-### Requirement: Provider login MUST refuse before offering an unregistered client
+### Requirement: Provider login MUST be offered only where the credential can be spent
 
-Provider OAuth login MUST resolve the provider's registered OAuth client id from
-its environment variable and MUST refuse before producing an authorization URL
-when that variable is unset. There MUST NOT be a built-in client id default.
+A provider MUST NOT be offered for OAuth login unless this build can serve
+inference on the resulting credential. A provider whose grant needs a transport
+the model gateway does not implement MUST be refused before an authorization URL
+exists, naming the API-key alternative.
 
-OpenSpine cannot register an OAuth application on the owner's behalf. Printing an
-authorization URL that the provider rejects on arrival reproduces the failure
-this change exists to remove, so the refusal MUST name the variable, the redirect
-URI the registration needs, and the API-key alternative.
+Storing a working credential that no request can use is the same dead end as an
+authorization URL the provider rejects, reached one step later.
 
-#### Scenario: Owner logs in to a provider with no registered client
+#### Scenario: Codex login is refused rather than stored unusable
 
-- **GIVEN** `OPENSPINE_ANTHROPIC_CLIENT_ID` is unset
-- **WHEN** the owner runs `openspine provider login anthropic`
+- **GIVEN** a Codex OAuth grant is only accepted by a Responses transport at
+  `chatgpt.com/backend-api` that the gateway does not implement
+- **WHEN** the owner runs `openspine provider login openai-codex`
 - **THEN** the command MUST fail before any authorization URL is printed
-- **AND** the failure MUST name `OPENSPINE_ANTHROPIC_CLIENT_ID`
-- **AND** it MUST name the loopback redirect URI the registration requires
-- **AND** it MUST name configuring an API-key or local provider instead.
+- **AND** the failure MUST name the API-key or local provider alternative
+- **AND** Codex MUST NOT appear in the offered provider list.
+
+### Requirement: The OAuth client surface MUST be bound into the approval digest
+
+Serving an OAuth grant requires presenting the provider's first-party client
+surface: its beta header, client markers, user agents, and a leading system
+block ahead of the agent's own preamble. That surface changes what the provider
+receives, so it MUST participate in the provider configuration digest a
+model-swap approval binds.
+
+The agent's composed preamble MUST reach the provider byte for byte; the client
+block is prepended, never substituted, so the prompt-template digest continues
+to describe what was sent.
+
+#### Scenario: The client fingerprint moves the provider digest
+
+- **GIVEN** two otherwise identical providers, one API-key and one OAuth
+- **WHEN** their configuration digests are computed
+- **THEN** the digests MUST differ.
+
+#### Scenario: The approved preamble is transmitted unchanged
+
+- **WHEN** an OAuth request is dispatched
+- **THEN** the transmitted system MUST be the client block followed by the
+  agent's preamble
+- **AND** the preamble MUST be byte-identical to the composed prompt.
+
+#### Scenario: Refresh presents the client surface
+
+- **WHEN** the background refresher renews an OAuth credential
+- **THEN** the request MUST carry the OAuth beta and the client refresh agent
+- **AND** an API-key request MUST carry none of the OAuth client surface.
 
 #### Scenario: Token exchange presents the authorizing client
 

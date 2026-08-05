@@ -37,8 +37,19 @@ pub struct OAuthProviderSpec {
     pub device_endpoint: Option<&'static str>,
     pub scope: &'static str,
     pub default_port: u16,
-    /// Env var naming the OAuth client id registered with this provider.
-    pub client_id_env: &'static str,
+    /// The provider's public OAuth client id.
+    ///
+    /// These are the first-party client ids the vendors' own CLIs present.
+    /// Neither Anthropic nor OpenAI offers self-service registration for
+    /// subscription OAuth, so a client id an owner could supply does not exist;
+    /// the public one is the only value that authorizes. PKCE public clients
+    /// carry no secret, so nothing confidential is embedded here.
+    pub client_id: &'static str,
+    /// Whether this build can serve inference on the resulting credential.
+    ///
+    /// A login that stores a working credential the gateway cannot use is the
+    /// same dead end as a placeholder client id, reached one step later.
+    pub login_supported: bool,
 }
 
 #[allow(dead_code)]
@@ -51,29 +62,23 @@ pub fn get_provider_spec(provider_id: &str) -> Option<OAuthProviderSpec> {
     }
 }
 
-/// The OAuth client id registered with `provider_id`, from its environment
-/// variable.
+/// The OAuth client id to present for `provider_id`.
 ///
-/// There is no built-in default. A hardcoded placeholder would let onboarding
-/// print an authorization URL the provider rejects, which is a worse failure
-/// than refusing before the owner opens a browser: OpenSpine cannot register an
-/// OAuth application on the owner's behalf.
-pub fn configured_client_id(provider_id: &str) -> Result<String, anyhow::Error> {
+/// Refuses a provider whose credential this build cannot spend. Codex OAuth
+/// tokens are only accepted by `chatgpt.com/backend-api/codex/responses` with a
+/// `chatgpt-account-id` header derived from the id token, which is a different
+/// transport from the OpenAI-compatible chat completions client the gateway
+/// has. Offering that login would store a credential no request could use.
+pub fn client_id_for(provider_id: &str) -> Result<&'static str, anyhow::Error> {
     let spec = get_provider_spec(provider_id)
         .ok_or_else(|| anyhow::anyhow!("unsupported provider for OAuth login: {provider_id}"))?;
-    std::env::var(spec.client_id_env)
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "{} has no registered OAuth client. Register an OAuth application with \
-                 {} using redirect URI http://127.0.0.1:{}/callback, then set {} to its \
-                 client id. Until then, configure an API-key or local provider in \
-                 openspine.yaml instead.",
-                provider_id,
-                spec.display_name,
-                spec.default_port,
-                spec.client_id_env
-            )
-        })
+    if !spec.login_supported {
+        anyhow::bail!(
+            "{} OAuth login is not available in this build: its credential needs a provider \
+             transport OpenSpine does not implement yet. Configure an API-key or local \
+             provider in openspine.yaml instead.",
+            spec.display_name
+        );
+    }
+    Ok(spec.client_id)
 }

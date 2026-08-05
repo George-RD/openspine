@@ -1,5 +1,6 @@
 // openspine:allow-large-module reason: startup wiring for all kernel subsystems (worker result consumer, nerve dispatcher, timer driver, telegram poll, retry worker, HTTP server)
 mod action_catalog;
+mod anthropic_fingerprint;
 mod api;
 mod artifact_loader;
 mod artifact_store;

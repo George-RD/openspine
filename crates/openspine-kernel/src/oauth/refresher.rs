@@ -104,12 +104,12 @@ impl OAuthRefresher {
         // Resolved before the request and propagated, never substituted: sending
         // a placeholder would draw a 400, and the definitive-failure arm below
         // would then disable a stored credential that is perfectly valid.
-        let client_id = super::providers::configured_client_id(provider_id)?;
+        let client_id = super::providers::client_id_for(provider_id)?;
         let refresh_res = match provider_id {
             "google-antigravity" => {
                 super::providers::google_antigravity::refresh_token(
                     &self.client,
-                    &client_id,
+                    client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -118,7 +118,7 @@ impl OAuthRefresher {
             "openai-codex" => {
                 super::providers::openai_codex::refresh_token(
                     &self.client,
-                    &client_id,
+                    client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -127,7 +127,7 @@ impl OAuthRefresher {
             "anthropic" => {
                 super::providers::anthropic::refresh_token(
                     &self.client,
-                    &client_id,
+                    client_id,
                     &tokens.refresh_token,
                     url_override,
                 )
@@ -206,6 +206,49 @@ mod tests {
     /// client id before the request. Set-only, so it cannot race a sibling.
     fn registered_anthropic_client() {
         std::env::set_var("OPENSPINE_ANTHROPIC_CLIENT_ID", "test-client-id");
+    }
+
+    /// The first-party client sends the OAuth beta and its SDK agent when
+    /// refreshing. Without them the renewal is rejected, and the definitive
+    /// failure arm then disables an otherwise valid credential: a working login
+    /// would quietly die at its first expiry.
+    #[tokio::test]
+    async fn a_refresh_carries_the_first_party_client_headers() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "access_token": "renewed",
+                "expires_in": 3600
+            })))
+            .mount(&server)
+            .await;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = SecretStore::open(dir.path().join("credentials"), [31; 32]).expect("open");
+        store
+            .store_oauth_tokens("anthropic", "refresh-tok", "old", "1000", None)
+            .expect("store");
+
+        OAuthRefresher::new(store)
+            .refresh_provider_now("anthropic", Some(&format!("{}/token", server.uri())))
+            .await
+            .expect("refresh");
+
+        let request = &server.received_requests().await.expect("requests")[0];
+        assert_eq!(
+            request
+                .headers
+                .get("anthropic-beta")
+                .map(|v| v.to_str().unwrap()),
+            Some(crate::anthropic_fingerprint::OAUTH_BETA)
+        );
+        assert_eq!(
+            request
+                .headers
+                .get("user-agent")
+                .map(|v| v.to_str().unwrap()),
+            Some(crate::anthropic_fingerprint::OAUTH_REFRESH_USER_AGENT)
+        );
     }
 
     #[tokio::test]

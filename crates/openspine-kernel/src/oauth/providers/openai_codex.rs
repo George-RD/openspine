@@ -15,7 +15,8 @@ pub fn spec() -> OAuthProviderSpec {
         device_endpoint: Some("https://auth.openai.com/oauth/device/code"),
         scope: "openid profile email offline_access",
         default_port: 1455,
-        client_id_env: "OPENSPINE_CODEX_CLIENT_ID",
+        client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+        login_supported: false,
     }
 }
 

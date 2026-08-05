@@ -17,8 +17,12 @@ use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::workflow::ReasoningTier;
 use std::path::Path;
 
-/// The providers this build can log in to.
-pub const OAUTH_PROVIDER_IDS: [&str; 3] = ["anthropic", "openai-codex", "google-antigravity"];
+/// The providers this build can log in to and then actually spend.
+///
+/// Codex and Antigravity have working authorization flows but need provider
+/// transports the gateway does not implement, so they are not offered. Their
+/// specs carry `login_supported: false` and `client_id_for` refuses them.
+pub const OAUTH_PROVIDER_IDS: [&str; 1] = ["anthropic"];
 
 /// An authorization in progress: the URL to visit and the PKCE material the
 /// token exchange has to echo back.
@@ -64,8 +68,8 @@ pub fn default_port(provider_id: &str) -> Result<u16, anyhow::Error> {
 /// client: an authorization page that rejects the request on arrival is a worse
 /// experience than being told what is missing.
 pub fn begin(provider_id: &str, redirect_port: u16) -> Result<Authorization, anyhow::Error> {
-    let client_id = crate::oauth::providers::configured_client_id(provider_id)?;
-    begin_with_client_id(provider_id, redirect_port, &client_id)
+    let client_id = crate::oauth::providers::client_id_for(provider_id)?;
+    begin_with_client_id(provider_id, redirect_port, client_id)
 }
 
 /// [`begin`] with the client id supplied rather than read from the environment.
@@ -101,6 +105,13 @@ pub async fn finish(
     token_url_override: Option<&str>,
 ) -> Result<StoredCredential, anyhow::Error> {
     let verifier = &auth.pkce.code_verifier;
+    // The manual paste path hands back `<code>#<state>`, which is what an owner
+    // copies out of the browser when no loopback listener can be reached. Split
+    // it so the headless flow presents the same pair the loopback flow does.
+    let (code, state) = match code.split_once('#') {
+        Some((code, state)) if !state.is_empty() => (code, state),
+        _ => (code, auth.pkce.state.as_str()),
+    };
     let tokens = match auth.provider_id.as_str() {
         "google-antigravity" => {
             google_antigravity::exchange_code(
@@ -130,6 +141,7 @@ pub async fn finish(
                 &auth.client_id,
                 auth.port,
                 code,
+                state,
                 verifier,
                 token_url_override,
             )

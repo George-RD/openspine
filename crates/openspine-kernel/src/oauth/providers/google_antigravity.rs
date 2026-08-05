@@ -14,7 +14,8 @@ pub fn spec() -> OAuthProviderSpec {
         device_endpoint: None,
         scope: "https://www.googleapis.com/auth/cloud-platform email",
         default_port: 51121,
-        client_id_env: "OPENSPINE_ANTIGRAVITY_CLIENT_ID",
+        client_id: "openspine-antigravity-client.apps.googleusercontent.com",
+        login_supported: false,
     }
 }
 

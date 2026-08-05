@@ -116,11 +116,19 @@ pub fn provider_config_digest(provider: &ProviderConfig) -> Digest {
         ProviderKind::Onyx => "http://127.0.0.1:8080",
         ProviderKind::GoogleAntigravity => "https://generativelanguage.googleapis.com",
     };
+    // An OAuth provider receives a first-party client fingerprint the owner
+    // never wrote: extra headers and a leading system block. Binding its digest
+    // here keeps the approval honest, since a swap approval would otherwise
+    // cover one request shape while the provider received another.
+    let oauth_fingerprint = provider
+        .is_oauth()
+        .then(|| crate::anthropic_fingerprint::oauth_fingerprint_digest().to_string());
     digest_of(&json!({
         "provider_id": provider.id,
         "kind": provider.kind,
         "base_url": provider.base_url.as_deref().unwrap_or(default_base),
         "model": provider.model,
+        "oauth_client_fingerprint": oauth_fingerprint,
     }))
 }
 
@@ -430,6 +438,33 @@ auth:
         assert_eq!(
             provider_api_key(&provider).unwrap(),
             "oauth:google-antigravity"
+        );
+    }
+
+    /// A model-swap approval binds this digest. An OAuth provider receives a
+    /// first-party client fingerprint the owner never wrote, so the digest has
+    /// to move with it; otherwise the ceremony approves one request shape while
+    /// the provider receives another.
+    #[test]
+    fn the_oauth_client_fingerprint_participates_in_the_provider_digest() {
+        let api_key = ProviderConfig {
+            id: "anthropic".to_string(),
+            kind: ProviderKind::Anthropic,
+            base_url: None,
+            model: "claude-sonnet-4-6".to_string(),
+            auth: ProviderAuth::ApiKey {
+                env: "ANTHROPIC_API_KEY".to_string(),
+            },
+        };
+        let oauth = ProviderConfig {
+            auth: ProviderAuth::Oauth,
+            ..api_key.clone()
+        };
+
+        assert_ne!(
+            provider_config_digest(&api_key),
+            provider_config_digest(&oauth),
+            "the OAuth client surface must be visible to swap approval"
         );
     }
 
