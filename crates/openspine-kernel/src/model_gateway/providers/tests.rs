@@ -414,3 +414,55 @@ async fn an_api_key_request_carries_no_oauth_client_surface() {
     let body: serde_json::Value = serde_json::from_slice(&request.body).expect("json body");
     assert!(body["system"].is_string(), "{}", body["system"]);
 }
+
+/// An owner who logs in with OAuth and later switches the provider back to
+/// `auth.mode: api_key` leaves a usable token in the vault. Honouring it would
+/// send the OAuth client fingerprint on a request whose `provider_config_digest`
+/// omits it, so the approved identity would stop describing the wire.
+#[tokio::test]
+async fn a_stale_vault_token_never_overrides_a_configured_api_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/v1/messages"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "content": [{"type": "text", "text": "ok"}]
+        })))
+        .mount(&server)
+        .await;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = crate::secret_store::SecretStore::open(dir.path().join("credentials"), [24; 32])
+        .expect("open");
+    store
+        .store_oauth_tokens("anthropic", "ref", "stale-vault-token", "9999999999", None)
+        .expect("store oauth");
+
+    // Configured as an API key, which is what `config::provider_api_key`
+    // resolves for `auth.mode: api_key`.
+    let client = ProviderClient::Anthropic {
+        client: http_client(),
+        api_key: "sk-configured-api-key".to_string(),
+        base_url: server.uri(),
+        model: "test-model".to_string(),
+    };
+    client
+        .generate_with_secret_store(&prompt(), Some(&store), Some("anthropic"), None)
+        .await
+        .expect("generate");
+
+    let request = &server.received_requests().await.expect("requests")[0];
+    assert_eq!(
+        request
+            .headers
+            .get("x-api-key")
+            .map(|v| v.to_str().unwrap()),
+        Some("sk-configured-api-key")
+    );
+    assert!(request.headers.get("authorization").is_none());
+    assert!(
+        request.headers.get("anthropic-beta").is_none(),
+        "an api_key request must not carry the OAuth client fingerprint"
+    );
+    let body: serde_json::Value = serde_json::from_slice(&request.body).expect("json body");
+    assert!(body["system"].is_string(), "{}", body["system"]);
+}

@@ -137,13 +137,22 @@ impl ProviderClient {
             ProviderClient::Onyx { .. } => "onyx",
         });
 
-        let mut is_oauth = key.starts_with("oauth:");
+        // The configured auth mode decides, and `config::provider_api_key`
+        // encodes it: OAuth resolves to the `oauth:<id>` sentinel, an API key to
+        // the key itself.
+        let is_oauth = key.starts_with("oauth:");
 
-        if let Some(store) = secret_store {
-            if let Ok(Some(tokens)) = store.get_oauth_tokens(pid) {
-                is_oauth = true;
-                if !tokens.access_token.is_empty() && !tokens.disabled {
-                    key = tokens.access_token;
+        // Only an OAuth-configured provider reads the vault. A leftover token
+        // must not silently upgrade an `api_key` provider, because the request
+        // would then carry the OAuth client fingerprint while
+        // `provider_config_digest` omits it for API-key auth: the approved
+        // identity would stop describing the wire.
+        if is_oauth {
+            if let Some(store) = secret_store {
+                if let Ok(Some(tokens)) = store.get_oauth_tokens(pid) {
+                    if !tokens.access_token.is_empty() && !tokens.disabled {
+                        key = tokens.access_token;
+                    }
                 }
             }
         }

@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers.rs": {
-    "mtime": 1785926558.8572109,
-    "ast_hash": "6277282a3ffc259c30601dfb8c9e6dc3",
+    "mtime": 1785927269.3709452,
+    "ast_hash": "558ce32504e45876c4cc7aa1084ac16e",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/approval.rs": {
@@ -3435,8 +3435,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
-    "mtime": 1785926513.4339318,
-    "ast_hash": "e978feac2365fb7f4c9b6bfcea119e46",
+    "mtime": 1785927269.3711777,
+    "ast_hash": "86b18e01ddaec599cedb39dedeb05dc8",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/callback_server.rs": {
@@ -3885,8 +3885,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/anthropic_fingerprint.rs": {
-    "mtime": 1785926970.3204215,
-    "ast_hash": "86f6469b84632a3d29e6583af12bb211",
+    "mtime": 1785927269.8344793,
+    "ast_hash": "8207df9f499a86c34a8ba34e97ccdfa1",
     "semantic_hash": ""
   }
 }

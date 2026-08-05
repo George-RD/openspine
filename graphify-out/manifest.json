@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers.rs": {
-    "mtime": 1785927269.3709452,
-    "ast_hash": "558ce32504e45876c4cc7aa1084ac16e",
+    "mtime": 1785927547.5865207,
+    "ast_hash": "75baa4548f9748b7e41f4345ac39cdc2",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/approval.rs": {
@@ -3435,8 +3435,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
-    "mtime": 1785927269.3711777,
-    "ast_hash": "86b18e01ddaec599cedb39dedeb05dc8",
+    "mtime": 1785927505.5657213,
+    "ast_hash": "9cd8c16ca63a42aa127f64796bb97366",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/callback_server.rs": {
@@ -3765,13 +3765,13 @@
     "semantic_hash": ""
   },
   "openspec/changes/2026-08-04-implement-first-run-onboarding/proposal.md": {
-    "mtime": 1785853835.5382695,
-    "ast_hash": "0c1723556887bddb119c6f680599c55e",
+    "mtime": 1785927453.960618,
+    "ast_hash": "48a9089b8a6f6298138478e59ec38d6b",
     "semantic_hash": ""
   },
   "openspec/changes/2026-08-04-implement-first-run-onboarding/specs/first-run-onboarding/spec.md": {
-    "mtime": 1785927113.70366,
-    "ast_hash": "3fe78ad56897f170adeb1eed9df45844",
+    "mtime": 1785927548.550252,
+    "ast_hash": "35d172a0fff3ec198d50226390a53130",
     "semantic_hash": ""
   },
   "openspec/changes/2026-08-04-implement-first-run-onboarding/tasks.md": {

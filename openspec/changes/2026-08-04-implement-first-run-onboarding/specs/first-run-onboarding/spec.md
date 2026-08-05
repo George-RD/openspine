@@ -137,9 +137,16 @@ block ahead of the agent's own preamble. That surface changes what the provider
 receives, so it MUST participate in the provider configuration digest a
 model-swap approval binds.
 
-The agent's composed preamble MUST reach the provider byte for byte; the client
-block is prepended, never substituted, so the prompt-template digest continues
-to describe what was sent.
+The agent's composed preamble MUST reach the provider byte for byte, with the
+client block prepended and never substituted. The transmitted system is then
+described by two digests together: the prompt-template digest covers the
+preamble, and the provider configuration digest covers the client block. Neither
+covers the whole of it alone.
+
+A provider's declared auth mode MUST decide which credential is used. A stored
+OAuth token MUST NOT be honoured for a provider configured with `api_key`,
+because the request would carry a client surface the provider configuration
+digest omits.
 
 #### Scenario: The client fingerprint moves the provider digest
 
@@ -153,6 +160,14 @@ to describe what was sent.
 - **THEN** the transmitted system MUST be the client block followed by the
   agent's preamble
 - **AND** the preamble MUST be byte-identical to the composed prompt.
+
+#### Scenario: A stored token does not override a configured API key
+
+- **GIVEN** a provider configured with `auth.mode: api_key`
+- **AND** a usable OAuth token stored for that provider from an earlier login
+- **WHEN** a model request is dispatched
+- **THEN** the configured API key MUST be used
+- **AND** the request MUST carry none of the OAuth client surface.
 
 #### Scenario: Refresh presents the client surface
 

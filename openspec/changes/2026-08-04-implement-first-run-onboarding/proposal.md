@@ -85,11 +85,20 @@ configuration undiscoverable.
 ## Prerequisite this change surfaces
 
 The three OAuth provider specs shipped hardcoded placeholder client ids, so a
-login would have been rejected by the provider on arrival. Client ids now come
-from `OPENSPINE_ANTHROPIC_CLIENT_ID`, `OPENSPINE_CODEX_CLIENT_ID`, and
-`OPENSPINE_ANTIGRAVITY_CLIENT_ID`, and login refuses with those names when they
-are unset. Registering the OAuth applications remains an administrative step
-outside this repository.
+login would have been rejected by the provider on arrival. Neither Anthropic nor
+OpenAI offers self-service registration for subscription OAuth, so an
+owner-suppliable client id does not exist; the providers' public first-party ids
+are the only values that authorize, and a PKCE public client carries no secret.
+Those ids are now embedded.
+
+Reaching a real provider also required the rest of the wire contract, which had
+never been exercised: the `user:inference` scope, `code=true`, a JSON token
+exchange carrying `state`, and the client headers, user agents, and system block
+on both inference and refresh.
+
+Only Anthropic is offered. Codex and Antigravity authorize correctly and produce
+credentials this build cannot spend, because their grants require provider
+transports the model gateway does not implement.
 
 ## Out of Scope
 
