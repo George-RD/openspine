@@ -57,9 +57,12 @@ pub async fn enrich(
     let remaining = remaining_runtime(grant_expires_at, jiff::Timestamp::now())?;
     let timeout = remaining.min(GOLDEN_SET_TIMEOUT);
     let set_digest = golden_set_digest(golden_set);
-    let cases = tokio::time::timeout(timeout, run_cases(state, golden_set, provider))
-        .await
-        .map_err(|_| anyhow::anyhow!("golden-set execution exceeded grant runtime"))??;
+    let cases = tokio::time::timeout(
+        timeout,
+        run_cases(state, golden_set, provider, &manifest.target_provider_id),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("golden-set execution exceeded grant runtime"))??;
     let mut enriched = manifest.clone();
     enriched.golden_set_result = Some(GoldenSetRunResult {
         golden_set_id: golden_set.id.clone(),
@@ -74,10 +77,11 @@ async fn run_cases(
     state: &AppState,
     golden_set: &GoldenSet,
     provider: &ProviderClient,
+    provider_id: &str,
 ) -> anyhow::Result<Vec<GoldenSetCaseResult>> {
     let mut results = Vec::with_capacity(golden_set.cases.len());
     for case in &golden_set.cases {
-        results.push(run_case(state, golden_set, case, provider).await?);
+        results.push(run_case(state, golden_set, case, provider, provider_id).await?);
     }
     Ok(results)
 }
@@ -86,6 +90,7 @@ async fn run_case(
     golden_set: &GoldenSet,
     case: &GoldenSetCase,
     provider: &ProviderClient,
+    provider_id: &str,
 ) -> anyhow::Result<GoldenSetCaseResult> {
     let prompt = ResolvedPrompt {
         system: golden_set.system.clone().unwrap_or_default(),
@@ -96,13 +101,19 @@ async fn run_case(
         max_tokens: GOLDEN_SET_MAX_TOKENS,
         reasoning_tier: openspine_schemas::workflow::ReasoningTier::Standard,
     };
-    let output = counted_model_generate(state, SpendLane::NonImmediate, provider, &prompt)
-        .await
-        .map_err(|err| match err {
-            SpendModelError::Provider(provider_err) => anyhow::anyhow!(provider_err),
-            SpendModelError::Ledger(store_err) => anyhow::anyhow!(store_err),
-            SpendModelError::Denied => anyhow::anyhow!("daily model spend cap exceeded"),
-        })?;
+    let output = counted_model_generate(
+        state,
+        SpendLane::NonImmediate,
+        provider,
+        provider_id,
+        &prompt,
+    )
+    .await
+    .map_err(|err| match err {
+        SpendModelError::Provider(provider_err) => anyhow::anyhow!(provider_err),
+        SpendModelError::Ledger(store_err) => anyhow::anyhow!(store_err),
+        SpendModelError::Denied => anyhow::anyhow!("daily model spend cap exceeded"),
+    })?;
     let passed = golden_case_output_passes(&case.must_contain, &case.must_not_contain, &output);
     Ok(GoldenSetCaseResult {
         case_id: case.id.clone(),

@@ -138,9 +138,14 @@ impl ProviderClient {
         });
 
         // The configured auth mode decides, and `config::provider_api_key`
-        // encodes it: OAuth resolves to the `oauth:<id>` sentinel, an API key to
-        // the key itself.
-        let is_oauth = key.starts_with("oauth:");
+        // encodes it: OAuth resolves to exactly `oauth:<provider id>`, an API
+        // key to the key itself.
+        //
+        // Matched in full, not by prefix. An API key that merely begins
+        // `oauth:` is a legal secret, and treating it as the sentinel would
+        // read the vault and attach the OAuth client surface to a provider
+        // configured for API-key auth.
+        let is_oauth = key == format!("oauth:{pid}");
 
         // Only an OAuth-configured provider reads the vault. A leftover token
         // must not silently upgrade an `api_key` provider, because the request
@@ -420,3 +425,7 @@ async fn generate_openai_compat(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+#[path = "providers/oauth_tests.rs"]
+mod oauth_tests;

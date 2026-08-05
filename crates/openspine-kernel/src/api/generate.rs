@@ -283,6 +283,7 @@ pub(super) async fn post_model_generate(
         state.as_ref(),
         SpendLane::from_grant(&grant),
         provider,
+        &active_provider_id,
         &prompt,
     )
     .await

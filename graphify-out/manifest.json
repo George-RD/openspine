@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/generate.rs": {
-    "mtime": 1785762827.6195288,
-    "ast_hash": "a11ed0a9fb641b5bf81c8bc0423b4467",
+    "mtime": 1785928415.3312616,
+    "ast_hash": "647701a1f6ec212298e8a170215e658c",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/generate_tests.rs": {
@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers.rs": {
-    "mtime": 1785927547.5865207,
-    "ast_hash": "75baa4548f9748b7e41f4345ac39cdc2",
+    "mtime": 1785928193.30029,
+    "ast_hash": "2b9291fc7ffeca44e8596c6c70ba5101",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/approval.rs": {
@@ -1580,8 +1580,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_swap.rs": {
-    "mtime": 1784367022.818488,
-    "ast_hash": "fa954d9cd944973c0b6abe8ee100d085",
+    "mtime": 1785928437.7635856,
+    "ast_hash": "40d9a470c28ac068d981edb2e1f813c6",
     "semantic_hash": ""
   },
   "crates/openspine-schemas/src/model_swap.rs": {
@@ -1955,8 +1955,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/spend.rs": {
-    "mtime": 1784883691.8348396,
-    "ast_hash": "4b48375ea213c5009e6d7ad560d3f573",
+    "mtime": 1785928654.8023722,
+    "ast_hash": "23dfdd3031660ae39298252bf0a43911",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/boot_clock.rs": {
@@ -3435,8 +3435,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/tests.rs": {
-    "mtime": 1785927505.5657213,
-    "ast_hash": "9cd8c16ca63a42aa127f64796bb97366",
+    "mtime": 1785928193.3000245,
+    "ast_hash": "73cfbdeb1d7c7a2983eb0bbf1ae733d4",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/oauth/callback_server.rs": {
@@ -3887,6 +3887,11 @@
   "crates/openspine-kernel/src/anthropic_fingerprint.rs": {
     "mtime": 1785927269.8344793,
     "ast_hash": "8207df9f499a86c34a8ba34e97ccdfa1",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/model_gateway/providers/oauth_tests.rs": {
+    "mtime": 1785928252.9099019,
+    "ast_hash": "6797509f87e17b0bdb0347d5894c2aa0",
     "semantic_hash": ""
   }
 }

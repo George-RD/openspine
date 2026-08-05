@@ -158,6 +158,7 @@ pub(crate) async fn counted_model_generate(
     state: &AppState,
     _lane: SpendLane,
     provider: &ProviderClient,
+    provider_id: &str,
     prompt: &ResolvedPrompt,
 ) -> Result<String, SpendModelError> {
     let cap = if matches!(_lane, SpendLane::Immediate) {
@@ -174,8 +175,17 @@ pub(crate) async fn counted_model_generate(
         try_drain_breach_alert(state, &day).await;
         return Err(SpendModelError::Denied);
     }
+    // The vault has to be reachable here, not only from the setup wizard's
+    // preflight. `build_provider_pool` stores the `oauth:<id>` sentinel as the
+    // key, so a bare `generate` would send that literal string as the bearer:
+    // OAuth would verify during setup and then fail on every real turn.
     provider
-        .generate(prompt)
+        .generate_with_secret_store(
+            prompt,
+            Some(state.secrets.as_ref()),
+            Some(provider_id),
+            None,
+        )
         .await
         .map_err(SpendModelError::Provider)
 }
@@ -238,5 +248,78 @@ mod tests {
         assert!(message.contains("2026-07-16"));
         assert!(message.contains("today is 2026-07-17"));
         assert!(!message.contains("paused until UTC midnight"));
+    }
+}
+
+#[cfg(test)]
+mod oauth_credential_tests {
+    use super::*;
+    use crate::model_gateway::{PromptMessage, PromptRole, ResolvedPrompt};
+    use crate::test_support::fixtures::test_state;
+    use wiremock::matchers::{header, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    fn prompt() -> ResolvedPrompt {
+        ResolvedPrompt {
+            system: "You are Lyra.".to_string(),
+            messages: vec![PromptMessage {
+                role: PromptRole::User,
+                content: "hello".to_string(),
+            }],
+            max_tokens: 32,
+            reasoning_tier: openspine_schemas::workflow::ReasoningTier::Standard,
+        }
+    }
+
+    /// `build_provider_pool` stores the `oauth:<id>` sentinel as the client's
+    /// key, so the production path has to resolve the real token from the vault
+    /// itself. Without this, an OAuth provider verifies during `openspine setup`
+    /// (which passes the vault explicitly) and then sends the literal sentinel
+    /// as the bearer on every actual turn.
+    #[tokio::test]
+    async fn the_counted_production_path_resolves_the_vault_token() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/messages"))
+            .and(header("authorization", "Bearer real-vault-token"))
+            .and(header(
+                "anthropic-beta",
+                crate::anthropic_fingerprint::OAUTH_BETA,
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "content": [{"type": "text", "text": "governed reply"}]
+            })))
+            .mount(&server)
+            .await;
+
+        let state = test_state();
+        state
+            .secrets
+            .store_oauth_tokens("anthropic", "ref", "real-vault-token", "9999999999", None)
+            .expect("store oauth");
+        let provider = ProviderClient::Anthropic {
+            client: reqwest::Client::new(),
+            // Exactly what `config::provider_api_key` yields for OAuth mode.
+            api_key: "oauth:anthropic".to_string(),
+            base_url: server.uri(),
+            model: "test-model".to_string(),
+        };
+
+        let reply = counted_model_generate(
+            &state,
+            SpendLane::NonImmediate,
+            &provider,
+            "anthropic",
+            &prompt(),
+        )
+        .await
+        .map_err(|error| match error {
+            SpendModelError::Provider(inner) => format!("provider: {inner}"),
+            SpendModelError::Ledger(inner) => format!("ledger: {inner}"),
+            SpendModelError::Denied => "denied by spend cap".to_string(),
+        })
+        .expect("counted generate");
+
+        assert_eq!(reply, "governed reply");
     }
 }
