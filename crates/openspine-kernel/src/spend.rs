@@ -254,6 +254,7 @@ mod tests {
 #[cfg(test)]
 mod oauth_credential_tests {
     use super::*;
+    use crate::model_gateway::ProviderCredential;
     use crate::model_gateway::{PromptMessage, PromptRole, ResolvedPrompt};
     use crate::test_support::fixtures::test_state;
     use wiremock::matchers::{header, method, path};
@@ -300,7 +301,7 @@ mod oauth_credential_tests {
         let provider = ProviderClient::Anthropic {
             client: reqwest::Client::new(),
             // Exactly what `config::provider_api_key` yields for OAuth mode.
-            api_key: "oauth:anthropic".to_string(),
+            credential: ProviderCredential::Oauth,
             base_url: server.uri(),
             model: "test-model".to_string(),
         };

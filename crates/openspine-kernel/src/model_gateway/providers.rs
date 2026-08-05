@@ -35,23 +35,53 @@ pub enum GatewayError {
 /// at kernel startup. Cloning is cheap: `reqwest::Client` is internally
 /// shared; the clone is used to snapshot a provider under an AppState read
 /// lock before awaiting network I/O.
+/// How a provider authenticates, decided by its configured `auth.mode` and
+/// never inferred from the credential's contents.
+///
+/// Modelled as a type so the ambiguous state cannot exist. Encoding the mode
+/// inside the key string meant an API key whose value happened to equal the
+/// sentinel would be treated as OAuth: an unlikely collision, but one no
+/// amount of matching can rule out while the mode lives in a secret.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProviderCredential {
+    ApiKey(String),
+    /// The live token is resolved from the vault at call time.
+    Oauth,
+}
+
+impl ProviderCredential {
+    pub fn is_oauth(&self) -> bool {
+        matches!(self, Self::Oauth)
+    }
+
+    /// The value to present when no vault token is resolved. An OAuth provider
+    /// with no stored credential has nothing to send, and the provider's 401 is
+    /// the honest outcome.
+    fn as_key(&self) -> &str {
+        match self {
+            Self::ApiKey(key) => key,
+            Self::Oauth => "",
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum ProviderClient {
     Anthropic {
         client: reqwest::Client,
-        api_key: String,
+        credential: ProviderCredential,
         base_url: String,
         model: String,
     },
     OpenAiCompat {
         client: reqwest::Client,
-        api_key: String,
+        credential: ProviderCredential,
         base_url: String,
         model: String,
     },
     Onyx {
         client: reqwest::Client,
-        pat: String,
+        credential: ProviderCredential,
         base_url: String,
         model: String,
     },
@@ -72,11 +102,17 @@ fn http_client() -> reqwest::Client {
 }
 
 impl ProviderClient {
+    /// `api_key` is the value `config::provider_api_key` resolved. The declared
+    /// `auth.mode` decides how it is treated; the string is never inspected.
     pub fn from_config(config: &ProviderConfig, api_key: String) -> Self {
+        let credential = match config.auth {
+            crate::config::ProviderAuth::Oauth => ProviderCredential::Oauth,
+            crate::config::ProviderAuth::ApiKey { .. } => ProviderCredential::ApiKey(api_key),
+        };
         match config.kind {
             ProviderKind::Anthropic => ProviderClient::Anthropic {
                 client: http_client(),
-                api_key,
+                credential: credential.clone(),
                 base_url: config
                     .base_url
                     .clone()
@@ -85,7 +121,7 @@ impl ProviderClient {
             },
             ProviderKind::OpenaiCompat => ProviderClient::OpenAiCompat {
                 client: http_client(),
-                api_key,
+                credential: credential.clone(),
                 base_url: config
                     .base_url
                     .clone()
@@ -94,7 +130,7 @@ impl ProviderClient {
             },
             ProviderKind::Onyx => ProviderClient::Onyx {
                 client: http_client(),
-                pat: api_key,
+                credential: credential.clone(),
                 base_url: config
                     .base_url
                     .clone()
@@ -103,7 +139,7 @@ impl ProviderClient {
             },
             ProviderKind::GoogleAntigravity => ProviderClient::OpenAiCompat {
                 client: http_client(),
-                api_key,
+                credential: credential.clone(),
                 base_url: config
                     .base_url
                     .clone()
@@ -125,11 +161,12 @@ impl ProviderClient {
         provider_id: Option<&str>,
         token_url_override: Option<&str>,
     ) -> Result<String, GatewayError> {
-        let mut key = match self {
-            ProviderClient::Anthropic { api_key, .. } => api_key.clone(),
-            ProviderClient::OpenAiCompat { api_key, .. } => api_key.clone(),
-            ProviderClient::Onyx { pat, .. } => pat.clone(),
+        let credential = match self {
+            ProviderClient::Anthropic { credential, .. }
+            | ProviderClient::OpenAiCompat { credential, .. }
+            | ProviderClient::Onyx { credential, .. } => credential,
         };
+        let mut key = credential.as_key().to_string();
 
         let pid = provider_id.unwrap_or(match self {
             ProviderClient::Anthropic { .. } => "anthropic",
@@ -137,15 +174,9 @@ impl ProviderClient {
             ProviderClient::Onyx { .. } => "onyx",
         });
 
-        // The configured auth mode decides, and `config::provider_api_key`
-        // encodes it: OAuth resolves to exactly `oauth:<provider id>`, an API
-        // key to the key itself.
-        //
-        // Matched in full, not by prefix. An API key that merely begins
-        // `oauth:` is a legal secret, and treating it as the sentinel would
-        // read the vault and attach the OAuth client surface to a provider
-        // configured for API-key auth.
-        let is_oauth = key == format!("oauth:{pid}");
+        // Read from the credential's type, never sniffed from its contents, so
+        // an API key cannot be mistaken for an OAuth provider whatever it holds.
+        let is_oauth = credential.is_oauth();
 
         // Only an OAuth-configured provider reads the vault. A leftover token
         // must not silently upgrade an `api_key` provider, because the request

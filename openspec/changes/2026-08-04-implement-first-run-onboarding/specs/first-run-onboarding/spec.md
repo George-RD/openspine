@@ -143,10 +143,14 @@ described by two digests together: the prompt-template digest covers the
 preamble, and the provider configuration digest covers the client block. Neither
 covers the whole of it alone.
 
-A provider's declared auth mode MUST decide which credential is used. A stored
-OAuth token MUST NOT be honoured for a provider configured with `api_key`,
-because the request would carry a client surface the provider configuration
-digest omits.
+A provider's declared auth mode MUST decide which credential is used, and it
+MUST be carried as a type rather than inferred from the credential's contents.
+A stored OAuth token MUST NOT be honoured for a provider configured with
+`api_key`, whatever that key's value, because the request would otherwise carry
+a client surface the provider configuration digest omits.
+
+The live token MUST also be resolved on the governed inference path, not only by
+the setup wizard's verification.
 
 #### Scenario: The client fingerprint moves the provider digest
 
@@ -167,7 +171,15 @@ digest omits.
 - **AND** a usable OAuth token stored for that provider from an earlier login
 - **WHEN** a model request is dispatched
 - **THEN** the configured API key MUST be used
-- **AND** the request MUST carry none of the OAuth client surface.
+- **AND** the request MUST carry none of the OAuth client surface
+- **AND** this MUST hold even when the key's value equals the OAuth sentinel.
+
+#### Scenario: A governed turn resolves the stored token
+
+- **GIVEN** an OAuth provider whose pool entry holds no live token
+- **WHEN** a governed model call runs through the counted spend path
+- **THEN** the request MUST carry the vault's access token and the client
+  surface.
 
 #### Scenario: Refresh presents the client surface
 

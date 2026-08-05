@@ -1,6 +1,7 @@
 //! Provider login, verification, and role-binding tests.
 
 use super::*;
+use crate::model_gateway::ProviderCredential;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -180,7 +181,7 @@ async fn setup_wizard_runs_preflight_verification_ping() {
 
     let client = ProviderClient::Anthropic {
         client: reqwest::Client::new(),
-        api_key: "oauth:anthropic".to_string(),
+        credential: ProviderCredential::Oauth,
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -231,7 +232,7 @@ async fn setup_wizard_binds_active_model_roles_only_on_successful_verification()
         .expect("store");
     let client = ProviderClient::Anthropic {
         client: reqwest::Client::new(),
-        api_key: "oauth:anthropic".to_string(),
+        credential: ProviderCredential::Oauth,
         base_url: server.uri(),
         model: "test-model".to_string(),
     };

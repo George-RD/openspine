@@ -96,8 +96,15 @@ async fn complete_login(
 
     let (provider, kind) = provider_entry(config_path, &stored.provider_id)?;
     println!("Verifying {} through the model gateway...", provider.id);
+    // Verify as OAuth even when the configured entry still says `api_key`:
+    // logging in is precisely the act of moving it. The configuration is only
+    // rewritten once this succeeds, so nothing is persisted on a failure.
+    let verifying = ProviderConfig {
+        auth: ProviderAuth::Oauth,
+        ..provider.clone()
+    };
     let verified = setup::run_preflight_verification_ping(
-        &ProviderClient::from_config(&provider, format!("oauth:{}", provider.id)),
+        &ProviderClient::from_config(&verifying, String::new()),
         store,
         &provider.id,
     )
