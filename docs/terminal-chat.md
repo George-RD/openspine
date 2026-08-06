@@ -33,6 +33,15 @@ reference `ONYX_PAT`; the token value stays outside YAML.
 
 ```bash
 export ONYX_PAT="<onyx-write-chat-pat>"
+```
+
+The three kernel keys are generated for you by `openspine setup`, which writes
+them to an `openspine.env` file beside the configuration at mode 0600. Every
+`openspine` command loads that file before reading key material, and a value
+already present in the environment always wins over the file. To supply them
+yourself instead:
+
+```bash
 export OPENSPINE_ARTIFACT_KEY="$(openssl rand -hex 32)"
 export OPENSPINE_GRANT_HMAC_KEY="$(openssl rand -hex 32)"
 export OPENSPINE_WEBHOOK_HMAC_KEY="$(openssl rand -hex 32)"
@@ -47,10 +56,17 @@ remains the source of conversation continuity.
 ## Run
 
 ```bash
+openspine --config openspine.terminal.yaml setup --check
 openspine --config openspine.terminal.yaml chat
 ```
 
-Type `/exit`, `/quit`, or press Ctrl-D to stop.
+`setup --check` prints the readiness report and exits non-zero when anything
+blocks a reply, naming the remedy for each gap. Run `setup` without `--check`
+for the interactive version, which can also write a starter configuration, fill
+in missing key material, and log in to a model provider.
+
+In the conversation, `/help` lists the commands, `/status` prints the readiness
+report, and `/exit`, `/quit`, or Ctrl-D stops.
 
 One-message smoke test:
 

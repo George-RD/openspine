@@ -33,7 +33,7 @@ async fn anthropic_client_parses_the_reply_text() {
 
     let client = ProviderClient::Anthropic {
         client: http_client(),
-        api_key: "test-key".to_string(),
+        credential: ProviderCredential::ApiKey("test-key".to_string()),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -55,7 +55,7 @@ async fn openai_compat_client_parses_the_reply_text() {
 
     let client = ProviderClient::OpenAiCompat {
         client: http_client(),
-        api_key: "test-key".to_string(),
+        credential: ProviderCredential::ApiKey("test-key".to_string()),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -89,7 +89,7 @@ async fn onyx_client_uses_scoped_chat_api_and_parses_answer() {
 
     let client = ProviderClient::Onyx {
         client: http_client(),
-        pat: "pat-token".to_string(),
+        credential: ProviderCredential::ApiKey("pat-token".to_string()),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -108,7 +108,7 @@ async fn provider_error_status_surfaces_as_provider_error() {
 
     let client = ProviderClient::Anthropic {
         client: http_client(),
-        api_key: "bad-key".to_string(),
+        credential: ProviderCredential::ApiKey("bad-key".to_string()),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -130,7 +130,7 @@ async fn malformed_response_is_missing_content_not_a_panic() {
 
     let client = ProviderClient::Anthropic {
         client: http_client(),
-        api_key: "test-key".to_string(),
+        credential: ProviderCredential::ApiKey("test-key".to_string()),
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -154,7 +154,7 @@ async fn declared_high_tier_selects_high_provider_endpoint() {
         "standard-provider".to_string(),
         ProviderClient::Anthropic {
             client: http_client(),
-            api_key: "test-key".to_string(),
+            credential: ProviderCredential::ApiKey("test-key".to_string()),
             base_url: standard_server.uri(),
             model: "standard-model".to_string(),
         },
@@ -163,7 +163,7 @@ async fn declared_high_tier_selects_high_provider_endpoint() {
         "high-provider".to_string(),
         ProviderClient::Anthropic {
             client: http_client(),
-            api_key: "test-key".to_string(),
+            credential: ProviderCredential::ApiKey("test-key".to_string()),
             base_url: high_server.uri(),
             model: "high-model".to_string(),
         },
@@ -212,7 +212,7 @@ async fn gateway_injects_oauth_bearer_token_from_vault() {
 
     let client = ProviderClient::Anthropic {
         client: http_client(),
-        api_key: "oauth:anthropic".to_string(),
+        credential: ProviderCredential::Oauth,
         base_url: server.uri(),
         model: "test-model".to_string(),
     };
@@ -258,6 +258,10 @@ async fn gateway_recovers_from_transient_401_via_inline_token_refresh() {
         .mount(&api_server)
         .await;
 
+    // The inline refresh presents the provider's registered client id, so this
+    // test registers one instead of relying on a sibling to have set it.
+    std::env::set_var("OPENSPINE_ANTHROPIC_CLIENT_ID", "test-client-id");
+
     let dir = tempfile::tempdir().expect("tempdir");
     let store = crate::secret_store::SecretStore::open(dir.path().join("credentials"), [19; 32])
         .expect("open");
@@ -268,7 +272,7 @@ async fn gateway_recovers_from_transient_401_via_inline_token_refresh() {
 
     let client = ProviderClient::Anthropic {
         client: http_client(),
-        api_key: "oauth:anthropic".to_string(),
+        credential: ProviderCredential::Oauth,
         base_url: api_server.uri(),
         model: "test-model".to_string(),
     };

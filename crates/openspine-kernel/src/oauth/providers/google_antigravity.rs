@@ -15,6 +15,7 @@ pub fn spec() -> OAuthProviderSpec {
         scope: "https://www.googleapis.com/auth/cloud-platform email",
         default_port: 51121,
         client_id: "openspine-antigravity-client.apps.googleusercontent.com",
+        login_supported: false,
     }
 }
 
@@ -35,13 +36,17 @@ pub(crate) fn url_encode(input: &str) -> String {
 }
 
 #[allow(dead_code)]
-pub fn build_authorization_url(redirect_port: u16, pkce: &PkceChallenge) -> String {
+pub fn build_authorization_url(
+    redirect_port: u16,
+    pkce: &PkceChallenge,
+    client_id: &str,
+) -> String {
     let s = spec();
     let redirect_uri = format!("http://127.0.0.1:{redirect_port}/callback");
     format!(
         "{}?response_type=code&client_id={}&redirect_uri={}&scope={}&state={}&code_challenge={}&code_challenge_method={}",
         s.auth_endpoint,
-        url_encode(s.client_id),
+        url_encode(client_id),
         url_encode(&redirect_uri),
         url_encode(s.scope),
         url_encode(&pkce.state),
@@ -53,6 +58,7 @@ pub fn build_authorization_url(redirect_port: u16, pkce: &PkceChallenge) -> Stri
 #[allow(dead_code)]
 pub async fn exchange_code(
     client: &reqwest::Client,
+    client_id: &str,
     redirect_port: u16,
     code: &str,
     code_verifier: &str,
@@ -64,7 +70,7 @@ pub async fn exchange_code(
 
     let mut params = HashMap::new();
     params.insert("grant_type", "authorization_code");
-    params.insert("client_id", s.client_id);
+    params.insert("client_id", client_id);
     params.insert("code", code);
     params.insert("redirect_uri", &redirect_uri);
     params.insert("code_verifier", code_verifier);
@@ -81,6 +87,7 @@ pub async fn exchange_code(
 
 pub async fn refresh_token(
     client: &reqwest::Client,
+    client_id: &str,
     refresh_token: &str,
     token_url_override: Option<&str>,
 ) -> Result<TokenResponse, anyhow::Error> {
@@ -89,7 +96,7 @@ pub async fn refresh_token(
 
     let mut params = HashMap::new();
     params.insert("grant_type", "refresh_token");
-    params.insert("client_id", s.client_id);
+    params.insert("client_id", client_id);
     params.insert("refresh_token", refresh_token);
 
     let res = client.post(url).form(&params).send().await?;

@@ -9,6 +9,10 @@
 mod providers;
 
 pub use providers::{GatewayError, ProviderClient};
+// Production names this type only inside `ProviderClient::from_config`; tests
+// construct clients directly and need it by name.
+#[cfg(test)]
+pub use providers::ProviderCredential;
 
 use serde::{Deserialize, Serialize};
 
