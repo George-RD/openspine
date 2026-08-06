@@ -584,7 +584,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 .checks
                 .push(cli::setup::verify_default_provider(&cfg, Some(secrets.as_ref())).await);
         }
-        run_terminal_chat(
+        let login_provider = run_terminal_chat(
             state,
             listener,
             receiver,
@@ -594,6 +594,21 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             &cfg.data_dir,
         )
         .await?;
+        if let Some(provider) = login_provider {
+            // The chat runtime is gone: `run_terminal_chat` aborted and
+            // awaited its HTTP server and dropped the `AppState` it consumed.
+            // These two locals are the last owners of the vault and the
+            // data-root lifetime lock; the login flow reacquires both through
+            // the ordinary `openspine provider login` path (see
+            // `login_handoff_can_reacquire_the_lock_after_chat_owners_drop`).
+            drop(secrets);
+            drop(overlay_operations);
+            eprintln!();
+            eprintln!(
+                "Leaving chat for provider login ({provider}). Run `openspine` again when it finishes."
+            );
+            cli::login::run_provider_login(&cli.config, Some(&provider)).await?;
+        }
         return Ok(std::process::ExitCode::SUCCESS);
     }
 
@@ -960,20 +975,31 @@ async fn run_terminal_chat(
     readiness: cli::readiness::Readiness,
     onboarding_complete: bool,
     data_dir: &Path,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<String>> {
     let server_state = state.clone();
+    // Graceful shutdown, not abort: axum spawns a detached task per
+    // connection, each holding a Router clone of `state`. Aborting joins only
+    // the accept loop, so a trailing shell request (the task-complete report
+    // that follows a reply) could keep the data-root lock and vault alive
+    // into the `/login` handoff. The signal drains connections before the
+    // serve future resolves.
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let http_server = tokio::spawn(async move {
         axum::serve(listener, api::router(server_state))
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx.await;
+            })
             .await
             .context("terminal chat HTTP server failed")
     });
 
     let result = if let Some(message) = once {
         // One-shot output stays exactly the reply: scripts and smoke tests parse
-        // it, so no notice may reach stdout on this path.
+        // it, so no notice may reach stdout on this path — and no local command,
+        // `/login` included, is ever interpreted.
         let reply = run_terminal_turn(&state, &mut receiver, message).await?;
         println!("{reply}");
-        Ok(())
+        Ok(None)
     } else {
         use std::io::Write as _;
 
@@ -990,6 +1016,7 @@ async fn run_terminal_chat(
 
         eprintln!("OpenSpine direct terminal chat. Type /help for commands, /exit to leave.");
         let stdin = std::io::stdin();
+        let mut login_request: Option<String> = None;
         loop {
             print!("you> ");
             std::io::stdout()
@@ -1006,28 +1033,48 @@ async fn run_terminal_chat(
             let line = line.trim_end_matches(['\r', '\n']).to_string();
             // Local commands are answered here: they mint no event and consume
             // no task grant.
-            match line.trim() {
-                "/exit" | "/quit" => break,
-                "/help" => {
+            match cli::onboarding::parse_local_command(&line) {
+                Some(cli::onboarding::LocalCommand::Exit) => break,
+                Some(cli::onboarding::LocalCommand::Help) => {
                     print!("{}", cli::onboarding::help_text());
                     continue;
                 }
-                "/status" => {
+                Some(cli::onboarding::LocalCommand::Status) => {
                     print!("{}", readiness.render());
                     continue;
                 }
-                _ => {}
+                Some(cli::onboarding::LocalCommand::Login { provider }) => {
+                    login_request = Some(
+                        provider.unwrap_or_else(|| cli::setup::OAUTH_PROVIDER_IDS[0].to_string()),
+                    );
+                    break;
+                }
+                None => {}
             }
             match run_terminal_turn(&state, &mut receiver, line).await {
                 Ok(reply) => println!("lyra> {reply}"),
                 Err(error) => eprintln!("error: {error:#}"),
             }
         }
-        Ok(())
+        Ok(login_request)
     };
 
-    http_server.abort();
-    let _ = http_server.await;
+    if matches!(&result, Ok(Some(_))) {
+        // Login handoff: drain until the serve future resolves, which
+        // guarantees no connection task still holds the data-root lock or
+        // vault. The wait is bounded by construction, because every kernel
+        // handler carries its own timeout (model gateway 60s, connectors
+        // 30s); a bounded drain with an abort fallback would strand an
+        // ordinary in-flight request and make login fail on the held lock.
+        let _ = shutdown_tx.send(());
+        eprintln!("Waiting for in-flight kernel requests to finish before login...");
+        let _ = http_server.await;
+    } else {
+        // Every other exit keeps the old immediate teardown: the process is
+        // about to end and takes the connection tasks with it.
+        http_server.abort();
+        let _ = http_server.await;
+    }
     result
 }
 

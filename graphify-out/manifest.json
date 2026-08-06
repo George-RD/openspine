@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786003611.585021,
+    "mtime": 1786003648.2854636,
     "ast_hash": "ab1a105e3884cd6c968bbac3d3a49776",
     "semantic_hash": ""
   },
@@ -195,8 +195,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/main.rs": {
-    "mtime": 1786002613.4357128,
-    "ast_hash": "c5d5c65391fd9c62cfcdfecdb8c2270c",
+    "mtime": 1786006768.1576016,
+    "ast_hash": "8ae6023e521ef32c408aed4d58b3a83a",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/mod.rs": {
@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/artifact_loader/tests.rs": {
-    "mtime": 1786003588.8704429,
-    "ast_hash": "6c94c4c9ca87307fe67cc6092b9c4822",
+    "mtime": 1786005070.7012086,
+    "ast_hash": "d074d71f24b6738caae92f3ac8e3da3c",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/connectors.rs": {
@@ -3515,8 +3515,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/onboarding.rs": {
-    "mtime": 1786002613.4298286,
-    "ast_hash": "c005c05bf99e5c9b4276f5e4c35d221b",
+    "mtime": 1786005220.2372227,
+    "ast_hash": "91c245055bd0e36946dc803680bb3371",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/prompt.rs": {
@@ -3550,8 +3550,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/wizard.rs": {
-    "mtime": 1786002613.4333878,
-    "ast_hash": "0547b9351d516239c37dc446d63f4ea7",
+    "mtime": 1786005347.312801,
+    "ast_hash": "5d586ac662d907606dac0f4788b34ac2",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/env_file.rs": {
@@ -3715,8 +3715,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/templates/owner_terminal_template.yaml": {
-    "mtime": 1786003588.870027,
-    "ast_hash": "f40f8a46189855a59f0c2c7dec90db78",
+    "mtime": 1786005128.728331,
+    "ast_hash": "19d1114ed673b2a6c085ea443f766a59",
     "semantic_hash": ""
   },
   "artifacts/lyra/workflows/owner_terminal_conversation.yaml": {
@@ -3815,7 +3815,7 @@
     "semantic_hash": ""
   },
   "openspec/specs/direct-terminal-chat/spec.md": {
-    "mtime": 1786003597.6442966,
+    "mtime": 1786003648.2861195,
     "ast_hash": "25abff4d7ef90c5649fa2e895a0e449b",
     "semantic_hash": ""
   },
@@ -3900,18 +3900,53 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/proposal.md": {
-    "mtime": 1786003588.9392056,
+    "mtime": 1786003648.2843482,
     "ast_hash": "1ebc699f38ab8176c722120298371c84",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/specs/direct-terminal-chat/spec.md": {
-    "mtime": 1786003588.9394534,
+    "mtime": 1786003648.2846391,
     "ast_hash": "cc15cdbb8e1aef8f5a2316249f8b6101",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/tasks.md": {
-    "mtime": 1786003588.9395957,
+    "mtime": 1786003648.2847788,
     "ast_hash": "654a131e84816d775a1e5db6c116f132",
+    "semantic_hash": ""
+  },
+  "crates/openspine-kernel/src/cli/wizard/tests.rs": {
+    "mtime": 1786005347.3298874,
+    "ast_hash": "0517c2114fafd369fb9d4551b791db44",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/.openspec.yaml": {
+    "mtime": 1786004628.5809548,
+    "ast_hash": "0a96bfc1c9218995064f38f9e9b19caa",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/design.md": {
+    "mtime": 1786006738.4478927,
+    "ast_hash": "f21827876c983fa58362c9522f411f3d",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/proposal.md": {
+    "mtime": 1786004719.0287876,
+    "ast_hash": "2de89204afcf9291b43ebe16c605447c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/specs/direct-terminal-chat/spec.md": {
+    "mtime": 1786004807.6079388,
+    "ast_hash": "419245e061e50f476865d7ef726d2bd8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/specs/first-run-onboarding/spec.md": {
+    "mtime": 1786004827.2405994,
+    "ast_hash": "ebbe0b9f060f8bd6ae2c68d5cfa88d15",
+    "semantic_hash": ""
+  },
+  "openspec/changes/trigger-oauth-from-terminal-chat/tasks.md": {
+    "mtime": 1786005454.8610005,
+    "ast_hash": "aa97d40379c59b4344390a57ea82aaac",
     "semantic_hash": ""
   }
 }

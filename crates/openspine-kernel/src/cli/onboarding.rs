@@ -105,6 +105,7 @@ pub fn help_text() -> String {
     "Commands:\n\
      \x20 /help    show this list\n\
      \x20 /status  show the readiness report for this install\n\
+     \x20 /login   start provider OAuth login, then leave chat\n\
      \x20 /exit    leave the conversation (Ctrl-D also works)\n\
      \n\
      Configuration lives outside this conversation:\n\
@@ -112,6 +113,45 @@ pub fn help_text() -> String {
      \x20 openspine setup --check          readiness report, no prompts\n\
      \x20 openspine provider login <id>    log in to a model provider\n"
         .to_string()
+}
+
+/// A kernel-local chat command, resolved before the governed pipeline: it
+/// mints no event and consumes no task grant. `None` from the parser means
+/// the line is an ordinary governed message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LocalCommand {
+    Exit,
+    Help,
+    Status,
+    /// Start provider OAuth login. `/login` carries no provider and the
+    /// caller applies the build's default; `/login <id>` passes the id
+    /// through unchanged so the login flow's own refusals stay
+    /// authoritative.
+    Login {
+        provider: Option<String>,
+    },
+}
+
+/// Parse one interactive chat line. Only a line whose first token is a known
+/// `/command` is local; `/loginanthropic` or prose mentioning `/login` stays
+/// a governed message.
+pub fn parse_local_command(line: &str) -> Option<LocalCommand> {
+    let trimmed = line.trim();
+    match trimmed {
+        "/exit" | "/quit" => return Some(LocalCommand::Exit),
+        "/help" => return Some(LocalCommand::Help),
+        "/status" => return Some(LocalCommand::Status),
+        "/login" => return Some(LocalCommand::Login { provider: None }),
+        _ => {}
+    }
+    let rest = trimmed.strip_prefix("/login")?;
+    let provider = rest.strip_prefix(char::is_whitespace)?.trim();
+    if provider.is_empty() {
+        return Some(LocalCommand::Login { provider: None });
+    }
+    Some(LocalCommand::Login {
+        provider: Some(provider.to_string()),
+    })
 }
 
 #[cfg(test)]
@@ -195,7 +235,36 @@ mod tests {
     fn help_names_the_setup_commands() {
         let help = help_text();
         assert!(help.contains("/status"), "{help}");
+        assert!(help.contains("/login"), "{help}");
         assert!(help.contains("openspine setup --check"), "{help}");
         assert!(help.contains("openspine provider login"), "{help}");
+    }
+
+    #[test]
+    fn local_commands_parse_and_default() {
+        use LocalCommand::*;
+        assert_eq!(parse_local_command(" /exit "), Some(Exit));
+        assert_eq!(parse_local_command("/quit"), Some(Exit));
+        assert_eq!(parse_local_command("/help"), Some(Help));
+        assert_eq!(parse_local_command("/status"), Some(Status));
+        assert_eq!(
+            parse_local_command("/login"),
+            Some(Login { provider: None })
+        );
+        assert_eq!(
+            parse_local_command("/login   "),
+            Some(Login { provider: None })
+        );
+        assert_eq!(
+            parse_local_command("/login anthropic"),
+            Some(Login {
+                provider: Some("anthropic".to_string())
+            })
+        );
+        // Anything that is not exactly a local command stays a governed
+        // message: no fused tokens, no mid-sentence triggers.
+        assert_eq!(parse_local_command("/loginanthropic"), None);
+        assert_eq!(parse_local_command("tell me about /login"), None);
+        assert_eq!(parse_local_command("hello"), None);
     }
 }
