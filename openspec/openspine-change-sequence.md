@@ -99,6 +99,12 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `add-openai-codex-provider-transport` (D-147..D-149 — Codex OAuth spendable
   via the ChatGPT backend Responses transport; owner-authored `model_tiers`
   tier routing; stored-credential re-bind switching)
+- `unify-approved-and-delegated-effect-execution` (D-153 — one kernel-owned
+  Gmail draft executor addressed by a D-146 `executor_id`, reached by
+  per-instance digest-bound approval and the D-117 headless approved lane; a
+  missing executor is a typed `NoExecutor` that cancels the reservation instead
+  of reporting a successful stub; brief stays in place — #128 and #130 depend
+  on it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

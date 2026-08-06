@@ -380,8 +380,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-shell/src/agents/main_assistant.rs": {
-    "mtime": 1786043435.6496572,
-    "ast_hash": "565e6ba8470a0d6969b7c3b68958a7a4",
+    "mtime": 1786044409.5501344,
+    "ast_hash": "b7c9feec40ab8da03655e0959ebc8b8f",
     "semantic_hash": ""
   },
   "crates/openspine-shell/src/agents/mod.rs": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1786042540.479485,
-    "ast_hash": "f433d5fcc0622567084a9f90cc48f489",
+    "mtime": 1786044503.9245124,
+    "ast_hash": "20abac5b542937701771432b4ccde32c",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -2470,13 +2470,13 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/approval_draft.rs": {
-    "mtime": 1786043465.982741,
-    "ast_hash": "356083d5f3088f5895e95171fc985bd6",
+    "mtime": 1786044517.5692618,
+    "ast_hash": "8a315ccf0a6ebf7fb79a29e6468260ea",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/approval_draft_reconcile_tests.rs": {
-    "mtime": 1786041421.0458262,
-    "ast_hash": "6ee51378af60bac74649ebe5b8be5705",
+    "mtime": 1786044472.6272676,
+    "ast_hash": "a987821f396961376245cadbbf9bdf72",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/pending_draft.rs": {
@@ -3145,8 +3145,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-shell/src/agents/main_assistant/tests.rs": {
-    "mtime": 1786043425.381446,
-    "ast_hash": "6eac81da1e52009e8e358385ea47d644",
+    "mtime": 1786045314.4129372,
+    "ast_hash": "2643c6dfc84999b3a5563ec5e175133a",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/overlay_export_restore/bundle_hardening_tests.rs": {
@@ -4050,8 +4050,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/unify-approved-and-delegated-effect-execution/specs/digest-bound-draft-approval/spec.md": {
-    "mtime": 1786042301.4409044,
-    "ast_hash": "3d5d98cf8233a3c7b7eee666f61d1ed6",
+    "mtime": 1786044484.146739,
+    "ast_hash": "9357d1eb28200b9bca60aac058395813",
     "semantic_hash": ""
   },
   "openspec/changes/unify-approved-and-delegated-effect-execution/specs/gate-action-api/spec.md": {
