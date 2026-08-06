@@ -88,6 +88,9 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `2026-07-28-add-terminal-chat-onyx-lfm`
 - `define-responsibility-contract` (D-146; brief stays in place — downstream
   progressive-delegation changes depend on it)
+- `2026-08-04-implement-first-run-onboarding` (no new D entries — the embedded
+  first-party client ids and the Anthropic wire contract are documented in the
+  archived change proposal)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
