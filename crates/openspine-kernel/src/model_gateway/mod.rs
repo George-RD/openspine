@@ -6,6 +6,8 @@
 //! The gateway owns the final provider call; the shell never talks to a
 //! model provider directly and never sees a provider API key (D-010).
 
+mod codex;
+mod onyx;
 mod providers;
 
 pub use providers::{GatewayError, ProviderClient};
@@ -151,10 +153,27 @@ impl GatewayTierMap {
     }
 
     /// Override the provider id used for `tier`. Chained for construction.
-    #[allow(dead_code)]
     pub fn with_route(mut self, tier: ReasoningTier, provider_id: impl Into<String>) -> Self {
         self.routes.insert(tier, provider_id.into());
         self
+    }
+
+    /// The production map, built from owner-authored `model_tiers`
+    /// configuration (validated fail-closed at config load). Unset tiers
+    /// keep falling back to the active provider.
+    pub fn from_model_tiers(tiers: &crate::config::ModelTiersConfig) -> Self {
+        let mut map = Self::new();
+        let routed = [
+            (ReasoningTier::Low, &tiers.low),
+            (ReasoningTier::Standard, &tiers.standard),
+            (ReasoningTier::High, &tiers.high),
+        ];
+        for (tier, route) in routed {
+            if let Some(provider_id) = route {
+                map = map.with_route(tier, provider_id.clone());
+            }
+        }
+        map
     }
 
     /// The provider id the gateway must use for `tier`, resolved against the
@@ -165,18 +184,26 @@ impl GatewayTierMap {
             .cloned()
             .unwrap_or_else(|| active_provider_id.to_string())
     }
-
-    /// Resolve the provider client for `tier`. Selects the configured route's
-    /// client, or the active provider's client when no route is configured or
+    /// Resolve the provider id and client for `tier`: the configured route's
+    /// client when the pool has it, else the active provider's.
+    ///
+    /// The id and client are returned as ONE pair because the id is what
+    /// credential resolution keys on (vault token, account identity, refresh).
+    /// Handing callers the client alone invited pairing it with the active
+    /// provider's id, which would spend one provider's vault credential
+    /// against another provider's endpoint.
     pub fn resolve<'p>(
         &self,
         tier: ReasoningTier,
         active_provider_id: &str,
         pool: &'p HashMap<String, ProviderClient>,
-    ) -> Option<&'p ProviderClient> {
-        let provider_id = self.resolve_id(tier, active_provider_id);
-        pool.get(&provider_id)
-            .or_else(|| pool.get(active_provider_id))
+    ) -> Option<(String, &'p ProviderClient)> {
+        let routed_id = self.resolve_id(tier, active_provider_id);
+        if let Some(client) = pool.get(&routed_id) {
+            return Some((routed_id, client));
+        }
+        pool.get(active_provider_id)
+            .map(|client| (active_provider_id.to_string(), client))
     }
 }
 

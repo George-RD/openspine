@@ -8,6 +8,7 @@ mod benchmark;
 mod briefcase;
 mod briefcase_visibility;
 pub(crate) mod cli;
+mod codex_fingerprint;
 mod config;
 mod connector_reality;
 mod connectors;
@@ -181,8 +182,12 @@ pub(crate) enum Commands {
 pub(crate) enum ProviderCommands {
     /// Login to a model provider
     Login {
-        /// Provider ID (e.g. google-antigravity, openai-codex, anthropic)
+        /// Provider ID (e.g. openai-codex, anthropic)
         provider: Option<String>,
+        /// Re-run the browser authorization even when a stored credential
+        /// exists (for example to bind a different provider-side account)
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -232,10 +237,10 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         });
     }
     if let Some(Commands::Provider {
-        command: ProviderCommands::Login { provider },
+        command: ProviderCommands::Login { provider, force },
     }) = &cli.command
     {
-        cli::login::run_provider_login(&cli.config, provider.as_deref()).await?;
+        cli::login::run_provider_login(&cli.config, provider.as_deref(), *force).await?;
         return Ok(std::process::ExitCode::SUCCESS);
     }
     let cfg = config::Config::load(&cli.config)
@@ -544,7 +549,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
         action_handlers: ActionHandlerRegistry::default_registrations(),
         provider_pool,
-        gateway_tier_map: crate::model_gateway::GatewayTierMap::new(),
+        gateway_tier_map: crate::model_gateway::GatewayTierMap::from_model_tiers(&cfg.model_tiers),
         active_model_providers: parking_lot::RwLock::new(active_model_providers),
         started_at: Instant::now(),
         spend_cap: cfg.spend_cap,
@@ -607,7 +612,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             eprintln!(
                 "Leaving chat for provider login ({provider}). Run `openspine` again when it finishes."
             );
-            cli::login::run_provider_login(&cli.config, Some(&provider)).await?;
+            cli::login::run_provider_login(&cli.config, Some(&provider), false).await?;
         }
         return Ok(std::process::ExitCode::SUCCESS);
     }

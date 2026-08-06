@@ -69,6 +69,11 @@ fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
             "set `reflection_miner_interval_seconds` to a positive number in {}.",
             config_path.display()
         ),
+        ConfigError::UnknownTierProvider { tier, provider_id } => format!(
+            "`model_tiers.{tier}` names '{provider_id}', which is not in `providers`. \
+             Point it at a configured provider id in {}, or remove the route.",
+            config_path.display()
+        ),
     }
 }
 

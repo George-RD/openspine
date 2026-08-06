@@ -147,6 +147,96 @@ fn grant_with_limits(task_token: &str, max_model_calls: u32, max_artifacts: u32)
     grant
 }
 
+/// A `model_tiers` route must carry its provider's OWN vault credential.
+/// Regression: the handler used to pair the routed client with the ACTIVE
+/// provider's id, so the routed endpoint received another provider's bearer
+/// token — with two subscription logins stored, that is a credential leak
+/// across vendors.
+#[tokio::test]
+async fn a_tier_routed_oauth_provider_spends_its_own_credential() {
+    use crate::secret_store::OAuthIdentityMetadata;
+
+    let active_server = MockServer::start().await;
+    let routed_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/codex/responses"))
+        .and(header("authorization", "Bearer codex-own-token"))
+        .and(header("chatgpt-account-id", "acct-route"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(concat!(
+            "data: {\"type\":\"response.output_text.delta\",\"delta\":\"routed reply\"}\n\n",
+            "data: {\"type\":\"response.completed\",\"response\":{\"output\":[]}}\n\n",
+        )))
+        .expect(1)
+        .mount(&routed_server)
+        .await;
+
+    // The active provider is OAuth too, with a DIFFERENT vault token: if the
+    // handler ever pairs the routed client with the active id again, the
+    // routed endpoint sees `Bearer active-own-token` and this mock 404s.
+    let mut state = state_with_mock_provider(&active_server.uri());
+    let codex_config = ProviderConfig {
+        id: "openai-codex".to_string(),
+        kind: ProviderKind::OpenaiCodex,
+        base_url: Some(routed_server.uri()),
+        model: "gpt-5-codex".to_string(),
+        auth: ProviderAuth::Oauth,
+    };
+    state.provider_pool.insert(
+        "openai-codex".to_string(),
+        ProviderClient::from_config(&codex_config, String::new()),
+    );
+    state.gateway_tier_map =
+        crate::model_gateway::GatewayTierMap::from_model_tiers(&crate::config::ModelTiersConfig {
+            low: None,
+            standard: Some("openai-codex".to_string()),
+            high: None,
+        });
+    state
+        .secrets
+        .store_oauth_tokens(
+            "test-provider",
+            "active-refresh",
+            "active-own-token",
+            "9999999999",
+            None,
+        )
+        .unwrap();
+    state
+        .secrets
+        .store_oauth_tokens(
+            "openai-codex",
+            "codex-refresh",
+            "codex-own-token",
+            "9999999999",
+            Some(OAuthIdentityMetadata {
+                account_email: None,
+                account_id: Some("acct-route".to_string()),
+                identity_key: None,
+            }),
+        )
+        .unwrap();
+
+    let task_token = "tiered-token-hex-64-bytes-long-000000000000000000000000000000000";
+    let grant = email_reply_drafter_grant(task_token);
+    let pending_ref = state.artifacts.put(b"select thread 9").unwrap();
+    state
+        .store
+        .insert_task_grant(&grant, &pending_ref, 556)
+        .unwrap();
+
+    let (addr, handle) = start_server(state).await;
+    let resp = post_model_generate(addr, task_token, "draft_reply", "hello", None, 64).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    assert_eq!(body["text"], "routed reply");
+
+    assert!(
+        active_server.received_requests().await.unwrap().is_empty(),
+        "the active provider must not be called when standard is routed away"
+    );
+    handle.abort();
+}
+
 #[tokio::test]
 async fn email_reply_drafter_template_wraps_untrusted_context_on_the_wire() {
     let server = MockServer::start().await;

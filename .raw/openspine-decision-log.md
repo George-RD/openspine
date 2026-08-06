@@ -139,6 +139,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-144 | Preemptive single-flight background token refresher (`OAuthRefresher`) with 300s expiration skew window and credential disabling | Accepted |
 | D-145 | Model gateway bearer token resolution with automatic single-retry on HTTP 401 Unauthorized after inline token refresh | Accepted |
 | D-146 | Reusable responsibilities use protocol-neutral reviewed context and remain reference views over ordinary workflow/standing-rule authority | Accepted |
+| D-147 | Codex OAuth grants are spent through a dedicated ChatGPT-backend Responses transport with access-token-derived account identity and a Codex-specific wire fingerprint | Accepted |
+| D-148 | Per-reasoning-tier provider routing is owner-authored `model_tiers` configuration validated fail-closed at load; tier resolution returns the provider id and client as one pair | Accepted |
+| D-149 | Provider login re-binds from a healthy stored credential without re-authorization, behind the spendability refusal, with canonical-transport cutover and vault-scoped refresh single-flight | Accepted |
 
 ---
 
@@ -3463,6 +3466,73 @@ Keeping responsibility as a reference view preserves D-007: every task still rec
 A future adversarially verified design demonstrates that a tightly bounded communication Allow default is safer than explicit review, or if task grants cease to be the sole live authority object under a separately accepted replacement for D-007.
 
 ---
+# D-147 — Codex OAuth spendability via the ChatGPT backend Responses transport
+
+## Decision
+
+`openai-codex` becomes a spendable OAuth login. A dedicated `ProviderKind::OpenaiCodex` maps to a `CodexResponses` client that POSTs Responses-API requests to `<base>/codex/responses` (default `https://chatgpt.com/backend-api`) with the OAuth bearer, `chatgpt-account-id`, `OpenAI-Beta: responses=experimental`, and `originator` headers, consuming the SSE stream kernel-side (line-based framing, LF/CRLF alike). The account identity is decoded from the ACCESS-token JWT claim `https://api.openai.com/auth -> chatgpt_account_id` at exchange and refresh time; a token without the claim fails the login closed, and the same condition on a background refresh disables the credential as definitive. In-band `response.failed`/`error` events and terminal events whose nested status reports `failed`/`cancelled` map to `ProviderError` with synthetic status 502 (the Onyx in-band precedent); an `incomplete` terminal returns its text when usable and otherwise fails naming `incomplete_details.reason`; exact access-token and account-id strings are scrubbed from every error. A `codex_fingerprint` module (originator, beta, user agent, endpoint path, accept header — the constants the transport actually consumes) participates in `provider_config_digest` for `openai_codex` OAuth providers, keeping swap approvals honest per client surface; the body shape is pinned by wire tests.
+
+## Rationale
+
+D-145's posture refused the Codex login because storing a credential no request could spend is a dead end. The refusal comment named the missing piece — the ChatGPT-backend transport — and this decision supplies it, verified against pi's working implementation and the first-party client contract (authorize endpoint `/oauth/authorize`, registered redirect exactly `http://localhost:1455/auth/callback`, simplified-flow parameters). Reusing the Anthropic fingerprint for Codex would bind constants Codex never transmits; approval identity must describe the actual wire.
+
+## Consequences
+
+- `OAUTH_PROVIDER_IDS` gains `openai-codex`; Antigravity stays refused (still no transport).
+- The registered redirect fixes the port: `begin` refuses any non-1455 loopback port for Codex before producing a URL.
+- Headless logins paste the full redirected callback URL; pasted state must equal the flow's own (presence alone triggers the check).
+- The dead device-code surface (wrong endpoints, never called) is removed.
+- `max_tokens` has no wire equivalent on this endpoint; spend caps and grant budgets remain the cost bound.
+
+## Would change if
+
+OpenAI publishes self-service OAuth registration or a stable public inference surface for subscription grants, or allowlists `originator` values.
+
+---
+
+# D-148 — Owner-authored reasoning-tier provider routing
+
+## Decision
+
+An optional `model_tiers` section in `openspine.yaml` (`low`/`standard`/`high` -> provider id) builds the production `GatewayTierMap`. Validation is fail-closed at config load: a tier route naming a provider id absent from `providers` aborts startup with the offending name. Unset tiers fall back to the active provider. Tier resolution returns the provider id and client as ONE pair, and credential resolution keys on the routed id — a routed client spending another provider's vault credential is unrepresentable at the call site.
+
+## Rationale
+
+`GatewayTierMap` existed with fallback semantics but production always constructed it empty; declared workflow-step tiers could never reach a different provider. Tier routes are owner-authored configuration — the same trust root as the provider list itself — so they need no artifact ceremony; runtime swaps of the ACTIVE provider remain behind AD-152. The pair-return closed a real cross-vendor credential leak found in review: the routed client was being paired with the active provider's vault identity.
+
+## Consequences
+
+- Production `model.generate` declares `standard` today, so `standard` routes are live immediately; `low`/`high` reach real calls when kernel workflow-step driving lands (deferred with D-090; `WorkflowStateMachine::provider_for_step` already returns the pair).
+- With two subscription logins stored, high-tier work can run one vendor while standard/low runs the other.
+
+## Would change if
+
+Budget-aware knapsack tier selection (AD-122's deferred trader) replaces the static map, or workflow-step driving lands and makes per-step declaration the primary source.
+
+---
+
+# D-149 — Stored-credential re-bind, canonical-transport cutover, and vault-scoped refresh single-flight
+
+## Decision
+
+`openspine provider login <id>` short-circuits to verify-and-bind when the vault holds a non-disabled credential with a refresh token for the named provider; `--force` re-runs the authorization. The shortcut sits BEHIND the `client_id_for` spendability refusal. A Codex credential lacking its account id is backfilled from the stored access token's claim, or falls through to fresh authorization. Binding cuts a legacy entry over to the canonical transport kind for its provider id and resets its endpoint to the canonical default, in both the verification entry and the written configuration. Refresh single-flight is coordinated process-wide, keyed by vault scope AND provider id; the inline 401 path spends a concurrently refreshed stored token before submitting another refresh grant.
+
+## Rationale
+
+Switching between two held subscriptions must not cost a browser round trip — re-binding a stored credential is the switch mechanism. The kind/endpoint cutover prevents a new transport's bearer and account header from reaching an endpoint configured for a different wire contract. With refresh-token rotation, duplicate refresh grants are destructive (`invalid_grant` disables a freshly renewed credential), so per-call refresher construction must share one in-flight set, scoped to the vault so distinct credential sets are never coordinated together.
+
+## Consequences
+
+- `openspine provider login anthropic` / `openai-codex` toggles the routed provider instantly once both are stored.
+- A stored Antigravity credential stays refused exactly as a fresh authorization would be.
+- Refreshed identity metadata persists whether or not the provider rotated the refresh token.
+
+## Would change if
+
+Provider-side account switching becomes a first-class flow (then `--force` semantics move into an explicit account chooser), or a shared cross-process kernel makes process-wide coordination insufficient.
+
+---
+
 
 ## Change Log
 
@@ -3512,4 +3582,5 @@ A future adversarially verified design demonstrates that a tightly bounded commu
 | 2026-07-24 | Added D-130–D-141 (pure proposed-only miner boundary, authenticated bounded grants, verified encrypted-reference evidence, derived exact-match repetition, correction/probe separation, fail-closed provenance, independent durable budgets, scoped consolidation, declarative scheduled grant composition, and owner-bound cross-grant evidence), settled while implementing `implement-reflection-miner`. |
 | 2026-07-24 | Added D-142 (native OAuth 2.0 PKCE authentication), D-143 (encrypted vault storage in SecretStore), D-144 (preemptive single-flight background token refresher), and D-145 (gateway bearer token resolution with automatic single-retry on 401), settled while implementing `implement-model-provider-oauth-onboarding`. |
 | 2026-08-03 | Added D-146 (protocol-neutral two-axis responsibility contract; responsibility remains a reference view over workflow/standing-rule inputs; communication dark-window Allow forbidden; drift fails to `needs_review`), settled while implementing `define-responsibility-contract`. |
+| 2026-08-06 | Added D-147 (Codex OAuth spendability via the ChatGPT backend Responses transport with access-token identity, scrubbed errors, and a Codex-specific wire fingerprint), D-148 (owner-authored `model_tiers` tier routing, fail-closed at load, id+client pair resolution), and D-149 (stored-credential re-bind behind the spendability refusal, canonical-transport cutover, vault-scoped refresh single-flight), settled while implementing `add-openai-codex-provider-transport`. |
 

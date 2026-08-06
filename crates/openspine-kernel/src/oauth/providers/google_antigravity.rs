@@ -4,14 +4,11 @@ use super::{OAuthProviderSpec, TokenResponse};
 use crate::oauth::pkce::PkceChallenge;
 use std::collections::HashMap;
 
-#[allow(dead_code)]
 pub fn spec() -> OAuthProviderSpec {
     OAuthProviderSpec {
-        id: "google-antigravity",
         display_name: "Google Antigravity",
         auth_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
         token_endpoint: "https://oauth2.googleapis.com/token",
-        device_endpoint: None,
         scope: "https://www.googleapis.com/auth/cloud-platform email",
         default_port: 51121,
         client_id: "openspine-antigravity-client.apps.googleusercontent.com",

@@ -3,8 +3,9 @@
 //! Provider kinds are enum-dispatched (no `dyn`/`async_trait` — this repo's
 //! no-new-deps convention and the small, closed set of kinds don't justify
 //! either): `anthropic` calls the Messages API; `openai_compat` calls
-//! `/v1/chat/completions`; `onyx` calls the normal non-streaming Onyx chat API
-//! with a scoped Personal Access Token.
+//! `/v1/chat/completions`; `codex_responses` calls the ChatGPT backend
+//! Responses endpoint (see [`super::codex`]); `onyx` calls the normal
+//! non-streaming Onyx chat API with a scoped Personal Access Token.
 
 use serde_json::{json, Value};
 
@@ -14,6 +15,7 @@ use super::ResolvedPrompt;
 
 const DEFAULT_ANTHROPIC_BASE_URL: &str = "https://api.anthropic.com";
 const DEFAULT_OPENAI_BASE_URL: &str = "https://api.openai.com";
+const DEFAULT_CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api";
 const DEFAULT_ONYX_BASE_URL: &str = "http://127.0.0.1:8080";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 
@@ -29,6 +31,10 @@ pub enum GatewayError {
     },
     #[error("provider {0} response did not contain the expected content field")]
     MissingContent(String),
+    #[error(
+        "provider {0} has no stored ChatGPT account id; re-run `openspine provider login openai-codex`"
+    )]
+    MissingAccountId(String),
 }
 /// One configured provider, ready to call. Built once from
 /// [`ProviderConfig`] + the resolved API key (config.rs's `provider_api_key`)
@@ -74,6 +80,12 @@ pub enum ProviderClient {
         model: String,
     },
     OpenAiCompat {
+        client: reqwest::Client,
+        credential: ProviderCredential,
+        base_url: String,
+        model: String,
+    },
+    CodexResponses {
         client: reqwest::Client,
         credential: ProviderCredential,
         base_url: String,
@@ -128,6 +140,15 @@ impl ProviderClient {
                     .unwrap_or_else(|| DEFAULT_OPENAI_BASE_URL.to_string()),
                 model: config.model.clone(),
             },
+            ProviderKind::OpenaiCodex => ProviderClient::CodexResponses {
+                client: http_client(),
+                credential: credential.clone(),
+                base_url: config
+                    .base_url
+                    .clone()
+                    .unwrap_or_else(|| DEFAULT_CODEX_BASE_URL.to_string()),
+                model: config.model.clone(),
+            },
             ProviderKind::Onyx => ProviderClient::Onyx {
                 client: http_client(),
                 credential: credential.clone(),
@@ -164,13 +185,19 @@ impl ProviderClient {
         let credential = match self {
             ProviderClient::Anthropic { credential, .. }
             | ProviderClient::OpenAiCompat { credential, .. }
+            | ProviderClient::CodexResponses { credential, .. }
             | ProviderClient::Onyx { credential, .. } => credential,
         };
         let mut key = credential.as_key().to_string();
+        // The Codex transport addresses the account the token belongs to; the
+        // id is vault identity metadata resolved next to the token itself.
+        let mut vault_account_id: Option<String> = None;
 
         let pid = provider_id.unwrap_or(match self {
             ProviderClient::Anthropic { .. } => "anthropic",
-            ProviderClient::OpenAiCompat { .. } => "openai-codex",
+            ProviderClient::OpenAiCompat { .. } | ProviderClient::CodexResponses { .. } => {
+                "openai-codex"
+            }
             ProviderClient::Onyx { .. } => "onyx",
         });
 
@@ -188,22 +215,55 @@ impl ProviderClient {
                 if let Ok(Some(tokens)) = store.get_oauth_tokens(pid) {
                     if !tokens.access_token.is_empty() && !tokens.disabled {
                         key = tokens.access_token;
+                        vault_account_id = tokens.account_id;
                     }
                 }
             }
         }
 
-        let res = self.generate_raw(prompt, &key, is_oauth).await;
+        let res = self
+            .generate_raw(prompt, &key, is_oauth, vault_account_id.as_deref())
+            .await;
 
         if let Err(GatewayError::ProviderError { status: 401, .. }) = &res {
             if is_oauth {
                 if let Some(store) = secret_store {
+                    // A concurrent call may have refreshed between our vault
+                    // read and this 401. Spend the newer stored token before
+                    // submitting another refresh grant: with rotation, a
+                    // duplicate grant draws `invalid_grant` and would disable
+                    // a credential that was just renewed.
+                    if let Ok(Some(tokens)) = store.get_oauth_tokens(pid) {
+                        if !tokens.disabled
+                            && !tokens.access_token.is_empty()
+                            && tokens.access_token != key
+                        {
+                            return self
+                                .generate_raw(
+                                    prompt,
+                                    &tokens.access_token,
+                                    is_oauth,
+                                    tokens.account_id.as_deref(),
+                                )
+                                .await;
+                        }
+                    }
                     let refresher = crate::oauth::refresher::OAuthRefresher::new(store.clone());
                     if let Ok(new_token) = refresher
                         .refresh_provider_now(pid, token_url_override)
                         .await
                     {
-                        return self.generate_raw(prompt, &new_token, is_oauth).await;
+                        // Re-read the identity next to the refreshed token: a
+                        // re-login between the 401 and the retry may have
+                        // rebound the account.
+                        let account_id = store
+                            .get_oauth_tokens(pid)
+                            .ok()
+                            .flatten()
+                            .and_then(|tokens| tokens.account_id);
+                        return self
+                            .generate_raw(prompt, &new_token, is_oauth, account_id.as_deref())
+                            .await;
                     }
                 }
             }
@@ -217,6 +277,7 @@ impl ProviderClient {
         prompt: &ResolvedPrompt,
         key: &str,
         is_oauth: bool,
+        account_id: Option<&str>,
     ) -> Result<String, GatewayError> {
         match self {
             ProviderClient::Anthropic {
@@ -231,12 +292,23 @@ impl ProviderClient {
                 model,
                 ..
             } => generate_openai_compat(client, key, base_url, model, prompt).await,
+            ProviderClient::CodexResponses {
+                client,
+                base_url,
+                model,
+                ..
+            } => {
+                super::codex::generate_codex_responses(
+                    client, key, account_id, base_url, model, prompt,
+                )
+                .await
+            }
             ProviderClient::Onyx {
                 client,
                 base_url,
                 model,
                 ..
-            } => generate_onyx(client, key, base_url, model, prompt).await,
+            } => super::onyx::generate_onyx(client, key, base_url, model, prompt).await,
         }
     }
 }
@@ -326,89 +398,6 @@ async fn generate_anthropic(
         .ok_or_else(|| GatewayError::MissingContent("anthropic".to_string()))
 }
 
-fn onyx_request_parts(prompt: &ResolvedPrompt) -> Result<(String, String), GatewayError> {
-    let user_index = prompt
-        .messages
-        .iter()
-        .rposition(|message| matches!(message.role, super::PromptRole::User))
-        .ok_or_else(|| GatewayError::MissingContent("onyx.request.user_message".to_string()))?;
-    let message = prompt.messages[user_index].content.trim().to_string();
-    if message.is_empty() {
-        return Err(GatewayError::MissingContent(
-            "onyx.request.user_message".to_string(),
-        ));
-    }
-
-    let mut context = format!("OpenSpine system instructions:\n{}", prompt.system);
-    if user_index > 0 {
-        context.push_str("\n\nConversation history:");
-        for item in &prompt.messages[..user_index] {
-            let role = match item.role {
-                super::PromptRole::User => "USER",
-                super::PromptRole::Assistant => "ASSISTANT",
-            };
-            context.push_str(&format!("\n{role}: {}", item.content));
-        }
-    }
-    Ok((message, context))
-}
-
-async fn generate_onyx(
-    client: &reqwest::Client,
-    pat: &str,
-    base_url: &str,
-    model: &str,
-    prompt: &ResolvedPrompt,
-) -> Result<String, GatewayError> {
-    let (message, additional_context) = onyx_request_parts(prompt)?;
-    let body = json!({
-        "message": message,
-        "llm_override": { "model_version": model },
-        "allowed_tool_ids": [],
-        "origin": "api",
-        "stream": false,
-        "include_citations": false,
-        "additional_context": additional_context,
-    });
-    let response = client
-        .post(format!("{base_url}/chat/send-chat-message"))
-        .bearer_auth(pat)
-        .json(&body)
-        .send()
-        .await?;
-    let status = response.status();
-    let text = response.text().await?;
-    if !status.is_success() {
-        return Err(GatewayError::ProviderError {
-            provider: "onyx".to_string(),
-            status: status.as_u16(),
-            body: text,
-        });
-    }
-    let value: Value = serde_json::from_str(&text)
-        .map_err(|_| GatewayError::MissingContent("onyx".to_string()))?;
-    if let Some(error) = value
-        .get("error_msg")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|error| !error.is_empty())
-    {
-        return Err(GatewayError::ProviderError {
-            provider: "onyx".to_string(),
-            status: 502,
-            body: error.to_string(),
-        });
-    }
-    value
-        .get("answer_citationless")
-        .or_else(|| value.get("answer"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|answer| !answer.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| GatewayError::MissingContent("onyx".to_string()))
-}
-
 async fn generate_openai_compat(
     client: &reqwest::Client,
     api_key: &str,
@@ -460,3 +449,7 @@ mod tests;
 #[cfg(test)]
 #[path = "providers/oauth_tests.rs"]
 mod oauth_tests;
+
+#[cfg(test)]
+#[path = "providers/codex_tests.rs"]
+mod codex_tests;

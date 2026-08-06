@@ -112,7 +112,9 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
         match choice.as_str() {
             "1" if !vault.writable() => println!("  {}", vault.write_refusal()),
             "1" => {
-                if let Err(error) = login_flow(config_path, vault.store(), &client, None).await {
+                if let Err(error) =
+                    login_flow(config_path, vault.store(), &client, None, false).await
+                {
                     eprintln!("login failed: {error:#}");
                 }
                 refresh_vault(&mut vault, config_path)?;

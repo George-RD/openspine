@@ -16,25 +16,11 @@ pub struct TokenResponse {
     pub account_id: Option<String>,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviceCodeResponse {
-    pub device_code: String,
-    pub user_code: String,
-    pub verification_uri: String,
-    pub verification_uri_complete: Option<String>,
-    pub expires_in: u64,
-    pub interval: Option<u64>,
-}
-
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OAuthProviderSpec {
-    pub id: &'static str,
     pub display_name: &'static str,
     pub auth_endpoint: &'static str,
     pub token_endpoint: &'static str,
-    pub device_endpoint: Option<&'static str>,
     pub scope: &'static str,
     pub default_port: u16,
     /// The provider's public OAuth client id.
@@ -52,7 +38,6 @@ pub struct OAuthProviderSpec {
     pub login_supported: bool,
 }
 
-#[allow(dead_code)]
 pub fn get_provider_spec(provider_id: &str) -> Option<OAuthProviderSpec> {
     match provider_id {
         "google-antigravity" => Some(google_antigravity::spec()),
@@ -64,11 +49,11 @@ pub fn get_provider_spec(provider_id: &str) -> Option<OAuthProviderSpec> {
 
 /// The OAuth client id to present for `provider_id`.
 ///
-/// Refuses a provider whose credential this build cannot spend. Codex OAuth
-/// tokens are only accepted by `chatgpt.com/backend-api/codex/responses` with a
-/// `chatgpt-account-id` header derived from the id token, which is a different
-/// transport from the OpenAI-compatible chat completions client the gateway
-/// has. Offering that login would store a credential no request could use.
+/// Refuses a provider whose credential this build cannot spend. Antigravity
+/// authorizes fine, but its grant needs a provider transport the gateway does
+/// not implement; offering that login would store a credential no request
+/// could use. Anthropic (Messages API) and OpenAI Codex (ChatGPT backend
+/// Responses transport) both have serving transports.
 pub fn client_id_for(provider_id: &str) -> Result<&'static str, anyhow::Error> {
     let spec = get_provider_spec(provider_id)
         .ok_or_else(|| anyhow::anyhow!("unsupported provider for OAuth login: {provider_id}"))?;

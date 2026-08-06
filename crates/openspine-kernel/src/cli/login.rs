@@ -14,10 +14,11 @@ use crate::secret_store::SecretStore;
 use anyhow::Context as _;
 use std::path::Path;
 
-/// `openspine provider login [id]`.
+/// `openspine provider login [id] [--force]`.
 pub async fn run_provider_login(
     config_path: &Path,
     provider_id: Option<&str>,
+    force: bool,
 ) -> anyhow::Result<()> {
     let vault = open_vault(config_path)?;
     let Some(store) = vault.store() else {
@@ -28,6 +29,7 @@ pub async fn run_provider_login(
         Some(store),
         &reqwest::Client::new(),
         provider_id,
+        force,
     )
     .await
 }
@@ -42,6 +44,7 @@ pub(super) async fn login_flow(
     store: Option<&SecretStore>,
     client: &reqwest::Client,
     provider_id: Option<&str>,
+    force: bool,
 ) -> anyhow::Result<()> {
     let store = store
         .context("the credential vault is not open; resolve the key material checks and re-run")?;
@@ -49,6 +52,28 @@ pub(super) async fn login_flow(
         Some(id) => id.to_string(),
         None => choose_provider()?,
     };
+    // The rebind shortcut below must not outflank the spendability refusal:
+    // a stored credential for a provider this build cannot serve stays
+    // refused exactly as a fresh authorization would be.
+    crate::oauth::providers::client_id_for(&provider_id)?;
+    // Switching between held subscriptions must not cost a browser round
+    // trip: a healthy stored credential is re-verified and re-bound
+    // directly. `--force` re-runs the authorization (for example to bind a
+    // different provider-side account).
+    if !force {
+        if let Ok(Some(tokens)) = store.get_oauth_tokens(&provider_id) {
+            let healthy = !tokens.disabled
+                && !tokens.refresh_token.is_empty()
+                && ensure_codex_identity(store, &provider_id, &tokens)?;
+            if healthy {
+                println!(
+                    "A stored {provider_id} credential exists; re-verifying and binding it \
+                     without a new authorization. Use --force to re-authorize."
+                );
+                return verify_and_bind(config_path, store, &provider_id).await;
+            }
+        }
+    }
     let port = setup::default_port(&provider_id)?;
 
     let (auth, code) = if headless() {
@@ -93,8 +118,18 @@ async fn complete_login(
         Some(email) => println!("Logged in to {} as {email}.", stored.provider_id),
         None => println!("Logged in to {}.", stored.provider_id),
     }
+    verify_and_bind(config_path, store, &stored.provider_id).await
+}
 
-    let (provider, kind) = provider_entry(config_path, &stored.provider_id)?;
+/// Verify `provider_id` through the model gateway and, on success, bind it
+/// as the provider the kernel routes to. Shared by a fresh login and the
+/// stored-credential re-bind path.
+async fn verify_and_bind(
+    config_path: &Path,
+    store: &SecretStore,
+    provider_id: &str,
+) -> anyhow::Result<()> {
+    let (provider, kind) = provider_entry(config_path, provider_id)?;
     println!("Verifying {} through the model gateway...", provider.id);
     // Verify as OAuth even when the configured entry still says `api_key`:
     // logging in is precisely the act of moving it. The configuration is only
@@ -131,6 +166,45 @@ async fn complete_login(
     Ok(())
 }
 
+/// A Codex credential is only spendable with its ChatGPT account id. A store
+/// without one (an older build's login) is backfilled from the stored access
+/// token when the claim is present; otherwise the credential is incomplete
+/// and the caller falls through to a fresh authorization instead of a
+/// rebind that could only fail.
+fn ensure_codex_identity(
+    store: &SecretStore,
+    provider_id: &str,
+    tokens: &crate::secret_store::OAuthTokens,
+) -> anyhow::Result<bool> {
+    if provider_id != "openai-codex" {
+        return Ok(true);
+    }
+    if tokens
+        .account_id
+        .as_deref()
+        .is_some_and(|id| !id.is_empty())
+    {
+        return Ok(true);
+    }
+    let Some(account_id) =
+        crate::oauth::providers::openai_codex::access_token_account_id(&tokens.access_token)
+    else {
+        return Ok(false);
+    };
+    store.store_oauth_tokens(
+        provider_id,
+        &tokens.refresh_token,
+        &tokens.access_token,
+        &tokens.expires_at,
+        Some(crate::secret_store::OAuthIdentityMetadata {
+            account_email: tokens.account_email.clone(),
+            account_id: Some(account_id),
+            identity_key: tokens.identity_key.clone(),
+        }),
+    )?;
+    Ok(true)
+}
+
 /// The provider entry to verify against: the configured one when it exists, or
 /// an in-memory entry the owner names. Nothing is written until verification
 /// succeeds.
@@ -140,11 +214,11 @@ pub(super) fn provider_entry(
 ) -> anyhow::Result<(ProviderConfig, ProviderKind)> {
     let kind = match provider_id {
         "anthropic" => ProviderKind::Anthropic,
-        "openai-codex" => ProviderKind::OpenaiCompat,
+        "openai-codex" => ProviderKind::OpenaiCodex,
         "google-antigravity" => ProviderKind::GoogleAntigravity,
         other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
     };
-    if let Some(existing) = Config::load(config_path)
+    if let Some(mut existing) = Config::load(config_path)
         .ok()
         .and_then(|config| {
             config
@@ -154,6 +228,16 @@ pub(super) fn provider_entry(
         })
         .filter(|provider| !provider.model.is_empty())
     {
+        // The id namespace is kernel-defined: `openai-codex` is served by
+        // the Responses transport whatever kind an older configuration
+        // recorded. Verification must run against the transport the binding
+        // will actually use — and a base_url written for the OLD transport
+        // must not receive the new transport's bearer and account header, so
+        // a kind cutover also resets the endpoint to the canonical default.
+        if existing.kind != kind {
+            existing.kind = kind;
+            existing.base_url = None;
+        }
         return Ok((existing, kind));
     }
     let model = prompt(&format!("Model id for {provider_id}"), None)?
@@ -212,47 +296,5 @@ fn open_in_browser(url: &str) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// An SSH session must take the printed-URL path: binding a loopback
-    /// listener the owner's browser cannot reach would hang the login.
-    #[test]
-    fn an_ssh_session_is_treated_as_headless() {
-        let restore = std::env::var_os("SSH_CONNECTION");
-        std::env::set_var("SSH_CONNECTION", "10.0.0.1 22 10.0.0.2 22");
-
-        let headless = headless();
-
-        match restore {
-            Some(value) => std::env::set_var("SSH_CONNECTION", value),
-            None => std::env::remove_var("SSH_CONNECTION"),
-        }
-        assert!(headless);
-    }
-
-    #[test]
-    fn every_supported_provider_maps_to_a_gateway_kind() {
-        let dir = std::env::temp_dir().join(format!("openspine-wizard-{}", ulid::Ulid::new()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let config_path = dir.join("openspine.yaml");
-        std::fs::write(
-            &config_path,
-            "data_dir: d\nsandbox:\n  driver: process\nowner:\n  telegram_user_id: 1\n  \
-             display_name: o\nspend_cap: {}\nproviders:\n  - id: anthropic\n    kind: anthropic\n \
-             \x20  model: m\n    auth:\n      mode: oauth\n",
-        )
-        .unwrap();
-
-        let (provider, kind) = provider_entry(&config_path, "anthropic").unwrap();
-
-        assert_eq!(provider.model, "m");
-        assert_eq!(kind, ProviderKind::Anthropic);
-    }
-
-    #[test]
-    fn an_unsupported_provider_is_refused_before_prompting() {
-        let error = provider_entry(Path::new("/nonexistent.yaml"), "not-a-provider").unwrap_err();
-        assert!(error.to_string().contains("unsupported provider"));
-    }
-}
+#[path = "login_tests.rs"]
+mod tests;

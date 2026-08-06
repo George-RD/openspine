@@ -139,14 +139,16 @@ impl<'a> WorkflowStateMachine<'a> {
     }
 
     /// Select the provider for a declared step using the current active
-    /// provider as the safe fallback for the static tier map.
+    /// provider as the safe fallback for the static tier map. Returns the
+    /// provider id with the client: the id keys vault credential
+    /// resolution, so the pair must never be split.
     pub fn provider_for_step<'p>(
         &self,
         step_id: &str,
         tier_map: &GatewayTierMap,
         active_provider_id: &str,
         pool: &'p HashMap<String, ProviderClient>,
-    ) -> Option<&'p ProviderClient> {
+    ) -> Option<(String, &'p ProviderClient)> {
         let tier = self.manifest.reasoning_tier_for_step(step_id);
         tier_map.resolve(tier, active_provider_id, pool)
     }
