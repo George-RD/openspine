@@ -169,9 +169,10 @@ async fn declared_high_tier_selects_high_provider_endpoint() {
         },
     );
     let map = GatewayTierMap::new().with_route(ReasoningTier::High, "high-provider");
-    let provider = map
+    let (provider_id, provider) = map
         .resolve(ReasoningTier::High, "standard-provider", &pool)
         .expect("high tier route must resolve");
+    assert_eq!(provider_id, "high-provider");
     let response = provider
         .generate(&ResolvedPrompt {
             reasoning_tier: ReasoningTier::High,
@@ -182,6 +183,56 @@ async fn declared_high_tier_selects_high_provider_endpoint() {
     assert_eq!(response, "high reply");
     assert_eq!(high_server.received_requests().await.unwrap().len(), 1);
     assert_eq!(standard_server.received_requests().await.unwrap().len(), 0);
+}
+
+/// The owner-authored `model_tiers` section becomes the production tier map:
+/// a routed tier reaches its configured provider's client, every other tier
+/// keeps the active provider. This is the "different models for different
+/// tasks" contract end to end from configuration to pool resolution.
+#[tokio::test]
+async fn configured_tier_routes_reach_their_provider_and_others_fall_back() {
+    let tiers = crate::config::ModelTiersConfig {
+        low: None,
+        standard: None,
+        high: Some("anthropic".to_string()),
+    };
+    let map = GatewayTierMap::from_model_tiers(&tiers);
+
+    let mut pool = HashMap::new();
+    for id in ["anthropic", "openai-codex"] {
+        pool.insert(
+            id.to_string(),
+            ProviderClient::Anthropic {
+                client: http_client(),
+                credential: ProviderCredential::ApiKey("test-key".to_string()),
+                base_url: format!("http://127.0.0.1:9/{id}"),
+                model: id.to_string(),
+            },
+        );
+    }
+
+    let (high_id, high) = map
+        .resolve(ReasoningTier::High, "openai-codex", &pool)
+        .expect("routed tier resolves");
+    assert_eq!(
+        high_id, "anthropic",
+        "the id must describe the routed client"
+    );
+    assert!(
+        std::ptr::eq(high, pool.get("anthropic").unwrap()),
+        "high must reach its routed provider"
+    );
+    let (standard_id, standard) = map
+        .resolve(ReasoningTier::Standard, "openai-codex", &pool)
+        .expect("unrouted tier resolves");
+    assert_eq!(
+        standard_id, "openai-codex",
+        "the fallback id must describe the fallback client"
+    );
+    assert!(
+        std::ptr::eq(standard, pool.get("openai-codex").unwrap()),
+        "unrouted tiers must keep the active provider"
+    );
 }
 
 #[tokio::test]

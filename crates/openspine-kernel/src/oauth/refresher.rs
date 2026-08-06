@@ -14,6 +14,14 @@ pub struct OAuthRefresher {
     pub skew_window_seconds: u64,
 }
 
+/// One process-wide in-flight set. Refreshers are constructed per call site
+/// (background sweeper, inline 401 recovery), and single-flight only means
+/// anything when every construction shares it. Token rotation makes
+/// duplicate refresh grants actively destructive: the second grant's
+/// `invalid_grant` would disable a credential the first grant just renewed.
+static SHARED_IN_FLIGHT: std::sync::LazyLock<Arc<Mutex<HashSet<String>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(HashSet::new())));
+
 impl OAuthRefresher {
     pub fn new(secret_store: SecretStore) -> Self {
         Self {
@@ -22,7 +30,7 @@ impl OAuthRefresher {
                 .timeout(Duration::from_secs(30))
                 .build()
                 .unwrap_or_default(),
-            in_flight: Arc::new(Mutex::new(HashSet::new())),
+            in_flight: SHARED_IN_FLIGHT.clone(),
             skew_window_seconds: 300,
         }
     }
@@ -63,23 +71,38 @@ impl OAuthRefresher {
         provider_id: &str,
         url_override: Option<&str>,
     ) -> Result<String, anyhow::Error> {
+        // Keyed by vault AND provider: coordination binds one credential
+        // set, never two vaults that happen to share a provider name.
+        let flight_key = format!("{}::{provider_id}", self.secret_store.scope_key());
         let mut guard = self.in_flight.lock().await;
-        if guard.contains(provider_id) {
+        if guard.contains(&flight_key) {
             drop(guard);
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            // Bounded wait for the in-flight refresh to finish, then serve
+            // the refreshed token from the vault instead of submitting a
+            // competing refresh grant. The bound matches the refresh
+            // client's own 30s timeout.
+            for _ in 0..300 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let guard = self.in_flight.lock().await;
+                let done = !guard.contains(&flight_key);
+                drop(guard);
+                if done {
+                    break;
+                }
+            }
             let tokens = self
                 .secret_store
                 .get_oauth_tokens(provider_id)?
                 .ok_or_else(|| anyhow::anyhow!("No OAuth tokens for {provider_id}"))?;
             return Ok(tokens.access_token);
         }
-        guard.insert(provider_id.to_string());
+        guard.insert(flight_key.clone());
         drop(guard);
 
         let result = self.do_refresh(provider_id, url_override).await;
 
         let mut guard = self.in_flight.lock().await;
-        guard.remove(provider_id);
+        guard.remove(&flight_key);
         drop(guard);
 
         result
@@ -146,32 +169,45 @@ impl OAuthRefresher {
                 let expires_at_sec = now_sec + expires_in;
                 let expires_at_str = expires_at_sec.to_string();
 
-                self.secret_store.update_access_token(
+                // One write covers every combination: a rotated refresh
+                // token replaces the stored one, an omitted one keeps it,
+                // and refreshed identity (Codex derives it from the new
+                // access token) is persisted either way — identity currency
+                // must not depend on whether the provider rotated the
+                // refresh token. `None` metadata preserves the login's.
+                let refresh_token = new_tokens
+                    .refresh_token
+                    .clone()
+                    .filter(|token| !token.is_empty())
+                    .unwrap_or_else(|| tokens.refresh_token.clone());
+                let identity = (new_tokens.account_id.is_some()
+                    || new_tokens.account_email.is_some())
+                .then(|| crate::secret_store::OAuthIdentityMetadata {
+                    account_email: new_tokens.account_email.clone(),
+                    account_id: new_tokens.account_id.clone(),
+                    identity_key: None,
+                });
+                self.secret_store.store_oauth_tokens(
                     provider_id,
+                    &refresh_token,
                     &new_tokens.access_token,
                     &expires_at_str,
+                    identity,
                 )?;
-
-                if let Some(new_ref) = new_tokens.refresh_token {
-                    if !new_ref.is_empty() {
-                        self.secret_store.store_oauth_tokens(
-                            provider_id,
-                            &new_ref,
-                            &new_tokens.access_token,
-                            &expires_at_str,
-                            None,
-                        )?;
-                    }
-                }
 
                 Ok(new_tokens.access_token)
             }
             Err(err) => {
                 let err_str = err.to_string();
+                // A refreshed Codex token without its account claim is a
+                // credential no request can spend: retrying cannot fix it,
+                // and leaving it enabled makes every generate loop through
+                // backend-401 + refresh. Definitive, like a revocation.
                 if err_str.contains("invalid_grant")
                     || err_str.contains("revoked_token")
                     || err_str.contains("400")
                     || err_str.contains("401")
+                    || err_str.contains("chatgpt_account_id")
                 {
                     self.secret_store
                         .disable_oauth_credential(provider_id, &err_str)?;

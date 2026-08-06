@@ -66,7 +66,13 @@ for the interactive version, which can also write a starter configuration, fill
 in missing key material, and log in to a model provider.
 
 In the conversation, `/help` lists the commands, `/status` prints the readiness
-report, and `/exit`, `/quit`, or Ctrl-D stops.
+report, `/login [provider]` leaves chat for a provider OAuth login (`anthropic`
+or `openai-codex`), and `/exit`, `/quit`, or Ctrl-D stops.
+
+With credentials stored for more than one provider, `openspine provider login
+<id>` re-binds the routed provider without a new authorization, and an
+optional `model_tiers` section in the configuration pins reasoning tiers to
+providers (for example `high: anthropic`, `standard: openai-codex`).
 
 One-message smoke test:
 

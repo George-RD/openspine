@@ -96,6 +96,7 @@ impl StarterConfig {
             },
             lyra_dir: self.package_dir.clone(),
             gmail: None,
+            model_tiers: Default::default(),
             reflection_miner_interval_seconds: 300,
         }
     }

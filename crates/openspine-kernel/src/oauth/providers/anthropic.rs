@@ -13,14 +13,11 @@ use std::collections::HashMap;
 /// authenticating it.
 const CLIENT_ID: &str = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
-#[allow(dead_code)]
 pub fn spec() -> OAuthProviderSpec {
     OAuthProviderSpec {
-        id: "anthropic",
         display_name: "Anthropic Claude",
         auth_endpoint: "https://claude.ai/oauth/authorize",
         token_endpoint: "https://api.anthropic.com/v1/oauth/token",
-        device_endpoint: None,
         // `user:inference` is load bearing: without it the grant cannot serve
         // model calls at all. `platform.claude.com/oauth/authorize` issues
         // console tokens carrying only `org:create_api_key` and never grants
@@ -33,7 +30,6 @@ pub fn spec() -> OAuthProviderSpec {
     }
 }
 
-#[allow(dead_code)]
 pub fn build_authorization_url(
     redirect_port: u16,
     pkce: &PkceChallenge,

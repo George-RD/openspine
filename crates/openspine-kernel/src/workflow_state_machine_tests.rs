@@ -312,7 +312,7 @@ fn declared_step_tier_routes_through_gateway_map() {
         .get(&openspine_schemas::model_swap::ModelRole::Base)
         .cloned()
         .unwrap();
-    let selected = machine
+    let (selected_id, selected) = machine
         .provider_for_step(
             "compose",
             &state.gateway_tier_map,
@@ -320,6 +320,10 @@ fn declared_step_tier_routes_through_gateway_map() {
             &state.provider_pool,
         )
         .expect("the active model provider must be a usable gateway fallback");
+    assert_eq!(
+        selected_id, active_provider,
+        "with no route configured the fallback id is the active provider"
+    );
     assert!(std::ptr::eq(
         selected,
         state.provider_pool.get(&active_provider).unwrap()

@@ -214,21 +214,31 @@ openspine --config openspine.local.yaml chat \
 ```
 
 To log in to a hosted model provider, including from a headless or SSH session,
-where the authorization URL is printed and the code is pasted back:
+where the authorization URL is printed and the code (or the full redirected
+URL) is pasted back:
 
 ```sh
 openspine --config openspine.local.yaml provider login anthropic
+openspine --config openspine.local.yaml provider login openai-codex
 ```
 
-This uses a Claude subscription rather than API credits. Anthropic offers no
-self-service registration for subscription OAuth, so OpenSpine presents the
-first-party client id its own CLI uses, and the request carries that client's
-headers and a leading system block. That surface is bound into the provider
-configuration digest, so a model-swap approval covers it.
+These use a Claude or ChatGPT subscription rather than API credits. Neither
+vendor offers self-service registration for subscription OAuth, so OpenSpine
+presents the first-party client id each vendor's own CLI uses, and the request
+carries that client's identifying surface (headers, and for Anthropic a
+leading system block). Each surface is bound into the provider configuration
+digest, so a model-swap approval covers it.
 
-Codex and Antigravity are not offered: their grants need provider transports the
-gateway does not implement, and login refuses rather than storing a credential
-no request could spend.
+When both credentials are stored, re-running `provider login <id>` switches
+the routed provider without a new browser round trip (`--force` re-runs the
+authorization). An optional `model_tiers` section in `openspine.yaml` pins
+reasoning tiers to providers — for example `high: anthropic` with
+`standard: openai-codex` — so different tasks run on different models while
+unset tiers keep the active provider.
+
+Antigravity is not offered: its grant needs a provider transport the gateway
+does not implement, and login refuses rather than storing a credential no
+request could spend.
 
 See [`docs/terminal-chat.md`](docs/terminal-chat.md) and the [quickstart](https://george-rd.github.io/openspine/quickstart/) for the current supported configuration.
 

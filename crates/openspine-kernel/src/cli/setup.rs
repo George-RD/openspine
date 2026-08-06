@@ -19,10 +19,12 @@ use std::path::Path;
 
 /// The providers this build can log in to and then actually spend.
 ///
-/// Codex and Antigravity have working authorization flows but need provider
-/// transports the gateway does not implement, so they are not offered. Their
-/// specs carry `login_supported: false` and `client_id_for` refuses them.
-pub const OAUTH_PROVIDER_IDS: [&str; 1] = ["anthropic"];
+/// Anthropic serves through the Messages API; Codex serves through the
+/// ChatGPT backend Responses transport. Antigravity still authorizes fine
+/// but needs a provider transport the gateway does not implement, so it is
+/// not offered: its spec carries `login_supported: false` and
+/// `client_id_for` refuses it.
+pub const OAUTH_PROVIDER_IDS: [&str; 2] = ["anthropic", "openai-codex"];
 
 /// An authorization in progress: the URL to visit and the PKCE material the
 /// token exchange has to echo back.
@@ -78,6 +80,20 @@ pub fn begin_with_client_id(
     redirect_port: u16,
     client_id: &str,
 ) -> Result<Authorization, anyhow::Error> {
+    // The Codex client's registered redirect is fixed down to the port. An
+    // authorization URL carrying any other port draws a redirect-URI
+    // rejection on arrival, so the dead end is refused here, where the fix
+    // can be named.
+    if provider_id == "openai-codex" {
+        let registered = openai_codex::spec().default_port;
+        if redirect_port != registered {
+            anyhow::bail!(
+                "OpenAI's registered redirect is fixed at \
+                 http://localhost:{registered}/auth/callback, so the login cannot listen on \
+                 port {redirect_port}. Free port {registered} and retry."
+            );
+        }
+    }
     let pkce = PkceChallenge::new();
     let url = match provider_id {
         "google-antigravity" => {
@@ -105,13 +121,8 @@ pub async fn finish(
     token_url_override: Option<&str>,
 ) -> Result<StoredCredential, anyhow::Error> {
     let verifier = &auth.pkce.code_verifier;
-    // The manual paste path hands back `<code>#<state>`, which is what an owner
-    // copies out of the browser when no loopback listener can be reached. Split
-    // it so the headless flow presents the same pair the loopback flow does.
-    let (code, state) = match code.split_once('#') {
-        Some((code, state)) if !state.is_empty() => (code, state),
-        _ => (code, auth.pkce.state.as_str()),
-    };
+    let (code, state) = parse_authorization_paste(code, &auth.pkce.state)?;
+    let (code, state) = (code.as_str(), state.as_str());
     let tokens = match auth.provider_id.as_str() {
         "google-antigravity" => {
             google_antigravity::exchange_code(
@@ -150,6 +161,55 @@ pub async fn finish(
         other => anyhow::bail!("unsupported provider for OAuth login: {other}"),
     };
     store_tokens(&auth.provider_id, tokens, secret_store)
+}
+
+/// Interpret whatever the owner pasted back: a bare code, the
+/// `<code>#<state>` pair Anthropic's code page renders, or the full
+/// redirected callback URL — the only artifact a Codex login leaves when the
+/// redirect cannot reach this machine.
+///
+/// A pasted state must equal the flow's own. State round-trips verbatim in
+/// OAuth, so a mismatch is a corrupted paste or a response minted for a
+/// different authorization; refusing here names the problem instead of
+/// letting the token endpoint fail with a less honest error.
+fn parse_authorization_paste(
+    input: &str,
+    expected_state: &str,
+) -> Result<(String, String), anyhow::Error> {
+    let trimmed = input.trim();
+    if trimmed.contains("code=") {
+        let after_path = trimmed.split_once('?').map(|(_, q)| q).unwrap_or(trimmed);
+        let query = after_path.split('#').next().unwrap_or(after_path);
+        let params = crate::oauth::callback_server::parse_query(query);
+        let code = params
+            .get("code")
+            .filter(|code| !code.is_empty())
+            .ok_or_else(|| anyhow::anyhow!("the pasted input carries no authorization code"))?
+            .clone();
+        // Presence alone triggers the check: `state=` (empty) is still a
+        // carried state, and an empty value can never equal a minted one.
+        if let Some(state) = params.get("state") {
+            if state != expected_state {
+                anyhow::bail!(
+                    "OAuth state mismatch in the pasted callback URL; paste the redirect from \
+                     this login attempt, not an earlier one"
+                );
+            }
+        }
+        return Ok((code, expected_state.to_string()));
+    }
+    match trimmed.split_once('#') {
+        Some((code, state)) if !state.is_empty() => {
+            if state != expected_state {
+                anyhow::bail!(
+                    "OAuth state mismatch in the pasted code; paste the code from this login \
+                     attempt, not an earlier one"
+                );
+            }
+            Ok((code.to_string(), state.to_string()))
+        }
+        _ => Ok((trimmed.to_string(), expected_state.to_string())),
+    }
 }
 
 fn store_tokens(
@@ -274,6 +334,16 @@ pub fn update_openspine_yaml_roles(
             auth: ProviderAuth::Oauth,
         },
     };
+    // Binding is a cutover to the canonical transport for this provider id:
+    // an entry written by an older build (e.g. `openai-codex` as
+    // `openai_compat`) is corrected here, exactly as verification ran. The
+    // old kind's base_url goes with it — the new transport's bearer and
+    // account header must never be sent to an endpoint configured for a
+    // different wire contract.
+    if selected.kind != provider_kind {
+        selected.kind = provider_kind;
+        selected.base_url = None;
+    }
     selected.auth = ProviderAuth::Oauth;
     config.providers.insert(0, selected);
 
@@ -376,3 +446,7 @@ fn redact_credentials(text: &str, api_key: &str, vault: &SecretStore, provider_i
 #[cfg(test)]
 #[path = "setup_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "setup_paste_tests.rs"]
+mod paste_tests;

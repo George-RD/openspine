@@ -19,9 +19,14 @@ fn every_supported_provider_builds_a_loopback_authorization_url() {
         let port = default_port(provider_id).expect("port");
         let auth = begin_with_client_id(provider_id, port, TEST_CLIENT_ID).expect("begin");
 
+        // Codex's registered redirect names `localhost` and `/auth/callback`;
+        // every other provider redirects to `127.0.0.1:<port>/callback`.
+        let expected_redirect = match provider_id {
+            "openai-codex" => format!("localhost%3A{port}%2Fauth%2Fcallback"),
+            _ => format!("127.0.0.1%3A{port}%2Fcallback"),
+        };
         assert!(
-            auth.url.contains(&format!("127.0.0.1%3A{port}%2Fcallback"))
-                || auth.url.contains(&format!("127.0.0.1:{port}/callback")),
+            auth.url.contains(&expected_redirect),
             "{provider_id}: {}",
             auth.url
         );
@@ -37,25 +42,39 @@ fn an_unsupported_provider_is_refused_before_any_network_call() {
     assert!(begin_with_client_id("not-a-provider", 1234, TEST_CLIENT_ID).is_err());
 }
 
-/// Codex authorizes fine and then cannot be spent: its grant is only accepted by
-/// a Responses transport against `chatgpt.com/backend-api` that the gateway does
-/// not implement. Storing that credential would be the same dead end as a
-/// placeholder client id, reached one step later.
+/// Antigravity authorizes fine and then cannot be spent: its grant needs a
+/// provider transport the gateway does not implement. Storing that credential
+/// would be the same dead end as a placeholder client id, reached one step
+/// later. (Codex used to sit in this set; its Responses transport is what
+/// moved it to the offered list.)
 #[test]
 fn a_provider_whose_credential_cannot_be_spent_is_refused_before_a_url_exists() {
-    for provider_id in ["openai-codex", "google-antigravity"] {
-        let error = begin(provider_id, 1455).expect_err("must refuse");
-        let rendered = error.to_string();
-        assert!(
-            rendered.contains("not available in this build"),
-            "{rendered}"
-        );
-        assert!(rendered.contains("API-key or local provider"), "{rendered}");
-        assert!(
-            !OAUTH_PROVIDER_IDS.contains(&provider_id),
-            "{provider_id} must not be offered"
-        );
-    }
+    let provider_id = "google-antigravity";
+    let error = begin(provider_id, 1455).expect_err("must refuse");
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("not available in this build"),
+        "{rendered}"
+    );
+    assert!(rendered.contains("API-key or local provider"), "{rendered}");
+    assert!(
+        !OAUTH_PROVIDER_IDS.contains(&provider_id),
+        "{provider_id} must not be offered"
+    );
+}
+
+/// The Codex client's registered redirect is fixed down to the port; an
+/// authorization URL carrying any other port would be rejected on arrival,
+/// after the owner already clicked through consent.
+#[test]
+fn codex_login_refuses_a_port_the_registered_redirect_does_not_cover() {
+    let error =
+        begin_with_client_id("openai-codex", 8080, TEST_CLIENT_ID).expect_err("must refuse");
+    let rendered = error.to_string();
+    assert!(
+        rendered.contains("http://localhost:1455/auth/callback"),
+        "the refusal must name the registered redirect: {rendered}"
+    );
 }
 
 /// The headless path is the one an SSH owner actually takes: the URL is printed,
@@ -366,81 +385,6 @@ async fn a_probe_failure_redacts_even_a_short_api_key() {
     assert!(!check.detail.contains("shortkey"), "{}", check.detail);
 }
 
-/// Anthropic's manual paste hands back `<code>#<state>`, which is what an owner
-/// copies out of the browser when no loopback listener is reachable. That is the
-/// primary path for an SSH install, so the split is not a nicety.
-#[tokio::test]
-async fn a_pasted_code_carrying_its_state_is_split_and_both_are_sent() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/token"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "access_token": "access-value",
-            "refresh_token": "refresh-value",
-            "expires_in": 3600
-        })))
-        .mount(&server)
-        .await;
-    let (_dir, store) = vault("credentials");
-    let auth = begin_with_client_id("anthropic", 54545, TEST_CLIENT_ID).expect("begin");
-
-    finish(
-        &auth,
-        "the-code#state-from-browser",
-        &store,
-        &reqwest::Client::new(),
-        Some(&format!("{}/token", server.uri())),
-    )
-    .await
-    .expect("finish");
-
-    let request = &server.received_requests().await.expect("requests")[0];
-    let body: serde_json::Value = serde_json::from_slice(&request.body).expect("json body");
-    assert_eq!(body["code"].as_str(), Some("the-code"));
-    assert_eq!(body["state"].as_str(), Some("state-from-browser"));
-    // JSON, not form encoding: the token endpoint rejects a form body.
-    assert_eq!(
-        request
-            .headers
-            .get("content-type")
-            .map(|v| v.to_str().unwrap()),
-        Some("application/json")
-    );
-}
-
-/// A code with no `#` keeps the state the authorization generated.
-#[tokio::test]
-async fn a_bare_pasted_code_uses_the_authorization_state() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/token"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
-            "access_token": "a",
-            "refresh_token": "r",
-            "expires_in": 3600
-        })))
-        .mount(&server)
-        .await;
-    let (_dir, store) = vault("credentials");
-    let auth = begin_with_client_id("anthropic", 54545, TEST_CLIENT_ID).expect("begin");
-    let expected_state = auth.state().to_string();
-
-    finish(
-        &auth,
-        "plain-code",
-        &store,
-        &reqwest::Client::new(),
-        Some(&format!("{}/token", server.uri())),
-    )
-    .await
-    .expect("finish");
-
-    let request = &server.received_requests().await.expect("requests")[0];
-    let body: serde_json::Value = serde_json::from_slice(&request.body).expect("json body");
-    assert_eq!(body["code"].as_str(), Some("plain-code"));
-    assert_eq!(body["state"].as_str(), Some(expected_state.as_str()));
-}
-
 /// `code=true` and `user:inference` are the two parameters that decide whether
 /// the grant can serve model calls at all.
 #[test]
@@ -453,5 +397,92 @@ fn the_authorization_url_requests_an_inference_capable_grant() {
         auth.url.starts_with("https://claude.ai/oauth/authorize"),
         "{}",
         auth.url
+    );
+}
+
+/// The vault's ChatGPT account identity is written by the exchange and
+/// survives access-token refreshes: refresh rewrites token material, never
+/// erases identity metadata.
+#[tokio::test]
+async fn refresh_preserves_stored_account_identity() {
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use base64::Engine as _;
+    use wiremock::matchers::body_string_contains;
+
+    let jwt = |marker: &str| {
+        let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"none","typ":"JWT"}"#);
+        let payload = URL_SAFE_NO_PAD.encode(
+            serde_json::json!({
+                "https://api.openai.com/auth": { "chatgpt_account_id": "acct-keep" },
+                "marker": marker
+            })
+            .to_string()
+            .as_bytes(),
+        );
+        format!("{header}.{payload}.sig")
+    };
+    let exchanged_access = jwt("exchange");
+    let refreshed_access = jwt("refresh");
+
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/oauth/token"))
+        .and(body_string_contains("grant_type=authorization_code"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "access_token": exchanged_access,
+            "refresh_token": "refresh-1",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/oauth/token"))
+        .and(body_string_contains("grant_type=refresh_token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "access_token": refreshed_access,
+            "refresh_token": "refresh-2",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        })))
+        .mount(&server)
+        .await;
+
+    let (_dir, store) = vault("credentials");
+    let auth = begin_with_client_id("openai-codex", 1455, TEST_CLIENT_ID).expect("begin");
+    let token_url = format!("{}/oauth/token", server.uri());
+    finish(
+        &auth,
+        "auth-code",
+        &store,
+        &reqwest::Client::new(),
+        Some(&token_url),
+    )
+    .await
+    .expect("finish");
+
+    let stored = store
+        .get_oauth_tokens("openai-codex")
+        .unwrap()
+        .expect("tokens");
+    assert_eq!(stored.account_id.as_deref(), Some("acct-keep"));
+    assert_eq!(stored.access_token, exchanged_access);
+
+    let refresher = crate::oauth::refresher::OAuthRefresher::new(store.clone());
+    refresher
+        .refresh_provider_now("openai-codex", Some(&token_url))
+        .await
+        .expect("refresh");
+
+    let after = store
+        .get_oauth_tokens("openai-codex")
+        .unwrap()
+        .expect("tokens after refresh");
+    assert_eq!(after.access_token, refreshed_access, "token must rotate");
+    assert_eq!(after.refresh_token, "refresh-2");
+    assert_eq!(
+        after.account_id.as_deref(),
+        Some("acct-keep"),
+        "identity metadata must survive the refresh"
     );
 }

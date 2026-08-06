@@ -25,6 +25,21 @@ providers:
     auth:
       mode: api_key
       env: ANTHROPIC_API_KEY
+  # A ChatGPT-subscription Codex provider, served by the ChatGPT backend
+  # Responses transport. `openspine provider login openai-codex` stores the
+  # OAuth credential and flips a configured entry to `mode: oauth`.
+  # - id: openai-codex
+  #   kind: openai_codex
+  #   model: gpt-5.5-codex # pick a real, currently-supported model id
+  #   auth:
+  #     mode: oauth
+
+# Optional: pin reasoning tiers to providers when more than one is configured
+# ("different models for different tasks"). Unset tiers fall back to the
+# active provider; a tier naming an unknown provider id refuses startup.
+# model_tiers:
+#   high: anthropic
+#   standard: openai-codex
 
 
 # AD-143: required kernel-wide daily caps (model + connector calls).

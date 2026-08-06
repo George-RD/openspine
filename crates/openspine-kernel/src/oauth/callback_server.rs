@@ -46,7 +46,7 @@ fn url_decode(input: &str) -> String {
     String::from_utf8_lossy(&bytes).to_string()
 }
 
-fn parse_query(query: &str) -> HashMap<String, String> {
+pub(crate) fn parse_query(query: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for pair in query.split('&') {
         if pair.is_empty() {

@@ -270,7 +270,11 @@ pub(super) async fn post_model_generate(
         .cloned()
         .ok_or_else(|| anyhow::anyhow!("no active base model provider"))
         .map_err(internal_error)?;
-    let provider = state
+    // The tier map returns the id and client as one pair: the id keys the
+    // vault credential (token, account identity, refresh), so it must
+    // describe the client actually called, not the active provider a route
+    // may have overridden.
+    let (routed_provider_id, provider) = state
         .gateway_tier_map
         .resolve(
             ReasoningTier::Standard,
@@ -283,7 +287,7 @@ pub(super) async fn post_model_generate(
         state.as_ref(),
         SpendLane::from_grant(&grant),
         provider,
-        &active_provider_id,
+        &routed_provider_id,
         &prompt,
     )
     .await

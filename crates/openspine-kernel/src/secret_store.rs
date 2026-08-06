@@ -77,6 +77,13 @@ impl SecretStore {
         })
     }
 
+    /// A stable identifier for THIS vault, for cross-instance coordination
+    /// keys (e.g. refresh single-flight). Two stores over the same root are
+    /// the same credential set; two roots are never coordinated together.
+    pub(crate) fn scope_key(&self) -> String {
+        self.root.display().to_string()
+    }
+
     pub fn validate_slot(slot: &str) -> bool {
         !slot.is_empty()
             && slot.len() <= MAX_SLOT_LEN
