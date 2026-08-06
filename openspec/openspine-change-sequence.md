@@ -91,6 +91,8 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `2026-08-04-implement-first-run-onboarding` (no new D entries — the embedded
   first-party client ids and the Anthropic wire contract are documented in the
   archived change proposal)
+- `2026-08-05-ground-terminal-setup-guidance` (no new D entries — grounds the
+  terminal assistant's prompt in the CLI setup surface per D-014)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 

@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786002693.159201,
+    "mtime": 1786002746.4337788,
     "ast_hash": "1c75e80e79d63b3c0a5d0b98b9112409",
     "semantic_hash": ""
   },
@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/artifact_loader/tests.rs": {
-    "mtime": 1784890717.9104328,
-    "ast_hash": "33f9bbea7239c10ea61aae0e8745cad0",
+    "mtime": 1786003412.072997,
+    "ast_hash": "6c94c4c9ca87307fe67cc6092b9c4822",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/connectors.rs": {
@@ -3715,8 +3715,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/templates/owner_terminal_template.yaml": {
-    "mtime": 1785762827.6172414,
-    "ast_hash": "cca2e5746ed2bb44bbb2b8b7cc918741",
+    "mtime": 1786003412.0720387,
+    "ast_hash": "f40f8a46189855a59f0c2c7dec90db78",
     "semantic_hash": ""
   },
   "artifacts/lyra/workflows/owner_terminal_conversation.yaml": {
@@ -3875,28 +3875,43 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-04-implement-first-run-onboarding/design.md": {
-    "mtime": 1786002613.7419858,
+    "mtime": 1786002746.4324024,
     "ast_hash": "7b27cb4bdaacf9eb4888bb1c70b71d4c",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-04-implement-first-run-onboarding/proposal.md": {
-    "mtime": 1786002613.7422314,
+    "mtime": 1786002746.4325798,
     "ast_hash": "48a9089b8a6f6298138478e59ec38d6b",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-04-implement-first-run-onboarding/specs/first-run-onboarding/spec.md": {
-    "mtime": 1786002613.7427816,
+    "mtime": 1786002746.4330153,
     "ast_hash": "6ae5c731dd471ec301123dffb5e7e0eb",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-2026-08-04-implement-first-run-onboarding/tasks.md": {
-    "mtime": 1786002613.7431953,
+    "mtime": 1786002746.4331758,
     "ast_hash": "d442549e66aa0ff6aa2d065a5c412616",
     "semantic_hash": ""
   },
   "openspec/specs/first-run-onboarding/spec.md": {
-    "mtime": 1786002636.6222649,
+    "mtime": 1786002746.4344435,
     "ast_hash": "64ac78a7961d1952457e857bab05a573",
+    "semantic_hash": ""
+  },
+  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/proposal.md": {
+    "mtime": 1786003005.7156494,
+    "ast_hash": "1ebc699f38ab8176c722120298371c84",
+    "semantic_hash": ""
+  },
+  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/specs/direct-terminal-chat/spec.md": {
+    "mtime": 1786003412.0778036,
+    "ast_hash": "cc15cdbb8e1aef8f5a2316249f8b6101",
+    "semantic_hash": ""
+  },
+  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/tasks.md": {
+    "mtime": 1786003513.5131776,
+    "ast_hash": "654a131e84816d775a1e5db6c116f132",
     "semantic_hash": ""
   }
 }

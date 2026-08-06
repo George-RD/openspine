@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786002746.4337788,
-    "ast_hash": "1c75e80e79d63b3c0a5d0b98b9112409",
+    "mtime": 1786003611.585021,
+    "ast_hash": "ab1a105e3884cd6c968bbac3d3a49776",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -1090,7 +1090,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/artifact_loader/tests.rs": {
-    "mtime": 1786003412.072997,
+    "mtime": 1786003588.8704429,
     "ast_hash": "6c94c4c9ca87307fe67cc6092b9c4822",
     "semantic_hash": ""
   },
@@ -3715,7 +3715,7 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/templates/owner_terminal_template.yaml": {
-    "mtime": 1786003412.0720387,
+    "mtime": 1786003588.870027,
     "ast_hash": "f40f8a46189855a59f0c2c7dec90db78",
     "semantic_hash": ""
   },
@@ -3815,8 +3815,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/direct-terminal-chat/spec.md": {
-    "mtime": 1785762827.6346965,
-    "ast_hash": "d91929d15ec3a25780943c86f46b20b4",
+    "mtime": 1786003597.6442966,
+    "ast_hash": "25abff4d7ef90c5649fa2e895a0e449b",
     "semantic_hash": ""
   },
   "openspec/specs/local-onyx-inference/spec.md": {
@@ -3899,18 +3899,18 @@
     "ast_hash": "64ac78a7961d1952457e857bab05a573",
     "semantic_hash": ""
   },
-  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/proposal.md": {
-    "mtime": 1786003005.7156494,
+  "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/proposal.md": {
+    "mtime": 1786003588.9392056,
     "ast_hash": "1ebc699f38ab8176c722120298371c84",
     "semantic_hash": ""
   },
-  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/specs/direct-terminal-chat/spec.md": {
-    "mtime": 1786003412.0778036,
+  "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/specs/direct-terminal-chat/spec.md": {
+    "mtime": 1786003588.9394534,
     "ast_hash": "cc15cdbb8e1aef8f5a2316249f8b6101",
     "semantic_hash": ""
   },
-  "openspec/changes/2026-08-05-ground-terminal-setup-guidance/tasks.md": {
-    "mtime": 1786003513.5131776,
+  "openspec/changes/archive/2026-08-06-2026-08-05-ground-terminal-setup-guidance/tasks.md": {
+    "mtime": 1786003588.9395957,
     "ast_hash": "654a131e84816d775a1e5db6c116f132",
     "semantic_hash": ""
   }
