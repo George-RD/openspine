@@ -96,6 +96,9 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 - `trigger-oauth-from-terminal-chat` (no new D entries — the explicit `/login`
   gesture and the teardown-then-exec handoff are documented in the archived
   change's design)
+- `add-openai-codex-provider-transport` (D-147..D-149 — Codex OAuth spendable
+  via the ChatGPT backend Responses transport; owner-authored `model_tiers`
+  tier routing; stored-credential re-bind switching)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
