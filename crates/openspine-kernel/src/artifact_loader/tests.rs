@@ -202,3 +202,28 @@ fn orphan_higher_persona_cannot_hide_row_backed_lower_version() {
         .sources
         .contains_key(&("persona".into(), "seed".into(), 2)));
 }
+
+/// The terminal assistant's only defense against improvising credential
+/// collection in chat is its prompt template: the shipped preamble must
+/// name the real CLI setup surface and forbid secret intake in
+/// conversation (D-014: setup secrets bypass model context).
+#[test]
+fn terminal_template_grounds_setup_surface_and_refuses_credentials() {
+    let registry = load_registry(&repo_lyra_dir()).expect("real fixtures must all parse");
+    let template = registry
+        .templates
+        .get("owner_terminal_template")
+        .expect("terminal template must ship with the package");
+    for needle in [
+        "openspine provider login",
+        "openspine setup --check",
+        "/status",
+        "/help",
+        "Never ask the owner for API keys",
+    ] {
+        assert!(
+            template.system_preamble.contains(needle),
+            "owner_terminal_template preamble must contain {needle:?}"
+        );
+    }
+}
