@@ -219,6 +219,7 @@ fn terminal_template_grounds_setup_surface_and_refuses_credentials() {
         "openspine setup --check",
         "/status",
         "/help",
+        "/login",
         "Never ask the owner for API keys",
     ] {
         assert!(
