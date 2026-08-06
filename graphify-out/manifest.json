@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786013989.9531906,
+    "mtime": 1786014030.5117223,
     "ast_hash": "c66faff6d187d91bd7cf3c395736cc39",
     "semantic_hash": ""
   },
@@ -955,7 +955,7 @@
     "semantic_hash": ""
   },
   "openspec/specs/model-gateway/spec.md": {
-    "mtime": 1786013956.7128406,
+    "mtime": 1786014030.512159,
     "ast_hash": "34fc45cff8a1855d8f0bebb98aa467ac",
     "semantic_hash": ""
   },
@@ -3500,7 +3500,7 @@
     "semantic_hash": ""
   },
   "openspec/specs/model-provider-oauth-onboarding/spec.md": {
-    "mtime": 1786013956.7132764,
+    "mtime": 1786014030.5124865,
     "ast_hash": "ca59f827790581385f6520da4431aaa1",
     "semantic_hash": ""
   },
@@ -3970,7 +3970,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/codex.rs": {
-    "mtime": 1786013946.786625,
+    "mtime": 1786029441.1918278,
     "ast_hash": "0a6881a173cf96a3933081ac6467a950",
     "semantic_hash": ""
   },
@@ -3980,32 +3980,32 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/codex_tests.rs": {
-    "mtime": 1786013946.787769,
-    "ast_hash": "e0754654786defacf928b59d1b5af21e",
+    "mtime": 1786029379.1015573,
+    "ast_hash": "98dcfacfba900f9ee8c91c571a8efede",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/design.md": {
-    "mtime": 1786013946.8686938,
+    "mtime": 1786014030.5104053,
     "ast_hash": "9de6520aa87be8774b8d331d16c1c152",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/proposal.md": {
-    "mtime": 1786013946.8689566,
+    "mtime": 1786014030.510583,
     "ast_hash": "e4dd4a14ecf5f010f20f835b8b00ffcf",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/specs/model-gateway/spec.md": {
-    "mtime": 1786013946.8693733,
+    "mtime": 1786014030.5108566,
     "ast_hash": "fed2f0abc3b1c1f0340505762df9fdf2",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/specs/model-provider-oauth-onboarding/spec.md": {
-    "mtime": 1786013946.869893,
+    "mtime": 1786014030.5110528,
     "ast_hash": "336fd78a12436ee920fd334eb417b3c5",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/tasks.md": {
-    "mtime": 1786013946.8701866,
+    "mtime": 1786014030.5111809,
     "ast_hash": "d89d1a7b8a7970256759469e0e983c53",
     "semantic_hash": ""
   }

@@ -276,6 +276,38 @@ async fn codex_error_bodies_never_echo_the_bearer_or_account_id() {
     assert!(rendered.contains("<redacted>"), "{rendered}");
 }
 
+/// An in-band failure on a 200 stream flows through the same scrub as a
+/// non-2xx body: a `response.failed` message echoing the bearer or account
+/// id reaches the gateway error as `<redacted>`.
+#[tokio::test]
+async fn an_in_stream_failure_echoing_secrets_is_scrubbed() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/codex/responses"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/event-stream")
+                .set_body_string(concat!(
+                    "data: {\"type\":\"response.failed\",\"response\":{\"error\":",
+                    "{\"message\":\"quota denied for token access-1 on account acct-777\"}}}\n\n",
+                )),
+        )
+        .mount(&server)
+        .await;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let store = store_with_identity(dir.path(), Some("acct-777"));
+
+    let error = codex_client(server.uri())
+        .generate_with_secret_store(&prompt(), Some(&store), Some("openai-codex"), None)
+        .await
+        .expect_err("in-band failure must fail");
+    let rendered = error.to_string();
+    assert!(!rendered.contains("access-1"), "{rendered}");
+    assert!(!rendered.contains("acct-777"), "{rendered}");
+    assert!(rendered.contains("<redacted>"), "{rendered}");
+}
+
 /// When another call refreshed the credential between this call's vault read
 /// and its 401, the newer stored token is spent directly — no competing
 /// refresh grant is submitted (with rotation, a duplicate grant draws
