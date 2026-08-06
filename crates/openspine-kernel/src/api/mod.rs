@@ -26,6 +26,7 @@ pub(crate) mod worker;
 pub(crate) use actions::DispatchError;
 mod artifact_nominate;
 mod artifact_propose;
+pub(crate) mod effect_executors;
 mod generate;
 pub(crate) mod handler_registry;
 pub(crate) mod plan;
@@ -41,6 +42,10 @@ pub(crate) mod tests;
 
 #[cfg(test)]
 pub(crate) mod dispatch_tests;
+#[cfg(test)]
+mod effect_executor_tests;
+#[cfg(test)]
+mod effect_readiness_tests;
 
 #[cfg(test)]
 mod skill_context_action_tests;

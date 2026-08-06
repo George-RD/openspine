@@ -191,6 +191,13 @@ pub(super) async fn post_actions(
             DispatchError::BadRequest(message) => {
                 (StatusCode::BAD_REQUEST, Json(json!({"error": message})))
             }
+            DispatchError::NoExecutor(id) => {
+                tracing::error!(action = %id.0, "no registered executor");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "internal_error"})),
+                )
+            }
             DispatchError::Connector(cause)
             | DispatchError::ConnectorUnavailable(cause)
             | DispatchError::DeliveryUnknown(cause)
@@ -1015,7 +1022,8 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 // Only these variants are proven pre-effect failures here.
                 DispatchError::BadRequest(_)
                 | DispatchError::Connector(_)
-                | DispatchError::ConnectorUnavailable(_) => false,
+                | DispatchError::ConnectorUnavailable(_)
+                | DispatchError::NoExecutor(_) => false,
                 // Resource includes persistence/recording failures whose
                 // effect ordering may be unknown; retain budget fail-closed.
                 DispatchError::Resource(_) => true,
@@ -1087,13 +1095,17 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 DispatchError::Resource(_) | DispatchError::DeliveryUnknown(_) => {
                     FailureClass::Resource
                 }
-                DispatchError::Connector(_) | DispatchError::BadRequest(_) => {
-                    FailureClass::Connector
-                }
+                DispatchError::Connector(_)
+                | DispatchError::BadRequest(_)
+                | DispatchError::NoExecutor(_) => FailureClass::Connector,
                 DispatchError::ConnectorUnavailable(_) => unreachable!(),
             };
             let digest_summary = match &err {
                 DispatchError::BadRequest(msg) => msg.clone(),
+                DispatchError::NoExecutor(id) if state.is_execution_backed(id) => {
+                    format!("{id}: executor registered but not reachable on this path")
+                }
+                DispatchError::NoExecutor(id) => format!("{id}: no registered executor"),
                 DispatchError::Connector(cause)
                 | DispatchError::Resource(cause)
                 | DispatchError::DeliveryUnknown(cause) => {
@@ -1132,6 +1144,9 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
 
 #[derive(Debug)]
 pub(crate) enum DispatchError {
+    /// A catalogued action reached dispatch with no runnable executor and no
+    /// non-effect stub declaration. Fail closed: never a successful stub.
+    NoExecutor(ActionId),
     BadRequest(String),
     Connector(anyhow::Error),
     /// Admission rejected by a genuinely Open/HalfOpen breaker. The distinct

@@ -88,6 +88,23 @@ pub fn canonical_catalog() -> ActionCatalog {
             id("openspine.overlay.export"),
             id("openspine.overlay.restore"),
         ])
+        // Only a catalogued READ action with no kernel-side implementation
+        // and no dedicated production route may return the stub; every write,
+        // mutation, or effect id fails closed.
+        // Deliberately excluded from this allowlist: artifact.write:task_scratch
+        // is a write; model.generate:approved_provider has a dedicated
+        // `/v1/model/generate` route that admits spend and stores artifacts;
+        // briefcase.topup has a dedicated top-up route that mutates the
+        // briefcase and is catalogued EffectPathClass::PostGateApprovedEffect.
+        .with_non_effect_stub([
+            id("memory.read:owner_preferences_limited"),
+            id("memory.read:writing_preferences_scoped"),
+            id("email.read_inbox"),
+            id("email.read_thread:unselected"),
+            id("email.read_attachment"),
+            id("filesystem.host_read"),
+            id("vault.secret_read"),
+        ])
         .with_counterparty_facing([id("email.send")])
         .with_token_requiring([(
             id("email.read_thread:selected_no_attachments"),
@@ -95,6 +112,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         )])
         .with_egress_declarations(decls)
         .with_delegation_descriptors(action_catalog_data::delegation_descriptors())
+        .with_implementation_descriptors(action_catalog_data::implementation_descriptors())
         .with_effect_paths([
             EffectPath {
                 name: "notify_owner_best_effort".to_string(),
@@ -319,7 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn email_draft_has_a_reviewed_descriptor_but_no_delegated_executor_yet() {
+    fn email_draft_has_a_reviewed_descriptor_and_a_registered_implementation() {
         let catalog = canonical_catalog();
         let descriptor = catalog
             .delegation_descriptor_for(&id("email.create_draft"))
@@ -333,12 +351,70 @@ mod tests {
                 .dark_window_policy,
             DarkWindowPolicy::Prohibited
         ));
-        let implementation_id = ActionImplementationId::new("gmail.email.create_draft");
-        assert_eq!(
-            catalog.validated_delegation_contract(&id("email.create_draft"), &implementation_id),
-            Err(DelegationCatalogError::MissingImplementationDescriptor { implementation_id }),
-            "#127 must land the shared real executor before reusable admission is ready"
-        );
+
+        let implementation_id = ActionImplementationId::new("gmail.draft.v1");
+        let (_, implementation) = catalog
+            .validated_delegation_contract(&id("email.create_draft"), &implementation_id)
+            .expect("registered Gmail draft implementation must validate");
+        assert_eq!(implementation.executor_id, "gmail.create_draft");
+        assert_eq!(implementation.connector_kind, "gmail");
+        assert_eq!(implementation.resolver_id, "gmail.thread_recipient");
+        assert!(catalog
+            .implementation_descriptor_for_action(&id("email.create_draft"))
+            .is_some());
+        assert!(catalog
+            .implementation_descriptor_for_action(&id("email.send"))
+            .is_none());
+
+        let unknown_implementation_id = ActionImplementationId::new("gmail.unknown.v1");
+        assert!(matches!(
+            catalog.validated_delegation_contract(
+                &id("email.create_draft"),
+                &unknown_implementation_id
+            ),
+            Err(DelegationCatalogError::MissingImplementationDescriptor { .. })
+        ));
+    }
+
+    #[test]
+    fn non_effect_stub_allowlist_is_explicit_and_fails_closed() {
+        let catalog = canonical_catalog();
+        let allowlisted = [
+            "memory.read:owner_preferences_limited",
+            "memory.read:writing_preferences_scoped",
+            "email.read_inbox",
+            "email.read_thread:unselected",
+            "email.read_attachment",
+            "filesystem.host_read",
+            "vault.secret_read",
+        ];
+        for action in allowlisted {
+            let action = id(action);
+            assert!(catalog.contains(&action), "{action} must be catalogued");
+            assert!(
+                catalog.is_non_effect_stub(&action),
+                "{action} must be an explicit non-effect stub"
+            );
+        }
+
+        for action in [
+            "email.send",
+            "coolify.deploy",
+            "briefcase.topup",
+            "artifact.write:task_scratch",
+            "model.generate:approved_provider",
+            "filesystem.host_write",
+            "secret.rotate",
+            "policy.modify_direct",
+            "connector.enable",
+            "web.form_submit",
+            "unknown.future_action",
+        ] {
+            assert!(
+                !catalog.is_non_effect_stub(&id(action)),
+                "{action} must fail closed rather than return a stub"
+            );
+        }
     }
 
     #[test]

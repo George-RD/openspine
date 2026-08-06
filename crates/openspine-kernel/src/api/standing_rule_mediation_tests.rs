@@ -64,12 +64,33 @@ async fn standing_rule_full_mediate_flow_with_activated_rule() {
     // Full `mediate_and_dispatch_action` flow with an activated standing rule:
     // an otherwise-approval-required action is admitted within budget, the
     // effect runs, the reservation is finalized, and headroom is returned.
-    let state = test_state();
+    //
+    // The rule targets `telegram.reply:owner_channel` because it is
+    // execution-backed: since #127 a catalogued action with no registered
+    // handler fails closed with `DispatchError::NoExecutor`, so a stub can
+    // never stand in for a real effect behind a finalized budget unit.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 1,
+                "date": 0,
+                "chat": {"id": OWNER_CHAT_ID, "type": "private"},
+                "text": "admitted by standing rule"
+            }
+        })))
+        .mount(&server)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".into(),
+        server.uri().parse().unwrap(),
+    ));
     let store = state.store.clone();
     let now = Timestamp::now();
     let m = manifest(
         "rule-mediate",
-        "connector.enable",
+        "telegram.reply:owner_channel",
         3600,
         BudgetWindow {
             max: 5,
@@ -82,17 +103,21 @@ async fn standing_rule_full_mediate_flow_with_activated_rule() {
         None,
     );
     store.activate_standing_rule(&m, None, now).unwrap();
-    let grant = handle_owner_update(&state, &owner_update("enable something"))
-        .await
-        .unwrap()
-        .expect("owner update must compose a grant");
+    let (mut grant, _) = mint_grant_with_selection_token(
+        &state,
+        &["telegram.reply:owner_channel"],
+        now + Duration::from_secs(120),
+    );
+    grant.allowed_actions.clear();
+    grant.approval_required_actions = vec![ActionId::new("telegram.reply:owner_channel")];
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
 
     let (decision, _deferral, result, budget) = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("connector.enable"),
+        ActionId::new("telegram.reply:owner_channel"),
         OWNER_CHAT_ID,
-        None,
+        Some(&json!({"text": "admitted by standing rule"})),
         FailureSurface::DirectResponse,
         None,
     )
@@ -103,7 +128,11 @@ async fn standing_rule_full_mediate_flow_with_activated_rule() {
         matches!(decision, GateDecision::Allow),
         "standing rule admits the action without fresh owner approval"
     );
-    assert!(result.is_some(), "the admitted effect produced a result");
+    assert_eq!(
+        result.expect("the admitted effect produced a result")["sent"],
+        json!(true),
+        "the effect ran through the registered executor, not a stub"
+    );
     let budget = budget.expect("headroom is returned on allow");
     assert_eq!(
         (budget.quota_remaining, budget.rate_remaining),
@@ -179,12 +208,29 @@ async fn standing_rule_normal_deny_exposes_no_headroom() {
     // A normal consult that ends in DENY (rate saturated while quota remains)
     // must not expose remaining-capacity/headroom metadata — headroom is only
     // returned on an authorized Allow (AD-013/AD-106 calibration is Allow-only).
-    let state = test_state();
-    let store = state.store.clone();
+    // The rule targets an execution-backed action so the admitted first
+    // consult really runs its effect (#127: an unwired id fails closed).
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 1,
+                "date": 0,
+                "chat": {"id": OWNER_CHAT_ID, "type": "private"},
+                "text": "first admitted consult"
+            }
+        })))
+        .mount(&server)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".into(),
+        server.uri().parse().unwrap(),
+    ));
     let now = Timestamp::now();
     let m = manifest(
         "rule-deny-no-headroom",
-        "connector.enable",
+        "telegram.reply:owner_channel",
         3600,
         BudgetWindow {
             max: 5,
@@ -196,19 +242,24 @@ async fn standing_rule_normal_deny_exposes_no_headroom() {
         },
         None,
     );
-    store.activate_standing_rule(&m, None, now).unwrap();
-    let grant = handle_owner_update(&state, &owner_update("enable something"))
-        .await
-        .unwrap()
-        .expect("owner update must compose a grant");
+    state.store.activate_standing_rule(&m, None, now).unwrap();
+    let (mut grant, _) = mint_grant_with_selection_token(
+        &state,
+        &["telegram.reply:owner_channel"],
+        now + Duration::from_secs(120),
+    );
+    grant.allowed_actions.clear();
+    grant.approval_required_actions = vec![ActionId::new("telegram.reply:owner_channel")];
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    let payload = json!({"text": "first admitted consult"});
 
     // First consult consumes the single rate unit and is admitted.
     let (decision1, _, _, budget1) = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("connector.enable"),
+        ActionId::new("telegram.reply:owner_channel"),
         OWNER_CHAT_ID,
-        None,
+        Some(&payload),
         FailureSurface::DirectResponse,
         None,
     )
@@ -226,9 +277,9 @@ async fn standing_rule_normal_deny_exposes_no_headroom() {
     let (decision2, _, _, budget2) = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("connector.enable"),
+        ActionId::new("telegram.reply:owner_channel"),
         OWNER_CHAT_ID,
-        None,
+        Some(&payload),
         FailureSurface::DirectResponse,
         None,
     )
@@ -464,12 +515,30 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
     // fired dark-window default is consumed, the fired reservation is cancelled
     // and the one-use token is rearmed (retryable exactly once). A subsequent
     // successful redispatch consumes the token once with no leaked reservation.
-    let state = test_state();
+    // The rule targets an execution-backed action so the successful redispatch
+    // is a real effect, not the pre-#127 stub.
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 1,
+                "date": 0,
+                "chat": {"id": OWNER_CHAT_ID, "type": "private"},
+                "text": "rearmed fired default"
+            }
+        })))
+        .mount(&server)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".into(),
+        server.uri().parse().unwrap(),
+    ));
     let store = state.store.clone();
     let now = Timestamp::now();
     let m = manifest(
         "rule-fired-rearm",
-        "connector.enable",
+        "telegram.reply:owner_channel",
         3600,
         BudgetWindow {
             max: 5,
@@ -486,15 +555,25 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
     );
     store.activate_standing_rule(&m, None, now).unwrap();
     let rule = store
-        .active_standing_rule_for_action(&ActionId::new("connector.enable"), now)
+        .active_standing_rule_for_action(&ActionId::new("telegram.reply:owner_channel"), now)
         .unwrap()
         .unwrap();
-    let grant = handle_owner_update(&state, &owner_update("enable something"))
-        .await
-        .unwrap()
-        .expect("owner update must compose a grant");
+    let (mut grant, _) = mint_grant_with_selection_token(
+        &state,
+        &["telegram.reply:owner_channel"],
+        now + Duration::from_secs(120),
+    );
+    grant.allowed_actions.clear();
+    grant.approval_required_actions = vec![ActionId::new("telegram.reply:owner_channel")];
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let grant_id = grant.id;
-    let payload_ref = None;
+    let payload = json!({"text": "rearmed fired default"});
+    let payload_ref = Some(
+        state
+            .artifacts
+            .put(canonical_json(&payload).as_bytes())
+            .unwrap(),
+    );
     let fingerprint = crate::store::standing_rules::standing_rule_fingerprint(
         &rule.action_id,
         grant_id,
@@ -524,9 +603,9 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
     let first = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("connector.enable"),
+        ActionId::new("telegram.reply:owner_channel"),
         OWNER_CHAT_ID,
-        None,
+        Some(&payload),
         FailureSurface::Detached,
         Some(&pending.pending_id),
     )
@@ -549,9 +628,9 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
     let second = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("connector.enable"),
+        ActionId::new("telegram.reply:owner_channel"),
         OWNER_CHAT_ID,
-        None,
+        Some(&payload),
         FailureSurface::Detached,
         Some(&pending.pending_id),
     )

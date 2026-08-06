@@ -146,6 +146,56 @@ async fn approval_required_on_primary_action_exits_ok_no_reply() {
         .expect("approval_required must not cause Err");
 }
 
+/// The kernel's fail-closed `NoExecutor` for `/setup` arrives as an opaque
+/// `500 internal_error` — deliberately indistinguishable from a connector or
+/// resource failure, so the shell must NOT diagnose it. `/setup` surfaces the
+/// error instead of inventing a reassuring "not implemented" reply that would
+/// mask a genuine outage. The recorded-request scan below is the assertion: no
+/// owner reply, of any wording, may be sent on an opaque failure.
+#[tokio::test]
+async fn setup_fail_closed_dispatch_surfaces_an_error_and_claims_nothing() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/v1/actions"))
+        .and(body_json(serde_json::json!({
+            "action": "setup.workflow.start",
+            "payload": null,
+            "target": null
+        })))
+        .respond_with(
+            ResponseTemplate::new(500)
+                .set_body_json(serde_json::json!({"error": "internal_error"})),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = KernelClient::new(server.uri(), TOKEN.to_string());
+    let result = run(&client, "/setup").await;
+    assert!(
+        result.is_err(),
+        "an opaque fail-closed dispatch must surface, never be reported as done"
+    );
+
+    // Inspect every request the shell actually made rather than pinning one
+    // expected reply body: the contract is that NO owner reply is sent on an
+    // opaque failure, whatever wording a future workaround might invent.
+    let sent_reply_actions: Vec<String> = server
+        .received_requests()
+        .await
+        .expect("wiremock records requests")
+        .iter()
+        .filter_map(|req| serde_json::from_slice::<serde_json::Value>(&req.body).ok())
+        .filter_map(|body| body["action"].as_str().map(str::to_string))
+        .filter(|action| action == "telegram.reply:owner_channel")
+        .collect();
+    assert!(
+        sent_reply_actions.is_empty(),
+        "the shell must send no owner reply when it cannot diagnose the failure, sent: {sent_reply_actions:?}"
+    );
+}
+
 /// `/propose <kind>\n<yaml>` posts `artifact.propose` with
 /// `{"kind": kind, "yaml": yaml}`.
 #[tokio::test]

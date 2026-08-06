@@ -11,6 +11,7 @@ mod draft;
 mod driver;
 mod effect_paths;
 mod headless;
+mod headless_draft_boundary;
 mod offset;
 mod plan;
 mod route_ambiguity;

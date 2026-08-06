@@ -26,6 +26,7 @@
 //! [`crate::telegram::verify_update`]; composition consumes the resolved
 //! `principal_id` (AD-146).
 mod approval;
+pub(crate) use approval::gmail_create_draft_executor;
 mod artifact_activation;
 mod artifact_nomination;
 mod artifact_reconfirmation;
@@ -71,13 +72,14 @@ mod tests;
 pub(crate) use tests::approval_fixture_grant;
 
 use jiff::Timestamp;
-use openspine_schemas::action::ActionCatalog;
+use openspine_schemas::action::{ActionCatalog, ActionId};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::grant::GrantLimits;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use ulid::Ulid;
 
+use crate::api::effect_executors::EffectExecutorRegistry;
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::artifact_loader::ArtifactRegistry;
 use crate::artifact_store::ArtifactStore;
@@ -108,6 +110,11 @@ pub struct AppState {
     pub action_catalog: ActionCatalog,
     pub sandbox: Sandbox,
     pub action_handlers: ActionHandlerRegistry,
+    /// Kernel-owned effect executors keyed by the `executor_id` a catalogued
+    /// [`openspine_schemas::action::ActionImplementationDescriptor`] names.
+    /// Registration here is the second, independent readiness axis — see
+    /// [`AppState::is_execution_backed`].
+    pub effect_executors: EffectExecutorRegistry,
     pub connectors: ConnectorRegistry,
     /// Direct terminal replies are delivered through this kernel-owned,
     /// in-process channel. It is present only while the `chat` command is
@@ -169,6 +176,14 @@ impl AppState {
                 .clone()
         };
         lock.lock_owned().await
+    }
+
+    /// Whether the action has a catalogued implementation descriptor whose
+    /// executor is registered. Unknown or descriptor-less ids are false.
+    pub(crate) fn is_execution_backed(&self, action: &ActionId) -> bool {
+        self.action_catalog
+            .implementation_descriptor_for_action(action)
+            .is_some_and(|d| self.effect_executors.lookup(&d.executor_id).is_some())
     }
 }
 

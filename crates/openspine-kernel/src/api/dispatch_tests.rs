@@ -7,6 +7,7 @@
 //! split out purely to keep both files under the 500-line gate — and reuse
 //! [`mint_grant_with_selection_token`] and [`OWNER_CHAT_ID`] from here.
 
+use crate::api::actions::DispatchError;
 use crate::connector_reality::BreakerState;
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
@@ -416,6 +417,99 @@ async fn unregistered_known_action_returns_stub_shape() {
     );
 
     handle.abort();
+}
+
+/// Every catalogued effect id outside the explicit non-effect READ allowlist
+/// must fail closed after the grant has allowed it. These six actions all use
+/// the post-gate dispatch boundary (not a gate denial): the custom grant
+/// explicitly allows each one, so a registry miss is surfaced as HTTP 500
+/// `internal_error`, never as the old successful stub.
+#[tokio::test]
+async fn unregistered_effect_actions_fail_closed_without_stub() {
+    for action in [
+        // Counterparty-facing, but explicitly allowed by this custom grant:
+        // the test pins the post-gate NoExecutor boundary, not escalation.
+        "email.send",
+        // These mutations are also explicitly allowed and have no egress or
+        // selection-token gate constraint; each must reach NoExecutor.
+        "coolify.deploy",
+        "briefcase.topup",
+        "artifact.write:task_scratch",
+        // These formerly hit successful placeholder handlers. Their grants
+        // prove gate() returns Allow before the registry miss is exercised.
+        "workflow.invoke:approved",
+        "setup.workflow.start",
+    ] {
+        let state = test_state();
+        let store = state.store.clone();
+        let (grant, _token) = mint_grant_with_selection_token(
+            &state,
+            &[action],
+            Timestamp::now() + std::time::Duration::from_secs(120),
+        );
+
+        let (addr, handle) = start_server(state).await;
+        let resp = post_action(addr, &grant.task_token, action, None).await;
+        assert_eq!(
+            resp.status(),
+            500,
+            "{action} should fail at post-gate dispatch, not return a stub"
+        );
+
+        let body: Value = resp.json().await.unwrap();
+        assert_eq!(body["error"], "internal_error", "{action}");
+        assert!(
+            body.get("result")
+                .and_then(|result| result.get("stub"))
+                .is_none(),
+            "{action} response must not contain result.stub: {body}"
+        );
+
+        let gated_allows = store
+            .all_audit_event_jsons()
+            .unwrap()
+            .into_iter()
+            .filter_map(|raw| serde_json::from_str::<Value>(&raw).ok())
+            .any(|event| {
+                event["kind"] == "action.gated"
+                    && event["action"] == action
+                    && event["decision"]["outcome"] == "allow"
+            });
+        assert!(
+            gated_allows,
+            "{action} must reach dispatch only after action.gated Allow"
+        );
+
+        handle.abort();
+    }
+}
+
+#[tokio::test]
+async fn unknown_action_is_not_stub_eligible() {
+    let state = test_state();
+    let (grant, _token) = mint_grant_with_selection_token(
+        &state,
+        &["unknown.action:not_catalogued"],
+        Timestamp::now() + std::time::Duration::from_secs(120),
+    );
+    let action = ActionId::new("unknown.action:not_catalogued");
+
+    let result = super::connector_breaker::dispatch_allowed_action(
+        &state,
+        &grant,
+        &action,
+        OWNER_CHAT_ID,
+        None,
+    )
+    .await;
+    let error = match result {
+        Err(error) => error,
+        Ok(value) => panic!("unknown action must not return a result or stub: {value}"),
+    };
+    assert!(
+        matches!(&error, DispatchError::NoExecutor(id) if id == &action),
+        "unknown action must fail closed with NoExecutor, got {error:?}"
+    );
 }
 
 /// AD-103/AD-141 acceptance: an Open gmail circuit breaker blocks the effect

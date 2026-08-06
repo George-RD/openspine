@@ -18,6 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::api::dispatch_tests::OWNER_CHAT_ID;
+use crate::api::effect_executors::EffectExecutorRegistry;
 use crate::api::overlay_export_restore::{handle_overlay_export, handle_overlay_restore};
 use crate::artifact_loader;
 use crate::artifact_store::ArtifactStore;
@@ -99,6 +100,7 @@ fn build_state_at(data_root: &Path, master_key: &[u8; 32]) -> AppState {
         webhook_verifier: base.webhook_verifier,
         action_handlers: crate::api::handler_registry::ActionHandlerRegistry::default_registrations(
         ),
+        effect_executors: EffectExecutorRegistry::default_registrations(),
         owner_user_id: 42,
         owner_principal_id: owner_principal.id,
         owner_identity_id: owner_principal.identity_id,

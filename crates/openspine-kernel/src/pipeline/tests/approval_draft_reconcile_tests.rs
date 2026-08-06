@@ -2,6 +2,7 @@
 //! These are submodule tests of the `approval` module, so `super::*`
 //! brings the shared fixtures (`approval_fixture_grant`, `test_state_with_*`).
 use super::*;
+use crate::api::effect_executors::EffectOutcome;
 
 #[tokio::test]
 async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
@@ -44,10 +45,10 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
         schema_version: 1,
     };
 
-    // The mismatch is caught before any Gmail draft creation is attempted.
-    crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
         .await
         .unwrap();
+    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
     assert_eq!(
         state
             .store
@@ -62,6 +63,169 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
             .unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn target_mutated_since_approval_is_refused_without_a_draft() {
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+        )
+        .mount(&api_server)
+        .await;
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(&telegram_server)
+        .await;
+    let state = test_state_with_gmail_and_telegram(
+        gmail,
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ),
+    );
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "bob@example.com",
+    );
+
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+        .await
+        .unwrap();
+
+    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.target_mutated_since_approval")
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+        )
+        .mount(&api_server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/gmail/v1/users/me/drafts"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"id": "draft-timeout"}))
+                .set_delay(std::time::Duration::from_millis(500)),
+        )
+        .mount(&api_server)
+        .await;
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let mut state = test_state_with_gmail(gmail);
+    state.connector_call_timeout = std::time::Duration::from_millis(50);
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+        .await
+        .unwrap();
+
+    assert_eq!(outcome, EffectOutcome::DeliveryUnknown);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.delivery_unknown")
+            .unwrap(),
+        1
+    );
+    assert_eq!(state.store.count_pending_draft_writes().unwrap(), 1);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn successful_draft_write_is_executed_and_resolves_pending_row() {
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+        )
+        .mount(&api_server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/gmail/v1/users/me/drafts"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "draft-success"})))
+        .mount(&api_server)
+        .await;
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let telegram_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .mount(&telegram_server)
+        .await;
+    let state = test_state_with_gmail_and_telegram(
+        gmail,
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            telegram_server.uri().parse().unwrap(),
+        ),
+    );
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+        .await
+        .unwrap();
+
+    assert_eq!(outcome, EffectOutcome::Executed);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        1
+    );
+    assert_eq!(state.store.count_pending_draft_writes().unwrap(), 0);
 }
 
 #[tokio::test]
@@ -117,5 +281,203 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
             .count_audit_events_of_kind("artifact.activation_failed")
             .unwrap(),
         1
+    );
+}
+
+/// Total rows in the fence table, resolved or not. `count_pending_draft_writes`
+/// counts only `state = 'pending'`, so it cannot see a row that was inserted
+/// and then resolved — which is exactly what the ordering assertion below
+/// needs to rule out.
+fn total_pending_draft_write_rows(state: &AppState) -> i64 {
+    state
+        .store
+        .conn
+        .lock()
+        .query_row("SELECT COUNT(*) FROM pending_draft_writes", [], |row| {
+            row.get(0)
+        })
+        .unwrap()
+}
+
+#[tokio::test]
+async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
+    // An Open breaker blocks the executor at its FIRST connector call — the
+    // live thread fetch — so it exits before the write is ever admitted and no
+    // pending-write fence row is recorded. Deliberately scoped to that: it
+    // cannot pin write-admission ordering, because a breaker open enough to
+    // reject the write also rejects the preceding fetch. The write-admission
+    // ordering is pinned by the rate-limit test below.
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    // No mocks mounted: the Open breaker must block before any Gmail call.
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let state = test_state_with_gmail(gmail);
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+    // Trip the gmail breaker (default failure threshold is 3).
+    for _ in 0..3 {
+        state.connectors.record_connector_outcome("gmail", false);
+    }
+
+    let result =
+        crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555).await;
+
+    assert!(
+        result.is_err(),
+        "an unavailable gmail connector propagates as an error, not an outcome: {result:?}"
+    );
+    assert_eq!(
+        total_pending_draft_write_rows(&state),
+        0,
+        "refusing at the thread fetch must record no pending-write fence"
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
+    // #127 ordering invariant: the executor takes the write's connector permit
+    // BEFORE recording the pending-write fence, so a rejected write admission
+    // — which has polled no WRITE future and attempted no provider write — is a
+    // true pre-effect refusal that leaves NO fence row at all. An
+    // inserted-then-resolved row would falsely record an attempted Gmail write
+    // in the reconciliation table.
+    //
+    // Setup: the default token bucket holds 10 permits refilling every 100ms.
+    // Holding 9 leaves exactly one for the executor's live thread fetch, so the
+    // subsequent write admission is rate-limited. The breaker stays Closed, so
+    // holding the permits has no drop side effects.
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+        )
+        .mount(&api_server)
+        .await;
+    // No drafts mock: the rejection must happen before any write is attempted.
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let state = test_state_with_gmail(gmail);
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+    let _held: Vec<_> = (0..9)
+        .map(|_| {
+            state
+                .connectors
+                .acquire_connector_with_generation("gmail")
+                .expect("draining the gmail rate-limit bucket")
+        })
+        .collect();
+
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        outcome,
+        EffectOutcome::RefusedPreEffect,
+        "a rejected write admission never attempted a provider write"
+    );
+    assert_eq!(
+        total_pending_draft_write_rows(&state),
+        0,
+        "the fence must be recorded only after the write permit is held"
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.creation_failed")
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn definite_write_failure_is_failed_after_attempt_and_resolves_the_fence() {
+    // The provider explicitly reported the draft write as failed, so no effect
+    // took hold: the outcome is `FailedAfterAttempt` (not `DeliveryUnknown`,
+    // which would fence the row open for reconciliation) and the fence it
+    // recorded before the call is resolved.
+    let token_server = MockServer::start().await;
+    let api_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/gmail/v1/users/me/threads/thread-1"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+        )
+        .mount(&api_server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/gmail/v1/users/me/drafts"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+            "error": {"code": 400, "message": "invalid draft"}
+        })))
+        .mount(&api_server)
+        .await;
+    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
+    let state = test_state_with_gmail(gmail);
+    let grant = approval_fixture_grant();
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+
+    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
+        .await
+        .unwrap();
+
+    assert_eq!(outcome, EffectOutcome::FailedAfterAttempt);
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.creation_failed")
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.created")
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        state.store.count_pending_draft_writes().unwrap(),
+        0,
+        "a confirmed failure resolves the fence instead of leaving it open"
+    );
+    assert_eq!(
+        total_pending_draft_write_rows(&state),
+        1,
+        "the fence was recorded before the attempted write"
     );
 }

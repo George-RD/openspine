@@ -169,6 +169,7 @@ async fn artifact_propose_rejects_malformed_yaml() {
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
         | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("malformed YAML must be a BadRequest, not infrastructure failure")
         }
@@ -209,6 +210,7 @@ async fn artifact_propose_rejects_unknown_kind() {
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
         | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("unknown kind must be a BadRequest, not infrastructure failure")
         }
@@ -250,6 +252,7 @@ async fn artifact_propose_rejects_template_kind() {
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
         | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("template kind must be a BadRequest, not infrastructure failure")
         }
@@ -288,6 +291,7 @@ async fn artifact_propose_rejects_non_proposed_persona_kind() {
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
         | DispatchError::ConnectorUnavailable(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("invalid persona lifecycle must be a BadRequest")
         }
@@ -352,6 +356,7 @@ async fn artifact_propose_rejects_duplicate_id_version() {
         }
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::ConnectorUnavailable(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("a pending-duplicate proposal must be a BadRequest, not Internal")
@@ -387,6 +392,7 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
         ),
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::ConnectorUnavailable(_)
         | DispatchError::DeliveryUnknown(_) => {
             panic!("a pre-activation attempt must be a BadRequest, not Internal")

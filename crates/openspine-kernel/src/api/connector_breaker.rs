@@ -164,31 +164,43 @@ where
     }
 }
 
-/// Like [`call_with_connector`] but for a *write* whose effect is not
-/// confirmed by the returned value (e.g. `gmail.create_draft`). This
-/// candidate Gmail-write extension treats timeout/no-response as
-/// **delivery-unknown**: the write may have landed before the response was
-/// lost, so the breaker records a failure while pending evidence remains.
-pub(crate) async fn call_with_connector_write<F, T, E>(
+/// Take the breaker/rate-limit permit for a write, WITHOUT yet making the
+/// call. Split out of [`call_with_connector_write`] so an executor that
+/// records durable pending-write evidence can order the two correctly: admit
+/// first, then fence, then call. An admission rejection is provably
+/// pre-effect — no connector future has been polled — so a caller that
+/// separates the steps can report it as a refusal rather than as a failed
+/// write. See [`crate::pipeline::approval_draft`].
+pub(crate) fn admit_connector_write(
     state: &AppState,
     connector: &str,
     action: &ActionId,
     grant: &TaskGrant,
+) -> Result<ConnectorProbePermit, DispatchError> {
+    state
+        .connectors
+        .acquire_connector_with_generation(connector)
+        .map_err(|err| map_admission_error(state, action, grant, err))
+}
+
+/// Run an already-admitted write future under the bounded timeout, recording
+/// the breaker outcome + D-069 counter. Treats timeout/no-response as
+/// **delivery-unknown**: the write may have landed before the response was
+/// lost, so the breaker records a failure while pending evidence remains.
+///
+/// Every error from here is post-admission: the future WAS polled, so a
+/// caller may treat a resolved error as a confirmed failed attempt.
+pub(crate) async fn call_with_admitted_connector_write<F, T, E>(
+    state: &AppState,
+    connector: &str,
+    action: &ActionId,
+    permit: ConnectorProbePermit,
     fut: F,
 ) -> Result<T, DispatchError>
 where
     F: Future<Output = Result<T, E>>,
     E: Into<anyhow::Error>,
 {
-    let permit = match state
-        .connectors
-        .acquire_connector_with_generation(connector)
-    {
-        Ok(permit) => permit,
-        Err(err) => {
-            return Err(map_admission_error(state, action, grant, err));
-        }
-    };
     match timeout(state.connector_call_timeout, fut).await {
         Ok(inner) => {
             record_connector_outcome(state, connector, permit, inner.is_ok());
@@ -205,9 +217,31 @@ where
     }
 }
 
+/// Like [`call_with_connector`] but for a *write* whose effect is not
+/// confirmed by the returned value (e.g. `gmail.create_draft`). This
+/// candidate Gmail-write extension treats timeout/no-response as
+/// **delivery-unknown**: the write may have landed before the response was
+/// lost, so the breaker records a failure while pending evidence remains.
+pub(crate) async fn call_with_connector_write<F, T, E>(
+    state: &AppState,
+    connector: &str,
+    action: &ActionId,
+    grant: &TaskGrant,
+    fut: F,
+) -> Result<T, DispatchError>
+where
+    F: Future<Output = Result<T, E>>,
+    E: Into<anyhow::Error>,
+{
+    let permit = admit_connector_write(state, connector, action, grant)?;
+    call_with_admitted_connector_write(state, connector, action, permit, fut).await
+}
+
 /// Run the effect of one `gate()`-allowed action. Only reached after `Allow`
-/// — a deny/approval-required decision never calls this. The handler itself
-/// admits each connector call it makes via [`call_with_connector`].
+/// — a deny/approval-required decision never calls this. A registry miss is a
+/// typed fail-closed [`DispatchError::NoExecutor`] except for catalog-declared
+/// non-effect stub ids. The handler itself admits each connector call it makes
+/// via [`call_with_connector`].
 pub(crate) async fn dispatch_allowed_action(
     state: &AppState,
     grant: &TaskGrant,
@@ -218,10 +252,11 @@ pub(crate) async fn dispatch_allowed_action(
     let id = action.0.as_str();
     match state.action_handlers.lookup(id) {
         Some(handler) => handler(state, grant, action, bound_chat_id, payload).await,
-        None => Ok(serde_json::json!({
+        None if state.action_catalog.is_non_effect_stub(action) => Ok(serde_json::json!({
             "stub": true,
             "note": format!("{id} has no Step 4 kernel-side implementation yet"),
         })),
+        None => Err(DispatchError::NoExecutor(action.clone())),
     }
 }
 

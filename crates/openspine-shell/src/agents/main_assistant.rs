@@ -6,7 +6,7 @@
 //!
 //! Command dispatch (exact-prefix match, evaluated in order):
 //!   `/status`      → action `openspine.status.read`
-//!   `/setup`       → action `setup.workflow.start`  (stub)
+//!   `/setup`       → action `setup.workflow.start` (unimplemented; fails closed)
 //!   `/propose <kind>\n<yaml>` → action `artifact.propose` (implemented)
 //!   `/export <bundle-name>` → action `openspine.overlay.export`
 //!   `/restore <bundle-name>` → action `openspine.overlay.restore`
@@ -21,14 +21,15 @@ pub(crate) const TELEGRAM_REPLY_ACTION: &str = "telegram.reply:owner_channel";
 pub(crate) const TERMINAL_REPLY_ACTION: &str = "terminal.reply:owner_device";
 const MODEL_PURPOSE: &str = "reply_to_owner";
 const MAX_TOKENS: u32 = 12_000;
-
 // ── Public entry point ────────────────────────────────────────────────────────
 
 /// Dispatch `message` through the deterministic command layer.
 ///
 /// Returns `Ok(())` on success **or** on a gate deny/approval-required
 /// outcome — those are logged and the shell exits 0 (the kernel already
-/// recorded the audit row).  Only transport / `5xx` errors propagate as `Err`.
+/// recorded the audit row).  Transport errors and unexpected `5xx` responses
+/// propagate as `Err` — including `/setup`, whose action the kernel no longer
+/// implements; the shell never diagnoses an opaque `500`.
 #[cfg(test)]
 pub async fn run(client: &KernelClient, message: &str) -> Result<()> {
     run_with_reply_action(client, message, TELEGRAM_REPLY_ACTION).await
@@ -124,10 +125,21 @@ async fn cmd_status(client: &KernelClient, reply_action: &str) -> Result<()> {
     }
 }
 
+/// `/setup` submits `setup.workflow.start`, which the kernel no longer
+/// implements: since #127 an action with no registered handler fails closed
+/// instead of returning a success stub, and the kernel deliberately renders
+/// every dispatch failure as an opaque `500 internal_error` so the shell
+/// cannot enumerate which actions are unwired. The shell therefore does NOT
+/// guess a diagnosis from the status code — it logs and propagates, because
+/// inventing "not implemented" from an opaque 500 would mask a genuine
+/// connector or resource failure behind a reassuring owner message.
 async fn cmd_setup(client: &KernelClient, reply_action: &str) -> Result<()> {
     let outcome = client
         .submit_action("setup.workflow.start", None, None)
-        .await?;
+        .await
+        .inspect_err(|err| {
+            eprintln!("[openspine-shell] ERROR: setup.workflow.start failed: {err:#}");
+        })?;
     match outcome.decision {
         GateDecision::Allow => {
             let text = stub_note(&outcome.result, "Setup workflow started.");
