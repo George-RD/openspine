@@ -51,7 +51,7 @@ fn production_owner_route_binds_seeded_persona() {
 const HOOK_ID: &str = "github-main";
 const WEBHOOK_PACK: &str = "headless_webhook_pack";
 
-fn install_headless_route(
+pub(super) fn install_headless_route(
     state: &AppState,
     action: &str,
     approval_required: bool,
@@ -105,7 +105,7 @@ fn install_headless_route(
     });
 }
 
-fn signed_request(
+pub(super) fn signed_request(
     state: &AppState,
     now: Timestamp,
     key: &str,

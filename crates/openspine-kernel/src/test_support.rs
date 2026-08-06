@@ -11,6 +11,7 @@ pub(crate) mod fixtures {
     use std::path::Path;
     use std::time::Duration;
 
+    use crate::api::effect_executors::EffectExecutorRegistry;
     use crate::api::handler_registry::ActionHandlerRegistry;
     use crate::artifact_store::ArtifactStore;
     use crate::config::{ProviderAuth, ProviderConfig, ProviderKind};
@@ -80,6 +81,7 @@ pub(crate) mod fixtures {
                 Duration::from_secs(300),
             ),
             action_handlers: ActionHandlerRegistry::default_registrations(),
+            effect_executors: EffectExecutorRegistry::default_registrations(),
             owner_user_id: 42,
             owner_principal_id: owner_principal.id,
             owner_identity_id: owner_principal.identity_id,

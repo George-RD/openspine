@@ -112,6 +112,9 @@ pub struct ActionCatalog {
     /// Actions that may only be exercised by a root grant and therefore
     /// must never appear in a commissioned worker's attenuation.
     non_delegable_actions: HashSet<ActionId>,
+    /// Actions that may return the dispatcher's non-effect stub because no
+    /// kernel-side implementation and no dedicated production route exists.
+    non_effect_stub_actions: HashSet<ActionId>,
     /// Actions that require a valid, grant-bound, unexpired selection token
     /// of the correct type before `gate()` will grant them (D-055.1).
     token_requiring_actions: HashMap<ActionId, SelectionTokenType>,
@@ -140,6 +143,7 @@ impl ActionCatalog {
             ids: ids.into_iter().collect(),
             kernel_origin_actions: HashSet::new(),
             non_delegable_actions: HashSet::new(),
+            non_effect_stub_actions: HashSet::new(),
             token_requiring_actions: HashMap::new(),
             effect_paths: Vec::new(),
             counterparty_facing_actions: HashSet::new(),
@@ -179,6 +183,23 @@ impl ActionCatalog {
     /// independently by authority composition and the gate.
     pub fn is_non_delegable(&self, id: &ActionId) -> bool {
         self.non_delegable_actions.contains(id)
+    }
+
+    /// Mark actions eligible to return the dispatcher's non-effect stub when
+    /// no kernel-side handler is registered. Membership rule: only a
+    /// catalogued READ action with no kernel-side implementation and no
+    /// dedicated production route may return the stub; every write,
+    /// mutation, or effect id fails closed. Returns `self` for chaining.
+    pub fn with_non_effect_stub(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
+        self.non_effect_stub_actions = actions.into_iter().collect();
+        self
+    }
+
+    /// True when `id` is catalogued as eligible for a non-effect stub.
+    /// Unknown actions return false; catalog membership is validated
+    /// independently by authority composition and the gate.
+    pub fn is_non_effect_stub(&self, id: &ActionId) -> bool {
+        self.non_effect_stub_actions.contains(id)
     }
 
     /// Mark the given actions as requiring a selection token of the expected type (D-055.1):
@@ -268,6 +289,16 @@ impl ActionCatalog {
     /// Return the reviewed delegation declaration for a canonical action.
     pub fn delegation_descriptor_for(&self, id: &ActionId) -> Option<&ActionDescriptor> {
         self.delegation_descriptors.get(id)
+    }
+    /// Return a concrete resolver/executor declaration for a canonical action.
+    /// Unknown or descriptor-less actions return `None`.
+    pub fn implementation_descriptor_for_action(
+        &self,
+        id: &ActionId,
+    ) -> Option<&ActionImplementationDescriptor> {
+        self.implementation_descriptors
+            .values()
+            .find(|descriptor| &descriptor.action_id == id)
     }
 
     /// Return one concrete resolver/executor declaration by stable id.
@@ -434,44 +465,4 @@ pub struct ActionRequest {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn action_id_qualifier_is_part_of_identity() {
-        let unqualified = ActionId::new("email.read_thread");
-        let qualified = ActionId::new("email.read_thread:selected_no_attachments");
-        assert_ne!(unqualified, qualified);
-    }
-
-    #[test]
-    fn action_id_serializes_as_bare_string() {
-        let id = ActionId::new("telegram.reply:owner_channel");
-        assert_eq!(
-            serde_json::to_value(&id).unwrap(),
-            serde_json::json!("telegram.reply:owner_channel")
-        );
-    }
-
-    #[test]
-    fn gate_decision_round_trips_with_tag() {
-        let decision = GateDecision::Deny {
-            reason: DenialReason::ExplicitDeny,
-        };
-        let value = serde_json::to_value(&decision).unwrap();
-        assert_eq!(value["outcome"], "deny");
-        assert_eq!(value["reason"], "explicit_deny");
-        let back: GateDecision = serde_json::from_value(value).unwrap();
-        assert_eq!(decision, back);
-    }
-
-    #[test]
-    fn approval_required_never_serializes_as_allow() {
-        let decision = GateDecision::ApprovalRequired {
-            approval_type: "email.create_draft".to_string(),
-        };
-        let value = serde_json::to_value(&decision).unwrap();
-        assert_eq!(value["outcome"], "approval_required");
-        assert_ne!(value["outcome"], "allow");
-    }
-}
+mod tests;

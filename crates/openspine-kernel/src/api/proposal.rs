@@ -107,6 +107,9 @@ pub(super) async fn propose_draft_creation(
         DispatchError::Connector(c) | DispatchError::DeliveryUnknown(c) => {
             ProposalError::GmailCall(c)
         }
+        DispatchError::NoExecutor(id) => {
+            ProposalError::GmailCall(anyhow::anyhow!("no registered executor for {id}"))
+        }
         DispatchError::BadRequest(msg) => ProposalError::GmailCall(anyhow::anyhow!(msg)),
         DispatchError::Resource(c) => ProposalError::GmailOutcomeRecord(c),
     })?;

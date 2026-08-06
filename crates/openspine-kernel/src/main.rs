@@ -60,6 +60,7 @@ mod nerve_delivery_tests;
 #[cfg(test)]
 mod overlay_startup_tests;
 
+use crate::api::effect_executors::EffectExecutorRegistry;
 use crate::api::handler_registry::ActionHandlerRegistry;
 use crate::connector_reality::WebhookVerifier;
 use crate::connectors::ConnectorRegistry;
@@ -548,6 +549,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             .unwrap_or_else(|| format!("http://{}", cfg.kernel.bind_addr)),
         unsafe_allow_uncontained_private_data: cfg.unsafe_allow_uncontained_private_data,
         action_handlers: ActionHandlerRegistry::default_registrations(),
+        effect_executors: EffectExecutorRegistry::default_registrations(),
         provider_pool,
         gateway_tier_map: crate::model_gateway::GatewayTierMap::from_model_tiers(&cfg.model_tiers),
         active_model_providers: parking_lot::RwLock::new(active_model_providers),

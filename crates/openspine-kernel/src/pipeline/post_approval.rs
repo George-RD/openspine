@@ -12,6 +12,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use crate::api::effect_executors::EffectOutcome;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionRequest, GateDecision};
 use openspine_schemas::grant::TaskGrant;
@@ -61,7 +62,13 @@ fn handle_create_approved_draft<'a>(
     request: &'a ActionRequest,
     chat_id: i64,
 ) -> PostApprovalFuture<'a> {
-    Box::pin(create_approved_draft(state, grant, request, chat_id))
+    Box::pin(async move {
+        // The executor owns the draft's audit, notification, and pending-write
+        // evidence. This admission source holds no standing-rule reservation,
+        // so the outcome has no caller-side decision to drive.
+        let _outcome = create_approved_draft(state, grant, request, chat_id).await?;
+        Ok(())
+    })
 }
 
 fn handle_resolve_approved_plan<'a>(
@@ -104,6 +111,34 @@ fn handle_headless_approved<'a>(
                 &[],
             )?;
             return Ok(());
+        }
+        // `headless.approved_dispatched` is appended only for `Executed`;
+        // `RefusedPreEffect`, `DeliveryUnknown`, and `FailedAfterAttempt`
+        // return `Ok(())` without it because the executor already appended
+        // its own truthful audit (`draft.payload_mutated_since_approval`,
+        // `draft.target_mutated_since_approval`, `draft.creation_failed`, or
+        // `draft.delivery_unknown`) and notified or batch-reported. Emitting
+        // the dispatched audit for those would restate a false success in the
+        // ledger.
+        if let Some(descriptor) = state
+            .action_catalog
+            .implementation_descriptor_for_action(&request.action)
+        {
+            if let Some(executor) = state.effect_executors.lookup(&descriptor.executor_id) {
+                let effect_outcome = executor(state, grant, request, chat_id).await?;
+                if effect_outcome == EffectOutcome::Executed {
+                    state.store.append_audit(
+                        "headless.approved_dispatched",
+                        Some(&request.action),
+                        Some(&GateDecision::Allow),
+                        None,
+                        Some(grant.id),
+                        &[],
+                        &[],
+                    )?;
+                }
+                return Ok(());
+            }
         }
         crate::api::connector_breaker::dispatch_allowed_action(
             state,

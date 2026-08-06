@@ -272,7 +272,6 @@ pub fn standing_rule_timer_id_from_event(
 mod tests {
     use super::*;
     use crate::api::dispatch_tests::{mint_grant_with_selection_token, OWNER_CHAT_ID};
-    use crate::pipeline::handle_owner_update;
     use crate::store::standing_rules::standing_rule_fingerprint;
     use crate::store::standing_rules_tests::manifest;
     use crate::telegram::TelegramConnector;
@@ -448,14 +447,33 @@ mod tests {
         // redelivered to the consumer) must apply the fired default exactly
         // once — the second claim finds the timer already applied and is a
         // no-op, so the effect is never double-dispatched.
-        let state = test_state();
+        //
+        // The rule targets `telegram.reply:owner_channel` because it is
+        // execution-backed: since #127 a catalogued action with no registered
+        // handler fails closed with `DispatchError::NoExecutor`, so a stub can
+        // never stand in for a dispatched effect or a finalized budget unit.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/bottest-token/SendMessage"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "ok": true,
+                "result": {
+                    "message_id": 1,
+                    "date": 0,
+                    "chat": {"id": OWNER_CHAT_ID, "type": "private"},
+                    "text": "redelivered fired default"
+                }
+            })))
+            .mount(&server)
+            .await;
+        let state = test_state_with_telegram(TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            server.uri().parse().unwrap(),
+        ));
         let now = Timestamp::now();
-        // The pending payload blob must exist in the artifact store so the
-        // consumer can decode it for re-dispatch.
-        let _ = state.artifacts.put(br#"{}"#.as_slice()).unwrap();
         let manifest = manifest(
             "rule-timer-redelivery",
-            "connector.enable",
+            "telegram.reply:owner_channel",
             7 * 24 * 3600,
             BudgetWindow {
                 max: 5,
@@ -476,29 +494,48 @@ mod tests {
             .unwrap();
         let rule = state
             .store
-            .active_standing_rule_for_action(&ActionId::new("connector.enable"), now)
+            .active_standing_rule_for_action(&manifest.action_id, now)
             .unwrap()
             .unwrap();
-        let grant = handle_owner_update(
+        let mut grant = mint_grant_with_selection_token(
             &state,
-            &crate::test_support::fixtures::owner_update("enable something"),
+            &["telegram.reply:owner_channel"],
+            now + std::time::Duration::from_secs(120),
         )
-        .await
-        .unwrap()
-        .expect("owner update must compose a grant");
-        let grant_id = grant.id;
-        let chat = 555;
-        let payload_ref = Some(ArtifactRef {
-            digest: digest_of_bytes(br#"{}"#),
-            schema_version: 1,
-        });
-        let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+        .0;
+        grant.approval_required_actions = vec![ActionId::new("telegram.reply:owner_channel")];
+        grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+        let mut stored = grant.clone();
+        stored.task_token.clear();
+        state
+            .store
+            .conn
+            .lock()
+            .execute(
+                "UPDATE task_grants SET grant_json = ?2 WHERE id = ?1",
+                params![
+                    grant.id.to_string(),
+                    serde_json::to_string(&stored).unwrap()
+                ],
+            )
+            .unwrap();
+        // The pending payload blob must exist in the artifact store so the
+        // consumer can decode it for re-dispatch.
+        let payload = json!({"text": "redelivered fired default"});
+        let payload_ref = Some(
+            state
+                .artifacts
+                .put(canonical_json(&payload).as_bytes())
+                .unwrap(),
+        );
+        let fingerprint =
+            standing_rule_fingerprint(&rule.action_id, grant.id, OWNER_CHAT_ID, &payload_ref);
         let timer_id = state
             .store
             .schedule_standing_rule_dark_window(
                 &rule,
-                grant_id,
-                chat,
+                grant.id,
+                OWNER_CHAT_ID,
                 payload_ref.clone(),
                 &fingerprint,
                 now + std::time::Duration::from_secs(60),
@@ -507,7 +544,7 @@ mod tests {
             .unwrap()
             .unwrap();
         // First delivery: claim + redispatch consumes the one-use token and
-        // dispatches the effect.
+        // dispatches the effect through the real Telegram executor.
         claim_and_redispatch(&state, &timer_id, now + std::time::Duration::from_secs(61))
             .await
             .unwrap();

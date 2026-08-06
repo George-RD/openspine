@@ -19,6 +19,9 @@ use super::{notify_owner_best_effort, AppState};
 #[path = "approval_draft.rs"]
 mod approval_draft;
 pub(super) use approval_draft::create_approved_draft;
+/// The shared kernel-owned Gmail draft executor is addressed by
+/// `executor_id` from `api::effect_executors`, outside this module tree.
+pub(crate) use approval_draft::gmail_create_draft_executor;
 
 /// How long a freshly minted approval remains valid (PRD §15-style
 /// reasoning applied to D-011 approvals): this handler mints the approval

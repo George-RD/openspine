@@ -1,11 +1,13 @@
 //! Action-handler registry (kernel registry refactor, part 3).
 //!
 //! `dispatch_allowed_action` resolves which kernel function serves a given
-//! allowed action id through this registry. The table mirrors the seven
-//! dispatch arms of the previous `match` one-to-one; a lookup miss returns
-//! an honest stub rather than erroring, and `email.create_draft` /
-//! `artifact.activate` are deliberately NOT registered (they run only via
-//! the post-approval path, not the allowed-action path).
+//! allowed action id through this registry. A lookup miss no longer returns a
+//! stub unconditionally (#127): it is a typed fail-closed
+//! [`crate::api::actions::DispatchError::NoExecutor`] unless the id is
+//! declared on the catalog's non-effect stub allowlist. `email.create_draft`
+//! / `artifact.activate` are deliberately NOT registered here — they run via
+//! the post-approval path, and the draft write is addressed by `executor_id`
+//! through [`crate::api::effect_executors`], not by this table.
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -76,14 +78,6 @@ impl ActionHandlerRegistry {
         map.insert(
             "artifact.nominate_upstream",
             handle_artifact_nominate as ActionHandler,
-        );
-        map.insert(
-            "workflow.invoke:approved",
-            handle_workflow_invoke as ActionHandler,
-        );
-        map.insert(
-            "setup.workflow.start",
-            handle_setup_workflow_start as ActionHandler,
         );
         map.insert(
             "worker.commission",
@@ -292,29 +286,6 @@ fn handle_artifact_nominate<'a>(
         bound_chat_id,
         payload,
     ))
-}
-
-fn handle_workflow_invoke<'a>(
-    _state: &'a AppState,
-    _grant: &'a TaskGrant,
-    _action: &'a ActionId,
-    _chat_id: i64,
-    _payload: Option<&'a Value>,
-) -> HandlerFuture<'a> {
-    Box::pin(
-        async move { Ok(json!({"stub": true, "note": "workflow.invoke not yet implemented"})) },
-    )
-}
-fn handle_setup_workflow_start<'a>(
-    _state: &'a AppState,
-    _grant: &'a TaskGrant,
-    _action: &'a ActionId,
-    _chat_id: i64,
-    _payload: Option<&'a Value>,
-) -> HandlerFuture<'a> {
-    Box::pin(async move {
-        Ok(json!({"stub": true, "note": "setup.workflow.start not yet implemented"}))
-    })
 }
 
 fn handle_skill_context<'a>(

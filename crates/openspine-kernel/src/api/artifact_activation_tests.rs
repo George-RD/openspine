@@ -290,6 +290,7 @@ async fn activation_with_mutated_payload_is_denied() {
         }
         DispatchError::Resource(_)
         | DispatchError::Connector(_)
+        | DispatchError::NoExecutor(_)
         | DispatchError::ConnectorUnavailable(_)
         | DispatchError::DeliveryUnknown(_) => panic!(
             "a re-proposal of an already-active id/version must be a BadRequest, not Internal \

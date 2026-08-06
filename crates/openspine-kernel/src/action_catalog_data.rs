@@ -1,9 +1,10 @@
 use std::collections::BTreeSet;
 
 use openspine_schemas::action::{
-    ActionDescriptor, ActionEgressDeclaration, ActionId, ActionSemantics, BudgetWindowBounds,
-    DarkWindowPolicy, DataDestination, DelegationDefaults, DelegationPolicyBounds,
-    DelegationProposalMode, EffectKind, EffectReversibility, ReviewedScopeDimension,
+    ActionDescriptor, ActionEgressDeclaration, ActionId, ActionImplementationDescriptor,
+    ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy, DataDestination,
+    DelegationDefaults, DelegationPolicyBounds, DelegationProposalMode, EffectKind,
+    EffectReversibility, ReviewedScopeDimension,
 };
 use openspine_schemas::egress::EgressClass;
 use openspine_schemas::standing_rule::BudgetWindow;
@@ -13,8 +14,8 @@ fn id(s: &str) -> ActionId {
 }
 
 /// Protocol-neutral semantics for actions that may eventually participate in
-/// reusable delegation. A descriptor does not assert that a concrete
-/// resolver/executor exists; that independent readiness axis lands in #127.
+/// reusable delegation. A delegation descriptor does not assert that a
+/// concrete resolver/executor exists; that readiness is declared separately.
 pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
     vec![ActionDescriptor {
         schema_version: 1,
@@ -72,6 +73,23 @@ pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
             dark_window_policy: DarkWindowPolicy::Prohibited,
             fresh_target_selection_required: true,
         }),
+    }]
+}
+
+/// Concrete resolver/executor declarations for actions whose effect path is
+/// implemented by the kernel. `gmail.thread_recipient` names the live
+/// recipient re-derivation in `crate::gmail::newest_non_owner_recipient`.
+pub(crate) fn implementation_descriptors() -> Vec<ActionImplementationDescriptor> {
+    vec![ActionImplementationDescriptor {
+        schema_version: 1,
+        implementation_version: 1,
+        action_id: id("email.create_draft"),
+        implementation_id: ActionImplementationId::new("gmail.draft.v1"),
+        connector_kind: "gmail".to_string(),
+        executor_id: "gmail.create_draft".to_string(),
+        executor_version: 1,
+        resolver_id: "gmail.thread_recipient".to_string(),
+        resolver_version: 1,
     }]
 }
 
