@@ -142,6 +142,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-147 | Codex OAuth grants are spent through a dedicated ChatGPT-backend Responses transport with access-token-derived account identity and a Codex-specific wire fingerprint | Accepted |
 | D-148 | Per-reasoning-tier provider routing is owner-authored `model_tiers` configuration validated fail-closed at load; tier resolution returns the provider id and client as one pair | Accepted |
 | D-149 | Provider login re-binds from a healthy stored credential without re-authorization, behind the spendability refusal, with canonical-transport cutover and vault-scoped refresh single-flight | Accepted |
+| D-150 | External agent-platform comparisons (OpenClaw, Hermes, AutoGPT) settle build-versus-borrow: study and independently reproduce builder-layer patterns; never adopt, fork, or retrofit a trusted-automation platform as the foundation | Accepted |
+| D-151 | Whole-responsibility composition is authored as a typed non-authoritative composition compiled onto existing kernel objects; builder validation and simulation never substitute for proposal-specific evaluation or owner approval, and the composition track does not pull forward of the Gmail proof | Accepted |
+| D-152 | Capability authoring is a contained proposer role separate from the deterministic evidence miner, with zero activation authority; privileged bricks (connectors, resolvers, executors) remain developer-landed kernel code | Accepted |
 
 ---
 
@@ -3533,6 +3536,79 @@ Provider-side account switching becomes a first-class flow (then `--force` seman
 
 ---
 
+# D-150 — Platform comparisons settle build-versus-borrow: study and reproduce, never adopt or fork
+
+## Decision
+
+OpenSpine's foundation is not replaced by, forked from, or rebased onto an existing agent-automation platform. Two external assessments (an OpenClaw/Hermes comparison and a follow-up AutoGPT-platform comparison, both reviewed 2026-08-06; the latter archived at `.raw/openspine-autogpt-comparison-2026-08-06.md`, the former summarized here as it was delivered in-session only) are accepted as evidence about the capability-construction layer and rejected as arguments about the trust kernel. AutoGPT-style builder machinery — typed blocks, graph composition, natural-language authoring, validate/repair, dry-run simulation, versioned capability library — is reference material to reproduce independently behind OpenSpine's own contracts. `autogpt_platform` never becomes a dependency or a fork base.
+
+## Rationale
+
+The assessed platforms use a trusted-automation model that inverts OpenSpine's non-retrofittable set: block code executes inside the credential boundary (AutoGPT's SMTP block receives and unwraps the `SecretStr` password inside `run()`), and sensitive-action review fires only when a per-block flag AND a graph-level safe mode are BOTH enabled — both default false. Retrofitting per-run task grants, kernel-resolved scope, and a model-independent gate would bypass or rewrite the execution engine (the assessment's own Option-B analysis reaches the same conclusion). Licensing is independently disqualifying: the modern platform is PolyForm Shield, whose noncompete forecloses founding a public OpenSpine product on it. The assessments' own scoring concedes the authority side (per-task least privilege and credential isolation ~3-4/10 there vs 9/10 here).
+
+## Trade-offs
+
+| Option | Benefit | Risk |
+| --- | --- | --- |
+| Adopt AutoGPT platform outright | Fastest useful system, best builder UX today | Abandons the trust model that is the product; license forecloses productization |
+| Fork and retrofit kernel semantics | Keeps their builder surface | Permanent fork of a fast-moving multi-service platform whose engine we bypass |
+| Study and independently reproduce | Keeps foundation and license freedom; borrows proven abstractions | Slower to a polished builder surface |
+
+## Consequences
+
+- Builder-layer concepts worth reproducing are recorded in D-151/D-152 and on issue #132.
+- Running AutoGPT personally as a separate self-hosted experiment (the assessment's Option D) is an owner activity outside this repo, with no repo dependency.
+- Positioning copy may cite the structural difference: platform blocks sit inside the credential boundary; OpenSpine workers structurally cannot hold credentials.
+
+## Would change if
+
+An external platform adopts kernel-held credentials, per-run bounded grants, and a model-independent effect gate as its native execution model, under a license compatible with product use.
+
+---
+
+# D-151 — Composed responsibilities are authored above, and compiled onto, kernel objects
+
+## Decision
+
+For `compose-whole-responsibilities` (#132), the authoring surface is a typed, non-authoritative composition object. Its durable form (versioned `ResponsibilityManifest` with pinned component digests vs an atomic reviewed bundle) remains #132's explicitly deferred architecture decision; this entry settles the framing either form must satisfy. Low-level routes, workflows, packs, standing rules, and grants are the compiler target, never the surface Lyra or the owner authors directly. Every effectful node in a composition resolves to a catalogued action descriptor plus implementation descriptor (the D-146 two-axis contract) and executes only under a per-run task grant through `gate()`. Builder-side validation, repair, and simulated dry runs are authoring UX; the activation gate remains the proposal-specific structural judge and replay of `make-reusable-authority-evaluation-proposal-specific` plus digest-bound owner approval. The composition track does not pull forward of the delegation proofs: `compose-whole-responsibilities` keeps its HARD requirement on `ship-recurring-gmail-draft-proof`.
+
+## Rationale
+
+AutoGPT is working evidence that "a model assembles typed bricks into a working automation" is feasible at product quality (block discovery, graph generation, static validation, automated repair, dry-run iteration) — and simultaneously that the composition object must not itself carry authority: there, the graph executor holds decrypted credentials and review is optional. Their dry-run simulator deliberately returns the last parseable output after repeated schema failures; good iteration UX, unusable as an authority proof — which is why builder simulation can never substitute for the proposal-specific evaluator. The pull-forward their assessment suggests is rejected at n=1: a composition unit over unproven executors composes stubs (the false-success failure `unify-approved-and-delegated-effect-execution` exists to kill), and the loop contract already forbids starting a HARD-edged brief before its prerequisite archives.
+
+## Consequences
+
+- The `compose-whole-responsibilities` brief cites this decision; its object is a compiler input, and its required-fields list gains no new authority semantics.
+- The assessment's "secure brick" field list (canonical action, effect kind, reversibility, kernel-owned resolver, reviewed-scope dimensions, idempotency and delivery-unknown semantics, budget bounds, credential handle never bytes, evaluation fixtures, compatibility version) is confirmation of the descriptor axes already owned by `openspec/specs/responsibility-contract/spec.md` — not a new object.
+- A generated composition can request responsibility; it cannot promote itself.
+
+## Would change if
+
+The first composed responsibility shows owners or Lyra authoring kernel objects directly with no legibility or drift cost — then the compiler layer is gold-plating and should shrink.
+
+---
+
+# D-152 — Capability author is a contained proposer, separate from the evidence miner
+
+## Decision
+
+Capability construction splits into two roles with one shared boundary. The reflection miner stays deterministic and evidence-deriving (D-130..D-141): it groups kernel-counted repeated approvals into candidates and can never assert its own evidence. A future capability-author agent may run the assemble loop AutoGPT's AutoPilot validates (find existing capability → discover available bricks → compose → validate → repair → simulate → propose), under an ordinary bounded task grant exactly like the miner, emitting proposals through the normal artifact lifecycle with zero activation authority. Neither role can create a privileged brick: connectors, resolvers, and executors are developer-landed kernel code reviewed through the ordinary change process; the author may at most request one, and such a proposal fails closed on the missing implementation descriptor per D-146.
+
+## Rationale
+
+AutoGPT independently confirms both the loop shape and the boundary: its AutoPilot composes graphs well, while its LLM-writes-a-block installation path ships disabled because it is remote code execution on the backend. Composing trusted bricks and manufacturing new trusted bricks are different problems; only the first is delegable to a model. Keeping the roles separate preserves D-135 (evidence is derived, never caller-asserted): author proposals originate from intent rather than counted approvals, so they lean entirely on proposal-specific evaluation plus owner review and never on implied learned legitimacy.
+
+## Consequences
+
+- Issue #132 stage 3 ("capability growth") covers both proposal sources; the author role is additive and lands only after the miner-driven path proves out.
+- No self-improvement door opens: new capabilities still require explicit declaration and owner approval; competence and authority lifecycles stay separate.
+
+## Would change if
+
+Contained pure-computation workers (no credentials, no egress) gain a dedicated containment story for generated logic; authoring those could then be delegated without touching the trusted-brick boundary.
+
+---
+
 
 ## Change Log
 
@@ -3583,4 +3659,5 @@ Provider-side account switching becomes a first-class flow (then `--force` seman
 | 2026-07-24 | Added D-142 (native OAuth 2.0 PKCE authentication), D-143 (encrypted vault storage in SecretStore), D-144 (preemptive single-flight background token refresher), and D-145 (gateway bearer token resolution with automatic single-retry on 401), settled while implementing `implement-model-provider-oauth-onboarding`. |
 | 2026-08-03 | Added D-146 (protocol-neutral two-axis responsibility contract; responsibility remains a reference view over workflow/standing-rule inputs; communication dark-window Allow forbidden; drift fails to `needs_review`), settled while implementing `define-responsibility-contract`. |
 | 2026-08-06 | Added D-147 (Codex OAuth spendability via the ChatGPT backend Responses transport with access-token identity, scrubbed errors, and a Codex-specific wire fingerprint), D-148 (owner-authored `model_tiers` tier routing, fail-closed at load, id+client pair resolution), and D-149 (stored-credential re-bind behind the spendability refusal, canonical-transport cutover, vault-scoped refresh single-flight), settled while implementing `add-openai-codex-provider-transport`. |
+| 2026-08-06 | Added D-150 (external platform comparisons settle build-versus-borrow: study and independently reproduce, never adopt or fork; credential-boundary inversion and PolyForm Shield noncompete recorded), D-151 (composed responsibilities are authored as typed non-authoritative compositions compiled onto kernel objects; builder validation/simulation never substitutes for proposal-specific evaluation; no pull-forward ahead of the Gmail proof), and D-152 (capability author is a contained proposer role separate from the evidence miner, with zero activation authority; privileged bricks stay developer-landed), settled in the 2026-08-06 external-comparison roadmap review (assessment archived at `.raw/openspine-autogpt-comparison-2026-08-06.md`). |
 

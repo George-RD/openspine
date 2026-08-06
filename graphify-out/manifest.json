@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786014030.5117223,
-    "ast_hash": "c66faff6d187d91bd7cf3c395736cc39",
+    "mtime": 1786029860.2824042,
+    "ast_hash": "2d3671bd24459973f0fe7be0bb7dc380",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -610,8 +610,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1786013946.7809207,
-    "ast_hash": "ff2d5eb9d259d18dc4729da98b82f8f3",
+    "mtime": 1786029848.931451,
+    "ast_hash": "899ee2dd76cdf733196f12d37d60073c",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -3980,7 +3980,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/model_gateway/providers/codex_tests.rs": {
-    "mtime": 1786029379.1015573,
+    "mtime": 1786029727.514018,
     "ast_hash": "98dcfacfba900f9ee8c91c571a8efede",
     "semantic_hash": ""
   },
@@ -4007,6 +4007,11 @@
   "openspec/changes/archive/2026-08-06-add-openai-codex-provider-transport/tasks.md": {
     "mtime": 1786014030.5111809,
     "ast_hash": "d89d1a7b8a7970256759469e0e983c53",
+    "semantic_hash": ""
+  },
+  ".raw/openspine-autogpt-comparison-2026-08-06.md": {
+    "mtime": 1786029748.7857234,
+    "ast_hash": "2389f9395d98307dfd19e84f665e3996",
     "semantic_hash": ""
   }
 }

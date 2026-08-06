@@ -634,17 +634,22 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
 
 #### compose-whole-responsibilities
 
-- **Canon:** D-146; D-107; AD-030.
+- **Canon:** D-146; D-107; AD-030; D-151; D-152.
 - **Requires:** ship-recurring-gmail-draft-proof **HARD**.
 - **Scope:** compose triggers/routes, workflows, skills, reviewed scope,
   standing-rule shortcuts, budgets, exception policy, outputs, receipts, and
   lifecycle controls into one atomic digest-bound owner-facing responsibility
   without duplicating their enforcement or creating a new authority object;
   consume `prove-progressive-delegation-portability` as design evidence before
-  finalizing connector/task-shape abstractions.
+  finalizing connector/task-shape abstractions; the composed responsibility is a
+  typed non-authoritative composition compiled onto these artifacts — low-level
+  route/workflow/pack objects are the compiler target, not the authoring surface
+  (D-151); capability authoring is a contained proposer role separate from the
+  evidence miner, with zero activation authority (D-152).
 - **Invariant:** component drift cannot silently widen the whole job; partial
   activation/rollback cannot leave a trigger live without matching authority
-  and controls.
+  and controls. Builder-side validation or simulation never substitutes for
+  proposal-specific evaluation or digest-bound owner approval.
 - **Done when:** one ordinary-language owner delegation activates and controls
   the whole job atomically, runs from trigger through workflow and scoped
   effects to result/receipt, and exposes one coherent diff and lifecycle
