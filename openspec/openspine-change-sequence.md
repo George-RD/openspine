@@ -93,6 +93,9 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   archived change proposal)
 - `2026-08-05-ground-terminal-setup-guidance` (no new D entries — grounds the
   terminal assistant's prompt in the CLI setup surface per D-014)
+- `trigger-oauth-from-terminal-chat` (no new D entries — the explicit `/login`
+  gesture and the teardown-then-exec handoff are documented in the archived
+  change's design)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
