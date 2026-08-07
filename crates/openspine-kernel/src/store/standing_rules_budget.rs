@@ -200,6 +200,16 @@ impl Store {
     /// delete the `reserved` rows so no budget is consumed. Committed rows are
     /// never touched (P1-6 / AD-106 failed-effects rule).
     pub fn cancel_standing_rule_reservation(&self, reservation_id: &str) -> Result<(), StoreError> {
+        // Test-only one-shot failure: when armed, the next reservation
+        // cancel fails so a regression can prove the caller re-arms a fired
+        // one-use token only after a *successful* cancel — a failed cancel
+        // must leave the pending row `claimed` and the budget reserved.
+        if self
+            .fail_next_reservation_cancel
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+        }
         let conn = self.conn.lock();
         conn.execute(
             "DELETE FROM standing_rule_usage WHERE reservation_id = ?1 AND status = 'reserved'",

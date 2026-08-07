@@ -39,7 +39,7 @@ rules:
     - If the change reverses or weakens an accepted decision, require a new decision-log entry.
 
   spec:
-    - Requirements must use RFC-style language: MUST, SHOULD, MAY.
+    - "Requirements must use RFC-style language: MUST, SHOULD, MAY."
     - Security and authority requirements must be testable.
     - Runtime authority must be expressed through task grants and gate-mediated actions, not OpenSpec artifacts.
     - Distinguish OpenSpine substrate requirements from Lyra product requirements.

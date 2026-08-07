@@ -69,6 +69,9 @@ impl super::Store {
             fail_next_effective_allow_audit: std::sync::Arc::new(
                 std::sync::atomic::AtomicBool::new(false),
             ),
+            fail_next_reservation_cancel: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
+                false,
+            )),
         })
     }
 

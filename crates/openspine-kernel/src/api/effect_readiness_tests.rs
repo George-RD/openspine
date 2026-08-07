@@ -171,3 +171,110 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
         "the fired one-use token is re-armed after the reservation is cancelled"
     );
 }
+
+/// A failed reservation cancel must NOT re-arm the fired one-use token.
+/// `cleanup_pre_effect_reservations` re-arms only inside the `Ok(())` arm of
+/// `cancel_standing_rule_reservation`; when the cancel fails the pending row
+/// stays `claimed` so recovery surfaces it fail-closed and the token can
+/// never be spent twice, and the reserved budget stays reserved rather than
+/// being silently released.
+#[tokio::test]
+async fn fired_token_cancel_failure_does_not_rearm_the_token() {
+    let state = test_state();
+    let store = state.store.clone();
+    let now = Timestamp::now();
+    let rule = manifest(
+        "rule-fired-cancel-failure",
+        "email.create_draft",
+        3600,
+        BudgetWindow {
+            max: 5,
+            window_secs: 3600,
+        },
+        BudgetWindow {
+            max: 5,
+            window_secs: 60,
+        },
+        Some(DarkWindowConfig {
+            timeout_secs: 60,
+            default: DarkWindowDefault::Allow,
+        }),
+    );
+    store.activate_standing_rule(&rule, None, now).unwrap();
+    let active_rule = store
+        .active_standing_rule_for_action(&ActionId::new("email.create_draft"), now)
+        .unwrap()
+        .unwrap();
+    let (mut grant, _) = mint_grant_with_selection_token(
+        &state,
+        &["email.create_draft"],
+        now + Duration::from_secs(120),
+    );
+    grant.allowed_actions.clear();
+    grant.approval_required_actions = vec![ActionId::new("email.create_draft")];
+    grant.seal_root(b"openspine-test-grant-hmac-key-v1");
+    let payload = json!({"subject": "draft", "body": "body"});
+    let payload_ref = Some(
+        state
+            .artifacts
+            .put(canonical_json(&payload).as_bytes())
+            .unwrap(),
+    );
+    let fingerprint = crate::store::standing_rules::standing_rule_fingerprint(
+        &active_rule.action_id,
+        grant.id,
+        OWNER_CHAT_ID,
+        &payload_ref,
+    );
+    let timer_id = store
+        .schedule_standing_rule_dark_window(
+            &active_rule,
+            grant.id,
+            OWNER_CHAT_ID,
+            payload_ref,
+            &fingerprint,
+            now + Duration::from_secs(60),
+            now,
+        )
+        .unwrap()
+        .expect("timer scheduled");
+    let pending = store
+        .claim_standing_rule_dark_window(&timer_id, now + Duration::from_secs(60))
+        .unwrap()
+        .expect("timer fired as Allow default");
+
+    // The fired path is mutually exclusive with the consult path
+    // (`actions.rs` takes `if let Some(token) = fired_pending { … } else if
+    // … { consult }`), so cleanup makes exactly one cancel call and the
+    // one-shot flag lands on the fired reservation.
+    store.fail_next_reservation_cancel_for_test();
+    let result = mediate_and_dispatch_action(
+        &state,
+        &grant,
+        ActionId::new("email.create_draft"),
+        OWNER_CHAT_ID,
+        Some(&payload),
+        FailureSurface::Detached,
+        Some(&pending.pending_id),
+    )
+    .await;
+    assert!(matches!(
+        result,
+        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("email.create_draft")
+    ));
+    assert!(
+        pending_token_consumed_at(&store, &pending.pending_id).is_some(),
+        "a failed reservation cancel must leave the fired token claimed, never re-armed"
+    );
+    assert_eq!(
+        reserved_usage_count(&store, &active_rule.rule_id),
+        1,
+        "the cancel failed, so the reserved budget row survives"
+    );
+    assert_eq!(committed_usage_count(&store, &active_rule.rule_id), 0);
+    assert_eq!(
+        store.count_audit_events_of_kind("draft.created").unwrap(),
+        0,
+        "no effect ran, so no draft evidence exists"
+    );
+}
