@@ -292,14 +292,26 @@ impl Store {
         }
         Ok(())
     }
-    /// Count unresolved pending dark-window actions for a rule — used by the
-    /// scheduling idempotency test and any monitoring.
-    pub fn pending_dark_window_count(&self, rule_id: &str) -> Result<usize, StoreError> {
+    /// Outstanding (nonterminal) pending dark-window exceptions for one rule
+    /// version — the same predicate the scheduling transaction enforces the
+    /// reviewed `max_pending_exceptions` cap with (#135).
+    ///
+    /// Version-aware, because the cap is: exceptions reviewed against a prior
+    /// version are staled when a new version activates and must not be counted
+    /// against the new one. The pre-#135 shape of this helper counted across
+    /// every version and had no caller; a second, looser counting path beside
+    /// the enforced one is exactly how a cap drifts out of agreement with
+    /// itself, so it is replaced rather than kept alongside.
+    pub fn outstanding_dark_window_exceptions(
+        &self,
+        rule_id: &str,
+        rule_version: u32,
+    ) -> Result<usize, StoreError> {
         let conn = self.conn.lock();
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM standing_rule_pending_actions \
-             WHERE rule_id = ?1 AND resolved_at IS NULL",
-            params![rule_id],
+             WHERE rule_id = ?1 AND rule_version = ?2 AND resolved_at IS NULL",
+            params![rule_id, rule_version as i64],
             |row| row.get(0),
         )?;
         Ok(count as usize)

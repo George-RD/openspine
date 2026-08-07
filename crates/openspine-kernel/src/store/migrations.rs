@@ -16,6 +16,9 @@
 
 use rusqlite::Connection;
 
+#[cfg(test)]
+use super::migrations_versioned::VERSIONED_DOWNS;
+use super::migrations_versioned::VERSIONED_MIGRATIONS;
 use super::StoreError;
 
 /// Run `sql` (expected to be an idempotent `ALTER TABLE ... ADD COLUMN
@@ -185,7 +188,7 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // links (additive; idempotent CREATE TABLE IF NOT EXISTS per AD-139
     // ad-hoc lane; the versioned lane is reserved for the first destructive
     // change).
-    super::standing_rules::ensure_schema(conn)?;
+    super::standing_rules_schema::ensure_schema(conn)?;
     // mine-and-match-reusable-authority-by-scope (#128): the fast SQL
     // pre-filter columns for scoped rule matching. The full binding lives in
     // `rule_json`; these are populated at activation and matched on. Additive,
@@ -197,6 +200,27 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     add_column_if_missing(
         conn,
         "ALTER TABLE standing_rules ADD COLUMN compatibility_digest TEXT",
+    )?;
+    // bound-dark-window-exceptions (#135): the reviewed outstanding-exception
+    // allowance, mirrored from the manifest's dark-window config so the
+    // scheduling transaction can enforce the cap without parsing rule JSON.
+    // Additive, idempotent, nullable — a legacy row reads back as the safe
+    // default of one outstanding exception, never as unbounded.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rules ADD COLUMN dark_window_max_pending INTEGER",
+    )?;
+    // bound-dark-window-exceptions (#135): bind a pending exception to the
+    // reviewed context it was minted against, so a fired token is refused when
+    // the freshly resolved context has drifted. Nullable: a rule with no scope
+    // binding has no context to bind.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rule_pending_actions ADD COLUMN reviewed_scope_digest TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rule_pending_actions ADD COLUMN compatibility_digest TEXT",
     )?;
     // implement-standing-rules: `owner_attention_since` records one-time
     // surfacing of a claimed-but-unattempted fired dark-window default for
@@ -271,118 +295,6 @@ pub(super) struct VersionedMigration {
     pub version: i64,
     pub up: &'static str,
 }
-
-/// Forward versioned migrations beyond [`BASELINE_USER_VERSION`].
-/// Entry v2 adds the `boot_meta` table that backs boot clock-regression
-/// detection ([`super::boot_clock`]); it is purely additive and reversible.
-/// Entry v3 adds the `skills.schema_version` column (AD-040/AD-041): the
-/// ad-hoc `ensure_schema` deliberately omits it, so a fresh or legacy
-/// `skills` table converges here via an additive `ALTER TABLE ... ADD COLUMN`
-/// (DEFAULT 1, the only supported version) without rewriting any row.
-pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
-    VersionedMigration {
-        version: 2,
-        up: "CREATE TABLE IF NOT EXISTS boot_meta (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );",
-    },
-    VersionedMigration {
-        version: 3,
-        up: "ALTER TABLE skills ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;",
-    },
-    // Entry v4 normalizes the `TEXT` timestamp columns that SQL compares with
-    // an inequality or orders by. They were written with jiff's `Display`,
-    // which trims trailing fractional zeros and drops the fraction entirely on
-    // a whole second — so byte order disagreed with instant order inside a
-    // second (`'Z'` 0x5A sorts after `'.'` 0x2E). See `store::sql_time`.
-    // Rewrites each legacy value (length 20..29) to the fixed-width
-    // nine-digit form new writes use; canonical rows (length 30) and NULLs are
-    // left alone, so the migration is idempotent and never invents an instant.
-    VersionedMigration {
-        version: 4,
-        up: TIMESTAMP_NORMALIZATION_SQL,
-    },
-    // Entry v5 marks the schema that carries the two standing-rule scope
-    // binding digest columns (`reviewed_scope_digest`, `compatibility_digest`).
-    // The columns themselves are added additively by the ad-hoc lane
-    // (`add_column_if_missing`, idempotent across every open), so a legacy DB
-    // converges without a destructive rewrite and the versioned entry is a
-    // pure stamp — the same additive/versioned split AD-139 draws. Kept as a
-    // versioned stamp so the down path can drop the columns for the documented
-    // downgrade and future destructive work is ordered after it.
-    VersionedMigration { version: 5, up: "" },
-];
-
-/// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
-/// fraction. `substr(col, 1, 19)` is `YYYY-MM-DDTHH:MM:SS`; anything past
-/// position 20 up to the trailing `Z` is the existing fraction, which is
-/// right-padded with zeros and clipped to nine digits.
-///
-/// Precondition: a four-digit, non-negative year, which is what every writer
-/// in this crate produces (`jiff::Timestamp` is UTC and the store holds only
-/// runtime instants). An expanded-year rendering such as `-0001-01-01T…`
-/// would shift the fixed offsets, so the guard below also bounds the length —
-/// but a future column admitting expanded years MUST NOT reuse this macro.
-macro_rules! normalize_timestamp_column {
-    ($table:literal, $col:literal) => {
-        concat!(
-            "UPDATE ",
-            $table,
-            " SET ",
-            $col,
-            " = substr(",
-            $col,
-            ", 1, 19) || '.' || substr(",
-            "CASE WHEN length(",
-            $col,
-            ") > 20 THEN substr(",
-            $col,
-            ", 21, length(",
-            $col,
-            ") - 21) ELSE '' END || '000000000', 1, 9) || 'Z' WHERE ",
-            $col,
-            " IS NOT NULL AND length(",
-            $col,
-            ") BETWEEN 20 AND 29;"
-        )
-    };
-}
-
-const TIMESTAMP_NORMALIZATION_SQL: &str = concat!(
-    normalize_timestamp_column!("notify_dead_letters", "enqueued_at"),
-    normalize_timestamp_column!("notify_dead_letters", "next_attempt_at"),
-    normalize_timestamp_column!("notify_dead_letters", "claimed_until"),
-    normalize_timestamp_column!("task_grants", "expires_at"),
-    normalize_timestamp_column!("skill_context_selections", "expires_at"),
-    normalize_timestamp_column!("connector_restart_ledger", "occurred_at"),
-    normalize_timestamp_column!("worker_dispatch", "created_at"),
-);
-
-#[cfg(test)]
-pub(super) fn timestamp_normalization_sql_for_test() -> &'static str {
-    TIMESTAMP_NORMALIZATION_SQL
-}
-
-/// Inverse `down` SQL for each versioned migration (AD-139 downgrade path),
-/// test-only — production never reverts. Kept in lockstep with
-/// [`VERSIONED_MIGRATIONS`] by version.
-#[cfg(test)]
-const VERSIONED_DOWNS: &[(i64, &str)] = &[
-    (2, "DROP TABLE IF EXISTS boot_meta;"),
-    (3, "ALTER TABLE skills DROP COLUMN schema_version;"),
-    // v4 normalized values, not schema: the pre-v4 renderings parse to the
-    // same instants, and older code reads the canonical form correctly, so
-    // the documented downgrade only rolls the version stamp back.
-    (4, ""),
-    // v5 added the two nullable scope-binding digest columns; the downgrade
-    // drops them. Rows are untouched (NULL columns on legacy unbounded rules).
-    (
-        5,
-        "ALTER TABLE standing_rules DROP COLUMN reviewed_scope_digest;
-         ALTER TABLE standing_rules DROP COLUMN compatibility_digest;",
-    ),
-];
 
 /// Latest reachable schema version: the ad-hoc baseline, or the highest
 /// versioned migration if any exist.

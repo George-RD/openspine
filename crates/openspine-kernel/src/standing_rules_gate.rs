@@ -127,25 +127,35 @@ pub fn consult_standing_rule_gate(
             // Budget exhausted. If a dark window is configured and we have a
             // scheduling context, schedule its D-074 timer against the owning
             // rule so the pre-agreed default applies if the owner stays
-            // unreachable.
-            let dark_window_scheduled = match (&rule.dark_window, ctx) {
+            // unreachable — unless the rule already holds its reviewed limit
+            // of outstanding exceptions (#135), in which case scheduling is
+            // refused and this stays an ordinary approval.
+            let schedule = match (&rule.dark_window, ctx) {
                 (Some(dw), Some(ctx)) => {
                     let fires_at =
                         now + std::time::Duration::from_secs(dw.timeout_secs.max(0) as u64);
-                    store
-                        .schedule_standing_rule_dark_window(
-                            &rule,
-                            ctx.grant_id,
-                            ctx.bound_chat_id,
-                            ctx.payload_ref.clone(),
-                            &ctx.fingerprint,
-                            fires_at,
-                            now,
-                        )?
-                        .is_some()
+                    Some(store.schedule_standing_rule_dark_window(
+                        &rule,
+                        ctx.grant_id,
+                        ctx.bound_chat_id,
+                        ctx.payload_ref.clone(),
+                        &ctx.fingerprint,
+                        ctx.reviewed_scope_digest.as_deref(),
+                        ctx.compatibility_digest.as_deref(),
+                        fires_at,
+                        now,
+                    )?)
                 }
-                _ => false,
+                _ => None,
             };
+            // A suppressed schedule is NOT coverage: the caller must leave the
+            // action at ordinary owner approval and must not tell anyone a
+            // default is pending. The response shape is identical to "no dark
+            // window configured", so suppression is not an oracle for the
+            // exception slot's state.
+            let dark_window_scheduled = schedule.as_ref().is_some_and(
+                crate::store::standing_rules_exceptions::DarkWindowSchedule::is_covered,
+            );
             Ok(StandingRuleGateOutcome {
                 matched: true,
                 allow: false,

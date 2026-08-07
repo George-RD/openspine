@@ -161,7 +161,7 @@ async fn delegated_email_draft_without_resolved_scope_is_refused_before_dispatch
     );
     assert_eq!(
         store
-            .count_audit_events_of_kind("standing_rule.scope_binding_rejected")
+            .count_audit_events_of_kind("standing_rule.activation_refused")
             .unwrap(),
         1,
         "the refused activation leaves durable owner-actionable evidence"

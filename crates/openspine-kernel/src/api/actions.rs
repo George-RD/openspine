@@ -602,6 +602,11 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             grant_id: grant.id,
             payload_ref: payload_ref.clone(),
             fingerprint: standing_rule_fingerprint(&action, grant.id, bound_chat_id, &payload_ref),
+            // This is the action-keyed path: the rule carries no reviewed
+            // scope, so there is no resolved context to bind the exception to.
+            // The per-rule-version cap still applies.
+            reviewed_scope_digest: None,
+            compatibility_digest: None,
         };
         let consult = crate::standing_rules_gate::consult_standing_rule_gate(
             &state.store,
@@ -1070,7 +1075,9 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 }
             }
             if let Some((rule_id, version, reservation_id)) = &fired_reservation {
-                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                // D-161: a fired exception is accounted as an exception, so it
+                // commits its usage without refreshing the lapse clock.
+                if let Err(err) = state.store.finalize_standing_rule_exception_reservation(
                     rule_id,
                     *version,
                     reservation_id,
@@ -1139,11 +1146,20 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 // exactly the one the owner needs surfaced for re-review.
                 for (rule_id, _, _) in consult_reservation
                     .iter()
-                    .chain(fired_reservation.iter())
                     .chain(disclosure_reservations.iter())
                 {
                     if let Err(use_err) = state.store.note_standing_rule_use(rule_id, now) {
                         tracing::error!(error = %use_err, rule_id, "standing-rule use not recorded after retained dispatch");
+                    }
+                }
+                if let Some((rule_id, _, _)) = &fired_reservation {
+                    // D-161: silence does not refresh the lapse clock, even
+                    // when its effect outcome is ambiguous.
+                    if let Err(use_err) = state
+                        .store
+                        .note_standing_rule_use_with_lapse(rule_id, now, false)
+                    {
+                        tracing::error!(error = %use_err, rule_id, "standing-rule exception use not recorded after retained dispatch");
                     }
                 }
                 if let Some((_, _, reservation_id)) = &fired_reservation {

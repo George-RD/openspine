@@ -180,7 +180,7 @@ fn artifact_activation_commit_refuses_an_unbound_scope_rule() {
     );
     assert_eq!(
         store
-            .count_audit_events_of_kind("standing_rule.scope_binding_rejected")
+            .count_audit_events_of_kind("standing_rule.activation_refused")
             .unwrap(),
         1,
         "the refusal leaves durable owner-actionable evidence"

@@ -24,6 +24,7 @@ use ulid::Ulid;
 use super::standing_rules::{
     epoch_nanos_to_timestamp, timestamp_to_epoch_nanos, StandingRule, StandingRulePendingAction,
 };
+use super::standing_rules_exceptions::DarkWindowSchedule;
 use super::{Store, StoreError};
 
 impl Store {
@@ -32,11 +33,22 @@ impl Store {
     /// Deduplicated per stable `(rule_id, rule_version, request_fingerprint)`
     /// via a unique index across all states: a repeat of an already-resolved
     /// request reuses the existing row and never re-executes the default
-    /// (P1-8). Carries only
-    /// the encrypted `ArtifactRef` to the payload — never the plaintext
-    /// (P1-7). Returns the freshly-scheduled timer id when a new live dark
-    /// window was created, or `None` when an existing open timer covers the
-    /// request or the request is already terminal (no new timer to report).
+    /// (P1-8). Carries only the encrypted `ArtifactRef` to the payload —
+    /// never the plaintext (P1-7).
+    ///
+    /// Bounded by the rule's reviewed `max_pending_exceptions` (#135). The
+    /// outstanding count is taken inside this transaction, BEFORE anything is
+    /// inserted, so a refusal cannot leave an orphan row or timer and two
+    /// concurrent callers cannot both take the final slot — `BEGIN IMMEDIATE`
+    /// takes the write lock at the first statement, the same serialization
+    /// D-050 relies on for quota and rate. Deduplication is evaluated before
+    /// the count, so an idempotent repeat of an already-scheduled request
+    /// never consumes a slot.
+    ///
+    /// `reviewed_scope_digest`/`compatibility_digest` bind the exception to
+    /// the reviewed context it was minted for; a fired token is refused later
+    /// if the freshly resolved context no longer equals them. Both are `None`
+    /// for a rule with no scope binding.
     #[allow(clippy::too_many_arguments)]
     pub fn schedule_standing_rule_dark_window(
         &self,
@@ -45,9 +57,11 @@ impl Store {
         bound_chat_id: i64,
         payload_ref: Option<ArtifactRef>,
         fingerprint: &str,
+        reviewed_scope_digest: Option<&str>,
+        compatibility_digest: Option<&str>,
         fires_at: Timestamp,
         now: Timestamp,
-    ) -> Result<Option<String>, StoreError> {
+    ) -> Result<DarkWindowSchedule, StoreError> {
         let dw = match rule.dark_window {
             Some(dw) => dw,
             None => {
@@ -70,35 +84,75 @@ impl Store {
             .transpose()?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        tx.execute(
-            "INSERT OR IGNORE INTO standing_rule_pending_actions (
-                pending_id, rule_id, rule_version, task_grant_id, action_id,
-                bound_chat_id, payload_ref_json, dark_window_default,
-                request_fingerprint, requested_at, resolved_at, resolution
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL)",
-            params![
-                pending_id,
-                rule.rule_id,
-                rule.version as i64,
-                grant_id.to_string(),
-                rule.action_id.to_string(),
-                bound_chat_id,
-                payload_json,
-                default_str,
-                fingerprint,
-                timestamp_to_epoch_nanos(now)?,
-            ],
-        )?;
-        let effective_pending_id: String = if tx.changes() == 0 {
-            tx.query_row(
+
+        // Dedup FIRST: an idempotent repeat of an already-scheduled request is
+        // not a new exception and must never be refused at the cap.
+        let existing_pending_id: Option<String> = tx
+            .query_row(
                 "SELECT pending_id FROM standing_rule_pending_actions \
                  WHERE rule_id = ?1 AND rule_version = ?3 AND request_fingerprint = ?2 \
                  LIMIT 1",
                 params![rule.rule_id, fingerprint, rule.version as i64],
                 |row| row.get(0),
-            )?
-        } else {
-            pending_id
+            )
+            .optional()?;
+
+        let effective_pending_id = match existing_pending_id {
+            Some(existing) => existing,
+            None => {
+                // A genuinely new exception. Count the outstanding ones for
+                // this exact rule version BEFORE inserting anything, so a
+                // refusal leaves no orphan row and no orphan timer, and the
+                // `BEGIN IMMEDIATE` write lock keeps two racing callers from
+                // both taking the final slot.
+                let outstanding: i64 = tx.query_row(
+                    "SELECT COUNT(*) FROM standing_rule_pending_actions \
+                     WHERE rule_id = ?1 AND rule_version = ?2 AND resolved_at IS NULL",
+                    params![rule.rule_id, rule.version as i64],
+                    |row| row.get(0),
+                )?;
+                if outstanding >= i64::from(dw.max_pending_exceptions) {
+                    Self::append_audit_conn(
+                        &tx,
+                        "standing_rule.exception_suppressed_at_cap",
+                        Some(&rule.action_id),
+                        None,
+                        Some(&format!(
+                            "rule {} v{} already holds its reviewed limit of {} outstanding \
+                             dark-window exception(s); scheduling refused",
+                            rule.rule_id, rule.version, dw.max_pending_exceptions
+                        )),
+                        Some(grant_id),
+                        &[],
+                        &[],
+                    )?;
+                    tx.commit()?;
+                    return Ok(DarkWindowSchedule::SuppressedAtCap);
+                }
+                tx.execute(
+                    "INSERT INTO standing_rule_pending_actions (
+                        pending_id, rule_id, rule_version, task_grant_id, action_id,
+                        bound_chat_id, payload_ref_json, dark_window_default,
+                        request_fingerprint, requested_at, resolved_at, resolution,
+                        reviewed_scope_digest, compatibility_digest
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?11, ?12)",
+                    params![
+                        pending_id,
+                        rule.rule_id,
+                        rule.version as i64,
+                        grant_id.to_string(),
+                        rule.action_id.to_string(),
+                        bound_chat_id,
+                        payload_json,
+                        default_str,
+                        fingerprint,
+                        timestamp_to_epoch_nanos(now)?,
+                        reviewed_scope_digest,
+                        compatibility_digest,
+                    ],
+                )?;
+                pending_id
+            }
         };
         let existing_timer: Option<(String, Option<i64>)> = tx
             .query_row(
@@ -107,12 +161,13 @@ impl Store {
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
-        // `Some(timer_id)` is returned ONLY when a brand-new timer was just
+        // `Scheduled` is returned ONLY when a brand-new timer was just
         // inserted; an existing live timer (not yet fired) or a terminal
-        // request with no open timer schedules nothing new and returns `None`
-        // (P1-8 stable idempotency — no duplicate timer, no duplicate audit).
-        let scheduled: Option<String> = match existing_timer {
-            Some((_, None)) => None,
+        // request with no open timer schedules nothing new and returns
+        // `AlreadyCovered` (P1-8 stable idempotency — no duplicate timer, no
+        // duplicate audit).
+        let scheduled = match existing_timer {
+            Some((_, None)) => DarkWindowSchedule::AlreadyCovered,
             _ => {
                 let still_open: bool = tx
                     .query_row(
@@ -123,7 +178,7 @@ impl Store {
                     .optional()?
                     .is_some();
                 if !still_open {
-                    None
+                    DarkWindowSchedule::AlreadyCovered
                 } else {
                     tx.execute(
                         "INSERT INTO workflow_timers (timer_id, run_id, fires_at, status, fired_event_id)
@@ -147,7 +202,7 @@ impl Store {
                         &[],
                         &[],
                     )?;
-                    Some(timer_id)
+                    DarkWindowSchedule::Scheduled(timer_id)
                 }
             }
         };
@@ -263,7 +318,7 @@ impl Store {
             )?;
             Self::append_audit_conn(
                 &tx,
-                "standing_rule.dark_window_fired",
+                "standing_rule.exception_fired",
                 None,
                 None,
                 Some(&format!(
@@ -324,156 +379,5 @@ impl Store {
             resolved_at: effective_resolved_at,
             resolution: effective_resolution,
         }))
-    }
-
-    /// Resolve the pending identity for a stable request fingerprint so the
-    /// owner notification can bind Allow/Deny buttons to the exact row.
-    pub fn pending_id_for_fingerprint(
-        &self,
-        rule_id: &str,
-        rule_version: u32,
-        fingerprint: &str,
-    ) -> Result<Option<String>, StoreError> {
-        let conn = self.conn.lock();
-        Ok(conn
-            .query_row(
-                "SELECT pending_id FROM standing_rule_pending_actions
-                 WHERE rule_id = ?1 AND rule_version = ?2 AND request_fingerprint = ?3",
-                params![rule_id, rule_version as i64, fingerprint],
-                |row| row.get(0),
-            )
-            .optional()?)
-    }
-
-    /// Owner-addressable resolution of a pending dark-window action (P1-9):
-    /// the owner may allow or deny the specific pending action before the
-    /// timer fires. First write wins and is idempotent; a late tap after the
-    /// timer already fired is a harmless no-op (the fired default path has
-    /// already decided `allowed`). Cancelling here means the fired timer will
-    /// find `resolution = 'denied'`/`'stale'` and apply no authority.
-    pub fn resolve_pending_action(
-        &self,
-        pending_id: &str,
-        allow: bool,
-        now: Timestamp,
-    ) -> Result<bool, StoreError> {
-        let resolution = if allow { "allowed" } else { "denied" };
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        // Only set if still unresolved (first write wins).
-        let changed = tx.execute(
-            "UPDATE standing_rule_pending_actions \
-             SET resolved_at = ?2, resolution = ?3 \
-             WHERE pending_id = ?1 AND resolved_at IS NULL",
-            params![pending_id, timestamp_to_epoch_nanos(now)?, resolution],
-        )?;
-        if changed >= 1 {
-            Self::append_audit_conn(
-                &tx,
-                "standing_rule.pending_resolved",
-                None,
-                None,
-                Some(&format!(
-                    "pending {pending_id} resolved by owner: {resolution}"
-                )),
-                None,
-                &[],
-                &[],
-            )?;
-        }
-        tx.commit()?;
-        Ok(changed >= 1)
-    }
-
-    /// Consume a fired dark-window one-use token (P1-11): invoked from the
-    /// shared mediation boundary when a re-dispatched action is still
-    /// over-budget. Digest-bound to the exact request (action + grant + chat +
-    /// payload fingerprint) so it cannot be replayed against a different
-    /// request, and one-use (the `token_consumed_at` flip means a second
-    /// attempt, or a replay after a successful dispatch, returns `None` and
-    /// fails closed). On success it records the owner-silence waiver as a
-    /// *reserved* usage row (not yet committed — AD-106 failed-effects rule;
-    /// P1-6) and returns the fired reservation identity so the caller can
-    /// finalize it after a successful effect or cancel it on failure. The
-    /// state predicates (`resolution = 'allowed'`, `resolved_at IS NOT NULL`,
-    /// `token_consumed_at IS NULL`, matching fingerprint, and the rule still
-    /// current at that version) are part of the same conditional UPDATE
-    /// guarded by `changes() == 1` — so an unresolved or owner-denied pending
-    /// id can never mint an Allow token, and the flip is atomic.
-    pub fn consume_standing_rule_fired_pending(
-        &self,
-        pending_id: &str,
-        action: &ActionId,
-        grant_id: Ulid,
-        bound_chat_id: i64,
-        payload_ref: &Option<ArtifactRef>,
-        now: Timestamp,
-    ) -> Result<Option<(String, u32, String)>, StoreError> {
-        let fingerprint = super::standing_rules::standing_rule_fingerprint(
-            action,
-            grant_id,
-            bound_chat_id,
-            payload_ref,
-        );
-        let now_nanos = timestamp_to_epoch_nanos(now)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        type Row = (String, i64);
-        let row: Option<Row> = tx
-            .query_row(
-                "SELECT rule_id, rule_version \
-                 FROM standing_rule_pending_actions \
-                 WHERE pending_id = ?1 \
-                   AND resolution = 'allowed' AND resolved_at IS NOT NULL \
-                   AND token_consumed_at IS NULL AND request_fingerprint = ?2 \
-                   AND EXISTS (SELECT 1 FROM standing_rules r \
-                               WHERE r.rule_id = standing_rule_pending_actions.rule_id \
-                                 AND r.version = standing_rule_pending_actions.rule_version \
-                                 AND r.status = 'active' \
-                                 AND (r.expires_after_secs = 0 OR \
-                                      (?3 - COALESCE(r.last_used_at, r.activated_at)) \
-                                        < r.expires_after_secs * 1000000000))",
-                params![pending_id, fingerprint, now_nanos],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
-        let Some((rule_id, rule_version)) = row else {
-            return Ok(None);
-        };
-        // Atomically flip the one-use token AND mark the re-dispatch as
-        // *claimed* (token consumed, effect not yet attempted) in the same
-        // conditional UPDATE. Guarded by `changes() == 1` so an already-consumed
-        // or owner-denied/unresolved pending can never mint an Allow token, and
-        // a crash after this commit leaves a `claimed` row that recovery
-        // SURFACES for owner attention (fail closed — never silently lost,
-        // never blindly re-run because the connector may already have run).
-        let flipped = tx.execute(
-            "UPDATE standing_rule_pending_actions \
-             SET token_consumed_at = ?2, dispatch_state = 'claimed' \
-             WHERE pending_id = ?1 AND token_consumed_at IS NULL \
-               AND resolution = 'allowed' AND resolved_at IS NOT NULL",
-            params![pending_id, now_nanos],
-        )?;
-        if flipped != 1 {
-            return Ok(None);
-        }
-        tx.execute(
-            "INSERT INTO standing_rule_usage (rule_id, version, kind, used_at, status, reservation_id)
-             VALUES (?1, ?2, 'quota', ?3, 'reserved', ?4),
-                    (?1, ?2, 'rate', ?3, 'reserved', ?4)",
-            params![rule_id, rule_version, now_nanos, pending_id],
-        )?;
-        Self::append_audit_conn(
-            &tx,
-            "standing_rule.dark_window_admitted",
-            Some(action),
-            None,
-            Some(&format!("fired dark-window default admitted for {rule_id}")),
-            Some(grant_id),
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(Some((rule_id, rule_version as u32, pending_id.to_string())))
     }
 }

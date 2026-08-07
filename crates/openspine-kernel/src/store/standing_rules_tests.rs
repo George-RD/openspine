@@ -43,6 +43,93 @@ pub(crate) fn manifest(
     }
 }
 
+/// Install an ACTIVE standing rule whose dark-window default is `Allow`,
+/// bypassing the activation guard by writing the row directly.
+///
+/// Since #135 no action is on the dark-window `Allow` eligibility allowlist,
+/// so `activate_standing_rule` refuses every such manifest. The AD-012 Allow
+/// machinery — one-use tokens, timer redelivery, claim/consume, recovery —
+/// still has to be exercised, and these rows are exactly the state a database
+/// written before the guard existed holds. Using this helper keeps that
+/// coverage while leaving the guard itself un-bypassed in production; the
+/// startup sweep in `sweep_ineligible_dark_window_allow_rules` is what such a
+/// row actually meets on a real open.
+pub(crate) fn activate_or_install_legacy_allow(
+    store: &Store,
+    manifest: &StandingRuleManifest,
+    now: Timestamp,
+) {
+    match store.activate_standing_rule(manifest, None, now) {
+        Ok(()) => {}
+        // ONLY the #135 eligibility refusal may be bypassed, matched on the
+        // refusal itself rather than on the manifest's shape. Keying on
+        // "this manifest carries an Allow dark window" would absorb any other
+        // activation failure for such a manifest — #128's
+        // `scope_binding_rejection`, which `activate_standing_rule` evaluates
+        // FIRST, or a plain `manifest.validate()` failure — and silently
+        // defeat another change's guard from inside a test helper.
+        Err(err) if format!("{err}").contains("does not declare this action eligible") => {
+            // Write the pre-guard row directly so the AD-012 Allow machinery
+            // stays exercised. See `install_legacy_allow_dark_window_rule`.
+            install_legacy_allow_dark_window_rule(store, manifest, now);
+        }
+        Err(err) => panic!("standing-rule activation failed unexpectedly: {err}"),
+    }
+}
+
+pub(crate) fn install_legacy_allow_dark_window_rule(
+    store: &Store,
+    manifest: &StandingRuleManifest,
+    now: Timestamp,
+) {
+    let dark_window = manifest
+        .dark_window
+        .expect("this helper is only for dark-window rules");
+    let now_nanos: i64 = now
+        .as_nanosecond()
+        .try_into()
+        .expect("timestamp fits i64 nanoseconds");
+    let conn = store.conn.lock();
+    conn.execute(
+        "INSERT INTO standing_rules (
+            rule_id, artifact_id, version, action_id, rule_json,
+            quota_max, quota_window_secs, rate_max, rate_window_secs,
+            expires_after_secs, dark_window_timeout_secs, dark_window_default,
+            status, activated_at, last_used_at, revoked_at, needs_review_since,
+            reviewed_scope_digest, compatibility_digest, dark_window_max_pending
+         ) VALUES (?1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,
+                   'active', ?12, NULL, NULL, NULL, NULL, NULL, ?13)
+         ON CONFLICT(rule_id) DO UPDATE SET
+            version = excluded.version,
+            rule_json = excluded.rule_json,
+            dark_window_timeout_secs = excluded.dark_window_timeout_secs,
+            dark_window_default = excluded.dark_window_default,
+            dark_window_max_pending = excluded.dark_window_max_pending,
+            status = 'active',
+            revoked_at = NULL,
+            needs_review_since = NULL",
+        rusqlite::params![
+            manifest.id,
+            manifest.version as i64,
+            manifest.action_id.to_string(),
+            serde_json::to_string(manifest).unwrap(),
+            manifest.quota.max as i64,
+            manifest.quota.window_secs,
+            manifest.rate.max as i64,
+            manifest.rate.window_secs,
+            manifest.expires_after_secs,
+            dark_window.timeout_secs,
+            match dark_window.default {
+                DarkWindowDefault::Allow => "allow",
+                DarkWindowDefault::Deny => "deny",
+            },
+            now_nanos,
+            i64::from(dark_window.max_pending_exceptions),
+        ],
+    )
+    .unwrap();
+}
+
 /// Identity `(rule_id, version)` a reservation row currently carries, or
 /// `None` if it was cancelled/finalized away. Same-crate white-box lookup
 /// (`Store::conn` is `pub(crate)`) — no public getter exposes a raw
@@ -123,6 +210,7 @@ fn manifest_validate_rejects_non_positive_windows() {
         Some(DarkWindowConfig {
             timeout_secs: 1800,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     assert!(base.validate().is_ok(), "baseline manifest must be valid");
@@ -150,6 +238,7 @@ fn manifest_validate_rejects_non_positive_windows() {
     bad_dark_window_negative.dark_window = Some(DarkWindowConfig {
         timeout_secs: -1,
         default: DarkWindowDefault::Allow,
+        max_pending_exceptions: 1,
     });
     assert!(bad_dark_window_negative.validate().is_err());
 
@@ -161,6 +250,7 @@ fn manifest_validate_rejects_non_positive_windows() {
     bad_dark_window.dark_window = Some(DarkWindowConfig {
         timeout_secs: 0,
         default: DarkWindowDefault::Allow,
+        max_pending_exceptions: 1,
     });
     assert!(bad_dark_window.validate().is_err());
 }

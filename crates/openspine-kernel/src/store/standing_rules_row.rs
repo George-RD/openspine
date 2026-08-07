@@ -37,7 +37,7 @@ pub struct StandingRule {
     pub compatibility_digest: Option<openspine_schemas::digest::Digest>,
 }
 
-/// The 18-column `standing_rules` row projection shared by every rule reader.
+/// The 19-column `standing_rules` row projection shared by every rule reader.
 /// Kept in lockstep with [`RULE_ROW_COLUMNS`] and [`rule_row_from_row`].
 pub(super) type RuleRow = (
     String,
@@ -58,13 +58,14 @@ pub(super) type RuleRow = (
     Option<i64>,
     Option<String>,
     Option<String>,
+    Option<i64>,
 );
 
 pub(super) const RULE_ROW_COLUMNS: &str = "rule_id, artifact_id, version, action_id, rule_json, \
     quota_max, quota_window_secs, rate_max, rate_window_secs, \
     expires_after_secs, dark_window_timeout_secs, dark_window_default, \
     activated_at, last_used_at, revoked_at, needs_review_since, \
-    reviewed_scope_digest, compatibility_digest";
+    reviewed_scope_digest, compatibility_digest, dark_window_max_pending";
 
 pub(super) fn rule_row_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RuleRow> {
     Ok((
@@ -86,6 +87,7 @@ pub(super) fn rule_row_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Rul
         row.get(15)?,
         row.get(16)?,
         row.get(17)?,
+        row.get(18)?,
     ))
 }
 
@@ -110,6 +112,7 @@ pub(super) fn rule_from_row(row: RuleRow, status: &str) -> Result<StandingRule, 
         needs_review_since,
         reviewed_scope_digest,
         compatibility_digest,
+        dark_window_max_pending,
     ) = row;
     let dark_window = dark_window_timeout_secs.map(|timeout_secs| DarkWindowConfig {
         timeout_secs,
@@ -118,6 +121,12 @@ pub(super) fn rule_from_row(row: RuleRow, status: &str) -> Result<StandingRule, 
         } else {
             DarkWindowDefault::Deny
         },
+        // A legacy row written before #135 carries NULL and reads back as the
+        // safe default of one outstanding exception, never as unbounded.
+        max_pending_exceptions: dark_window_max_pending
+            .and_then(|value| u32::try_from(value).ok())
+            .filter(|value| *value > 0)
+            .unwrap_or_else(openspine_schemas::standing_rule::default_max_pending_exceptions),
     });
     Ok(StandingRule {
         rule_id,

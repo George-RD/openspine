@@ -102,7 +102,7 @@ async fn standing_rule_full_mediate_flow_with_activated_rule() {
         },
         None,
     );
-    store.activate_standing_rule(&m, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &m, now);
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
         &["telegram.reply:owner_channel"],
@@ -168,7 +168,7 @@ async fn standing_rule_effective_allow_audit_failure_cancels_reservation() {
         },
         None,
     );
-    store.activate_standing_rule(&m, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &m, now);
     let grant = handle_owner_update(&state, &owner_update("enable something"))
         .await
         .unwrap()
@@ -242,7 +242,7 @@ async fn standing_rule_normal_deny_exposes_no_headroom() {
         },
         None,
     );
-    state.store.activate_standing_rule(&m, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&state.store, &m, now);
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
         &["telegram.reply:owner_channel"],
@@ -326,9 +326,10 @@ async fn standing_rule_delivery_unknown_retains_live_reservation() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
-    store.activate_standing_rule(&rule, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &rule, now);
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
         &["telegram.reply:owner_channel"],
@@ -387,11 +388,15 @@ async fn standing_rule_delivery_unknown_retains_live_reservation() {
             OWNER_CHAT_ID,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .unwrap();
+        .timer_id()
+        .expect("dark window scheduled")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + Duration::from_secs(60))
         .unwrap()
@@ -434,9 +439,11 @@ async fn standing_rule_delivery_unknown_retains_live_reservation() {
         },
         None,
     );
-    store
-        .activate_standing_rule(&bad_rule, None, Timestamp::now())
-        .unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(
+        &store,
+        &bad_rule,
+        Timestamp::now(),
+    );
     let bad = mediate_and_dispatch_action(
         &state,
         &grant,
@@ -477,7 +484,7 @@ async fn artifact_revoke_dispatch_removes_rule_from_live_consultation() {
         },
         None,
     );
-    store.activate_standing_rule(&m, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &m, now);
     assert!(
         store
             .active_standing_rule_for_action(&ActionId::new("connector.enable"), now)
@@ -556,9 +563,10 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
-    store.activate_standing_rule(&m, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &m, now);
     let rule = store
         .active_standing_rule_for_action(&ActionId::new("telegram.reply:owner_channel"), now)
         .unwrap()
@@ -592,11 +600,15 @@ async fn standing_rule_fired_path_audit_failure_rearms_token_once() {
             OWNER_CHAT_ID,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer scheduled");
+        .timer_id()
+        .expect("timer scheduled")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
         .unwrap()

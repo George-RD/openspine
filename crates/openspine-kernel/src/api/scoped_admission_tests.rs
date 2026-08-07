@@ -314,7 +314,7 @@ async fn activation_refuses_a_binding_that_omits_a_required_dimension() {
         "a refused activation leaves no active rule row"
     );
     assert_eq!(
-        audit_count(&env.state, "standing_rule.scope_binding_rejected"),
+        audit_count(&env.state, "standing_rule.activation_refused"),
         1,
         "the refusal leaves durable owner-actionable evidence"
     );

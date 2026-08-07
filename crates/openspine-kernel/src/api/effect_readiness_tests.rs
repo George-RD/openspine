@@ -103,9 +103,10 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
-    store.activate_standing_rule(&rule, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &rule, now);
     let active_rule = store
         .active_standing_rule_for_action(&ActionId::new("coolify.deploy"), now)
         .unwrap()
@@ -138,11 +139,15 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
             OWNER_CHAT_ID,
             payload_ref,
             &fingerprint,
+            None,
+            None,
             now + Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer scheduled");
+        .timer_id()
+        .expect("timer scheduled")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + Duration::from_secs(60))
         .unwrap()
@@ -206,9 +211,10 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
-    store.activate_standing_rule(&rule, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &rule, now);
     let active_rule = store
         .active_standing_rule_for_action(&ActionId::new("coolify.deploy"), now)
         .unwrap()
@@ -241,11 +247,15 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
             OWNER_CHAT_ID,
             payload_ref,
             &fingerprint,
+            None,
+            None,
             now + Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer scheduled");
+        .timer_id()
+        .expect("timer scheduled")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + Duration::from_secs(60))
         .unwrap()

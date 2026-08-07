@@ -59,10 +59,11 @@ fn deny_default_never_dispatches_and_is_terminal() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Deny,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "reminder.create", now);
     let grant_id = Ulid::new();
     let bound_chat_id = 7;
@@ -77,11 +78,15 @@ fn deny_default_never_dispatches_and_is_terminal() {
             bound_chat_id,
             payload_ref,
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("new timer inserted");
+        .timer_id()
+        .expect("new timer inserted")
+        .to_string();
     assert!(
         store
             .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
@@ -120,10 +125,11 @@ fn fired_allow_token_is_digest_bound_and_one_use() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "message.send", now);
     let grant_id = Ulid::new();
     let chat = 9;
@@ -136,11 +142,15 @@ fn fired_allow_token_is_digest_bound_and_one_use() {
             chat,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer inserted");
+        .timer_id()
+        .expect("timer inserted")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
         .unwrap()
@@ -220,10 +230,11 @@ fn fired_allow_token_rejects_different_fingerprint() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "message.send", now);
     let grant_id = Ulid::new();
     let chat = 10;
@@ -236,11 +247,15 @@ fn fired_allow_token_rejects_different_fingerprint() {
             chat,
             original_payload,
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer inserted");
+        .timer_id()
+        .expect("timer inserted")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
         .unwrap()
@@ -283,10 +298,11 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Deny,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "reminder.create", now);
     let grant_id = Ulid::new();
     let chat = 11;
@@ -299,11 +315,13 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
             chat,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap();
-    assert!(first.is_some());
+    assert!(first.timer_id().is_some());
     let second = store
         .schedule_standing_rule_dark_window(
             &rule,
@@ -311,17 +329,22 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
             chat,
             payload_ref,
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap();
     assert!(
-        second.is_none(),
+        second.timer_id().is_none(),
         "duplicate live timer must not be inserted"
     );
     let pending_id = pending_id_for(&store, &rule.rule_id, &fingerprint);
     store
-        .claim_standing_rule_dark_window(&first.unwrap(), now + std::time::Duration::from_secs(60))
+        .claim_standing_rule_dark_window(
+            first.timer_id().expect("scheduled"),
+            now + std::time::Duration::from_secs(60),
+        )
         .unwrap();
     let third = store
         .schedule_standing_rule_dark_window(
@@ -330,12 +353,14 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
             chat,
             None,
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(120),
             now,
         )
         .unwrap();
     assert!(
-        third.is_none(),
+        third.timer_id().is_none(),
         "resolved terminal request must not reschedule"
     );
     assert!(!pending_id.is_empty());
@@ -359,10 +384,11 @@ fn owner_resolution_before_fire_controls_claim() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Deny,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "owner.reply", now);
 
     let allow_grant = Ulid::new();
@@ -376,11 +402,15 @@ fn owner_resolution_before_fire_controls_claim() {
             21,
             allow_payload,
             &allow_fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("allow timer inserted");
+        .timer_id()
+        .expect("allow timer inserted")
+        .to_string();
     let allow_pending_id = pending_id_for(&store, &rule.rule_id, &allow_fingerprint);
     assert!(store
         .resolve_pending_action(&allow_pending_id, true, now)
@@ -402,11 +432,15 @@ fn owner_resolution_before_fire_controls_claim() {
             22,
             deny_payload,
             &deny_fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("deny timer inserted");
+        .timer_id()
+        .expect("deny timer inserted")
+        .to_string();
     let deny_pending_id = pending_id_for(&store, &rule.rule_id, &deny_fingerprint);
     assert!(store
         .resolve_pending_action(&deny_pending_id, false, now)
@@ -435,10 +469,11 @@ fn allowed_pending_is_recoverable_until_consumed() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "recovery.send", now);
     let grant_id = Ulid::new();
     let chat = 31;
@@ -451,11 +486,15 @@ fn allowed_pending_is_recoverable_until_consumed() {
             chat,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer inserted");
+        .timer_id()
+        .expect("timer inserted")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
         .unwrap()
@@ -504,10 +543,11 @@ fn claimed_fired_pending_is_surfaced_once_not_redispatched() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store.activate_standing_rule(&manifest, None, now).unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest, now);
     let rule = active_rule(&store, "claimed.send", now);
     let grant_id = Ulid::new();
     let chat = 41;
@@ -520,11 +560,15 @@ fn claimed_fired_pending_is_surfaced_once_not_redispatched() {
             chat,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("timer inserted");
+        .timer_id()
+        .expect("timer inserted")
+        .to_string();
     let pending = store
         .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
         .unwrap()
@@ -639,7 +683,9 @@ fn exact_deadline_expiry_boundary_is_uniform() {
             None,
         );
         let base = Timestamp::from_second(2_000_000).unwrap();
-        store.activate_standing_rule(&manifest, None, base).unwrap();
+        crate::store::standing_rules_tests::activate_or_install_legacy_allow(
+            &store, &manifest, base,
+        );
         (store, ActionId::new("deadline.action"), base)
     };
     // Lookup path (its own store).
@@ -699,12 +745,11 @@ fn reactivated_version_gets_distinct_pending_timer() {
         Some(DarkWindowConfig {
             timeout_secs: 60,
             default: DarkWindowDefault::Allow,
+            max_pending_exceptions: 1,
         }),
     );
     let now = Timestamp::from_second(1_000_000).unwrap();
-    store
-        .activate_standing_rule(&manifest_v1, None, now)
-        .unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest_v1, now);
     let rule_v1 = active_rule(&store, "versioned.action", now);
     let grant1 = Ulid::new();
     let chat = 91;
@@ -717,18 +762,20 @@ fn reactivated_version_gets_distinct_pending_timer() {
             chat,
             payload_ref.clone(),
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("v1 timer inserted");
+        .timer_id()
+        .expect("v1 timer inserted")
+        .to_string();
     let pending1 = pending_id_for(&store, &rule_v1.rule_id, &fingerprint);
     // Reactivate as v2, same rule identity and same request fingerprint.
     let mut manifest_v2 = manifest_v1.clone();
     manifest_v2.version = 2;
-    store
-        .activate_standing_rule(&manifest_v2, None, now)
-        .unwrap();
+    crate::store::standing_rules_tests::activate_or_install_legacy_allow(&store, &manifest_v2, now);
     let rule_v2 = active_rule(&store, "versioned.action", now);
     assert_eq!(rule_v2.version, 2);
     let timer2 = store
@@ -738,11 +785,15 @@ fn reactivated_version_gets_distinct_pending_timer() {
             chat,
             payload_ref,
             &fingerprint,
+            None,
+            None,
             now + std::time::Duration::from_secs(60),
             now,
         )
         .unwrap()
-        .expect("v2 timer inserted (distinct from v1)");
+        .timer_id()
+        .expect("v2 timer inserted (distinct from v1)")
+        .to_string();
     assert_ne!(timer1, timer2, "v2 must schedule a distinct timer");
     let pending2: String = store
         .conn

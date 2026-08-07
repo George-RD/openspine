@@ -259,7 +259,7 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
         nerve::ensure_schema(&conn)?;
-        Ok(Self {
+        let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
             activation_tx_failure: Arc::new(AtomicBool::new(false)),
@@ -271,7 +271,14 @@ impl Store {
             fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
             fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
             fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
-        })
+        };
+        // #135/D-162: the activation guard is not retroactive. A rule stored
+        // before it existed can still carry an ineligible dark-window Allow,
+        // and hydration re-reads it without re-checking. Converge the database
+        // on every open so the prohibition is true of what is stored, not only
+        // of what is newly activated.
+        store.sweep_ineligible_dark_window_allow_rules(jiff::Timestamp::now())?;
+        Ok(store)
     }
 
     pub fn open_in_memory() -> Result<Self, StoreError> {
@@ -718,6 +725,7 @@ mod migration_scoped_tests;
 #[cfg(test)]
 mod migration_tests;
 mod migrations;
+mod migrations_versioned;
 pub(crate) mod nerve;
 pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
@@ -732,17 +740,28 @@ pub(crate) mod spend;
 #[cfg(test)]
 mod standing_rule_scheduling_tests;
 pub(crate) mod standing_rules;
+mod standing_rules_activation_guard;
 #[cfg(test)]
 mod standing_rules_activation_tests;
+#[cfg(test)]
+mod standing_rules_allow_eligibility_tests;
 pub(crate) mod standing_rules_budget;
+pub(crate) mod standing_rules_exceptions;
+#[cfg(test)]
+mod standing_rules_exceptions_tests;
+pub(crate) mod standing_rules_fired_token;
+mod standing_rules_owner_resolution;
 pub(crate) mod standing_rules_pending;
 pub(crate) mod standing_rules_recovery;
 mod standing_rules_row;
 #[cfg(test)]
 pub(crate) mod standing_rules_scenario_tests;
+pub(crate) mod standing_rules_schema;
 pub(crate) mod standing_rules_scoped;
 #[cfg(test)]
 mod standing_rules_scoped_tests;
+#[cfg(test)]
+mod standing_rules_staleness_tests;
 #[cfg(test)]
 pub(crate) mod standing_rules_tests;
 pub(crate) mod task_board;

@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786113025.0387487,
-    "ast_hash": "290ffa5e2312c421f63f1355a414a887",
+    "mtime": 1786113460.0099387,
+    "ast_hash": "eb37fc3c1bdcbf6c6150be1a8b50cf09",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/gate-action-api/spec.md": {
-    "mtime": 1786045869.5899723,
-    "ast_hash": "3e9e538bf67c12ad1908674991739502",
+    "mtime": 1786113418.1476548,
+    "ast_hash": "8e878e5d57b884413b480860f61c3eb2",
     "semantic_hash": ""
   },
   "openspec/specs/telegram-owner-control-slice/spec.md": {
@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/digest-bound-draft-approval/spec.md": {
-    "mtime": 1786045869.5896382,
-    "ast_hash": "1fe5aa2e4a75ffe00e8f07488c3242ce",
+    "mtime": 1786113418.1471696,
+    "ast_hash": "bfa1d1a5d47b49e971fdbe24c2394325",
     "semantic_hash": ""
   },
   "autoresearch.sh": {
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/standing-rules/spec.md": {
-    "mtime": 1786074498.409699,
-    "ast_hash": "d4ac3da04b628b4c1b7fa7f0e334e994",
+    "mtime": 1786113418.1484623,
+    "ast_hash": "ab355557bd5c73a3065fc010b5988947",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/worker_e2e_tests.rs": {
@@ -3650,8 +3650,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/responsibility-contract/spec.md": {
-    "mtime": 1786045869.590406,
-    "ast_hash": "2312d670099eb7576fe3613e494af279",
+    "mtime": 1786113418.148105,
+    "ast_hash": "9982879fad2169476c228da21cd3d972",
     "semantic_hash": ""
   },
   "openspine.terminal.example.yaml": {
@@ -3909,41 +3909,6 @@
     "ast_hash": "85c2e348d80057cd910db97e8b7a365c",
     "semantic_hash": ""
   },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/design.md": {
-    "mtime": 1786112323.783333,
-    "ast_hash": "234a76e94bcaa18ab4210d8e9df7e079",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/proposal.md": {
-    "mtime": 1786112335.9584334,
-    "ast_hash": "c65615eb5159d3a105b51702910cf70d",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/digest-bound-draft-approval/spec.md": {
-    "mtime": 1786076871.5135446,
-    "ast_hash": "f1edaa4b52d6af902d193736fe303a44",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/gate-action-api/spec.md": {
-    "mtime": 1786076871.5137205,
-    "ast_hash": "956f0ee72b9c4602e4fdf1ccb0d64aeb",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/responsibility-contract/spec.md": {
-    "mtime": 1786076871.5139072,
-    "ast_hash": "728bb1253994eeb09a290a552493f14c",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/standing-rules/spec.md": {
-    "mtime": 1786076871.5141103,
-    "ast_hash": "dfef2050d9c62d46b306e465a1d911fb",
-    "semantic_hash": ""
-  },
-  "openspec/changes/mine-and-match-reusable-authority-by-scope/tasks.md": {
-    "mtime": 1786112611.3199065,
-    "ast_hash": "252bb36e275350bbc43b3c582d252fd7",
-    "semantic_hash": ""
-  },
   "scripts/capability-map-migration.mjs": {
     "mtime": 1786113025.0400262,
     "ast_hash": "81f6e6d80231970f16a6af492caaeadb",
@@ -4092,6 +4057,41 @@
   ".omp/config.yml": {
     "mtime": 1784211411.0413876,
     "ast_hash": "bad1ef51866a10d750e67e58e81d6385",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/design.md": {
+    "mtime": 1786112323.783333,
+    "ast_hash": "234a76e94bcaa18ab4210d8e9df7e079",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/proposal.md": {
+    "mtime": 1786112335.9584334,
+    "ast_hash": "c65615eb5159d3a105b51702910cf70d",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/specs/digest-bound-draft-approval/spec.md": {
+    "mtime": 1786076871.5135446,
+    "ast_hash": "f1edaa4b52d6af902d193736fe303a44",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/specs/gate-action-api/spec.md": {
+    "mtime": 1786076871.5137205,
+    "ast_hash": "956f0ee72b9c4602e4fdf1ccb0d64aeb",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/specs/responsibility-contract/spec.md": {
+    "mtime": 1786076871.5139072,
+    "ast_hash": "728bb1253994eeb09a290a552493f14c",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/specs/standing-rules/spec.md": {
+    "mtime": 1786076871.5141103,
+    "ast_hash": "dfef2050d9c62d46b306e465a1d911fb",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-mine-and-match-reusable-authority-by-scope/tasks.md": {
+    "mtime": 1786112611.3199065,
+    "ast_hash": "252bb36e275350bbc43b3c582d252fd7",
     "semantic_hash": ""
   }
 }

@@ -9,12 +9,16 @@
 use openspine_schemas::action::{ActionCatalog, ActionId, EffectPath, EffectPathClass};
 use openspine_schemas::selection::SelectionTokenType;
 
+#[path = "action_catalog_contracts.rs"]
+mod action_catalog_contracts;
 #[path = "action_catalog_data.rs"]
 mod action_catalog_data;
 /// The canonical declaration of what a standing rule for an action must bind,
 /// re-exported so activation-time scope-binding enforcement reads the same
 /// descriptor table the catalog itself is assembled from.
-pub(crate) use action_catalog_data::required_scope_dimensions_for;
+pub(crate) use action_catalog_contracts::{
+    dark_window_allow_eligible, required_scope_dimensions_for,
+};
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
 }
@@ -378,6 +382,40 @@ mod tests {
             ),
             Err(DelegationCatalogError::MissingImplementationDescriptor { .. })
         ));
+    }
+
+    /// #135/D-162: the dark-window `Allow` eligibility allowlist is empty, and
+    /// emptiness is the whole security property — 28 test call sites take
+    /// their legacy-row branch because activation refuses, so if an action
+    /// ever became eligible those tests would silently switch to the `Ok(())`
+    /// branch and keep passing. Pinned here for the same reason, and in the
+    /// same shape, as the non-effect stub allowlist below.
+    #[test]
+    fn dark_window_allow_eligibility_allowlist_is_empty_and_fails_closed() {
+        assert!(
+            super::action_catalog_contracts::dark_window_allow_eligible_actions().is_empty(),
+            "no action may be dark-window Allow eligible without an explicit catalog decision \
+             and proposal-specific proof (#133)"
+        );
+        // An id the catalog has never heard of is ineligible, not unclassified.
+        assert!(!super::dark_window_allow_eligible(&id(
+            "unknown.future_action"
+        )));
+        // Connector writes and communication stay ineligible by construction.
+        for action in [
+            "email.send",
+            "email.create_draft",
+            "coolify.deploy",
+            "filesystem.host_write",
+            "secret.rotate",
+            "network.raw_egress",
+            "policy.modify_direct",
+        ] {
+            assert!(
+                !super::dark_window_allow_eligible(&id(action)),
+                "{action} must never be dark-window Allow eligible"
+            );
+        }
     }
 
     #[test]

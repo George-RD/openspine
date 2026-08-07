@@ -109,6 +109,31 @@ impl Store {
         reservation_id: &str,
         used_at: Timestamp,
     ) -> Result<bool, StoreError> {
+        self.finalize_reservation_inner(rule_id, version, reservation_id, used_at, true)
+    }
+
+    /// Finalize a reservation minted by a fired dark-window exception (#135).
+    /// Identical to [`Self::finalize_standing_rule_reservation`] except that
+    /// it does not refresh the lapse-after-unused clock: owner silence is not
+    /// evidence that the owner is still exercising the responsibility (D-161).
+    pub fn finalize_standing_rule_exception_reservation(
+        &self,
+        rule_id: &str,
+        version: u32,
+        reservation_id: &str,
+        used_at: Timestamp,
+    ) -> Result<bool, StoreError> {
+        self.finalize_reservation_inner(rule_id, version, reservation_id, used_at, false)
+    }
+
+    fn finalize_reservation_inner(
+        &self,
+        rule_id: &str,
+        version: u32,
+        reservation_id: &str,
+        used_at: Timestamp,
+        refresh_lapse_clock: bool,
+    ) -> Result<bool, StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(used_at)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -146,7 +171,7 @@ impl Store {
         if changed != 2 {
             return Ok(false);
         }
-        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos)?;
+        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos, refresh_lapse_clock)?;
         tx.commit()?;
         Ok(true)
     }
@@ -166,10 +191,21 @@ impl Store {
         rule_id: &str,
         used_at: Timestamp,
     ) -> Result<(), StoreError> {
+        self.note_standing_rule_use_with_lapse(rule_id, used_at, true)
+    }
+
+    /// As [`Self::note_standing_rule_use`], but `refresh_lapse_clock = false`
+    /// for a fired dark-window exception (D-161).
+    pub fn note_standing_rule_use_with_lapse(
+        &self,
+        rule_id: &str,
+        used_at: Timestamp,
+        refresh_lapse_clock: bool,
+    ) -> Result<(), StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(used_at)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos)?;
+        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos, refresh_lapse_clock)?;
         tx.commit()?;
         Ok(())
     }
@@ -189,11 +225,20 @@ impl Store {
         tx: &rusqlite::Transaction<'_>,
         rule_id: &str,
         now_nanos: i64,
+        refresh_lapse_clock: bool,
     ) -> Result<(), StoreError> {
-        tx.execute(
-            "UPDATE standing_rules SET last_used_at = ?2 WHERE rule_id = ?1",
-            params![rule_id, now_nanos],
-        )?;
+        // #135/D-161: a fired dark-window exception does NOT refresh the
+        // lapse-after-unused clock. That clock exists so a responsibility the
+        // owner has stopped exercising retires itself; owner silence must not
+        // keep alive exactly the rule it should retire. The drift trigger
+        // below still runs, because a rule saturating through silence is
+        // precisely one the owner should re-review.
+        if refresh_lapse_clock {
+            tx.execute(
+                "UPDATE standing_rules SET last_used_at = ?2 WHERE rule_id = ?1",
+                params![rule_id, now_nanos],
+            )?;
+        }
         let drift: Option<(i64, i64, i64)> = tx
             .query_row(
                 "SELECT rate_window_secs, rate_max, activated_at \
@@ -224,6 +269,11 @@ impl Store {
             |r| r.get(0),
         )?;
         if recent_rate_windows >= 3 {
+            // #135: a rule pushed to needs_review by drift must leave no
+            // fireable exception behind, on every version it holds.
+            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                tx, rule_id, None, now_nanos,
+            )?;
             tx.execute(
                 "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
                  WHERE rule_id = ?1 AND status = 'active'",
@@ -357,7 +407,14 @@ impl Store {
         // (D-073). One canonical boundary for both admission paths.
         if deadline <= now_nanos {
             // Expired: mark needs_review (canonical matcher behavior) and fall
-            // back to normal approval.
+            // back to normal approval. #135: stale its open exceptions in the
+            // same transaction so none can still fire.
+            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                &tx,
+                &rule.rule_id,
+                Some(rule.version),
+                now_nanos,
+            )?;
             tx.execute(
                 "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
                  WHERE rule_id = ?1 AND status = 'active'",

@@ -22,6 +22,9 @@ use openspine_schemas::standing_rule::{DarkWindowDefault, StandingRuleManifest};
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use ulid::Ulid;
 
+use super::standing_rules_activation_guard::{
+    dark_window_allow_rejection, scope_binding_rejection,
+};
 use super::{Store, StoreError};
 
 /// One active standing rule plus its budget configuration. Usage counters
@@ -68,113 +71,12 @@ pub struct PendingScheduleCtx {
     pub grant_id: Ulid,
     pub payload_ref: Option<ArtifactRef>,
     pub fingerprint: String,
-}
-
-pub fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS standing_rules (
-            rule_id TEXT PRIMARY KEY,
-            artifact_id TEXT NOT NULL,
-            version INTEGER NOT NULL,
-            action_id TEXT NOT NULL,
-            rule_json TEXT NOT NULL,
-            quota_max INTEGER NOT NULL,
-            quota_window_secs INTEGER NOT NULL,
-            rate_max INTEGER NOT NULL,
-            rate_window_secs INTEGER NOT NULL,
-            expires_after_secs INTEGER NOT NULL,
-            dark_window_timeout_secs INTEGER,
-            dark_window_default TEXT,
-            status TEXT NOT NULL,
-            activated_at INTEGER NOT NULL,
-            last_used_at INTEGER,
-            revoked_at INTEGER,
-            needs_review_since INTEGER
-        );
-        CREATE INDEX IF NOT EXISTS idx_standing_rules_action
-            ON standing_rules (action_id, status);
-        CREATE TABLE IF NOT EXISTS standing_rule_usage (
-            seq INTEGER PRIMARY KEY AUTOINCREMENT,
-            rule_id TEXT NOT NULL,
-            version INTEGER NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('quota', 'rate')),
-            used_at INTEGER NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('reserved', 'committed', 'waiver')),
-            reservation_id TEXT NOT NULL,
-            FOREIGN KEY(rule_id) REFERENCES standing_rules(rule_id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_standing_rule_usage_window
-            ON standing_rule_usage (rule_id, kind, status, used_at);
-        CREATE TABLE IF NOT EXISTS standing_rule_pending_actions (
-            pending_id TEXT PRIMARY KEY,
-            rule_id TEXT NOT NULL,
-            rule_version INTEGER NOT NULL,
-            task_grant_id TEXT NOT NULL,
-            action_id TEXT NOT NULL,
-            bound_chat_id INTEGER NOT NULL,
-            payload_ref_json TEXT,
-            dark_window_default TEXT NOT NULL CHECK(dark_window_default IN ('allow', 'deny')),
-            request_fingerprint TEXT NOT NULL,
-            requested_at INTEGER NOT NULL,
-            resolved_at INTEGER,
-            resolution TEXT CHECK(resolution IN ('allowed', 'denied', 'stale')),
-            dispatch_state TEXT NOT NULL DEFAULT 'none'
-                CHECK(dispatch_state IN ('none', 'claimed', 'dispatched')),
-            token_consumed_at INTEGER,
-            dispatch_receipt_digest TEXT,
-            owner_attention_since INTEGER,
-            FOREIGN KEY(rule_id) REFERENCES standing_rules(rule_id) ON DELETE CASCADE
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_standing_rule_pending_fingerprint
-            ON standing_rule_pending_actions (rule_id, rule_version, request_fingerprint);
-        CREATE TABLE IF NOT EXISTS standing_rule_timer_links (
-            timer_id TEXT PRIMARY KEY,
-            pending_id TEXT NOT NULL,
-            applied_at INTEGER,
-            FOREIGN KEY(pending_id) REFERENCES standing_rule_pending_actions(pending_id) ON DELETE CASCADE
-        );",
-    )?;
-    Ok(())
-}
-
-/// Why a standing rule may not be activated for its action, or `None` when its
-/// reviewed-scope binding is complete (or the action's descriptor declares no
-/// required dimensions at all).
-///
-/// This is the enforcement point the standing-rules spec names — "a rule
-/// missing any required dimension MUST be rejected **before activation**" —
-/// and it lives here rather than in [`StandingRuleManifest::validate`] because
-/// the required dimension set lives on the catalog's `ActionDescriptor`, which
-/// a self-contained manifest cannot reach. `validate` keeps the check it *can*
-/// perform (the stored digest agreeing with the stored values).
-///
-/// Refusing at activation is what keeps the store's contents honest: without
-/// it an incomplete binding is caught only at match time by the scope-key
-/// pre-filter, leaving a malformed rule sitting in the store looking active
-/// while being silently unmatchable.
-pub(crate) fn scope_binding_rejection(manifest: &StandingRuleManifest) -> Option<String> {
-    let required = crate::action_catalog::required_scope_dimensions_for(&manifest.action_id)?;
-    let Some(binding) = manifest.reviewed_scope.as_ref() else {
-        return Some(format!(
-            "standing rule for {} must bind a reviewed scope: its descriptor declares {} required \
-             dimension(s)",
-            manifest.action_id,
-            required.len()
-        ));
-    };
-    let missing = required
-        .iter()
-        .filter(|dimension| !binding.scope.dimensions().contains_key(dimension))
-        .map(|dimension| format!("{dimension:?}"))
-        .collect::<Vec<_>>();
-    if !missing.is_empty() {
-        return Some(format!(
-            "standing rule for {} omits required reviewed scope dimension(s): {}",
-            manifest.action_id,
-            missing.join(", ")
-        ));
-    }
-    None
+    /// The reviewed scope key and compatibility epoch of the resolved context
+    /// this exception is minted against (#135). `None` for a rule with no
+    /// scope binding, which has no context to bind. A fired token is refused
+    /// later when the freshly resolved context no longer equals these.
+    pub reviewed_scope_digest: Option<String>,
+    pub compatibility_digest: Option<String>,
 }
 
 impl Store {
@@ -203,11 +105,13 @@ impl Store {
         &self,
         manifest: &StandingRuleManifest,
     ) -> Result<(), StoreError> {
-        let Some(reason) = scope_binding_rejection(manifest) else {
+        let Some(reason) =
+            scope_binding_rejection(manifest).or_else(|| dark_window_allow_rejection(manifest))
+        else {
             return Ok(());
         };
         self.append_audit(
-            "standing_rule.scope_binding_rejected",
+            "standing_rule.activation_refused",
             Some(&manifest.action_id),
             None,
             Some(&reason),
@@ -237,7 +141,9 @@ impl Store {
         // whose reviewed-scope binding omits a dimension its action's
         // descriptor requires. The durable refusal audit is written by
         // `reject_incomplete_scope_binding` before this transaction opens.
-        if let Some(reason) = scope_binding_rejection(manifest) {
+        if let Some(reason) =
+            scope_binding_rejection(manifest).or_else(|| dark_window_allow_rejection(manifest))
+        {
             return Err(StoreError::ProposedArtifactLifecycle(reason));
         }
         let dark_timeout = manifest.dark_window.map(|d| d.timeout_secs);
@@ -276,6 +182,19 @@ impl Store {
                 return Ok(());
             }
         }
+        // #135: a superseded version's open exceptions were reviewed against
+        // the old rule and must not survive into the new one. Stale them in
+        // the same transaction that installs the new version.
+        if let Some(current_version) = current_version {
+            if (manifest.version as i64) > current_version {
+                super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                    tx,
+                    &manifest.id,
+                    u32::try_from(current_version).ok(),
+                    now_nanos,
+                )?;
+            }
+        }
         Self::append_audit_conn(
             tx,
             "standing_rule.activated",
@@ -308,8 +227,8 @@ impl Store {
                 quota_max, quota_window_secs, rate_max, rate_window_secs,
                 expires_after_secs, dark_window_timeout_secs, dark_window_default,
                 status, activated_at, last_used_at, revoked_at, needs_review_since,
-                reviewed_scope_digest, compatibility_digest
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'active', ?13, NULL, NULL, NULL, ?14, ?15)
+                reviewed_scope_digest, compatibility_digest, dark_window_max_pending
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'active', ?13, NULL, NULL, NULL, ?14, ?15, ?16)
              ON CONFLICT(rule_id) DO UPDATE SET
                 artifact_id = excluded.artifact_id,
                 version = excluded.version,
@@ -328,7 +247,8 @@ impl Store {
                 revoked_at = excluded.revoked_at,
                 needs_review_since = excluded.needs_review_since,
                 reviewed_scope_digest = excluded.reviewed_scope_digest,
-                compatibility_digest = excluded.compatibility_digest
+                compatibility_digest = excluded.compatibility_digest,
+                dark_window_max_pending = excluded.dark_window_max_pending
              WHERE excluded.version > standing_rules.version",
             params![
                 manifest.id,
@@ -346,6 +266,9 @@ impl Store {
                 now_nanos,
                 reviewed_scope_digest,
                 compatibility_digest,
+                manifest
+                    .dark_window
+                    .map(|dw| i64::from(dw.max_pending_exceptions)),
             ],
         )?;
         Ok(())
@@ -367,10 +290,16 @@ impl Store {
             &[],
             &[],
         )?;
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        // #135: a revoked rule must leave nothing fireable behind. Same
+        // transaction as the revoke, so the two cannot be observed apart.
+        super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+            &tx, rule_id, None, now_nanos,
+        )?;
         let changed = tx.execute(
             "UPDATE standing_rules SET status = 'revoked', revoked_at = ?2 \
              WHERE rule_id = ?1 AND status != 'revoked'",
-            params![rule_id, timestamp_to_epoch_nanos(now)?],
+            params![rule_id, now_nanos],
         )?;
         tx.commit()?;
         Ok(changed == 1)
@@ -386,7 +315,7 @@ impl Store {
         action_id: &ActionId,
         now: Timestamp,
     ) -> Result<Option<StandingRule>, StoreError> {
-        let conn = self.conn.lock();
+        let mut conn = self.conn.lock();
         let row: Option<RuleRow> = conn
             .query_row(
                 &format!(
@@ -410,11 +339,22 @@ impl Store {
         // reaches `deadline` (i.e. `deadline <= now`), matching the strict
         // fired-token SQL (`elapsed < expiry`) and the atomic consult path.
         if deadline_nanos <= now_nanos {
-            conn.execute(
+            // #135: the lapse and the staling of its open exceptions land in
+            // one transaction, so a lapsed rule can never leave a fireable
+            // exception behind.
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                &tx,
+                &rule.rule_id,
+                Some(rule.version),
+                now_nanos,
+            )?;
+            tx.execute(
                 "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
                  WHERE rule_id = ?1 AND status = 'active'",
                 params![rule.rule_id, now_nanos],
             )?;
+            tx.commit()?;
             return Ok(None);
         }
         Ok(Some(rule))
