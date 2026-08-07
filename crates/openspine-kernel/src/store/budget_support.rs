@@ -115,7 +115,7 @@ impl Store {
     /// ago. Called at the top of `insert_task_grant` — no separate scheduled
     /// job exists yet, so every new grant is itself a sweep trigger.
     pub fn sweep_expired_grants(&self, now: Timestamp) -> Result<(), StoreError> {
-        let cutoff = (now - GRANT_RETENTION).to_string();
+        let cutoff = super::sql_timestamp(now - GRANT_RETENTION);
         let conn = self.conn.lock();
         conn.execute(
             "DELETE FROM task_grants WHERE expires_at < ?1",

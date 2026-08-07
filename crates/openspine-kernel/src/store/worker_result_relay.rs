@@ -181,7 +181,7 @@ impl Store {
             ));
         }
         let seq = i64::try_from(global_seq).map_err(|_| StoreError::NumericRange)?;
-        let now = Timestamp::now().to_string();
+        let now = super::sql_timestamp(Timestamp::now());
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if attempt < MAX_ATTEMPTS {

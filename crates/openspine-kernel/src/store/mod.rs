@@ -20,6 +20,8 @@
 //! ad-hoc lane once a destructive schema change is first needed.
 
 mod pending_draft;
+mod sql_time;
+pub(crate) use sql_time::sql_timestamp;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 #[cfg(test)]
@@ -370,7 +372,7 @@ impl Store {
             params![
                 grant.id.to_string(),
                 budget_support::hash_task_token(&grant.task_token),
-                grant.expires_at.to_string(),
+                sql_timestamp(grant.expires_at),
                 serde_json::to_string(&redacted)?,
                 pending_message_ref.digest.as_str(),
                 bound_chat_id,
@@ -702,6 +704,8 @@ pub(crate) mod event_bus;
 mod failure_surfacing;
 pub(crate) mod failure_surfacing_types;
 mod gate_support;
+#[cfg(test)]
+mod gate_support_tests;
 mod identity;
 #[cfg(test)]
 mod identity_tests;
@@ -765,7 +769,7 @@ impl Store {
             "UPDATE task_grants SET task_token = ?1, expires_at = ?2, grant_json = ?3 WHERE id = ?4",
             params![
                 budget_support::hash_task_token(&grant.task_token),
-                grant.expires_at.to_string(),
+                sql_timestamp(grant.expires_at),
                 serde_json::to_string(&redacted)?,
                 grant.id.to_string(),
             ],

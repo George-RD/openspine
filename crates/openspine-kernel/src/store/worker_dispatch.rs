@@ -9,7 +9,7 @@
 //! as events). Recording is receipt-keyed and fail-closed (D-083): a result
 //! for an already-terminal dispatch is rejected, never replayed.
 
-use super::{Store, StoreError};
+use super::{sql_timestamp, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
@@ -88,7 +88,7 @@ pub fn record_worker_commissioned(
     // The configured limit is the last failure that exhausts continuation: once
     // `recent_failures >= restart_limit` rows are present, the next fresh
     // commission is refused (the failed worker's grant is never inherited).
-    let cutoff = (Timestamp::now() - std::time::Duration::from_secs(30)).to_string();
+    let cutoff = sql_timestamp(Timestamp::now() - std::time::Duration::from_secs(30));
     let recent_failures: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM connector_restart_ledger \
@@ -107,7 +107,7 @@ pub fn record_worker_commissioned(
         params![
             grant.id.to_string(),
             super::budget_support::hash_task_token(&grant.task_token),
-            grant.expires_at.to_string(),
+            sql_timestamp(grant.expires_at),
             serde_json::to_string(&redacted)?,
             pending_ref.digest.as_str(),
             bound_chat_id,
@@ -132,7 +132,7 @@ pub fn record_worker_commissioned(
             identity.conversation,
             identity.task,
             connector,
-            jiff::Timestamp::now().to_string(),
+            sql_timestamp(jiff::Timestamp::now()),
         ],
     )?;
     Store::append_audit_conn_with_options(
@@ -213,7 +213,7 @@ pub fn pending_worker_dispatches(
     cutoff: jiff::Timestamp,
 ) -> Result<Vec<(Ulid, ArtifactRef)>, StoreError> {
     let conn = store.conn.lock();
-    let cutoff = cutoff.to_string();
+    let cutoff = sql_timestamp(cutoff);
     let rows = conn
         .prepare(
             "SELECT grant_id, token_ref FROM worker_dispatch \
@@ -265,7 +265,7 @@ pub fn surface_stranded_worker(
         &[],
         &[],
     )?;
-    let now = Timestamp::now().to_string();
+    let now = sql_timestamp(Timestamp::now());
     let notification_id = Ulid::new().to_string();
     tx.execute(
         "INSERT INTO notify_dead_letters \
@@ -314,7 +314,7 @@ pub fn stranded_worker_timeouts(
     max_age: std::time::Duration,
 ) -> Result<Vec<(Ulid, Ulid)>, StoreError> {
     let conn = store.conn.lock();
-    let cutoff = (jiff::Timestamp::now() - max_age).to_string();
+    let cutoff = sql_timestamp(jiff::Timestamp::now() - max_age);
     let mut stmt = conn.prepare(
         "SELECT grant_id, parent_grant_id FROM worker_dispatch \
          WHERE state = 'dispatched' AND created_at < ?1 \

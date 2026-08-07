@@ -103,7 +103,7 @@ impl Store {
                 params![
                     grant.id.to_string(),
                     super::budget_support::hash_task_token(&grant.task_token),
-                    grant.expires_at.to_string(),
+                    super::sql_timestamp(grant.expires_at),
                     serde_json::to_string(&redacted)?,
                     pending_message_ref.digest.as_str(),
                     bound_chat_id,

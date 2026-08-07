@@ -1,5 +1,5 @@
 use super::task_board::{parse_ulid, DependencyWake, TimerDispatchRecord, TimerDispatchState};
-use super::{Store, StoreError};
+use super::{sql_timestamp, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::grant::TaskGrant;
@@ -129,7 +129,7 @@ impl Store {
             params![
                 grant.id.to_string(),
                 super::budget_support::hash_task_token(&grant.task_token),
-                grant.expires_at.to_string(),
+                sql_timestamp(grant.expires_at),
                 serde_json::to_string(&redacted)?,
                 pending_message_ref.digest.as_str(),
                 bound_chat_id,

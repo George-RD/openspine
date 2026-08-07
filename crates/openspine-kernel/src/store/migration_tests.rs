@@ -61,7 +61,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 3);
+        assert_eq!(user_version, 4);
 
         let table_exists: i64 = conn
             .query_row(
@@ -103,7 +103,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 3);
+        assert_eq!(user_version, 4);
 
         let table_exists: i64 = conn
             .query_row(
@@ -169,7 +169,7 @@ fn legacy_user_version_0_stamps_and_migrates() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 3);
+        assert_eq!(user_version, 4);
 
         // Verify legacy row survived (aggregate_id default is 'system')
         let agg_id: String = conn
@@ -205,7 +205,7 @@ fn versioned_migrations_atomicity_rollback() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 3);
+        assert_eq!(user_version, 4);
     }
     drop(store);
 
@@ -223,7 +223,7 @@ fn versioned_migrations_atomicity_rollback() {
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 3);
+    assert_eq!(user_version, 4);
 
     let table_exists: i64 = conn
         .query_row(
@@ -255,7 +255,7 @@ fn versioned_migrations_future_rejected() {
             err,
             crate::store::StoreError::UnsupportedVersion {
                 current: 99,
-                latest: 3
+                latest: 4
             }
         ),
         "expected UnsupportedVersion, got {err:?}"
@@ -323,7 +323,7 @@ fn v2_to_v3_skills_schema_migration_backfills_legacy_rows() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 3, "v3 migration must have run");
+        assert_eq!(user_version, 4, "v3 and v4 migrations must have run");
 
         // Verify the column exists.
         let col_count: i64 = conn
@@ -349,4 +349,90 @@ fn v2_to_v3_skills_schema_migration_backfills_legacy_rows() {
     );
     assert_eq!(skill.id, "legacy_skill");
     assert_eq!(skill.version, 1);
+}
+
+/// v4 rewrites the order-compared `TEXT` timestamp columns to the fixed
+/// nine-digit form. A legacy whole-second `next_attempt_at` is the value that
+/// used to sort *after* a later sub-second `now`, hiding a due dead letter.
+#[test]
+fn v4_normalizes_legacy_timestamp_renderings_idempotently() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("kernel.db");
+    let store = Store::open(&path).unwrap();
+    {
+        let conn = store.conn.lock();
+        // Re-introduce the three legacy renderings jiff's Display can emit.
+        conn.execute_batch(
+            "INSERT INTO notify_dead_letters \
+               (id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, \
+                next_attempt_at, state) \
+             VALUES \
+               ('whole', '2026-01-01T00:00:00Z', 1, 'r', '', '', 0, '2026-01-01T00:00:00Z', 'pending'), \
+               ('short', '2026-01-01T00:00:00.5Z', 2, 'r', '', '', 0, '2026-01-01T00:00:00.5Z', 'pending'), \
+               ('full',  '2026-01-01T00:00:00.123456789Z', 3, 'r', '', '', 0, '2026-01-01T00:00:00.123456789Z', 'pending');",
+        )
+        .unwrap();
+        // Roll the stamp back so the next open re-applies v4 over these rows.
+        conn.execute_batch("PRAGMA user_version = 3").unwrap();
+    }
+    drop(store);
+
+    let store = Store::open(&path).unwrap();
+    let rendered: Vec<String> = {
+        let conn = store.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT next_attempt_at FROM notify_dead_letters ORDER BY id")
+            .unwrap();
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        rows
+    };
+    assert_eq!(
+        rendered,
+        vec![
+            "2026-01-01T00:00:00.123456789Z".to_string(),
+            "2026-01-01T00:00:00.500000000Z".to_string(),
+            "2026-01-01T00:00:00.000000000Z".to_string(),
+        ],
+        "every legacy rendering must become the fixed nine-digit form"
+    );
+    assert!(
+        rendered
+            .iter()
+            .all(|value| value.len() == rendered[0].len()),
+        "fixed width is what makes SQLite's byte comparison a valid time order"
+    );
+    // The whole-second row is the regression: it must now sort before a later
+    // sub-second instant, which its legacy rendering did not.
+    let whole = &rendered[2];
+    let later = crate::store::sql_timestamp("2026-01-01T00:00:00.000000001Z".parse().unwrap());
+    assert!(whole.as_str() < later.as_str());
+    drop(store);
+
+    // Re-running the migration over already-canonical rows changes nothing.
+    let store = Store::open(&path).unwrap();
+    {
+        let mut conn = store.conn.lock();
+        crate::store::migrations::apply_single_migration_for_test(
+            &mut conn,
+            4,
+            crate::store::migrations::timestamp_normalization_sql_for_test(),
+        )
+        .unwrap();
+        let again: Vec<String> = {
+            let mut stmt = conn
+                .prepare("SELECT next_attempt_at FROM notify_dead_letters ORDER BY id")
+                .unwrap();
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            rows
+        };
+        assert_eq!(again, rendered, "the normalization must be idempotent");
+    }
 }

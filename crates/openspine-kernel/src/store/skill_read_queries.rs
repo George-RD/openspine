@@ -192,7 +192,7 @@ pub(crate) fn insert_skill_context_selection(
             selection.skill_id,
             selection.skill_version,
             selection.task_class,
-            selection.expires_at.to_string(),
+            super::sql_timestamp(selection.expires_at),
         ],
     )?;
     Ok(())
