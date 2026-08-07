@@ -63,6 +63,18 @@ mod preview_tests;
 mod artifact_propose_tests;
 
 #[cfg(test)]
+mod eval_gate_tests;
+
+#[cfg(test)]
+mod eval_gate_currency_tests;
+
+#[cfg(test)]
+mod eval_gate_production_tests;
+
+#[cfg(test)]
+mod eval_gate_replay_tests;
+
+#[cfg(test)]
 mod artifact_activation_tests;
 #[cfg(test)]
 mod model_swap_fault_tests;

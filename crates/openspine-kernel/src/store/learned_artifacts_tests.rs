@@ -415,6 +415,9 @@ fn activation_cannot_replace_erased_identity_with_other_scope() {
             payload_ref: None,
             dangling: true,
             superseded_old_version: None,
+            live_descriptor_version: None,
+            live_implementation_version: None,
+            live_policy_version: None,
             standing_rule: None,
         })
         .unwrap_err();

@@ -49,6 +49,14 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
     // lane for the same reason v5 was; the versioned entry is a pure stamp
     // whose down path drops the column.
     VersionedMigration { version: 6, up: "" },
+    // Entry v7 marks the schema that carries the eval-verdict epoch columns
+    // (#133): the proposal, compatibility, reviewed-scope and evidence-set
+    // digests plus the descriptor, implementation and policy versions a
+    // verdict was computed under. Added additively by the ad-hoc lane for the
+    // same reason v5 and v6 were; the versioned entry is a pure stamp whose
+    // down path drops the columns. No backfill: a pre-#133 row records no
+    // epochs and is therefore compared on no axis.
+    VersionedMigration { version: 7, up: "" },
 ];
 
 /// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
@@ -126,5 +134,17 @@ pub(super) const VERSIONED_DOWNS: &[(i64, &str)] = &[
         "ALTER TABLE standing_rules DROP COLUMN dark_window_max_pending;
          ALTER TABLE standing_rule_pending_actions DROP COLUMN reviewed_scope_digest;
          ALTER TABLE standing_rule_pending_actions DROP COLUMN compatibility_digest;",
+    ),
+    // v7 added the seven nullable eval-verdict epoch columns; the downgrade
+    // drops them. Rows are untouched.
+    (
+        7,
+        "ALTER TABLE eval_verdicts DROP COLUMN proposal_digest;
+         ALTER TABLE eval_verdicts DROP COLUMN compatibility_digest;
+         ALTER TABLE eval_verdicts DROP COLUMN reviewed_scope_digest;
+         ALTER TABLE eval_verdicts DROP COLUMN evidence_set_digest;
+         ALTER TABLE eval_verdicts DROP COLUMN descriptor_version;
+         ALTER TABLE eval_verdicts DROP COLUMN implementation_version;
+         ALTER TABLE eval_verdicts DROP COLUMN policy_version;",
     ),
 ];

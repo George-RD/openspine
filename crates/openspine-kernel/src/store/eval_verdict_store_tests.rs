@@ -5,7 +5,7 @@ use jiff::Timestamp;
 use std::time::Duration;
 use ulid::Ulid;
 
-use super::eval_verdict_store::EvalVerdict;
+use super::eval_verdict_store::{EvalVerdict, VerdictEpochs};
 use super::Store;
 
 fn digest(n: u8) -> String {
@@ -31,6 +31,7 @@ fn verdict(
         evaluator: Some("judge-family-a".to_string()),
         artifact_digest: digest(1),
         recorded_at,
+        epochs: VerdictEpochs::default(),
     }
 }
 

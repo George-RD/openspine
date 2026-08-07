@@ -180,6 +180,22 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // `define-lineage-and-eval-store`: eval-verdict/fitness store as its own
     // indexed table (non-retrofittable set; AD-111 verdict landing).
     super::eval_verdict_store::ensure_schema(conn)?;
+    // make-reusable-authority-evaluation-proposal-specific (#134): the epochs
+    // a verdict was computed under, so staleness is derived at read time
+    // instead of being swept onto the row. Additive, idempotent, nullable —
+    // legacy verdicts read back with every epoch `None`, which records
+    // "nothing was bound on that axis" rather than a false currency claim.
+    for sql in [
+        "ALTER TABLE eval_verdicts ADD COLUMN proposal_digest TEXT",
+        "ALTER TABLE eval_verdicts ADD COLUMN compatibility_digest TEXT",
+        "ALTER TABLE eval_verdicts ADD COLUMN reviewed_scope_digest TEXT",
+        "ALTER TABLE eval_verdicts ADD COLUMN evidence_set_digest TEXT",
+        "ALTER TABLE eval_verdicts ADD COLUMN descriptor_version INTEGER",
+        "ALTER TABLE eval_verdicts ADD COLUMN implementation_version INTEGER",
+        "ALTER TABLE eval_verdicts ADD COLUMN policy_version INTEGER",
+    ] {
+        add_column_if_missing(conn, sql)?;
+    }
     super::workflow_timers::ensure_schema(conn)?;
     // AD-143: durable global per-day spend ledger (kernel-wide admission boundary).
     super::spend::ensure_schema(conn)?;
