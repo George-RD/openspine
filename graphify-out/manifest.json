@@ -1,12 +1,12 @@
 {
   "AGENTS.md": {
-    "mtime": 1777204481.8186269,
-    "ast_hash": "f07b9404a71a45b783c9ebe550db4459",
+    "mtime": 1786086064.8050852,
+    "ast_hash": "955d9ffc739737fa7b3e5daff0b7d1ff",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
-    "mtime": 1777204517.9871414,
-    "ast_hash": "f07b9404a71a45b783c9ebe550db4459",
+    "mtime": 1786078022.0145347,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
     "semantic_hash": ""
   },
   "openspec/conventions.md": {
@@ -52,16 +52,6 @@
   "openspec/specs/digest-bound-draft-approval/spec.md": {
     "mtime": 1786045869.5896382,
     "ast_hash": "1fe5aa2e4a75ffe00e8f07488c3242ce",
-    "semantic_hash": ""
-  },
-  ".claude/settings.json": {
-    "mtime": 1777204517.9874444,
-    "ast_hash": "5c511cbdc7fcda005c8112e781c563bd",
-    "semantic_hash": ""
-  },
-  ".codex/hooks.json": {
-    "mtime": 1777204481.818871,
-    "ast_hash": "b1643d69c38ea633ec815c49798d8da1",
     "semantic_hash": ""
   },
   "autoresearch.sh": {
@@ -449,66 +439,6 @@
     "ast_hash": "1d3613ac08bdda17e2b82251613dbc21",
     "semantic_hash": ""
   },
-  ".claude/commands/opsx/apply.md": {
-    "mtime": 1777204115.7491004,
-    "ast_hash": "1678894a7cfd1ea31917ed6ebeabc11b",
-    "semantic_hash": ""
-  },
-  ".claude/commands/opsx/archive.md": {
-    "mtime": 1777204115.749446,
-    "ast_hash": "622fed432675ead218192e24f3343e19",
-    "semantic_hash": ""
-  },
-  ".claude/commands/opsx/explore.md": {
-    "mtime": 1777204115.7468836,
-    "ast_hash": "bca6fe1d095ba5a832abed55072b9def",
-    "semantic_hash": ""
-  },
-  ".claude/commands/opsx/propose.md": {
-    "mtime": 1777204115.7497702,
-    "ast_hash": "0997adc1ed0af0a068544bc87a177770",
-    "semantic_hash": ""
-  },
-  ".claude/skills/openspec-apply-change/SKILL.md": {
-    "mtime": 1777204115.7445762,
-    "ast_hash": "113ad4a13c30634311141d6dadcc0464",
-    "semantic_hash": ""
-  },
-  ".claude/skills/openspec-archive-change/SKILL.md": {
-    "mtime": 1777204115.7450547,
-    "ast_hash": "f010cb3292d101742592bcad1abfe762",
-    "semantic_hash": ""
-  },
-  ".claude/skills/openspec-explore/SKILL.md": {
-    "mtime": 1777204115.7441473,
-    "ast_hash": "d160105373f4fe54bfbe1790b343c51b",
-    "semantic_hash": ""
-  },
-  ".claude/skills/openspec-propose/SKILL.md": {
-    "mtime": 1777204115.7455816,
-    "ast_hash": "0753f4a4ce92da2b27bef07c994bef17",
-    "semantic_hash": ""
-  },
-  ".codex/skills/openspec-apply-change/SKILL.md": {
-    "mtime": 1777204115.7351975,
-    "ast_hash": "113ad4a13c30634311141d6dadcc0464",
-    "semantic_hash": ""
-  },
-  ".codex/skills/openspec-archive-change/SKILL.md": {
-    "mtime": 1777204115.735551,
-    "ast_hash": "f010cb3292d101742592bcad1abfe762",
-    "semantic_hash": ""
-  },
-  ".codex/skills/openspec-explore/SKILL.md": {
-    "mtime": 1777204115.7347174,
-    "ast_hash": "d160105373f4fe54bfbe1790b343c51b",
-    "semantic_hash": ""
-  },
-  ".codex/skills/openspec-propose/SKILL.md": {
-    "mtime": 1777204115.735979,
-    "ast_hash": "0753f4a4ce92da2b27bef07c994bef17",
-    "semantic_hash": ""
-  },
   ".github/workflows/ci.yml": {
     "mtime": 1784901296.1623642,
     "ast_hash": "a61ce21e7104bb93a806a52e326ff92c",
@@ -562,46 +492,6 @@
   ".omp/skills/reference-hunt/SKILL.md": {
     "mtime": 1783428445.2379646,
     "ast_hash": "ee5e82e12ca3f186284d9ae844251c90",
-    "semantic_hash": ""
-  },
-  ".opencode/commands/opsx-apply.md": {
-    "mtime": 1777204115.7417011,
-    "ast_hash": "98dfe12d359f39ac0d631c06c7f4d134",
-    "semantic_hash": ""
-  },
-  ".opencode/commands/opsx-archive.md": {
-    "mtime": 1777204115.741876,
-    "ast_hash": "48a27c2c74ccc0c38f73f5fe1731403b",
-    "semantic_hash": ""
-  },
-  ".opencode/commands/opsx-explore.md": {
-    "mtime": 1777204115.7414577,
-    "ast_hash": "74d5125862b00db97818eb3cbbee8167",
-    "semantic_hash": ""
-  },
-  ".opencode/commands/opsx-propose.md": {
-    "mtime": 1777204115.742054,
-    "ast_hash": "a0c6cfc575d565b5343b1d829a198909",
-    "semantic_hash": ""
-  },
-  ".opencode/skills/openspec-apply-change/SKILL.md": {
-    "mtime": 1777204115.740351,
-    "ast_hash": "78fc4f21278a5f6609f5fa00b2b22306",
-    "semantic_hash": ""
-  },
-  ".opencode/skills/openspec-archive-change/SKILL.md": {
-    "mtime": 1777204115.7406933,
-    "ast_hash": "f010cb3292d101742592bcad1abfe762",
-    "semantic_hash": ""
-  },
-  ".opencode/skills/openspec-explore/SKILL.md": {
-    "mtime": 1777204115.7398684,
-    "ast_hash": "01227b0646944af4c0a5fd1b31ec6ce1",
-    "semantic_hash": ""
-  },
-  ".opencode/skills/openspec-propose/SKILL.md": {
-    "mtime": 1777204115.7411351,
-    "ast_hash": "cafdd99d14adcd7f90c0cd6a50ed5f9a",
     "semantic_hash": ""
   },
   ".raw/openspine-agentos-design-log.md": {
@@ -4085,37 +3975,37 @@
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/design.md": {
-    "mtime": 1786076461.2137098,
+    "mtime": 1786076871.5131269,
     "ast_hash": "95c3b5b92a7252deeab6a0f46f25fac0",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/proposal.md": {
-    "mtime": 1786076407.8805935,
+    "mtime": 1786076871.5132918,
     "ast_hash": "418bf88573810a67b1849f23dff18d3e",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/digest-bound-draft-approval/spec.md": {
-    "mtime": 1786076625.1801488,
+    "mtime": 1786076871.5135446,
     "ast_hash": "f1edaa4b52d6af902d193736fe303a44",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/gate-action-api/spec.md": {
-    "mtime": 1786076590.991067,
+    "mtime": 1786076871.5137205,
     "ast_hash": "956f0ee72b9c4602e4fdf1ccb0d64aeb",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/responsibility-contract/spec.md": {
-    "mtime": 1786076564.7028234,
+    "mtime": 1786076871.5139072,
     "ast_hash": "728bb1253994eeb09a290a552493f14c",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/specs/standing-rules/spec.md": {
-    "mtime": 1786076533.9809318,
+    "mtime": 1786076871.5141103,
     "ast_hash": "dfef2050d9c62d46b306e465a1d911fb",
     "semantic_hash": ""
   },
   "openspec/changes/mine-and-match-reusable-authority-by-scope/tasks.md": {
-    "mtime": 1786076493.6786718,
+    "mtime": 1786076871.5142493,
     "ast_hash": "99314a403410c063532b100534f7a12a",
     "semantic_hash": ""
   }
