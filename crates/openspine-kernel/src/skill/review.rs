@@ -165,6 +165,7 @@ fn record_verdict(
         evaluator: Some("ad110_mined_promotion_review".to_string()),
         artifact_digest: skill.content_digest.as_str().to_string(),
         recorded_at: Timestamp::now(),
+        epochs: Default::default(),
     };
     insert_eval_verdict_conn(&tx, &row)?;
     tx.commit()?;

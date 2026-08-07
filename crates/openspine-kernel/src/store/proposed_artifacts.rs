@@ -465,6 +465,7 @@ impl Store {
         proposal_id: Ulid,
         replay: ReplayPassed,
         judge: JudgePassed,
+        epochs: super::eval_verdict_store::VerdictEpochs,
     ) -> Result<(), StoreError> {
         if replay.artifact_digest() != judge.artifact_digest() {
             return Err(StoreError::ProposedArtifactLifecycle(
@@ -508,7 +509,7 @@ impl Store {
                 replay.verdict(),
                 replay.fitness(),
                 replay.evidence_json(),
-                "overlay-eval-gate/replay@v1",
+                "overlay-eval-gate/replay@v2",
                 replay_at,
             ),
             (
@@ -516,7 +517,7 @@ impl Store {
                 judge.verdict(),
                 judge.fitness(),
                 judge.evidence_json(),
-                "overlay-eval-gate/risk-judge@v1",
+                "overlay-eval-gate/risk-judge@v2",
                 judge_at,
             ),
         ] {
@@ -531,6 +532,9 @@ impl Store {
                 evaluator: Some(evaluator.to_string()),
                 artifact_digest: digest.clone(),
                 recorded_at,
+                // The epochs both verdicts were computed under (#133),
+                // so activation can decide currency at read time.
+                epochs: epochs.clone(),
             };
             super::eval_verdict_store::insert_eval_verdict_conn(&tx, &verdict_row)?;
         }

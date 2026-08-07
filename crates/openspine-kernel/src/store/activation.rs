@@ -23,6 +23,12 @@ pub struct ActivationCommit {
         openspine_schemas::standing_rule::StandingRuleManifest,
         Option<Ulid>,
     )>,
+    /// Live catalog/policy epochs at activation time, for the #133 verdict
+    /// currency re-check. `None` on any axis means the caller could not
+    /// resolve it, and that axis is simply not compared.
+    pub live_descriptor_version: Option<u32>,
+    pub live_implementation_version: Option<u32>,
+    pub live_policy_version: Option<u32>,
 }
 impl Store {
     /// Atomically persist an activation's durable disposition (learned row +
@@ -37,6 +43,9 @@ impl Store {
             dangling,
             superseded_old_version,
             standing_rule,
+            live_descriptor_version,
+            live_implementation_version,
+            live_policy_version,
         } = input;
         let provenance_json = serde_json::to_string(&learned.provenance)
             .map_err(|err| StoreError::LearnedArtifact(format!("provenance json: {err}")))?;
@@ -46,6 +55,21 @@ impl Store {
         // before activation).
         if let Some((manifest, _)) = standing_rule.as_ref() {
             self.reject_incomplete_scope_binding(manifest)?;
+            // A verdict earned at propose time must still bind the live
+            // epochs at activation time (#133). Read-time comparison, before
+            // the transaction, so the refusal audit survives.
+            let live = self.live_epochs_for_standing_rule(
+                manifest,
+                live_descriptor_version,
+                live_implementation_version,
+                live_policy_version,
+            );
+            self.reject_stale_eval_verdicts(
+                "standing_rule",
+                manifest.id.as_str(),
+                manifest.version,
+                &live,
+            )?;
         }
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;

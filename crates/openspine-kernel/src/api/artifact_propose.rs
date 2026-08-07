@@ -242,12 +242,56 @@ pub(crate) async fn dispatch_artifact_propose(
     //    `state.artifacts.put` is content-addressed, so it yields the same
     //    digest (D-011 binding preserved across the boundary).
     let proposal_digest = openspine_schemas::digest::digest_of_bytes(effective_yaml.as_bytes());
+    // Every trusted dimension is resolved here, by the kernel, and handed to
+    // the gate. The proposal cannot assert its own executor readiness, its
+    // own policy standing, or which rules it overlaps (#133).
+    let eval_action = match &parsed {
+        ParsedProposal::StandingRule(rule) => Some(rule.action_id.clone()),
+        _ => None,
+    };
+    let active_rules = match eval_action.as_ref() {
+        Some(action) => state
+            .store
+            .active_standing_rules_for_action(action, jiff::Timestamp::now())
+            .map_err(|err| DispatchError::Resource(err.into()))?,
+        None => Vec::new(),
+    };
+    let denied_actions: Vec<openspine_schemas::action::ActionId> = {
+        let registry = state.registry.read();
+        registry
+            .policies
+            .values()
+            .flat_map(|policy| policy.denied_actions.iter().cloned())
+            .collect()
+    };
+    let policy_version = {
+        let registry = state.registry.read();
+        crate::overlay_eval_gate::eval_input::policy_epoch(
+            registry.policies.iter().map(|(id, p)| (id, p.version)),
+        )
+    };
+    // Readiness means the kernel can actually execute the action, by either
+    // of the two real paths: a registered effect executor (the reusable
+    // delegation path) or a registered action handler (the shell-dispatch
+    // path). Checking only the former would refuse handler-backed actions
+    // such as `connector.enable`, which the kernel executes perfectly well.
+    let executor_ready = |action: &openspine_schemas::action::ActionId| {
+        state.is_execution_backed(action) || state.action_handlers.lookup(action.as_str()).is_some()
+    };
+    let sources = crate::overlay_eval_gate::AssemblySources {
+        catalog: &state.action_catalog,
+        executor_ready: &executor_ready,
+        denied_actions: &denied_actions,
+        active_rules,
+        policy_version,
+    };
     let eval = if matches!(parsed, ParsedProposal::ModelSwap(_)) {
         run_model_swap_gate(
             &state.store,
             &state.action_catalog,
             &parsed,
             &proposal_digest,
+            sources,
         )
     } else {
         run_gate(
@@ -255,6 +299,7 @@ pub(crate) async fn dispatch_artifact_propose(
             &state.action_catalog,
             &parsed,
             &proposal_digest,
+            sources,
         )
     }
     .map_err(|err| DispatchError::BadRequest(err.to_string()))?;
@@ -321,7 +366,7 @@ pub(crate) async fn dispatch_artifact_propose(
     //    promotion leaves no orphan action_request the owner could tap.
     state
         .store
-        .promote_authority_bearing_proposal(proposal_id, eval.replay, eval.judge)
+        .promote_authority_bearing_proposal(proposal_id, eval.replay, eval.judge, eval.epochs)
         .map_err(|err| DispatchError::Resource(err.into()))?;
     let target_digest = digest_of(&json!({
         "kind": kind,

@@ -159,6 +159,9 @@ fn artifact_activation_commit_refuses_an_unbound_scope_rule() {
             payload_ref: None,
             dangling: true,
             superseded_old_version: None,
+            live_descriptor_version: None,
+            live_implementation_version: None,
+            live_policy_version: None,
             standing_rule: Some((unbound, None)),
         })
         .expect_err("an incomplete binding must not activate through the artifact commit");

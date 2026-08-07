@@ -49,9 +49,12 @@
 //! change (mirroring how AD-152's model-swap golden-set format is
 //! deferred to `implement-model-swap-ceremony`).
 
+pub(crate) mod eval_input;
 mod judge;
 pub(crate) mod personality_probes;
 mod replay;
+mod replay_cases;
+mod summary;
 
 #[cfg(test)]
 mod tests;
@@ -62,6 +65,7 @@ use openspine_schemas::digest::Digest;
 use crate::artifact_loader::ParsedProposal;
 use crate::store::Store;
 
+pub(crate) use eval_input::{AssemblySources, IncompleteInput};
 pub(crate) use judge::JudgeDenial;
 pub(crate) use replay::ReplayDenial;
 
@@ -80,12 +84,15 @@ pub enum GateDenial {
     Judge(#[from] JudgeDenial),
     #[error("approval summary exceeds the bounded safety limit")]
     ApprovalSummaryTooLong,
+    #[error("evaluation input incomplete: {0}")]
+    IncompleteInput(#[from] IncompleteInput),
 }
 
 /// Unforgeable proof the offline replay evaluator ran to completion and
 /// concluded the proposal may proceed, bound to the exact artifact digest
 /// it was run against (D-011). See the module doc for why fields are
 /// private and why that binding matters.
+#[derive(Debug)]
 pub struct ReplayPassed {
     verdict: &'static str,
     fitness: Option<f64>,
@@ -111,6 +118,7 @@ impl ReplayPassed {
 /// Unforgeable proof the adversarial risk-judge evaluator ran to
 /// completion and concluded the proposal may proceed, bound to the exact
 /// artifact digest it was run against (D-011).
+#[derive(Debug)]
 pub struct JudgePassed {
     verdict: &'static str,
     fitness: Option<f64>,
@@ -135,10 +143,14 @@ impl JudgePassed {
 
 /// Both passing verdicts, plus a short human-readable summary meant for
 /// the owner's approval message (AD-142: "informed, not decorative").
+#[derive(Debug)]
 pub struct GateEvidence {
     pub replay: ReplayPassed,
     pub judge: JudgePassed,
     pub summary: String,
+    /// The epochs both verdicts were computed under, stored with them so
+    /// staleness is decidable at read time (#133).
+    pub epochs: crate::store::VerdictEpochs,
 }
 
 /// Run the AD-142 gate for one proposal against the exact bytes
@@ -151,23 +163,27 @@ pub fn run_gate(
     catalog: &ActionCatalog,
     proposal: &ParsedProposal,
     artifact_digest: &Digest,
+    sources: AssemblySources<'_>,
 ) -> Result<GateEvidence, GateDenial> {
     if matches!(proposal, ParsedProposal::ModelSwap(_)) {
         return Err(GateDenial::ModelSwapRequiresVerifiedRunner);
     }
-    let replay = replay::evaluate(store, proposal, artifact_digest)?;
-    let judge = judge::evaluate(catalog, proposal, artifact_digest)?;
-    let summary = format!(
-        "AD-142 overlay eval gate — replay: {} ({}); risk judge: {} ({})",
-        replay.verdict(),
-        replay.evidence_json(),
-        judge.verdict(),
-        judge.evidence_json(),
-    );
+    // Assemble first: an unresolvable dimension is a denial naming it, never
+    // a fallback to evaluating the proposal as a generic artifact (#133).
+    let input = eval_input::assemble(proposal, artifact_digest, sources)?;
+    // Judge before replay: both must pass, but a structural denial names the
+    // axis that is actually wrong ("no registered executor") where an
+    // availability denial would mask it behind "no owner history".
+    let judge = judge::evaluate(catalog, &input, proposal, artifact_digest)?;
+    let replay = replay::evaluate(store, catalog, &input, proposal, artifact_digest)?;
+    // Copy is rendered from the stored evidence, never authored: there is no
+    // free-text field in which a replay claim could outrun the ledger.
+    let summary = summary::render(&replay, &judge);
     Ok(GateEvidence {
         replay,
         judge,
         summary,
+        epochs: input.epochs().clone(),
     })
 }
 /// Run the model-swap branch after `model_swap::enrich` has executed the
@@ -179,12 +195,14 @@ pub(crate) fn run_model_swap_gate(
     catalog: &ActionCatalog,
     proposal: &ParsedProposal,
     artifact_digest: &Digest,
+    sources: AssemblySources<'_>,
 ) -> Result<GateEvidence, GateDenial> {
     if !matches!(proposal, ParsedProposal::ModelSwap(_)) {
         return Err(GateDenial::ModelSwapRequiresVerifiedRunner);
     }
-    let replay = replay::evaluate(store, proposal, artifact_digest)?;
-    let judge = judge::evaluate(catalog, proposal, artifact_digest)?;
+    let input = eval_input::assemble(proposal, artifact_digest, sources)?;
+    let judge = judge::evaluate(catalog, &input, proposal, artifact_digest)?;
+    let replay = replay::evaluate(store, catalog, &input, proposal, artifact_digest)?;
     let summary = if let ParsedProposal::ModelSwap(manifest) = proposal {
         let observed_cases: Vec<_> = manifest
             .golden_set_result
@@ -224,5 +242,6 @@ pub(crate) fn run_model_swap_gate(
         replay,
         judge,
         summary,
+        epochs: input.epochs().clone(),
     })
 }

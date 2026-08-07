@@ -704,6 +704,9 @@ mod budget_support_tests;
 mod day2_tests;
 mod digest_store;
 pub(crate) mod disclosure_policies;
+mod eval_verdict_currency;
+#[cfg(test)]
+mod eval_verdict_epoch_tests;
 pub(crate) mod eval_verdict_store;
 #[cfg(test)]
 mod eval_verdict_store_tests;
@@ -774,6 +777,10 @@ pub(crate) mod worker_dispatch;
 pub(crate) mod worker_result_relay;
 pub(crate) mod worker_supervision;
 pub(crate) mod workflow_timers;
+
+/// The epoch set a verdict binds itself to; re-exported so evaluators can
+/// name it without reaching into the verdict store's module path.
+pub(crate) use eval_verdict_store::VerdictEpochs;
 
 impl Store {
     /// Test-only: force the next `commit_owner_reconfirmation` call to fail

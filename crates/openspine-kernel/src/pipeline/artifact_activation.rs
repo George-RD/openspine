@@ -218,6 +218,32 @@ pub(super) async fn activate_approved_artifact(
                     .map(|manifest| (manifest, Some(grant.id))),
                 dangling: !dangling.is_empty(),
                 superseded_old_version,
+                // Live epochs for the #133 verdict-currency re-check. Read
+                // from the canonical catalog at activation time, so a
+                // descriptor or implementation revised since the proposal was
+                // evaluated stales its verdicts instead of riding through.
+                live_descriptor_version: standing_rule_manifest.as_ref().and_then(|manifest| {
+                    state
+                        .action_catalog
+                        .delegation_descriptor_for(&manifest.action_id)
+                        .map(|descriptor| descriptor.descriptor_version)
+                }),
+                live_implementation_version: standing_rule_manifest.as_ref().and_then(|manifest| {
+                    state
+                        .action_catalog
+                        .implementation_descriptor_for_action(&manifest.action_id)
+                        .map(|implementation| implementation.implementation_version)
+                }),
+                // Same derivation as propose time: a different fold here
+                // would make every verdict read stale on this axis.
+                live_policy_version: crate::overlay_eval_gate::eval_input::policy_epoch(
+                    state
+                        .registry
+                        .read()
+                        .policies
+                        .iter()
+                        .map(|(id, p)| (id, p.version)),
+                ),
             })?;
     if !committed {
         let _ = std::fs::remove_file(&tmp_path);

@@ -40,9 +40,9 @@ pub(super) const OWNER_MAILBOX: &str = "owner@example.com";
 /// A live provider environment: mocked Gmail OAuth + API and a mocked
 /// Telegram endpoint (the executor's owner notification is best-effort but
 /// must not reach the real network).
-pub(super) struct DraftEnv {
-    pub(super) state: AppState,
-    pub(super) api_server: MockServer,
+pub(crate) struct DraftEnv {
+    pub(crate) state: AppState,
+    pub(crate) api_server: MockServer,
     _token_server: MockServer,
     _telegram_server: MockServer,
 }
@@ -122,7 +122,7 @@ pub(super) async fn draft_env_with_mailbox(mailbox: &str, threads: &[&str]) -> D
     }
 }
 
-pub(super) async fn draft_env(threads: &[&str]) -> DraftEnv {
+pub(crate) async fn draft_env(threads: &[&str]) -> DraftEnv {
     draft_env_with_mailbox(OWNER_MAILBOX, threads).await
 }
 
@@ -148,7 +148,7 @@ pub(super) async fn drafts_written(server: &MockServer) -> usize {
 /// A grant that needs owner approval for `email.create_draft`, carrying a
 /// kernel-authored selection token for `thread_id` and a briefcase whose task
 /// shape binds an identity-resolved counterparty.
-pub(super) fn mint_draft_grant(state: &AppState, thread_id: &str) -> TaskGrant {
+pub(crate) fn mint_draft_grant(state: &AppState, thread_id: &str) -> TaskGrant {
     let now = Timestamp::now();
     let user = state.owner_user_id.to_string();
     let token = SelectionToken {
@@ -246,7 +246,7 @@ pub(super) fn draft_payload() -> Value {
 /// Resolve the context the production path will resolve for this grant. Used
 /// to mint a rule bound to exactly that reviewed scope; the request under
 /// test then re-resolves it independently.
-pub(super) async fn resolved_context(state: &AppState, grant: &TaskGrant) -> ResolvedActionContext {
+pub(crate) async fn resolved_context(state: &AppState, grant: &TaskGrant) -> ResolvedActionContext {
     let payload_ref = state
         .artifacts
         .put(canonical_json(&draft_payload()).as_bytes())
@@ -267,7 +267,7 @@ pub(super) async fn resolved_context(state: &AppState, grant: &TaskGrant) -> Res
     }
 }
 
-pub(super) fn scoped_manifest(
+pub(crate) fn scoped_manifest(
     rule_id: &str,
     context: &ResolvedActionContext,
 ) -> StandingRuleManifest {
@@ -293,7 +293,7 @@ pub(super) fn scoped_manifest(
     m
 }
 
-pub(super) fn usage_count(state: &AppState, rule_id: &str, status: &str) -> i64 {
+pub(crate) fn usage_count(state: &AppState, rule_id: &str, status: &str) -> i64 {
     state
         .store
         .conn

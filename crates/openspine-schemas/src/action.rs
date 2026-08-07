@@ -129,6 +129,12 @@ pub struct ActionCatalog {
     /// mandatory output-channel + egress-class declaration. Enforcement reads
     /// ONLY this map; connector metadata is never consulted.
     egress_declarations: HashMap<ActionId, ActionEgressDeclaration>,
+    /// Actions that may carry a standing rule binding NO reviewed scope: the
+    /// rule narrows an approval requirement rather than admitting an effect.
+    /// Fail-closed, so `email.send` can never hold blanket reusable authority.
+    /// An explicit allowlist because no existing catalog axis separates the
+    /// two cases; the registration site carries per-entry justification.
+    approval_narrowing_actions: HashSet<ActionId>,
     /// Protocol-neutral declarations for actions eligible to participate in
     /// reusable delegation. Absence is a fail-closed ineligibility signal.
     delegation_descriptors: HashMap<ActionId, ActionDescriptor>,
@@ -147,10 +153,18 @@ impl ActionCatalog {
             token_requiring_actions: HashMap::new(),
             effect_paths: Vec::new(),
             counterparty_facing_actions: HashSet::new(),
+            approval_narrowing_actions: HashSet::new(),
             egress_declarations: HashMap::new(),
             delegation_descriptors: HashMap::new(),
             implementation_descriptors: HashMap::new(),
         }
+    }
+
+    /// Mark actions eligible to carry a standing rule with no reviewed scope.
+    /// Assigns rather than extends, like every sibling.
+    pub fn with_approval_narrowing(mut self, ids: impl IntoIterator<Item = ActionId>) -> Self {
+        self.approval_narrowing_actions = ids.into_iter().collect();
+        self
     }
 
     pub fn contains(&self, id: &ActionId) -> bool {
@@ -348,6 +362,16 @@ impl ActionCatalog {
     /// Unknown/unclassified actions return false (fail closed).
     pub fn is_counterparty_facing(&self, id: &ActionId) -> bool {
         self.counterparty_facing_actions.contains(id)
+    }
+
+    /// Whether `id` may carry a standing rule binding no reviewed scope.
+    pub fn is_approval_narrowing(&self, id: &ActionId) -> bool {
+        self.approval_narrowing_actions.contains(id)
+    }
+
+    /// Cardinality of that allowlist, so a test can pin the boundary by count.
+    pub fn approval_narrowing_count(&self) -> usize {
+        self.approval_narrowing_actions.len()
     }
 
     /// True if `id` is a kernel-origin action trusted to bypass the granting

@@ -492,7 +492,7 @@ mod drift_tests;
 mod outcome_tests;
 #[cfg(test)]
 #[path = "scoped_admission_support.rs"]
-mod scoped_admission_support;
+pub(super) mod scoped_admission_support;
 #[cfg(test)]
 #[path = "scoped_admission_tests.rs"]
 mod tests;

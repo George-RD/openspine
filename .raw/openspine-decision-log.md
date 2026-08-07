@@ -155,6 +155,9 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-160 | The pending request fingerprint keeps its token-binding job unchanged; the cap is keyed on `(rule_id, rule_version)` and the pending row separately binds the reviewed scope and compatibility epoch | Accepted |
 | D-161 | A fired dark-window exception is accounted as an exception, not as quota: distinct audit class, never pooled across rules or scopes, and it does not refresh the lapse-after-unused clock | Accepted |
 | D-162 | Dark-window `Allow` eligibility is an explicit, empty catalog allowlist enforced at activation and converged on stored rules by a startup sweep, not a classifier that permits whatever it cannot classify | Accepted |
+| D-163 | Reusable-authority replay means concrete cases executed against the exact proposed binding and derived from what that proposal already binds; a case-free or one-sided ledger is a denial, and a check that measures availability is named for what it measures | Accepted |
+| D-164 | Evaluation verdicts record the epochs they were computed under and their currency is decided at read time by comparing stored epochs against live values, re-checked at activation; no sweeper rewrites a stored verdict | Accepted |
+| D-165 | Owner-facing evaluation copy is rendered from the stored verdicts and their executed-case ledger, never authored as free text, and every evaluator is named by what it did | Accepted |
 
 ---
 
@@ -3856,6 +3859,73 @@ An allowlist rather than a classifier, learned the hard way. The first implement
 An adversarially verified design demonstrates a tightly bounded communication Allow default is safer than explicit review — the condition D-146 already names.
 
 ---
+---
+
+# D-163 — Reusable-authority replay means executed cases derived from the proposal
+
+## Decision
+
+For a reusable-authority proposal, replay executes concrete cases against the exact proposed reviewed-scope binding: a baseline case reconstructing the context the scope describes, which MUST match, and one changed-context case per bound instance dimension, each of which MUST be refused with the mismatch attributed to the dimension it varied. Every case is decided by `ReviewedActionScope::compare` against a real `ResolvedActionContext` — the same predicate `scoped_rule_matches` applies at admission. A ledger that is empty, that contains no matching case, or that contains no refused changed-context case is a denial, not a lower score. An evaluator that measures availability or corpus presence is named for what it measures and is never reported as a replay.
+
+## Rationale
+
+The first-cut evaluator D-060 shipped recorded `fitness: 1.0` for the fact that the owner had ever spoken, and the owner-facing copy called that a replay. A score lets a missing case become a slightly lower number; required case classes must be pass/fail. Deriving cases from the proposal's own binding keeps replay strictly proposal-specific without inventing a corpus of prior resolved contexts, which does not exist in the store. Reusing the admission predicate means a matching bug fails replay and admission together rather than one covering for the other.
+
+## Consequences
+
+- A proposal cannot reach owner review on evidence that merely exists; the evidence must be about that proposal.
+- A scope dimension that is silently not compared surfaces as a mutation case that matched when it should not have.
+- Replay executes no connector effect and writes nothing; it is a pure decision over in-memory candidate contexts.
+- Evaluator identity moves to `@v2`, so a pre-change verdict is distinguishable from a post-change one.
+
+## Would change if
+
+A durable, retention-bounded corpus of prior resolved action contexts lands, at which point holdout replay over real history extends — but does not replace — the derived adversarial cases.
+
+---
+
+# D-164 — Evaluation verdicts bind their epochs and stale at read time
+
+## Decision
+
+An evaluation verdict records the epochs it was computed under: proposal digest, compatibility digest, reviewed scope digest, evidence-set digest, and descriptor, implementation, and policy versions. A verdict is current only while every epoch it recorded still equals the live value; an axis it did not record is not compared, and an axis whose live counterpart has disappeared is stale. Currency is decided at read time by comparing stored columns against live values. No sweeper and no mutating pass rewrites a stored verdict.
+
+Currency is re-checked on the artifact-activation ceremony path (`commit_artifact_activation`). It is deliberately not re-checked at promotion, which computes the epochs it stores in the same operation and so cannot observe a stale verdict. One activation path is not yet covered: `disclosure.rs` activates a standing rule directly rather than through the ceremony, and predates this decision.
+
+## Rationale
+
+A verdict earned at propose time says nothing about the world at activation time: a descriptor can be revised, an executor deregistered, or a policy bumped in between, and #128 proved that changing an action's required dimensions moves its compatibility epoch. A background sweeper would leave a window in which a stale verdict still reads fresh and would strand a half-finished pass on a crash; read-time comparison has neither failure mode, the same reasoning that made read-time window filtering correct for budget headroom in D-157's neighbourhood.
+
+## Consequences
+
+- Adding a required scope dimension to an action automatically stales every verdict computed under the old dimension set, which is the fail-closed direction.
+- Pre-#133 verdicts recorded no epochs, are compared on no axis, and are therefore never spuriously stale.
+- A stale verdict supports neither promotion nor activation, and the refusal names the stale axes.
+
+## Would change if
+
+Verdicts gain an authenticated freshness proof that makes epoch comparison redundant, or epochs become derivable from the stored proposal alone.
+
+---
+
+# D-165 — Owner-facing evaluation copy is rendered from stored verdicts
+
+## Decision
+
+The owner-facing overlay gate summary is a pure function of the stored verdicts and their recorded evidence. It reports the executed-case counts and the structural axes that passed, names each evaluator by what it actually did, and contains no free-text field. The words replay and replayed appear only when the recorded evidence carries a non-zero executed-case count.
+
+## Rationale
+
+PR #125 shipped copy claiming prior examples were replayed when only corpus presence had been checked. Copy that is authored can outrun evidence; copy that is rendered cannot. Naming the evaluator from its own evidence rather than a hardcoded label also prevents the word replay appearing beside a pass on a proposal where nothing ran.
+
+## Consequences
+
+- With no ledger there is nothing to render, so a replay claim has no place to originate.
+- The propose-time gate summary and the owner review object rendered by the channel-neutral review work are separate surfaces with separate lifetimes; this decision governs the former.
+
+## Would change if
+
+The gate summary is replaced by the review object as the single owner-facing evaluation surface, at which point the same render-not-author rule moves with it.
 
 ## Change Log
 
@@ -3911,3 +3981,4 @@ An adversarially verified design demonstrates a tightly bounded communication Al
 | 2026-08-07 | Added D-154 (order-compared `TEXT` timestamp columns are written and compared through the fixed nine-digit `store::sql_time::sql_timestamp`; jiff's variable-width `Display` inverts time order inside a second, which stalled dead-letter retries and left selection tokens expiring on an exact second readable as live; versioned migration v4 normalizes existing rows), found by a post-merge `scripts/check.sh` failure on `main` after `#152`. |
 | 2026-08-07 | Added D-155–D-158 (separate reviewed-scope and compatibility digests; exact-one scoped matching with fail-closed ambiguity; conservative `EffectOutcome` reservation mapping; and standing-rule gate-time authority over the `ResponsibilityManifest` reference view), including authority-boundary, audit-boundary, and #127 non-regression verification obligations, settled while implementing `mine-and-match-reusable-authority-by-scope` (#128). |
 | 2026-08-07 | Added D-159–D-162 (outstanding dark-window exceptions bounded per reviewed rule version and counted inside the scheduling transaction; the cap and the fired-token binding keyed separately; fired exceptions accounted as exceptions rather than quota and excluded from the lapse clock; and dark-window `Allow` eligibility made an explicit empty allowlist enforced at activation and swept over stored rules), settled while implementing `bound-dark-window-exceptions` (#135). |
+| 2026-08-07 | Added D-163, D-164, D-165 for make-reusable-authority-evaluation-proposal-specific (#133): proposal-bound executed-case replay, verdict epoch binding with read-time staleness, and owner copy rendered from stored verdicts. |

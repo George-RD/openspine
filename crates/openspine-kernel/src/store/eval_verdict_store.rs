@@ -14,6 +14,95 @@ use ulid::Ulid;
 
 use super::{Store, StoreError};
 
+/// The epochs a verdict was computed under. All fields optional: a
+/// proposal kind that has no reviewed scope simply records `None`.
+///
+/// Recording the epochs is what makes staleness a *read-time* question: a
+/// verdict never has to be swept or rewritten, because the reader compares
+/// what the verdict bound itself to against what is live now.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[allow(dead_code)]
+pub struct VerdictEpochs {
+    pub proposal_digest: Option<String>,
+    pub compatibility_digest: Option<String>,
+    pub reviewed_scope_digest: Option<String>,
+    pub evidence_set_digest: Option<String>,
+    pub descriptor_version: Option<u32>,
+    pub implementation_version: Option<u32>,
+    pub policy_version: Option<u32>,
+}
+
+/// A recorded `None` binds nothing on that axis, so it is never compared.
+/// A recorded `Some` is stale unless the live value is the identical `Some`
+/// — including when the live value is `None`, i.e. the axis disappeared.
+fn digest_axis_stale(recorded: &Option<String>, live: &Option<String>) -> bool {
+    match recorded {
+        None => false,
+        Some(recorded) => live.as_deref() != Some(recorded.as_str()),
+    }
+}
+
+fn version_axis_stale(recorded: Option<u32>, live: Option<u32>) -> bool {
+    match recorded {
+        None => false,
+        Some(recorded) => live != Some(recorded),
+    }
+}
+
+#[allow(dead_code)]
+impl VerdictEpochs {
+    /// Every axis paired with whether it is stale, in a fixed audit order.
+    /// Returned by value on the stack so the currency check never allocates.
+    fn axis_staleness(&self, live: &Self) -> [(&'static str, bool); 7] {
+        [
+            (
+                "proposal_digest",
+                digest_axis_stale(&self.proposal_digest, &live.proposal_digest),
+            ),
+            (
+                "compatibility_digest",
+                digest_axis_stale(&self.compatibility_digest, &live.compatibility_digest),
+            ),
+            (
+                "reviewed_scope_digest",
+                digest_axis_stale(&self.reviewed_scope_digest, &live.reviewed_scope_digest),
+            ),
+            (
+                "evidence_set_digest",
+                digest_axis_stale(&self.evidence_set_digest, &live.evidence_set_digest),
+            ),
+            (
+                "descriptor_version",
+                version_axis_stale(self.descriptor_version, live.descriptor_version),
+            ),
+            (
+                "implementation_version",
+                version_axis_stale(self.implementation_version, live.implementation_version),
+            ),
+            (
+                "policy_version",
+                version_axis_stale(self.policy_version, live.policy_version),
+            ),
+        ]
+    }
+
+    /// Read-time currency: every epoch this verdict RECORDED must still
+    /// equal the corresponding live value. A recorded `None` is not
+    /// compared (nothing was bound on that axis). A recorded `Some` whose
+    /// live counterpart is `None` is STALE (the axis disappeared).
+    pub(crate) fn is_current_against(&self, live: &Self) -> bool {
+        self.axis_staleness(live).iter().all(|(_, stale)| !stale)
+    }
+
+    /// The names of the axes that no longer match, for audit/denial text.
+    pub(crate) fn stale_axes(&self, live: &Self) -> Vec<&'static str> {
+        self.axis_staleness(live)
+            .into_iter()
+            .filter_map(|(name, stale)| stale.then_some(name))
+            .collect()
+    }
+}
+
 /// One eval-verdict row.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
@@ -32,9 +121,12 @@ pub struct EvalVerdict {
     /// Digest of evaluated bytes (digest-bound, D-011).
     pub artifact_digest: String,
     pub recorded_at: Timestamp,
+    /// What this verdict was computed under; staleness is derived from it
+    /// at read time rather than stamped onto the row by a sweeper.
+    pub epochs: VerdictEpochs,
 }
 
-type EvalRow = (
+type EvalCore = (
     String,
     String,
     String,
@@ -46,6 +138,8 @@ type EvalRow = (
     String,
     i64,
 );
+
+type EvalRow = (EvalCore, VerdictEpochs);
 
 pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
     conn.execute_batch(
@@ -85,7 +179,10 @@ fn epoch_nanos_to_timestamp(nanos: i64) -> Result<Timestamp, StoreError> {
 }
 
 fn map_row(row: EvalRow) -> Result<EvalVerdict, StoreError> {
-    let (id, kind, aid, version, verdict, fitness, evidence, evaluator, digest, recorded_at) = row;
+    let (
+        (id, kind, aid, version, verdict, fitness, evidence, evaluator, digest, recorded_at),
+        epochs,
+    ) = row;
     Ok(EvalVerdict {
         id: Ulid::from_string(&id).map_err(|_| StoreError::BadDigest("eval_verdicts.id".into()))?,
         artifact_kind: kind,
@@ -97,24 +194,42 @@ fn map_row(row: EvalRow) -> Result<EvalVerdict, StoreError> {
         evaluator,
         artifact_digest: digest,
         recorded_at: epoch_nanos_to_timestamp(recorded_at)?,
+        epochs,
     })
 }
 
 const SELECT_COLS: &str = "id, artifact_kind, artifact_id, artifact_version, verdict, \
-     fitness, evidence, evaluator, artifact_digest, recorded_at";
+     fitness, evidence, evaluator, artifact_digest, recorded_at, \
+     proposal_digest, compatibility_digest, reviewed_scope_digest, evidence_set_digest, \
+     descriptor_version, implementation_version, policy_version";
+
+fn read_u32_col(row: &rusqlite::Row<'_>, idx: usize) -> rusqlite::Result<Option<u32>> {
+    Ok(row.get::<_, Option<i64>>(idx)?.map(|v| v as u32))
+}
 
 fn read_eval_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<EvalRow> {
     Ok((
-        row.get(0)?,
-        row.get(1)?,
-        row.get(2)?,
-        row.get(3)?,
-        row.get(4)?,
-        row.get(5)?,
-        row.get(6)?,
-        row.get(7)?,
-        row.get(8)?,
-        row.get(9)?,
+        (
+            row.get(0)?,
+            row.get(1)?,
+            row.get(2)?,
+            row.get(3)?,
+            row.get(4)?,
+            row.get(5)?,
+            row.get(6)?,
+            row.get(7)?,
+            row.get(8)?,
+            row.get(9)?,
+        ),
+        VerdictEpochs {
+            proposal_digest: row.get(10)?,
+            compatibility_digest: row.get(11)?,
+            reviewed_scope_digest: row.get(12)?,
+            evidence_set_digest: row.get(13)?,
+            descriptor_version: read_u32_col(row, 14)?,
+            implementation_version: read_u32_col(row, 15)?,
+            policy_version: read_u32_col(row, 16)?,
+        },
     ))
 }
 
@@ -127,11 +242,14 @@ pub(crate) fn insert_eval_verdict_conn(
     row: &EvalVerdict,
 ) -> Result<(), StoreError> {
     let recorded_at = timestamp_to_epoch_nanos(row.recorded_at)?;
+    let epochs = &row.epochs;
     conn.execute(
         "INSERT INTO eval_verdicts \
          (id, artifact_kind, artifact_id, artifact_version, verdict, \
-          fitness, evidence, evaluator, artifact_digest, recorded_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+          fitness, evidence, evaluator, artifact_digest, recorded_at, \
+          proposal_digest, compatibility_digest, reviewed_scope_digest, \
+          evidence_set_digest, descriptor_version, implementation_version, policy_version) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
         params![
             row.id.to_string(),
             row.artifact_kind,
@@ -143,6 +261,13 @@ pub(crate) fn insert_eval_verdict_conn(
             row.evaluator,
             row.artifact_digest,
             recorded_at,
+            epochs.proposal_digest,
+            epochs.compatibility_digest,
+            epochs.reviewed_scope_digest,
+            epochs.evidence_set_digest,
+            epochs.descriptor_version.map(i64::from),
+            epochs.implementation_version.map(i64::from),
+            epochs.policy_version.map(i64::from),
         ],
     )?;
     Ok(())

@@ -78,6 +78,39 @@ impl ScopedConsultOutcome {
 }
 
 impl Store {
+    /// Every active rule for one action, with its scope binding, for
+    /// proposal-time overlap evaluation (#133). Read-only: unlike
+    /// `consult_and_reserve_scoped_rule` this lapses nothing, reserves
+    /// nothing, and writes nothing — evaluation must not move runtime state.
+    /// Rows whose lapse deadline has passed are filtered out in memory (the
+    /// consult path would mark them `needs_review`; evaluation must not), so a
+    /// lapsed rule is not reported as an overlap incumbent.
+    pub fn active_standing_rules_for_action(
+        &self,
+        action_id: &openspine_schemas::action::ActionId,
+        now: Timestamp,
+    ) -> Result<Vec<StandingRule>, StoreError> {
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {RULE_ROW_COLUMNS} FROM standing_rules \
+             WHERE action_id = ?1 AND status = 'active' \
+             ORDER BY version DESC"
+        ))?;
+        let mut rules = Vec::new();
+        let mut query = stmt.query(params![action_id.to_string()])?;
+        while let Some(row) = query.next()? {
+            let rule = rule_from_row(rule_row_from_row(row)?, "active")?;
+            let reference =
+                timestamp_to_epoch_nanos(rule.last_used_at.unwrap_or(rule.activated_at))?;
+            if reference + rule.expires_after_secs * 1_000_000_000 <= now_nanos {
+                continue;
+            }
+            rules.push(rule);
+        }
+        Ok(rules)
+    }
+
     /// Select exactly one compatible scoped rule for `context` and reserve its
     /// budget atomically. Returns the classification:
     ///
