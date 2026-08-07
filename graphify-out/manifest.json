@@ -1,7 +1,7 @@
 {
   "AGENTS.md": {
-    "mtime": 1786091037.639257,
-    "ast_hash": "955d9ffc739737fa7b3e5daff0b7d1ff",
+    "mtime": 1786113024.915494,
+    "ast_hash": "ec04c89b9c07d3428bc76d37ebf10008",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786045869.5891714,
-    "ast_hash": "8004aa2485ae4c27381df200f1c107bf",
+    "mtime": 1786113025.0387487,
+    "ast_hash": "290ffa5e2312c421f63f1355a414a887",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -25,8 +25,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/openspine-development-process/spec.md": {
-    "mtime": 1783053767.5190082,
-    "ast_hash": "dc1393af0907bd7cc99ab0c56be1fc0b",
+    "mtime": 1786113025.039615,
+    "ast_hash": "f2ef415bd265f130e31c5527b2ca3735",
     "semantic_hash": ""
   },
   "openspec/specs/core-runtime-schemas/spec.md": {
@@ -405,8 +405,8 @@
     "semantic_hash": ""
   },
   "scripts/check.sh": {
-    "mtime": 1785762827.6364787,
-    "ast_hash": "4a757fa5b3db339c8a0ca0c995296a49",
+    "mtime": 1786113025.0418453,
+    "ast_hash": "f47154e6e09ef7d295339be841c985c0",
     "semantic_hash": ""
   },
   "site/.vscode/extensions.json": {
@@ -895,8 +895,8 @@
     "semantic_hash": ""
   },
   "site/src/content/docs/roadmap.md": {
-    "mtime": 1785762827.6399431,
-    "ast_hash": "5b649998498f7f4b54e2a30604552dd3",
+    "mtime": 1786113025.0426495,
+    "ast_hash": "8862050a4f3421d4b1d0c8a28830d0f5",
     "semantic_hash": ""
   },
   "site/src/content/docs/threat-model.md": {
@@ -3249,46 +3249,6 @@
     "ast_hash": "6db669b7ee8e71c48e4802df418910a3",
     "semantic_hash": ""
   },
-  ".workflowz/render.sh": {
-    "mtime": 1784213494.3603947,
-    "ast_hash": "460fce51f37dffab65e11453c2e24fbd",
-    "semantic_hash": ""
-  },
-  ".workflowz/set.sh": {
-    "mtime": 1784212023.589521,
-    "ast_hash": "73bf16e7e20df62f8f66e565a9cf5afe",
-    "semantic_hash": ""
-  },
-  "site/.astro/collections/docs.schema.json": {
-    "mtime": 1784368408.644408,
-    "ast_hash": "60785b482deb598858f922d20f03f18a",
-    "semantic_hash": ""
-  },
-  "site/.astro/content-assets.mjs": {
-    "mtime": 1783068985.3232906,
-    "ast_hash": "8aeea624d36ca2b4c7d0e0748b76ba28",
-    "semantic_hash": ""
-  },
-  "site/.astro/content-modules.mjs": {
-    "mtime": 1783068985.3247876,
-    "ast_hash": "3ec55edfde06727ecb4fdf9b251fdcfc",
-    "semantic_hash": ""
-  },
-  "site/.astro/content.d.ts": {
-    "mtime": 1784368408.751272,
-    "ast_hash": "390d5ace4a14930ef0f88b466ee5cf7e",
-    "semantic_hash": ""
-  },
-  "site/.astro/types.d.ts": {
-    "mtime": 1784368408.7516572,
-    "ast_hash": "f3d48b2aa569815a445d3509aa161559",
-    "semantic_hash": ""
-  },
-  ".omp/config.yml": {
-    "mtime": 1784211411.0413876,
-    "ast_hash": "bad1ef51866a10d750e67e58e81d6385",
-    "semantic_hash": ""
-  },
   "openspec/changes/archive/2026-07-24-implement-reflection-miner/design.md": {
     "mtime": 1784890717.9871554,
     "ast_hash": "e52ba962b0c91f713e7af929c24ccd20",
@@ -3395,8 +3355,8 @@
     "semantic_hash": ""
   },
   "capabilities/capability-map.json": {
-    "mtime": 1785762827.617508,
-    "ast_hash": "7d8163e4bdc5a6533ceaaa4050b2569a",
+    "mtime": 1786113024.9172792,
+    "ast_hash": "980e9cf4224ddfa225c6dd5d3d02cb9a",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/login.rs": {
@@ -3500,13 +3460,13 @@
     "semantic_hash": ""
   },
   "scripts/capability-map.mjs": {
-    "mtime": 1785762827.6360292,
-    "ast_hash": "58c9bbb591e71ef3e4ffe7de2a8f397e",
+    "mtime": 1786113025.040894,
+    "ast_hash": "a20ea1e71568d6c4db5cdf977956614e",
     "semantic_hash": ""
   },
   "scripts/capability-map.test.mjs": {
-    "mtime": 1785762827.636121,
-    "ast_hash": "4a70aee8f417df8047f0917ce20d0c2f",
+    "mtime": 1786113025.0414102,
+    "ast_hash": "105dfdb7a719b4b35c40cbc6ef7a9b24",
     "semantic_hash": ""
   },
   "site/scripts/explainer-contract.test.mjs": {
@@ -3565,8 +3525,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/CHANGELOG.md": {
-    "mtime": 1785762827.6157215,
-    "ast_hash": "d228475947cc7319e41bfaa9559cdce3",
+    "mtime": 1786113024.9160879,
+    "ast_hash": "e96f4ab67bb39df5f47c084ec3ad239d",
     "semantic_hash": ""
   },
   "artifacts/lyra/INSTALL.md": {
@@ -3580,8 +3540,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/README.md": {
-    "mtime": 1786105776.0797079,
-    "ast_hash": "f8b29626aa29f7699a0a7ed256e67e61",
+    "mtime": 1786113024.916534,
+    "ast_hash": "88eaf60c6e520b470a530ba70ce21f7d",
     "semantic_hash": ""
   },
   "artifacts/lyra/agents/main_terminal_assistant_agent.yaml": {
@@ -3590,8 +3550,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/package.yaml": {
-    "mtime": 1786105776.0798976,
-    "ast_hash": "36911514b55bae75da56fb2b82de656e",
+    "mtime": 1786113024.916861,
+    "ast_hash": "732a0e6b53d36cc771b8b3a8110af954",
     "semantic_hash": ""
   },
   "artifacts/lyra/packs/owner_terminal_basic_pack.yaml": {
@@ -3615,38 +3575,13 @@
     "semantic_hash": ""
   },
   "docs/lyra.md": {
-    "mtime": 1785762827.6306744,
-    "ast_hash": "bc35a8362dbfaa752389665961478284",
+    "mtime": 1786113024.9177,
+    "ast_hash": "caa8afd632cc2d3ce5b747209911c3a1",
     "semantic_hash": ""
   },
   "docs/terminal-chat.md": {
     "mtime": 1786013946.7910051,
     "ast_hash": "ef03f66a7bfc6e85efb23124ebc3355f",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/design.md": {
-    "mtime": 1785762827.6313772,
-    "ast_hash": "bf2ac530edc6550335517bdcc38bd7d5",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/proposal.md": {
-    "mtime": 1785762827.631469,
-    "ast_hash": "590a968bf723065c63d537e9792da7c5",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/specs/lyra-package/README.md": {
-    "mtime": 1785762827.6317422,
-    "ast_hash": "0f0db16e2113a0753c89414ec5ac9273",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/specs/lyra-package/spec.md": {
-    "mtime": 1785762827.6318407,
-    "ast_hash": "37ae9a059af45a8b1f70a2dab75f0f05",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/tasks.md": {
-    "mtime": 1785762827.6319163,
-    "ast_hash": "de21c8100f1f6d683323ab39ac6ec497",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-30-2026-07-28-add-terminal-chat-onyx-lfm/design.md": {
@@ -4009,6 +3944,76 @@
     "ast_hash": "252bb36e275350bbc43b3c582d252fd7",
     "semantic_hash": ""
   },
+  "scripts/capability-map-migration.mjs": {
+    "mtime": 1786113025.0400262,
+    "ast_hash": "81f6e6d80231970f16a6af492caaeadb",
+    "semantic_hash": ""
+  },
+  "scripts/capability-map-migration.test.mjs": {
+    "mtime": 1786113025.0404153,
+    "ast_hash": "441fe5e4ed1d53cd97d8b8e63d07e3b5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/design.md": {
+    "mtime": 1786113025.0368316,
+    "ast_hash": "6b06314a034d1e219088381d9fef79da",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/proposal.md": {
+    "mtime": 1786113025.0372763,
+    "ast_hash": "e1155361d41dc67c1ec7bf0e6012cd22",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/specs/openspine-development-process/spec.md": {
+    "mtime": 1786113025.0377321,
+    "ast_hash": "3e1dfc5075d0ee7b56e6a1db31d31c09",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/tasks.md": {
+    "mtime": 1786113025.038026,
+    "ast_hash": "00ca154ad5f62c783abb80b8559919e8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/design.md": {
+    "mtime": 1786113025.0358121,
+    "ast_hash": "bf2ac530edc6550335517bdcc38bd7d5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/proposal.md": {
+    "mtime": 1786113025.0359185,
+    "ast_hash": "590a968bf723065c63d537e9792da7c5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/README.md": {
+    "mtime": 1786113025.0361762,
+    "ast_hash": "0f0db16e2113a0753c89414ec5ac9273",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/spec.md": {
+    "mtime": 1786113025.0362678,
+    "ast_hash": "37ae9a059af45a8b1f70a2dab75f0f05",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/tasks.md": {
+    "mtime": 1786113025.036345,
+    "ast_hash": "de21c8100f1f6d683323ab39ac6ec497",
+    "semantic_hash": ""
+  },
+  "openspec/specs/lyra-package/spec.md": {
+    "mtime": 1786113025.0390854,
+    "ast_hash": "c104ed0e3a350b3638e6fb0fedfce6eb",
+    "semantic_hash": ""
+  },
+  ".workflowz/render.sh": {
+    "mtime": 1784213494.3603947,
+    "ast_hash": "460fce51f37dffab65e11453c2e24fbd",
+    "semantic_hash": ""
+  },
+  ".workflowz/set.sh": {
+    "mtime": 1784212023.589521,
+    "ast_hash": "73bf16e7e20df62f8f66e565a9cf5afe",
+    "semantic_hash": ""
+  },
   "crates/openspine-kernel/src/api/scoped_admission.rs": {
     "mtime": 1786111044.7807834,
     "ast_hash": "1383f52d61dda6c9353b861302d5a46c",
@@ -4057,6 +4062,36 @@
   "crates/openspine-kernel/src/store/standing_rules_scoped_tests.rs": {
     "mtime": 1786112383.535309,
     "ast_hash": "9beae30a354fef4ad8f588d31147ca3f",
+    "semantic_hash": ""
+  },
+  "site/.astro/collections/docs.schema.json": {
+    "mtime": 1784368408.644408,
+    "ast_hash": "60785b482deb598858f922d20f03f18a",
+    "semantic_hash": ""
+  },
+  "site/.astro/content-assets.mjs": {
+    "mtime": 1783068985.3232906,
+    "ast_hash": "8aeea624d36ca2b4c7d0e0748b76ba28",
+    "semantic_hash": ""
+  },
+  "site/.astro/content-modules.mjs": {
+    "mtime": 1783068985.3247876,
+    "ast_hash": "3ec55edfde06727ecb4fdf9b251fdcfc",
+    "semantic_hash": ""
+  },
+  "site/.astro/content.d.ts": {
+    "mtime": 1784368408.751272,
+    "ast_hash": "390d5ace4a14930ef0f88b466ee5cf7e",
+    "semantic_hash": ""
+  },
+  "site/.astro/types.d.ts": {
+    "mtime": 1784368408.7516572,
+    "ast_hash": "f3d48b2aa569815a445d3509aa161559",
+    "semantic_hash": ""
+  },
+  ".omp/config.yml": {
+    "mtime": 1784211411.0413876,
+    "ast_hash": "bad1ef51866a10d750e67e58e81d6385",
     "semantic_hash": ""
   }
 }

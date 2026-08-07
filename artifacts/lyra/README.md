@@ -34,6 +34,7 @@ approval constraints. Explicit deny wins.
 - `packs/` — capability declarations available for composition.
 - `policies/` — global and workflow policy constraints.
 - `templates/` — prompt templates used after authority is resolved.
+- `golden_sets/` — reference cases used to evaluate a proposed model swap.
 
 ## Current installation
 

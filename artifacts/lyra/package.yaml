@@ -6,20 +6,51 @@ display_name: Lyra
 description: >-
   The default owner-facing personal agent for OpenSpine. Lyra coordinates
   bounded workers and workflows while the OpenSpine kernel retains authority.
+# `main_assistant_agent` is the owner-control entry agent. The direct terminal
+# surface routes to the sibling `main_terminal_assistant_agent`; both are Lyra.
 entry_agent: main_assistant_agent
 
+# The typed artifact families the kernel loads from this package directory. The
+# kernel loads the directories themselves; this list is the human-readable
+# declaration of what the package is understood to contain.
 artifacts:
   agents:
     - main_assistant_agent
+    - main_terminal_assistant_agent
     - email_reply_drafter
     - reflection_miner_agent
     - reflection_submitter_agent
   routes:
     - owner_telegram_main_assistant
+    - owner_cli_main_assistant
+    - owner_email_selected_thread
+    - reflection_scheduled_miner
+    - reflection_scheduled_submitter
     - task_deadline_fired
     - task_reminder_fired
+  workflows:
+    - owner_control_conversation
+    - owner_terminal_conversation
+    - selected_thread_email_reply_draft
+    - reflection_miner_scheduled
+    - reflection_submitter_scheduled
+    - task_board_scheduled
+  packs:
+    - owner_control_basic_pack
+    - owner_terminal_basic_pack
+    - plan_approval_pack
+    - scheduled_timer_pack
+    - selected_thread_email_draft_pack
+    - reflection_miner_pack
+    - reflection_submitter_pack
+  templates:
+    - owner_control_template
+    - owner_terminal_template
+    - email_reply_draft_template
   policies:
     - global
+  golden_sets:
+    - model_swap_default
 
 identity:
   persona: concise_practical_operator

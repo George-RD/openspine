@@ -105,6 +105,12 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   missing executor is a typed `NoExecutor` that cancels the reservation instead
   of reporting a successful stub; brief stays in place — #128 and #130 depend
   on it)
+- `separate-progressive-delegation-roadmap-truth` (v2 capability-map schema
+  separating generic capability, selected proof, portability evidence, and
+  whole-responsibility maturity; brief stays in place — downstream
+  progressive-delegation changes reference its truth model)
+- `2026-07-28-productize-lyra` (largely landed in `ee0d54a`; archived here
+  with the `package.yaml` artifact declaration corrected to match the tree)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
