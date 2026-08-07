@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786101117.2091146,
-    "ast_hash": "d619212dd48ff991ea5bbf740925de19",
+    "mtime": 1786107096.7671406,
+    "ast_hash": "290ffa5e2312c421f63f1355a414a887",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -3584,31 +3584,6 @@
     "ast_hash": "ef03f66a7bfc6e85efb23124ebc3355f",
     "semantic_hash": ""
   },
-  "openspec/changes/2026-07-28-productize-lyra/design.md": {
-    "mtime": 1786098272.5102851,
-    "ast_hash": "bf2ac530edc6550335517bdcc38bd7d5",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/proposal.md": {
-    "mtime": 1786098272.5103738,
-    "ast_hash": "590a968bf723065c63d537e9792da7c5",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/specs/lyra-package/README.md": {
-    "mtime": 1786098272.5106199,
-    "ast_hash": "0f0db16e2113a0753c89414ec5ac9273",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/specs/lyra-package/spec.md": {
-    "mtime": 1786098272.510705,
-    "ast_hash": "37ae9a059af45a8b1f70a2dab75f0f05",
-    "semantic_hash": ""
-  },
-  "openspec/changes/2026-07-28-productize-lyra/tasks.md": {
-    "mtime": 1786098272.5107825,
-    "ast_hash": "de21c8100f1f6d683323ab39ac6ec497",
-    "semantic_hash": ""
-  },
   "openspec/changes/archive/2026-07-30-2026-07-28-add-terminal-chat-onyx-lfm/design.md": {
     "mtime": 1786098272.5534134,
     "ast_hash": "27eb24df6fb717b4338c17709d399d3b",
@@ -3997,6 +3972,36 @@
   "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/tasks.md": {
     "mtime": 1786101117.208617,
     "ast_hash": "00ca154ad5f62c783abb80b8559919e8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/design.md": {
+    "mtime": 1786098272.5102851,
+    "ast_hash": "bf2ac530edc6550335517bdcc38bd7d5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/proposal.md": {
+    "mtime": 1786098272.5103738,
+    "ast_hash": "590a968bf723065c63d537e9792da7c5",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/README.md": {
+    "mtime": 1786098272.5106199,
+    "ast_hash": "0f0db16e2113a0753c89414ec5ac9273",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/spec.md": {
+    "mtime": 1786098272.510705,
+    "ast_hash": "37ae9a059af45a8b1f70a2dab75f0f05",
+    "semantic_hash": ""
+  },
+  "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/tasks.md": {
+    "mtime": 1786098272.5107825,
+    "ast_hash": "de21c8100f1f6d683323ab39ac6ec497",
+    "semantic_hash": ""
+  },
+  "openspec/specs/lyra-package/spec.md": {
+    "mtime": 1786107056.7207537,
+    "ast_hash": "53b5ad675bf63bde12ef016920498b63",
     "semantic_hash": ""
   }
 }
