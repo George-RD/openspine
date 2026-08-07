@@ -1,7 +1,9 @@
 # lyra-package Specification
 
 ## Purpose
-TBD - created by archiving change 2026-07-28-productize-lyra. Update Purpose after archive.
+
+Declare Lyra as OpenSpine's default owner-facing agent package: a manifest naming the package and its persistent entry agent, the typed artifact families it contains, the memory classes and scopes its entry agent may read and is denied, and the declarative installation model a future versioned package store must honour. The declaration is metadata for operators and installers — it records the personality-carries-no-authority contract but grants no runtime authority itself, which remains composed by the kernel from policies, capability packs, approvals, caveats, and the task grant.
+
 ## Requirements
 ### Requirement: Lyra is a named default package
 The repository SHALL contain a declarative package manifest identifying Lyra as the default owner-facing agent package and naming its persistent entry agent.
