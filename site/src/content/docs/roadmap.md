@@ -15,21 +15,46 @@ The canonical implementation ledger is [`openspec/openspine-change-sequence.md`]
 <!-- capability-map:start -->
 ## Capability map
 
-This table is generated from [`capabilities/capability-map.json`](https://github.com/George-RD/openspine/blob/main/capabilities/capability-map.json). CI checks its runtime change IDs against the archived implementation ledger, verifies every evidence path, and requires each **Wired into Lyra** claim to name a real owner-path test.
+This table is generated from [`capabilities/capability-map.json`](https://github.com/George-RD/openspine/blob/main/capabilities/capability-map.json). CI checks its runtime change IDs against the archived implementation ledger, verifies every evidence path, and requires each **Wired into Lyra** claim to name real owner-path tests. Issue numbers are blockers, never repository proof.
 
-**Current count:** 2 wired into Lyra · 3 known product surfaces missing · 2 runtime-only capabilities
+**Current count:** 2 wired into Lyra · 3 known product surfaces missing · 2 runtime-only capabilities · 0 proof in progress
 
 | Owner outcome | State | Repository proof | Current limit |
 |---|---|---|---|
 | Talk to Lyra from the local terminal through the governed task path. | **Wired into Lyra** | [2026-07-28-add-terminal-chat-onyx-lfm](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[terminal_owner_status_reaches_device_through_real_shell](https://github.com/George-RD/openspine/blob/main/crates/openspine-kernel/src/pipeline/tests/terminal_e2e.rs) | The owner can converse locally, but this path does not yet expose recurring account work or responsibility growth. |
 | Choose one Gmail thread, review the exact reply, and create only the approved draft. | **Wired into Lyra** | [implement-selected-thread-email-preview-slice](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-digest-bound-draft-approval](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[draft_command_for_a_real_thread_composes_a_bound_selection_grant](https://github.com/George-RD/openspine/blob/main/crates/openspine-kernel/src/pipeline/tests/draft.rs)<br />[a_double_tap_on_approve_creates_only_one_gmail_draft](https://github.com/George-RD/openspine/blob/main/crates/openspine-kernel/src/pipeline/tests/approval.rs) | The owner still supplies a thread ID and approves each draft; email sending remains denied. |
-| Let Lyra prepare narrowly defined recurring Gmail drafts after the responsibility has been reviewed. | **Product surface missing** | [implement-standing-rules](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-reflection-miner](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-overlay-eval-gate](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | The runtime can propose, evaluate, budget, expire, match, and revoke reusable authority, but Lyra has no plain-language owner loop that joins those pieces. |
+| Let Lyra grow through real work by reviewing and delegating reusable, protocol-neutral responsibility for narrowly bounded recurring work. | **Product surface missing** | [implement-standing-rules](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-reflection-miner](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-overlay-eval-gate](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-artifact-lifecycle-slice](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[harden-approval-and-budgets](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[define-grant-chain-and-modes](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-spend-kill-switch](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[backfill-implemented-capability-specs](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | The runtime can propose, evaluate, budget, expire, match, revoke, and audit reusable authority, but Lyra has no plain-language owner loop that joins those pieces into a protocol-neutral responsibility. |
 | Give Lyra a commitment and have it return at the right time with durable task state. | **Product surface missing** | [implement-task-board](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-durable-workflow-replay](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-workflow-state-machines](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-seed-workflows](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | Task objects, timers, replay, and seed workflows exist in the runtime, but Lyra has no supported owner-facing commitment flow. |
 | Ask Lyra to research and return a brief without silently disclosing private context. | **Product surface missing** | [implement-disclosure-policy](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-briefcase-packing](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-worker-runtime](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | Disclosure classes, bounded context, and contained workers have landed, but no complete research-and-brief workflow is wired into Lyra. |
 | Commission contained workers with bounded context and receive structured results. | **Runtime landed** | [implement-worker-runtime](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md)<br />[implement-worker-supervision](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | This is kernel machinery, not a workflow that should be exposed to the owner as a worker-management primitive. |
 | Use versioned skills without allowing a skill or model to install or promote itself. | **Runtime landed** | [implement-skill-artifact-class](https://github.com/George-RD/openspine/blob/main/openspec/openspine-change-sequence.md) | The lifecycle and containment tests exist, but Lyra does not yet present a useful owner outcome around installing and applying a skill. |
 
-### Selected next owner-facing proof
+### Let Lyra grow through real work by reviewing and delegating reusable, protocol-neutral responsibility for narrowly bounded recurring work.
+
+**State:** Product surface missing (generic capability)
+
+**Landed substrate:**
+
+- [standing-rules](https://github.com/George-RD/openspine/blob/main/openspec/specs/standing-rules/spec.md)
+- [reflection-miner](https://github.com/George-RD/openspine/blob/main/openspec/specs/reflection-miner/spec.md)
+- [artifact-lifecycle](https://github.com/George-RD/openspine/blob/main/openspec/specs/artifact-lifecycle/spec.md)
+- [audit-artifact-store](https://github.com/George-RD/openspine/blob/main/openspec/specs/audit-artifact-store/spec.md)
+- [spend-kill-switch](https://github.com/George-RD/openspine/blob/main/openspec/specs/spend-kill-switch/spec.md)
+- [authority-composition](https://github.com/George-RD/openspine/blob/main/openspec/specs/authority-composition/spec.md)
+
+**Blockers:**
+
+- **Execution/review foundations:** [#129](https://github.com/George-RD/openspine/issues/129)
+- **Proposal-specific evaluation:** [#133](https://github.com/George-RD/openspine/issues/133)
+- **Scoped evidence/matching:** [#128](https://github.com/George-RD/openspine/issues/128)
+
+**Selected proof:** [recurring Gmail drafts (#130)](https://github.com/George-RD/openspine/issues/130)
+
+**Portability proof:** [second communication shape (#131)](https://github.com/George-RD/openspine/issues/131)
+
+**Whole-responsibility progression:** [#132](https://github.com/George-RD/openspine/issues/132)
+
+### Selected proof
 
 **Let Lyra prepare recurring drafts for one known relationship without asking the same approval every time.**
 
@@ -45,7 +70,7 @@ This is the smallest useful progression because it reuses the working Gmail proo
 4. The next matching draft is created with a concise receipt instead of another approval prompt.
 5. A changed recipient, exhausted budget, drift trigger, pause, expiry, or revocation returns the action for review or denies it.
 
-Implementation is tracked in [issue #123](https://github.com/George-RD/openspine/issues/123).
+Implementation is tracked in [issue #130](https://github.com/George-RD/openspine/issues/130).
 
 <!-- capability-map:end -->
 

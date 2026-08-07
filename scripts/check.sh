@@ -17,6 +17,9 @@ fi
 echo "== node --test scripts/capability-map.test.mjs =="
 node --test scripts/capability-map.test.mjs
 
+echo "== node --test scripts/capability-map-migration.test.mjs =="
+node --test scripts/capability-map-migration.test.mjs
+
 echo "== node scripts/capability-map.mjs =="
 node scripts/capability-map.mjs
 
