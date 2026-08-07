@@ -61,7 +61,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 4);
+        assert_eq!(user_version, 5);
 
         let table_exists: i64 = conn
             .query_row(
@@ -103,7 +103,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 4);
+        assert_eq!(user_version, 5);
 
         let table_exists: i64 = conn
             .query_row(
@@ -169,7 +169,7 @@ fn legacy_user_version_0_stamps_and_migrates() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 4);
+        assert_eq!(user_version, 5);
 
         // Verify legacy row survived (aggregate_id default is 'system')
         let agg_id: String = conn
@@ -205,7 +205,7 @@ fn versioned_migrations_atomicity_rollback() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 4);
+        assert_eq!(user_version, 5);
     }
     drop(store);
 
@@ -223,7 +223,7 @@ fn versioned_migrations_atomicity_rollback() {
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 4);
+    assert_eq!(user_version, 5);
 
     let table_exists: i64 = conn
         .query_row(
@@ -255,7 +255,7 @@ fn versioned_migrations_future_rejected() {
             err,
             crate::store::StoreError::UnsupportedVersion {
                 current: 99,
-                latest: 4
+                latest: 5
             }
         ),
         "expected UnsupportedVersion, got {err:?}"
@@ -323,7 +323,7 @@ fn v2_to_v3_skills_schema_migration_backfills_legacy_rows() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 4, "v3 and v4 migrations must have run");
+        assert_eq!(user_version, 5, "v3, v4 and v5 migrations must have run");
 
         // Verify the column exists.
         let col_count: i64 = conn

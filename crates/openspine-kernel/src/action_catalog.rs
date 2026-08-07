@@ -11,6 +11,10 @@ use openspine_schemas::selection::SelectionTokenType;
 
 #[path = "action_catalog_data.rs"]
 mod action_catalog_data;
+/// The canonical declaration of what a standing rule for an action must bind,
+/// re-exported so activation-time scope-binding enforcement reads the same
+/// descriptor table the catalog itself is assembled from.
+pub(crate) use action_catalog_data::required_scope_dimensions_for;
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
 }
@@ -388,6 +392,16 @@ mod tests {
             "filesystem.host_read",
             "vault.secret_read",
         ];
+        // Cardinality, not just membership: without this an eighth id could be
+        // added to the allowlist and every positive/negative loop below would
+        // still pass. The "exactly seven catalogued READ ids" guarantee is a
+        // #127 boundary this change re-asserts, so pin the count.
+        assert_eq!(
+            catalog.non_effect_stub_count(),
+            allowlisted.len(),
+            "the non-effect stub allowlist must stay at exactly {} ids",
+            allowlisted.len()
+        );
         for action in allowlisted {
             let action = id(action);
             assert!(catalog.contains(&action), "{action} must be catalogued");

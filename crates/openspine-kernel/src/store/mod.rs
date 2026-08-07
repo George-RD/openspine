@@ -714,6 +714,8 @@ pub(crate) mod learned_reconfirmation;
 #[cfg(test)]
 mod lineage_tests;
 #[cfg(test)]
+mod migration_scoped_tests;
+#[cfg(test)]
 mod migration_tests;
 mod migrations;
 pub(crate) mod nerve;
@@ -730,11 +732,17 @@ pub(crate) mod spend;
 #[cfg(test)]
 mod standing_rule_scheduling_tests;
 pub(crate) mod standing_rules;
+#[cfg(test)]
+mod standing_rules_activation_tests;
 pub(crate) mod standing_rules_budget;
 pub(crate) mod standing_rules_pending;
 pub(crate) mod standing_rules_recovery;
+mod standing_rules_row;
 #[cfg(test)]
 pub(crate) mod standing_rules_scenario_tests;
+pub(crate) mod standing_rules_scoped;
+#[cfg(test)]
+mod standing_rules_scoped_tests;
 #[cfg(test)]
 pub(crate) mod standing_rules_tests;
 pub(crate) mod task_board;

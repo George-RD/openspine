@@ -486,6 +486,7 @@ fn exclude_erased_covers_registered_kinds_and_exact_version_model_swaps() {
             },
             expires_after_secs: 7_776_000,
             dark_window: None,
+            reviewed_scope: None,
         },
     );
     insert_source(&mut registry, "standing_rule", "erased-rule", 1);

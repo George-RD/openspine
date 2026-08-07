@@ -338,6 +338,31 @@ impl ResolvedActionContext {
     pub fn compatibility_digest(&self) -> &Digest {
         &self.compatibility_digest
     }
+
+    /// The standing-rule scope key: a sealed digest over exactly the values
+    /// named by the descriptor's `required_scope_dimensions`. Distinct from
+    /// [`Self::compatibility_digest`] (the drift epoch over declaration axes
+    /// only), so two different accounts or targets never collide into one
+    /// pattern and a declaration change is detected by the epoch, never by
+    /// the scope key (design.md §"Two digests"). `None` when a required
+    /// dimension cannot be valued — the caller must fail closed rather than
+    /// seal a partial scope.
+    pub fn reviewed_scope_digest(&self) -> Option<Digest> {
+        crate::reviewed_scope::reviewed_scope_values_of(self)
+            .map(|values| crate::reviewed_scope::reviewed_scope_digest_of(&values))
+    }
+
+    /// The reviewed value for one scope dimension, or `None` when the context
+    /// does not carry that instance value. Lets a caller persist and compare
+    /// individual dimensions (not only the sealed digest), so comparison can
+    /// name the exact changed dimensions and narrowing need not re-review the
+    /// rest.
+    pub fn reviewed_scope_value(
+        &self,
+        dimension: ReviewedScopeDimension,
+    ) -> Option<crate::reviewed_scope::ReviewedScopeValue> {
+        crate::reviewed_scope::value_for(dimension, self)
+    }
 }
 
 fn target_kind_rank(kind: TargetRefKind) -> u8 {

@@ -40,6 +40,13 @@ impl Store {
         } = input;
         let provenance_json = serde_json::to_string(&learned.provenance)
             .map_err(|err| StoreError::LearnedArtifact(format!("provenance json: {err}")))?;
+        // Refuse an incomplete reviewed-scope binding before the activation
+        // transaction opens, so the durable refusal audit survives and no
+        // active rule row is ever written (standing-rules spec: rejected
+        // before activation).
+        if let Some((manifest, _)) = standing_rule.as_ref() {
+            self.reject_incomplete_scope_binding(manifest)?;
+        }
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         if let Some((manifest, rule_grant_id)) = standing_rule.as_ref() {

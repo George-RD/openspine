@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786107096.7671406,
+    "mtime": 1786108039.3661332,
     "ast_hash": "290ffa5e2312c421f63f1355a414a887",
     "semantic_hash": ""
   },
@@ -3525,7 +3525,7 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/CHANGELOG.md": {
-    "mtime": 1786105836.9425194,
+    "mtime": 1786108039.0974016,
     "ast_hash": "e96f4ab67bb39df5f47c084ec3ad239d",
     "semantic_hash": ""
   },
@@ -3540,7 +3540,7 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/README.md": {
-    "mtime": 1786105791.8638134,
+    "mtime": 1786108039.1004019,
     "ast_hash": "88eaf60c6e520b470a530ba70ce21f7d",
     "semantic_hash": ""
   },
@@ -3550,7 +3550,7 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/package.yaml": {
-    "mtime": 1786105741.0535831,
+    "mtime": 1786108039.1009548,
     "ast_hash": "732a0e6b53d36cc771b8b3a8110af954",
     "semantic_hash": ""
   },
@@ -3575,7 +3575,7 @@
     "semantic_hash": ""
   },
   "docs/lyra.md": {
-    "mtime": 1786105820.1936483,
+    "mtime": 1786108039.1016119,
     "ast_hash": "caa8afd632cc2d3ce5b747209911c3a1",
     "semantic_hash": ""
   },
@@ -3975,33 +3975,33 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/design.md": {
-    "mtime": 1786098272.5102851,
+    "mtime": 1786108039.3622847,
     "ast_hash": "bf2ac530edc6550335517bdcc38bd7d5",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/proposal.md": {
-    "mtime": 1786098272.5103738,
+    "mtime": 1786108039.362384,
     "ast_hash": "590a968bf723065c63d537e9792da7c5",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/README.md": {
-    "mtime": 1786098272.5106199,
+    "mtime": 1786108039.3626242,
     "ast_hash": "0f0db16e2113a0753c89414ec5ac9273",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/specs/lyra-package/spec.md": {
-    "mtime": 1786098272.510705,
+    "mtime": 1786108039.3627045,
     "ast_hash": "37ae9a059af45a8b1f70a2dab75f0f05",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-2026-07-28-productize-lyra/tasks.md": {
-    "mtime": 1786098272.5107825,
+    "mtime": 1786108039.3629303,
     "ast_hash": "de21c8100f1f6d683323ab39ac6ec497",
     "semantic_hash": ""
   },
   "openspec/specs/lyra-package/spec.md": {
-    "mtime": 1786107056.7207537,
-    "ast_hash": "53b5ad675bf63bde12ef016920498b63",
+    "mtime": 1786108246.3419993,
+    "ast_hash": "c104ed0e3a350b3638e6fb0fedfce6eb",
     "semantic_hash": ""
   }
 }

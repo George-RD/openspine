@@ -39,6 +39,7 @@ pub(crate) fn manifest(
         rate,
         expires_after_secs,
         dark_window,
+        reviewed_scope: None,
     }
 }
 

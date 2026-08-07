@@ -296,7 +296,7 @@ async fn standing_rule_normal_deny_exposes_no_headroom() {
 }
 
 #[tokio::test]
-async fn standing_rule_delivery_unknown_finalizes_live_reservation() {
+async fn standing_rule_delivery_unknown_retains_live_reservation() {
     // A mediated Telegram write timeout is ambiguous: the provider may have
     // accepted the message, so the standing-rule unit must remain consumed.
     let server = MockServer::start().await;
@@ -351,8 +351,13 @@ async fn standing_rule_delivery_unknown_finalizes_live_reservation() {
         matches!(result, Err(DispatchError::DeliveryUnknown(_))),
         "timeout must remain delivery-unknown: {result:?}"
     );
-    assert_eq!(committed_usage_count(&store, "rule-delivery-unknown"), 1);
-    assert_eq!(reserved_usage_count(&store, "rule-delivery-unknown"), 0);
+    // #128/D-157: an ambiguous outcome RETAINS the reservation — it stays
+    // `reserved`, neither cancelled nor finalized — so reconciliation of the
+    // open fence can still release it if the write is later shown never to
+    // have landed. A `reserved` row counts against both windows exactly as a
+    // committed one does, so the budget stays conservatively consumed.
+    assert_eq!(reserved_usage_count(&store, "rule-delivery-unknown"), 1);
+    assert_eq!(committed_usage_count(&store, "rule-delivery-unknown"), 0);
     assert_eq!(
         store
             .standing_rule_remaining("rule-delivery-unknown", Timestamp::now())

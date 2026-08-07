@@ -186,6 +186,18 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // ad-hoc lane; the versioned lane is reserved for the first destructive
     // change).
     super::standing_rules::ensure_schema(conn)?;
+    // mine-and-match-reusable-authority-by-scope (#128): the fast SQL
+    // pre-filter columns for scoped rule matching. The full binding lives in
+    // `rule_json`; these are populated at activation and matched on. Additive,
+    // idempotent, nullable so legacy unbounded rules remain consultable.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rules ADD COLUMN reviewed_scope_digest TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rules ADD COLUMN compatibility_digest TEXT",
+    )?;
     // implement-standing-rules: `owner_attention_since` records one-time
     // surfacing of a claimed-but-unattempted fired dark-window default for
     // owner attention (fail closed; never auto-rerun). Additive, idempotent.
@@ -291,6 +303,15 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
         version: 4,
         up: TIMESTAMP_NORMALIZATION_SQL,
     },
+    // Entry v5 marks the schema that carries the two standing-rule scope
+    // binding digest columns (`reviewed_scope_digest`, `compatibility_digest`).
+    // The columns themselves are added additively by the ad-hoc lane
+    // (`add_column_if_missing`, idempotent across every open), so a legacy DB
+    // converges without a destructive rewrite and the versioned entry is a
+    // pure stamp — the same additive/versioned split AD-139 draws. Kept as a
+    // versioned stamp so the down path can drop the columns for the documented
+    // downgrade and future destructive work is ordered after it.
+    VersionedMigration { version: 5, up: "" },
 ];
 
 /// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
@@ -354,6 +375,13 @@ const VERSIONED_DOWNS: &[(i64, &str)] = &[
     // same instants, and older code reads the canonical form correctly, so
     // the documented downgrade only rolls the version stamp back.
     (4, ""),
+    // v5 added the two nullable scope-binding digest columns; the downgrade
+    // drops them. Rows are untouched (NULL columns on legacy unbounded rules).
+    (
+        5,
+        "ALTER TABLE standing_rules DROP COLUMN reviewed_scope_digest;
+         ALTER TABLE standing_rules DROP COLUMN compatibility_digest;",
+    ),
 ];
 
 /// Latest reachable schema version: the ad-hoc baseline, or the highest

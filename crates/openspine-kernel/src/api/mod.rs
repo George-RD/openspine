@@ -31,6 +31,7 @@ mod generate;
 pub(crate) mod handler_registry;
 pub(crate) mod plan;
 mod proposal;
+mod scoped_admission;
 mod task;
 mod telegram_truncate;
 mod webhook;

@@ -147,6 +147,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-152 | Capability authoring is a contained proposer role separate from the deterministic evidence miner, with zero activation authority; privileged bricks (connectors, resolvers, executors) remain developer-landed kernel code | Accepted |
 | D-153 | The one shared Gmail draft executor is reached by two delivered admission sources — per-instance digest-bound approval and the D-117 headless approved lane; scope-matched standing-rule admission remains #128, and the generic shell dispatch path fails closed rather than reconstructing digest-bound context | Accepted |
 | D-154 | `TEXT` timestamp columns that SQL compares by inequality or orders by MUST be written and compared through `store::sql_time::sql_timestamp`, a fixed nine-digit RFC 3339 rendering; jiff's variable-width `Display` is not an order-preserving encoding | Accepted |
+| D-155 | `compatibility_digest` remains the declaration/drift epoch; a separate `reviewed_scope_digest` is computed only from the required reviewed scope values, and standing rules persist both digests plus per-dimension values | Accepted |
+| D-156 | Scoped standing-rule selection is exact-one: zero matches falls back to owner approval, one admits, and two or more matching rules fail closed without reservation, timer, or budget movement | Accepted |
+| D-157 | A scope-matched standing-rule reservation finalizes only on `EffectOutcome::Executed`; `DeliveryUnknown` retains the reservation and reconciliation fence, while pre-effect refusal, post-attempt failure, and `NoExecutor` cancel | Accepted |
+| D-158 | Gate-time reviewed scope binding belongs to the consulted standing rule; `ResponsibilityManifest` remains a non-authoritative reference view, never live authority | Accepted |
 
 ---
 
@@ -3663,8 +3667,94 @@ Fixed-width rendering was chosen over migrating the columns to `INTEGER` epoch n
 These columns move to epoch-nanosecond `INTEGER`s (which would make the renderer unnecessary for ordering), or a future store gains a timestamp column whose comparison semantics cannot be expressed by byte order at all.
 
 ---
+# D-155 — Separate the reviewed-scope key from the compatibility drift epoch
 
+## Decision
 
+`ResolvedActionContext::compatibility_digest()` remains the declaration-only drift epoch. Scoped standing-rule matching uses a distinct `reviewed_scope_digest()` computed from exactly the values named by `required_scope_dimensions`; the persisted binding carries both digests and each reviewed value.
+
+## Rationale
+
+Declaration machinery can remain identical across two Gmail accounts or targets, so the compatibility digest intentionally cannot distinguish those instances. Matching on it would create cross-account or cross-target authority. Persisting values alongside the scope digest preserves exact mismatch reporting and makes a corrupt digest/value pair detectable.
+
+## Consequences
+
+- Connector instance, account identity, target, counterparty, workflow, and task-shape drift cannot silently reuse a rule.
+- A persisted binding whose values disagree with its derived digest is invalid and fails closed rather than matching on either half.
+- The kernel resolves every scope value; shell intent never supplies a reviewed dimension.
+
+## Would change if
+
+The responsibility contract changed its required dimensions or replaced digest-bound reviewed values with another authenticated, exact-comparison representation.
+
+---
+
+# D-156 — Ambiguous scoped matches fail closed
+
+## Decision
+
+Scoped consultation selects exactly one compatible active standing rule. Zero matches returns ordinary owner approval, one match may proceed, and two or more matches fail closed as an ambiguity. No recency, narrowness, version, or ordering tie-break is permitted.
+
+## Rationale
+
+Choosing one of overlapping owner-approved budgets would invent policy the owner did not review. Matching is pure and completes before quota/rate reservation and dark-window scheduling, so mismatch and ambiguity consume no authority.
+
+## Consequences
+
+- Ambiguous overlap leaves no reservation row, timer, or budget debit and records durable owner-actionable audit evidence.
+- Disjoint rules for one action retain independent quota and rate budgets; there is no aggregate per-action pool.
+- Drift and construction errors return to ordinary approval before any effect.
+
+## Would change if
+
+The owner explicitly authored a deterministic disambiguation relation that became part of the reviewed scope contract rather than an implicit kernel tie-break.
+
+---
+
+# D-157 — Map effect outcomes conservatively to standing-rule reservations
+
+## Decision
+
+For a scope-matched admission, `Executed` finalizes its reservation. `DeliveryUnknown` retains the reservation with the reconciliation fence open. `RefusedPreEffect`, `FailedAfterAttempt`, and `NoExecutor` cancel it; a fired one-use token is re-armed only after cancellation succeeds.
+
+## Rationale
+
+An unknown delivery may have landed, so releasing its budget could under-count a real effect. Retention may over-count a never-landed write, which is the fail-closed direction. The executor and its permit-before-fence ordering remain unchanged.
+
+## Consequences
+
+- Reservation lifecycle now reflects the executor's truthful `EffectOutcome` rather than dispatch success alone.
+- The generic shell dispatcher still cannot reconstruct a digest-bound context and `NoExecutor` remains an opaque internal error.
+- The non-effect stub allowlist remains closed at the seven catalogued READ actions.
+
+## Would change if
+
+Reconciliation established a durable, authoritative negative proof that a `DeliveryUnknown` write could not have landed before budget accounting resumed.
+
+---
+
+# D-158 — Standing rules hold gate-time scope bindings; responsibility manifests remain views
+
+## Decision
+
+The reviewed scope binding used at gate and composition time lives on `StandingRuleManifest`, the consulted authority input. `ResponsibilityManifest` continues to provide a reference view and is never treated as live authority.
+
+## Rationale
+
+D-107 defines standing rules as the object consulted at gate/compose time, while `responsibility-contract` specifies that the manifest is a reference view. Moving live authority into the manifest would invert that boundary and allow a descriptive projection to outrank the kernel's consulted rule.
+
+## Consequences
+
+- Every admitted task still mints a fresh task grant and crosses `gate()`; the scoped rule narrows approval requirements and never widens grant authority.
+- Audit records identify the admitting rule, version, compatibility digest, and reviewed-scope digest.
+- Construction failures, scope mismatch, drift, and ambiguity fail closed before effects; ambiguous overlap leaves durable audit evidence.
+- Verification covers the authority boundary, audit boundary, and #127 non-regressions: opaque `500 {"error":"internal_error"}` for `NoExecutor`, exactly seven non-effect READ stubs, and executor write permit before pending-write fence.
+
+## Would change if
+
+The responsibility contract explicitly promoted manifests from reference projections to authenticated live authority and simultaneously specified their gate-time transaction and revocation semantics.
+
+---
 
 ## Change Log
 
@@ -3718,4 +3808,5 @@ These columns move to epoch-nanosecond `INTEGER`s (which would make the renderer
 | 2026-08-06 | Added D-150 (external platform comparisons settle build-versus-borrow: study and independently reproduce, never adopt or fork; credential-boundary inversion and PolyForm Shield noncompete recorded), D-151 (composed responsibilities are authored as typed non-authoritative compositions compiled onto kernel objects; builder validation/simulation never substitutes for proposal-specific evaluation; no pull-forward ahead of the Gmail proof), and D-152 (capability author is a contained proposer role separate from the evidence miner, with zero activation authority; privileged bricks stay developer-landed), settled in the 2026-08-06 external-comparison roadmap review (assessment archived at `.raw/openspine-autogpt-comparison-2026-08-06.md`). |
 | 2026-08-06 | Added D-153 (the one shared Gmail draft executor is reached by per-instance digest-bound approval and the D-117 headless approved lane; scope-matched standing-rule admission and the `EffectOutcome`→reservation mapping remain #128; the generic shell dispatch path fails closed; the non-effect stub allowlist is closed at seven catalogued read ids), settled while implementing `unify-approved-and-delegated-effect-execution` (#127). |
 | 2026-08-07 | Added D-154 (order-compared `TEXT` timestamp columns are written and compared through the fixed nine-digit `store::sql_time::sql_timestamp`; jiff's variable-width `Display` inverts time order inside a second, which stalled dead-letter retries and left selection tokens expiring on an exact second readable as live; versioned migration v4 normalizes existing rows), found by a post-merge `scripts/check.sh` failure on `main` after `#152`. |
+| 2026-08-07 | Added D-155–D-158 (separate reviewed-scope and compatibility digests; exact-one scoped matching with fail-closed ambiguity; conservative `EffectOutcome` reservation mapping; and standing-rule gate-time authority over the `ResponsibilityManifest` reference view), including authority-boundary, audit-boundary, and #127 non-regression verification obligations, settled while implementing `mine-and-match-reusable-authority-by-scope` (#128). |
 

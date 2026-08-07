@@ -246,6 +246,7 @@ fn disclosure_policy_does_not_revoke_existing_egress_standing_rule() {
         },
         expires_after_secs: 7_776_000,
         dark_window: None,
+        reviewed_scope: None,
     };
     state
         .store
