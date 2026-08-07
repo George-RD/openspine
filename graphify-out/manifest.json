@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786123890.0026908,
-    "ast_hash": "cf815c9b6984944b815ba1e20ecedda1",
+    "mtime": 1786125930.8738267,
+    "ast_hash": "93d8112c3b177d5a4a200d7f4e2674a5",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -835,8 +835,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/artifact-lifecycle/spec.md": {
-    "mtime": 1786098272.5752246,
-    "ast_hash": "cd48aafc9e3179f038c7c4517d70a47f",
+    "mtime": 1786125869.7506006,
+    "ast_hash": "7f0ff8789e631dab794fa087b6ccdc56",
     "semantic_hash": ""
   },
   "openspec/specs/audit-artifact-store/spec.md": {
@@ -1245,8 +1245,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/lineage-and-eval-store/spec.md": {
-    "mtime": 1786098272.584281,
-    "ast_hash": "3656579bafcb75d373abd6a3f2fd8a5f",
+    "mtime": 1786125869.763007,
+    "ast_hash": "260019455e869bf51b8a8deee3d72d5c",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/event_bus.rs": {
@@ -4194,27 +4194,27 @@
     "ast_hash": "3599bc9fa9e9e4c3dcccb4541bfe50ce",
     "semantic_hash": ""
   },
-  "openspec/changes/make-reusable-authority-evaluation-proposal-specific/design.md": {
+  "openspec/changes/archive/2026-08-07-make-reusable-authority-evaluation-proposal-specific/design.md": {
     "mtime": 1786125029.2879736,
     "ast_hash": "cfeac806dfbf4748eb0eeb475b54c9a8",
     "semantic_hash": ""
   },
-  "openspec/changes/make-reusable-authority-evaluation-proposal-specific/proposal.md": {
+  "openspec/changes/archive/2026-08-07-make-reusable-authority-evaluation-proposal-specific/proposal.md": {
     "mtime": 1786125029.288344,
     "ast_hash": "a11d8608f34b5067838878e94e1fcbc5",
     "semantic_hash": ""
   },
-  "openspec/changes/make-reusable-authority-evaluation-proposal-specific/specs/artifact-lifecycle/spec.md": {
+  "openspec/changes/archive/2026-08-07-make-reusable-authority-evaluation-proposal-specific/specs/artifact-lifecycle/spec.md": {
     "mtime": 1786125029.2888558,
     "ast_hash": "6d3866a5450644572ce8d41bcc991069",
     "semantic_hash": ""
   },
-  "openspec/changes/make-reusable-authority-evaluation-proposal-specific/specs/lineage-and-eval-store/spec.md": {
+  "openspec/changes/archive/2026-08-07-make-reusable-authority-evaluation-proposal-specific/specs/lineage-and-eval-store/spec.md": {
     "mtime": 1786125029.2894418,
     "ast_hash": "a8622e2b0276fafdd36637cb2f5ba97a",
     "semantic_hash": ""
   },
-  "openspec/changes/make-reusable-authority-evaluation-proposal-specific/tasks.md": {
+  "openspec/changes/archive/2026-08-07-make-reusable-authority-evaluation-proposal-specific/tasks.md": {
     "mtime": 1786125029.2898817,
     "ast_hash": "c76cb20c3e10acb455f5710ce8e458c8",
     "semantic_hash": ""

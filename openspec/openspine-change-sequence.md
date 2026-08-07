@@ -132,6 +132,12 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   allowlist enforced at activation and swept over stored rules, replacing a
   classifier that permitted whatever it could not classify. Brief stays in
   place — #130 and #131 depend on the bounded exception semantics)
+- `make-reusable-authority-evaluation-proposal-specific` (D-163..D-165 — replay
+  means concrete cases executed against the exact proposed binding and derived
+  from what that proposal already binds, with a case-free or one-sided ledger a
+  denial; verdicts bind their epochs and stale at read time, re-checked at
+  activation; owner copy is rendered from stored verdicts rather than authored.
+  Brief stays in place — #130 references it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
