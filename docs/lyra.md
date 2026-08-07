@@ -26,6 +26,8 @@ The source package lives in [`artifacts/lyra`](../artifacts/lyra/). Its persiste
 
 A source checkout already uses Lyra by default because `Config::lyra_dir` defaults to `artifacts/lyra`.
 
+[`artifacts/lyra/package.yaml`](../artifacts/lyra/package.yaml) is the package declaration: it names Lyra, its entry agent, the artifact families the package contains, the memory contract, and the security invariants. It is metadata for operators and for the future installer. The kernel does not read it — loading is directory-driven, and `PERSONA.md` is likewise a human-readable identity contract rather than a file the kernel loads. Runtime personality is carried by typed persona overlay artifacts.
+
 ## How Lyra is meant to grow
 
 The intended owner experience resembles managing a good employee:

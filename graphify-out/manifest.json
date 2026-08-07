@@ -15,7 +15,7 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786100957.1726184,
+    "mtime": 1786101117.2091146,
     "ast_hash": "d619212dd48ff991ea5bbf740925de19",
     "semantic_hash": ""
   },
@@ -25,7 +25,7 @@
     "semantic_hash": ""
   },
   "openspec/specs/openspine-development-process/spec.md": {
-    "mtime": 1786100942.0327446,
+    "mtime": 1786101117.2095747,
     "ast_hash": "f2ef415bd265f130e31c5527b2ca3735",
     "semantic_hash": ""
   },
@@ -3525,8 +3525,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/CHANGELOG.md": {
-    "mtime": 1786098271.311816,
-    "ast_hash": "d228475947cc7319e41bfaa9559cdce3",
+    "mtime": 1786105836.9425194,
+    "ast_hash": "e96f4ab67bb39df5f47c084ec3ad239d",
     "semantic_hash": ""
   },
   "artifacts/lyra/INSTALL.md": {
@@ -3540,8 +3540,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/README.md": {
-    "mtime": 1786098271.312069,
-    "ast_hash": "f8b29626aa29f7699a0a7ed256e67e61",
+    "mtime": 1786105791.8638134,
+    "ast_hash": "88eaf60c6e520b470a530ba70ce21f7d",
     "semantic_hash": ""
   },
   "artifacts/lyra/agents/main_terminal_assistant_agent.yaml": {
@@ -3550,8 +3550,8 @@
     "semantic_hash": ""
   },
   "artifacts/lyra/package.yaml": {
-    "mtime": 1786098271.312774,
-    "ast_hash": "36911514b55bae75da56fb2b82de656e",
+    "mtime": 1786105741.0535831,
+    "ast_hash": "732a0e6b53d36cc771b8b3a8110af954",
     "semantic_hash": ""
   },
   "artifacts/lyra/packs/owner_terminal_basic_pack.yaml": {
@@ -3575,8 +3575,8 @@
     "semantic_hash": ""
   },
   "docs/lyra.md": {
-    "mtime": 1786098271.433442,
-    "ast_hash": "bc35a8362dbfaa752389665961478284",
+    "mtime": 1786105820.1936483,
+    "ast_hash": "caa8afd632cc2d3ce5b747209911c3a1",
     "semantic_hash": ""
   },
   "docs/terminal-chat.md": {
@@ -3980,22 +3980,22 @@
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/design.md": {
-    "mtime": 1786100937.2301106,
+    "mtime": 1786101117.2079496,
     "ast_hash": "6b06314a034d1e219088381d9fef79da",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/proposal.md": {
-    "mtime": 1786100937.2306006,
+    "mtime": 1786101117.2081957,
     "ast_hash": "e1155361d41dc67c1ec7bf0e6012cd22",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/specs/openspine-development-process/spec.md": {
-    "mtime": 1786100937.2311485,
+    "mtime": 1786101117.208465,
     "ast_hash": "3e1dfc5075d0ee7b56e6a1db31d31c09",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-08-07-separate-progressive-delegation-roadmap-truth/tasks.md": {
-    "mtime": 1786100937.2319238,
+    "mtime": 1786101117.208617,
     "ast_hash": "00ca154ad5f62c783abb80b8559919e8",
     "semantic_hash": ""
   }
