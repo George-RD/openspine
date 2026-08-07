@@ -111,6 +111,15 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   progressive-delegation changes reference its truth model)
 - `2026-07-28-productize-lyra` (largely landed in `ee0d54a`; archived here
   with the `package.yaml` artifact declaration corrected to match the tree)
+- `mine-and-match-reusable-authority-by-scope` (D-155..D-158 — a standing rule
+  now binds the reviewed scope the owner approved, not just an `ActionId`:
+  `compatibility_digest` stays the declaration/drift epoch and a separate
+  `reviewed_scope_digest` is the scope key, so two accounts or targets can
+  never collide into one pattern; the kernel resolves the context at its own
+  boundary and admits exactly one compatible rule, failing closed on ambiguity;
+  `EffectOutcome` drives the reservation, with `DeliveryUnknown` retained as
+  `reserved` and the fence left open; an incomplete scope binding is refused at
+  activation. Brief stays in place — #130, #133, and #135 reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
