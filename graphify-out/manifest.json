@@ -895,8 +895,8 @@
     "semantic_hash": ""
   },
   "site/src/content/docs/roadmap.md": {
-    "mtime": 1786100937.2351315,
-    "ast_hash": "8862050a4f3421d4b1d0c8a28830d0f5",
+    "mtime": 1786126593.9774752,
+    "ast_hash": "290dacac6fab1746225fb636d82dd234",
     "semantic_hash": ""
   },
   "site/src/content/docs/threat-model.md": {
@@ -3355,8 +3355,8 @@
     "semantic_hash": ""
   },
   "capabilities/capability-map.json": {
-    "mtime": 1786100937.1296344,
-    "ast_hash": "980e9cf4224ddfa225c6dd5d3d02cb9a",
+    "mtime": 1786126568.286475,
+    "ast_hash": "361148f215ae34f08a6db5d17c8d160b",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/cli/login.rs": {
