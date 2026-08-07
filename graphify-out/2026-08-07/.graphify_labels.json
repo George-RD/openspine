@@ -2461,5 +2461,9 @@
   "2459": "Reflection & product surface",
   "2460": "atomic_write",
   "2461": "Event substrate",
-  "2462": "Requirement: Worker result recording MUST be receipt-keyed and fail-closed (D-083)"
+  "2462": "Requirement: Worker result recording MUST be receipt-keyed and fail-closed (D-083)",
+  "2463": "terminal_e2e.rs",
+  "2464": "rollback_tests.rs",
+  "2465": "Lyra changelog",
+  "2466": "Requirement: Event envelopes MUST include source authenticity fields"
 }
