@@ -120,6 +120,18 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   `EffectOutcome` drives the reservation, with `DeliveryUnknown` retained as
   `reserved` and the fence left open; an incomplete scope binding is refused at
   activation. Brief stays in place — #130, #133, and #135 reference it)
+- `bound-dark-window-exceptions` (D-159..D-162 — outstanding dark-window
+  exceptions are bounded per reviewed rule version by a validated
+  `max_pending_exceptions` counted inside the scheduling transaction, so
+  varying payload, grant, or chat can no longer turn exhausted quota into an
+  unbounded silence queue; the cap and the fired-token binding are keyed
+  separately, and a fired token revalidates its reviewed context; a fired
+  exception is accounted as an exception rather than quota and does not
+  refresh the lapse clock; every lifecycle change stales its open exceptions;
+  and dark-window `Allow` eligibility became an explicit empty catalog
+  allowlist enforced at activation and swept over stored rules, replacing a
+  classifier that permitted whatever it could not classify. Brief stays in
+  place — #130 and #131 depend on the bounded exception semantics)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
