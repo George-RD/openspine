@@ -37,6 +37,8 @@ mod telegram_truncate;
 mod webhook;
 
 #[cfg(test)]
+mod dark_window_cap_tests;
+#[cfg(test)]
 mod standing_rule_mediation_tests;
 #[cfg(test)]
 pub(crate) mod tests;

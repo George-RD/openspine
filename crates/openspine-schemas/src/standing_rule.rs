@@ -40,7 +40,26 @@ pub struct BudgetWindow {
 pub struct DarkWindowConfig {
     pub timeout_secs: i64,
     pub default: DarkWindowDefault,
+    /// How many pending exceptions this rule version may hold outstanding at
+    /// once (#135). The safe default is one: without a bound, a caller whose
+    /// quota is exhausted can vary the payload and mint a fresh pending
+    /// exception per variation, turning owner silence into an unbounded
+    /// queue of waivers. Serialized so the owner review object states the
+    /// bound they are approving.
+    #[serde(default = "default_max_pending_exceptions")]
+    pub max_pending_exceptions: u32,
 }
+
+/// One outstanding exception. Silence is the least-reviewed admission path,
+/// so its default bound is the smallest one that still works.
+pub fn default_max_pending_exceptions() -> u32 {
+    1
+}
+
+/// The largest outstanding-exception allowance a reviewed rule may declare.
+/// A dark window is an exception mechanism; a large allowance would make it a
+/// second budget.
+pub const MAX_PENDING_EXCEPTIONS_CEILING: u32 = 3;
 
 /// The pre-agreed default a dark-window timer applies when the owner does
 /// not respond in time.
@@ -179,6 +198,17 @@ impl StandingRuleManifest {
             if dark_window.timeout_secs <= 0 {
                 return Err("dark_window.timeout_secs must be positive".to_string());
             }
+            // A zero allowance would be a dark window that can never schedule
+            // (silently dead policy); an unbounded one is the amplification
+            // this bound exists to stop.
+            if dark_window.max_pending_exceptions == 0 {
+                return Err("dark_window.max_pending_exceptions must be at least 1".to_string());
+            }
+            if dark_window.max_pending_exceptions > MAX_PENDING_EXCEPTIONS_CEILING {
+                return Err(format!(
+                    "dark_window.max_pending_exceptions must not exceed {MAX_PENDING_EXCEPTIONS_CEILING}"
+                ));
+            }
         }
         if let Some(binding) = &self.reviewed_scope {
             if !binding.binding_is_valid() {
@@ -216,6 +246,7 @@ mod tests {
             dark_window: Some(DarkWindowConfig {
                 timeout_secs: 1800,
                 default: DarkWindowDefault::Deny,
+                max_pending_exceptions: 1,
             }),
             reviewed_scope: None,
         };

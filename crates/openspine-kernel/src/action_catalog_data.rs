@@ -16,7 +16,7 @@ fn id(s: &str) -> ActionId {
 /// Protocol-neutral semantics for actions that may eventually participate in
 /// reusable delegation. A delegation descriptor does not assert that a
 /// concrete resolver/executor exists; that readiness is declared separately.
-pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
+pub(super) fn delegation_descriptors() -> Vec<ActionDescriptor> {
     vec![ActionDescriptor {
         schema_version: 1,
         descriptor_version: 1,
@@ -87,21 +87,6 @@ pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
     }]
 }
 
-/// The reviewed scope dimensions the canonical descriptor declares for
-/// `action`, or `None` when no descriptor declares any. Single source of truth
-/// shared by the catalog and by activation-time scope-binding enforcement
-/// (standing-rules spec, "Reviewed scope is bound at activation"), so the two
-/// can never disagree about what a rule for this action must bind.
-pub(crate) fn required_scope_dimensions_for(
-    action: &ActionId,
-) -> Option<BTreeSet<ReviewedScopeDimension>> {
-    delegation_descriptors()
-        .into_iter()
-        .find(|descriptor| &descriptor.action_id == action)
-        .map(|descriptor| descriptor.required_scope_dimensions)
-        .filter(|dimensions| !dimensions.is_empty())
-}
-
 /// Concrete resolver/executor declarations for actions whose effect path is
 /// implemented by the kernel. `gmail.thread_recipient` names the live
 /// recipient re-derivation in `crate::gmail::newest_non_owner_recipient`.
@@ -121,7 +106,7 @@ pub(crate) fn implementation_descriptors() -> Vec<ActionImplementationDescriptor
 
 /// Explicit egress metadata for every canonical action. `None/None` is a
 /// deliberate non-egress classification, never an implicit default.
-pub(crate) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> {
+pub(super) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> {
     vec![
         (
             id("openspine.status.read"),

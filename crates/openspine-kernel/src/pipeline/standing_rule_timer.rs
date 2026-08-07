@@ -325,13 +325,15 @@ mod tests {
             Some(DarkWindowConfig {
                 timeout_secs: 60,
                 default: DarkWindowDefault::Allow,
+                max_pending_exceptions: 1,
             }),
         );
         let now = Timestamp::from_second(3_000_000).unwrap();
-        state
-            .store
-            .activate_standing_rule(&manifest, None, now)
-            .unwrap();
+        crate::store::standing_rules_tests::activate_or_install_legacy_allow(
+            &state.store,
+            &manifest,
+            now,
+        );
         let rule = state
             .store
             .active_standing_rule_for_action(&ActionId::new("timer.recovery.action"), now)
@@ -352,11 +354,15 @@ mod tests {
                 chat,
                 payload_ref.clone(),
                 &fingerprint,
+                None,
+                None,
                 now + std::time::Duration::from_secs(60),
                 now,
             )
             .unwrap()
-            .unwrap();
+            .timer_id()
+            .expect("dark window scheduled")
+            .to_string();
         let pending = state
             .store
             .claim_standing_rule_dark_window(&timer_id, now + std::time::Duration::from_secs(60))
@@ -410,11 +416,15 @@ mod tests {
                 chat2,
                 payload_ref.clone(),
                 &fp2,
+                None,
+                None,
                 now + std::time::Duration::from_secs(60),
                 now,
             )
             .unwrap()
-            .unwrap();
+            .timer_id()
+            .expect("dark window scheduled")
+            .to_string();
         let pending2 = state
             .store
             .claim_standing_rule_dark_window(&timer2, now + std::time::Duration::from_secs(60))
@@ -486,12 +496,14 @@ mod tests {
             Some(DarkWindowConfig {
                 timeout_secs: 60,
                 default: DarkWindowDefault::Allow,
+                max_pending_exceptions: 1,
             }),
         );
-        state
-            .store
-            .activate_standing_rule(&manifest, None, now)
-            .unwrap();
+        crate::store::standing_rules_tests::activate_or_install_legacy_allow(
+            &state.store,
+            &manifest,
+            now,
+        );
         let rule = state
             .store
             .active_standing_rule_for_action(&manifest.action_id, now)
@@ -538,11 +550,15 @@ mod tests {
                 OWNER_CHAT_ID,
                 payload_ref.clone(),
                 &fingerprint,
+                None,
+                None,
                 now + std::time::Duration::from_secs(60),
                 now,
             )
             .unwrap()
-            .unwrap();
+            .timer_id()
+            .expect("dark window scheduled")
+            .to_string();
         // First delivery: claim + redispatch consumes the one-use token and
         // dispatches the effect through the real Telegram executor.
         claim_and_redispatch(&state, &timer_id, now + std::time::Duration::from_secs(61))
@@ -629,12 +645,14 @@ mod tests {
             Some(DarkWindowConfig {
                 timeout_secs: 60,
                 default: DarkWindowDefault::Allow,
+                max_pending_exceptions: 1,
             }),
         );
-        state
-            .store
-            .activate_standing_rule(&manifest, None, now)
-            .unwrap();
+        crate::store::standing_rules_tests::activate_or_install_legacy_allow(
+            &state.store,
+            &manifest,
+            now,
+        );
         let rule = state
             .store
             .active_standing_rule_for_action(&manifest.action_id, now)
@@ -679,11 +697,15 @@ mod tests {
                 OWNER_CHAT_ID,
                 payload_ref,
                 &fingerprint,
+                None,
+                None,
                 now + std::time::Duration::from_secs(60),
                 now,
             )
             .unwrap()
-            .unwrap();
+            .timer_id()
+            .expect("dark window scheduled")
+            .to_string();
 
         let first =
             claim_and_redispatch(&state, &timer_id, now + std::time::Duration::from_secs(61)).await;

@@ -151,6 +151,10 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-156 | Scoped standing-rule selection is exact-one: zero matches falls back to owner approval, one admits, and two or more matching rules fail closed without reservation, timer, or budget movement | Accepted |
 | D-157 | A scope-matched standing-rule reservation finalizes only on `EffectOutcome::Executed`; `DeliveryUnknown` retains the reservation and reconciliation fence, while pre-effect refusal, post-attempt failure, and `NoExecutor` cancel | Accepted |
 | D-158 | Gate-time reviewed scope binding belongs to the consulted standing rule; `ResponsibilityManifest` remains a non-authoritative reference view, never live authority | Accepted |
+| D-159 | Outstanding dark-window exceptions are bounded per reviewed rule version by a validated `max_pending_exceptions` (default 1), counted inside the scheduling transaction before anything is inserted; a refusal is an ordinary approval indistinguishable from having no dark window | Accepted |
+| D-160 | The pending request fingerprint keeps its token-binding job unchanged; the cap is keyed on `(rule_id, rule_version)` and the pending row separately binds the reviewed scope and compatibility epoch | Accepted |
+| D-161 | A fired dark-window exception is accounted as an exception, not as quota: distinct audit class, never pooled across rules or scopes, and it does not refresh the lapse-after-unused clock | Accepted |
+| D-162 | Dark-window `Allow` eligibility is an explicit, empty catalog allowlist enforced at activation and converged on stored rules by a startup sweep, not a classifier that permits whatever it cannot classify | Accepted |
 
 ---
 
@@ -3756,6 +3760,103 @@ The responsibility contract explicitly promoted manifests from reference project
 
 ---
 
+# D-159 — Outstanding dark-window exceptions are bounded per reviewed rule version
+
+## Decision
+
+A dark-window configuration carries `max_pending_exceptions`, defaulting to 1 and validated to a small ceiling, so the owner sees the bound they approve. The kernel counts nonterminal pending exceptions for the exact `(rule_id, rule_version)` inside the same `BEGIN IMMEDIATE` transaction that would schedule a new one, and refuses at the limit before inserting anything. Deduplication is evaluated first, so an idempotent repeat never consumes a slot. A refusal creates no pending row, no timer, and no scheduled evidence, keeps the decision at ordinary owner approval, consumes no quota or rate, and is reported to the caller identically to having no dark window at all.
+
+## Rationale
+
+The pending fingerprint hashes action, grant, chat, and payload — all caller-varying. Without a cap, a worker whose quota was exhausted could vary any of them and mint a fresh pending exception, with its own timer and its own eventual silence-based Allow, per variation. Each request was individually idempotent and globally amplifying, which empties the meaning of a reviewed budget: the budget bounded approved admissions while silence was unbounded.
+
+Counting before inserting, rather than inserting and rolling back, means the refusal path's safety does not depend on rollback correctness. `BEGIN IMMEDIATE` already serializes writers, so concurrency needs no new machinery — this is the D-050 TOCTOU closure applied to the exception slot.
+
+Making suppression indistinguishable from "no dark window" preserves the AD-013/AD-106 posture that a denial never exposes capacity state; a distinguishable signal would tell a worker exactly when the slot frees.
+
+## Consequences
+
+- Silence can admit at most the reviewed number of effects per rule version.
+- Owner-notification pressure is bounded by the same number, because a card is sent only for a schedule that happened; no separate aggregation surface is needed.
+- The bound is on *outstanding* exceptions: resolving one frees its slot. A lifetime bound would silently retire a rule the owner never retired.
+
+## Would change if
+
+An owner-facing review surface gains an explicit, separately reviewed exception budget with its own lifecycle, or a future decision makes exception slots per-scope rather than per-rule-version.
+
+---
+
+# D-160 — The exception cap and the fired-token binding answer different questions
+
+## Decision
+
+The pending `request_fingerprint` keeps its existing job unchanged: it binds a fired token to the exact request, so a waiver minted for one draft cannot admit another. The cap is keyed separately on `(rule_id, rule_version)`. The pending row additionally records the reviewed scope digest and compatibility epoch of the resolved context it was minted against, and consuming a fired token requires those to still equal the freshly resolved context's.
+
+## Rationale
+
+It is tempting to close the amplification by coarsening the fingerprint to the reviewed scope so varying payloads collide into one row. That would destroy the token binding: one fired waiver would then admit any request inside the scope, trading an unbounded queue of narrow waivers for a single unbounded waiver. Strictly worse. The two concerns — how many exceptions may exist, and what one may admit — need separate keys.
+
+The context binding closes a real window #128 left open. #128 made drift stop a rule from *matching* at consultation, but a token minted before the drift was still consumable afterwards, because consuming checked the rule row rather than the context.
+
+## Consequences
+
+- Varying payload, grant, or chat cannot increase the number of exceptions, and cannot repurpose an existing one.
+- A drifted context cannot spend a pre-drift waiver.
+- Comparison uses the stored digests rather than re-running `ReviewedActionScope::compare`, so there is still exactly one canonical scope-comparison implementation.
+
+## Would change if
+
+Fired tokens become owner-reviewable objects in their own right with their own scope, at which point the binding may move onto that object.
+
+---
+
+# D-161 — A fired exception is accounted as an exception, not as quota
+
+## Decision
+
+A fired dark-window `Allow` is recorded under a distinct audit class, its allowance is counted per `(rule_id, rule_version)` and never pooled across rules or reviewed scopes, and it does **not** refresh the rule's lapse-after-unused clock. The AD-010 drift trigger is still evaluated on a fired exception.
+
+## Rationale
+
+An exception is not hidden extra quota, and an auditor must be able to total silence-admitted effects without unpicking the quota ledger. Lapse-after-unused exists so a responsibility the owner has stopped exercising retires itself; if owner silence refreshed that clock, a rule could be kept alive indefinitely by exactly the signal that should retire it. The issue left this "unless explicitly decided" — it is decided here, in the fail-closed direction. Drift is still evaluated because a rule saturating through silence is precisely one the owner should re-review.
+
+## Consequences
+
+- A rule exercised only by silence still lapses.
+- Exception evidence is separable from admission evidence in the audit ledger.
+
+## Would change if
+
+An owner review surface begins presenting exception consumption as part of the same budget, at which point the accounting should follow the presentation rather than diverge from it.
+
+---
+
+# D-162 — Dark-window Allow eligibility is an explicit empty allowlist, enforced at activation and swept
+
+## Decision
+
+Dark-window `Allow` eligibility is an explicit catalog **allowlist**, empty today. An action is eligible only if it is named on that allowlist; an action the catalog has never heard of is ineligible. The kernel refuses to activate a standing rule whose dark-window default is `Allow` for an ineligible action, before the activation transaction opens, leaving no active rule row and recording durable evidence. Because activation is not retroactive, a startup sweep moves any stored active rule whose `Allow` default is now ineligible to `needs_review` and stales its pending exceptions in the same transaction. Adding an id to the allowlist is an explicit catalog decision needing proposal-specific proof.
+
+## Rationale
+
+D-146 and the `responsibility-contract` spec already forbade this, and nothing enforced it: `StandingRuleManifest::validate` never looked at the pairing, so a manifest declaring `Allow` on `email.send` activated. That is the same spec-claims-what-code-does-not-do defect D-155's change closed for the reviewed-scope binding, and it is worse here because the claim is a security posture.
+
+Enforcement lives at activation for the same reason the required-dimension check does: it is the first point with the catalog descriptor in scope, and a self-contained manifest cannot reach it.
+
+An allowlist rather than a classifier, learned the hard way. The first implementation inverted the polarity — eligible *unless* the action could be shown to be counterparty-facing, egress-classed, or descriptor-backed. It read as strict and refused five ids out of roughly fifty: `coolify.deploy`, `filesystem.host_write`, `secret.rotate`, `network.raw_egress`, `policy.modify_direct` and every uncatalogued id stayed eligible. A predicate that permits whatever it cannot classify is not fail-closed however its prose reads, so eligibility is now the allowlist the prose always claimed.
+
+## Consequences
+
+- `email.send` and `email.create_draft` cannot carry a silence-admitted Allow.
+- A Deny default remains permitted everywhere; this forbids silence-admitted Allow, not dark windows.
+- Lifting the prohibition for a specific action is a visible catalog change, not a manifest field.
+
+## Would change if
+
+An adversarially verified design demonstrates a tightly bounded communication Allow default is safer than explicit review — the condition D-146 already names.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -3809,4 +3910,4 @@ The responsibility contract explicitly promoted manifests from reference project
 | 2026-08-06 | Added D-153 (the one shared Gmail draft executor is reached by per-instance digest-bound approval and the D-117 headless approved lane; scope-matched standing-rule admission and the `EffectOutcome`→reservation mapping remain #128; the generic shell dispatch path fails closed; the non-effect stub allowlist is closed at seven catalogued read ids), settled while implementing `unify-approved-and-delegated-effect-execution` (#127). |
 | 2026-08-07 | Added D-154 (order-compared `TEXT` timestamp columns are written and compared through the fixed nine-digit `store::sql_time::sql_timestamp`; jiff's variable-width `Display` inverts time order inside a second, which stalled dead-letter retries and left selection tokens expiring on an exact second readable as live; versioned migration v4 normalizes existing rows), found by a post-merge `scripts/check.sh` failure on `main` after `#152`. |
 | 2026-08-07 | Added D-155–D-158 (separate reviewed-scope and compatibility digests; exact-one scoped matching with fail-closed ambiguity; conservative `EffectOutcome` reservation mapping; and standing-rule gate-time authority over the `ResponsibilityManifest` reference view), including authority-boundary, audit-boundary, and #127 non-regression verification obligations, settled while implementing `mine-and-match-reusable-authority-by-scope` (#128). |
-
+| 2026-08-07 | Added D-159–D-162 (outstanding dark-window exceptions bounded per reviewed rule version and counted inside the scheduling transaction; the cap and the fired-token binding keyed separately; fired exceptions accounted as exceptions rather than quota and excluded from the lapse clock; and dark-window `Allow` eligibility made an explicit empty allowlist enforced at activation and swept over stored rules), settled while implementing `bound-dark-window-exceptions` (#135). |

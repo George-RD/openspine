@@ -127,6 +127,13 @@ impl Store {
             let reference =
                 timestamp_to_epoch_nanos(rule.last_used_at.unwrap_or(rule.activated_at))?;
             if reference + rule.expires_after_secs * 1_000_000_000 <= now_nanos {
+                // #135: a lapsed rule leaves no fireable exception behind.
+                super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                    &tx,
+                    &rule.rule_id,
+                    Some(rule.version),
+                    now_nanos,
+                )?;
                 tx.execute(
                     "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
                      WHERE rule_id = ?1 AND status = 'active'",
