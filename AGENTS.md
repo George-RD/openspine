@@ -25,10 +25,10 @@ OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
   `// openspine:allow-large-module reason: <reason>`. Prefer the repo's other
   habit: move the test module into `<name>_tests.rs` and pull it in with
   `#[cfg(test)] #[path = "<name>_tests.rs"] mod tests;`.
-- **`capabilities/capability-map.json` is generated into two markdown files.**
-  `scripts/capability-map.mjs` rewrites the blocks between
+- **`capabilities/capability-map.json` is generated into the public roadmap.**
+  `scripts/capability-map.mjs` rewrites the block between
   `<!-- capability-map:start -->` / `<!-- capability-map:end -->` in
-  `openspec/openspine-change-sequence.md` and `site/src/content/docs/roadmap.md`.
+  `site/src/content/docs/roadmap.md`.
   Edit the JSON, never inside the markers.
 - **Every `test: <name>` row in `docs/threat-claims.md` must name a real test**
   (`scripts/check-claims.sh`). Writing a security claim without landing its test
