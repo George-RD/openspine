@@ -105,7 +105,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/actions.rs": {
-    "mtime": 1786051349.773865,
+    "mtime": 1786045625.518493,
     "ast_hash": "c9d3a96b9b32dbcc3231bb8840fd2ea5",
     "semantic_hash": ""
   },
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/mod.rs": {
-    "mtime": 1786051250.8166301,
-    "ast_hash": "2c8e8e3437e20c591be7c8ed5454f9cb",
+    "mtime": 1785762827.6248107,
+    "ast_hash": "80cc1b1191902d7e850b485f187dc634",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/proposed_artifacts.rs": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "openspec/config.yaml": {
-    "mtime": 1786051232.0640273,
-    "ast_hash": "9caf867c088f755cd202e48c5bff1d25",
+    "mtime": 1777206686.0290773,
+    "ast_hash": "a58ebd35d385f48152b82ac3183d6d00",
     "semantic_hash": ""
   },
   "openspec/specs/artifact-lifecycle/spec.md": {
@@ -1710,8 +1710,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/test_hooks.rs": {
-    "mtime": 1786051377.4076922,
-    "ast_hash": "a1f9b63cff94c086e3f1f7af02e0353b",
+    "mtime": 1784393301.862417,
+    "ast_hash": "1112cc860a5a372437827b82305bb43c",
     "semantic_hash": ""
   },
   "openspec/changes/archive/2026-07-17-implement-secret-intake/design.md": {
@@ -2715,8 +2715,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/standing_rules_budget.rs": {
-    "mtime": 1786051257.7923522,
-    "ast_hash": "9f1d69bbf81b4f57b376691882c67928",
+    "mtime": 1784393301.8608894,
+    "ast_hash": "6523e98c50b313f07f2ea1675910a104",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/store/standing_rules_pending.rs": {
@@ -2765,8 +2765,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/standing-rules/spec.md": {
-    "mtime": 1786051365.510388,
-    "ast_hash": "d4ac3da04b628b4c1b7fa7f0e334e994",
+    "mtime": 1786045869.5907974,
+    "ast_hash": "76da70cd31d2767a9e9d40e6d53380cd",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/worker_e2e_tests.rs": {
@@ -4025,8 +4025,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/effect_readiness_tests.rs": {
-    "mtime": 1786051292.2459438,
-    "ast_hash": "4e64ac7c7ee5759ffade09439b060daf",
+    "mtime": 1786045625.531572,
+    "ast_hash": "95a68cb61dcdf934d5baba03928e68c0",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/tests/headless_draft_boundary.rs": {

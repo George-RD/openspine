@@ -128,15 +128,18 @@ Test: `delegated_email_draft_fails_closed_and_cancels_reservation`
 
 Test: `fired_token_no_executor_cancels_reservation_and_rearms_once`
 
-The cancellation-failure case — where a failed reservation cancel MUST leave the
-token claimed rather than re-armed — is pre-existing kernel behaviour and is NOT
-covered by any test for `NoExecutor`. No existing test forces
-`cancel_standing_rule_reservation` to fail;
+The cancellation-failure case is now covered: when
+`cancel_standing_rule_reservation` fails, the fired token MUST stay claimed
+(`token_consumed_at` non-NULL) and the reserved budget row MUST survive, so
+recovery surfaces the pending row fail-closed and the one-use token can never
+be spent twice. A store fault-injection hook
+(`fail_next_reservation_cancel_for_test`) forces that failure.
 `standing_rule_fired_path_audit_failure_rearms_token_once` injects an
 *effective-Allow audit* failure and then asserts the token IS re-armed after a
 successful cancel, so it exercises the opposite branch and MUST NOT be cited as
-evidence for it. Forcing a cancel failure requires a new store fault-injection
-hook and is deferred.
+evidence for this one.
+
+Test: `fired_token_cancel_failure_does_not_rearm_the_token`
 
 #### Scenario: Invalid persisted recovery data fails closed
 

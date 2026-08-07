@@ -162,6 +162,11 @@ pub struct Store {
     /// append fails (proves a failed effective-Allow audit cancels the
     /// reserved budget rather than leaking it).
     pub(crate) fail_next_effective_allow_audit: Arc<AtomicBool>,
+    /// Test-only: when set, the next `cancel_standing_rule_reservation`
+    /// fails (proves a failed reservation cancel leaves the fired one-use
+    /// token `claimed` and the budget reserved, rather than re-arming the
+    /// token for a second spend).
+    pub(crate) fail_next_reservation_cancel: Arc<AtomicBool>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -263,6 +268,7 @@ impl Store {
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
             fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
             fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
+            fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -282,6 +288,7 @@ impl Store {
             fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
             fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
             fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
+            fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
         })
     }
     #[cfg(test)]
@@ -304,6 +311,17 @@ impl Store {
     /// it.
     pub(crate) fn fail_next_effective_allow_audit_for_test(&self) {
         self.fail_next_effective_allow_audit
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    #[cfg(test)]
+    /// Test-only: arm a one-shot failure of the next
+    /// `cancel_standing_rule_reservation` so a regression can prove the
+    /// rearm-only-after-successful-cancel invariant: when the cancel fails,
+    /// the fired one-use token stays consumed (`claimed`) so recovery
+    /// surfaces it fail-closed and it can never be double-spent.
+    pub(crate) fn fail_next_reservation_cancel_for_test(&self) {
+        self.fail_next_reservation_cancel
             .store(true, std::sync::atomic::Ordering::SeqCst);
     }
 
