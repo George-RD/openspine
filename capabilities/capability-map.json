@@ -64,16 +64,8 @@
       "generic": true,
       "blocking_issues": [
         {
-          "issue": 128,
-          "role": "scoped evidence/matching"
-        },
-        {
           "issue": 129,
           "role": "execution/review foundations"
-        },
-        {
-          "issue": 133,
-          "role": "proposal-specific evaluation"
         }
       ],
       "owner_outcome": "Let Lyra grow through real work by reviewing and delegating reusable, protocol-neutral responsibility for narrowly bounded recurring work.",
@@ -86,7 +78,10 @@
         "harden-approval-and-budgets",
         "define-grant-chain-and-modes",
         "implement-spend-kill-switch",
-        "backfill-implemented-capability-specs"
+        "backfill-implemented-capability-specs",
+        "mine-and-match-reusable-authority-by-scope",
+        "make-reusable-authority-evaluation-proposal-specific",
+        "bound-dark-window-exceptions"
       ],
       "canonical_specs": [
         "openspec/specs/standing-rules/spec.md",
@@ -94,11 +89,13 @@
         "openspec/specs/artifact-lifecycle/spec.md",
         "openspec/specs/audit-artifact-store/spec.md",
         "openspec/specs/spend-kill-switch/spec.md",
-        "openspec/specs/authority-composition/spec.md"
+        "openspec/specs/authority-composition/spec.md",
+        "openspec/specs/responsibility-contract/spec.md",
+        "openspec/specs/lineage-and-eval-store/spec.md"
       ],
       "lyra_artifacts": [],
       "owner_path_tests": [],
-      "current_limit": "The runtime can propose, evaluate, budget, expire, match, revoke, and audit reusable authority, but Lyra has no plain-language owner loop that joins those pieces into a protocol-neutral responsibility."
+      "current_limit": "The runtime can now propose, evaluate against the exact proposal, budget, expire, scope-match exactly one reviewed rule, bound dark-window exceptions, revoke, and audit reusable authority, and it stales an evaluation verdict when any bound epoch moves. None of that is reachable by the owner: Lyra has no plain-language loop that turns repeated approved work into a reviewed responsibility, so every one of these guarantees is exercised only by tests and internal paths."
     },
     {
       "id": "task-and-reminder-commitments",
