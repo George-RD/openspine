@@ -15898,7 +15898,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosurerequest",
-      "community": 202,
+      "community": 1034,
       "norm_label": "disclosurerequest"
     },
     {
@@ -15968,7 +15968,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_action_for_scope",
-      "community": 75,
+      "community": 202,
       "norm_label": "action_for_scope()"
     },
     {
@@ -15978,7 +15978,7 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_action_for_egress",
-      "community": 75,
+      "community": 202,
       "norm_label": "action_for_egress()"
     },
     {
@@ -16148,7 +16148,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_rs",
-      "community": 75,
+      "community": 202,
       "norm_label": "disclosure_regression_tests.rs"
     },
     {
@@ -16168,7 +16168,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_caller_omitted_class_is_still_enforced",
-      "community": 75,
+      "community": 202,
       "norm_label": "caller_omitted_class_is_still_enforced()"
     },
     {
@@ -16178,7 +16178,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_unclassified_worker_visible_section_fails_closed",
-      "community": 75,
+      "community": 202,
       "norm_label": "unclassified_worker_visible_section_fails_closed()"
     },
     {
@@ -16198,7 +16198,7 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_per_scope_envelope_revocation_leaves_sibling_live",
-      "community": 75,
+      "community": 202,
       "norm_label": "per_scope_envelope_revocation_leaves_sibling_live()"
     },
     {
@@ -16208,7 +16208,7 @@
       "source_location": "L241",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_scoped_owner_answer_uses_pending_question_digest",
-      "community": 75,
+      "community": 202,
       "norm_label": "scoped_owner_answer_uses_pending_question_digest()"
     },
     {
@@ -16218,7 +16218,7 @@
       "source_location": "L297",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_disclosure_envelope_budget_exhaustion_blocks",
-      "community": 75,
+      "community": 202,
       "norm_label": "disclosure_envelope_budget_exhaustion_blocks()"
     },
     {
@@ -16228,7 +16228,7 @@
       "source_location": "L332",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_regression_tests_worker_denial_has_no_debug_leak",
-      "community": 75,
+      "community": 202,
       "norm_label": "worker_denial_has_no_debug_leak()"
     },
     {
@@ -16248,7 +16248,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_tests_provenance",
-      "community": 202,
+      "community": 1034,
       "norm_label": "provenance()"
     },
     {
@@ -16258,7 +16258,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_tests_request",
-      "community": 202,
+      "community": 1034,
       "norm_label": "request()"
     },
     {
@@ -16288,7 +16288,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_tests_uncovered_egress_blocks_and_produces_owner_question",
-      "community": 202,
+      "community": 1034,
       "norm_label": "uncovered_egress_blocks_and_produces_owner_question()"
     },
     {
@@ -16338,7 +16338,7 @@
       "source_location": "L271",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_kernel_src_disclosure_disclosure_tests_forum_request",
-      "community": 202,
+      "community": 1034,
       "norm_label": "forum_request()"
     },
     {
@@ -23148,7 +23148,7 @@
       "source_location": "L59",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_manifest_read_manifest",
-      "community": 286,
+      "community": 391,
       "norm_label": "read_manifest()"
     },
     {
@@ -23198,7 +23198,7 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_manifest_validate_manifest_path",
-      "community": 391,
+      "community": 952,
       "norm_label": "validate_manifest_path()"
     },
     {
@@ -23248,7 +23248,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_rs",
-      "community": 391,
+      "community": 952,
       "norm_label": "tree.rs"
     },
     {
@@ -23258,7 +23258,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_validate_entries",
-      "community": 391,
+      "community": 952,
       "norm_label": "validate_entries()"
     },
     {
@@ -23278,7 +23278,7 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_enumerate_data_root",
-      "community": 391,
+      "community": 952,
       "norm_label": "enumerate_data_root()"
     },
     {
@@ -23308,7 +23308,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_enum_dir_fd",
-      "community": 391,
+      "community": 952,
       "norm_label": "enum_dir_fd()"
     },
     {
@@ -23328,7 +23328,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_validate_tree",
-      "community": 391,
+      "community": 952,
       "norm_label": "validate_tree()"
     },
     {
@@ -23348,7 +23348,7 @@
       "source_location": "L244",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_relative_data_path",
-      "community": 391,
+      "community": 25,
       "norm_label": "relative_data_path()"
     },
     {
@@ -23398,7 +23398,7 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_hash_open",
-      "community": 391,
+      "community": 952,
       "norm_label": "hash_open()"
     },
     {
@@ -23418,7 +23418,7 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_overlay_export_restore_crates_openspine_kernel_src_overlay_export_restore_bundle_tree_sync_tree_bottom_up",
-      "community": 391,
+      "community": 952,
       "norm_label": "sync_tree_bottom_up()"
     },
     {
@@ -23478,7 +23478,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "users_george_repos_openspine_crates_openspine_kernel_src_overlay_export_restore_bundle_unix_fd_open_path_dir_fd",
-      "community": 391,
+      "community": 25,
       "norm_label": "open_path_dir_fd()"
     },
     {
@@ -23498,7 +23498,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "users_george_repos_openspine_crates_openspine_kernel_src_overlay_export_restore_bundle_unix_fd_open_parent_fd",
-      "community": 391,
+      "community": 25,
       "norm_label": "open_parent_fd()"
     },
     {
@@ -51818,7 +51818,7 @@
       "source_location": "L74",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_schemas_src_disclosure_policy_disclosurepolicykey",
-      "community": 75,
+      "community": 202,
       "norm_label": "disclosurepolicykey"
     },
     {
@@ -51998,7 +51998,7 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "users_george_repos_openspine_wz_implement_disclosure_policy_crates_openspine_schemas_src_disclosure_policy_ownerquestionescalation",
-      "community": 75,
+      "community": 17,
       "norm_label": "ownerquestionescalation"
     },
     {
@@ -70901,7 +70901,7 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "users_george_repos_openspine_raw_openspine_positioning_audit_2026_07_30_phase_4_problem_to_solution_stack",
-      "community": 80,
+      "community": 1077,
       "norm_label": "phase 4: problem-to-solution stack"
     },
     {
@@ -70911,7 +70911,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "users_george_repos_openspine_raw_openspine_positioning_audit_2026_07_30_core_offer",
-      "community": 80,
+      "community": 1077,
       "norm_label": "core offer"
     },
     {
@@ -70921,7 +70921,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "users_george_repos_openspine_raw_openspine_positioning_audit_2026_07_30_what_ships_in_the_offer_today",
-      "community": 80,
+      "community": 1077,
       "norm_label": "what ships in the offer today"
     },
     {
@@ -70931,7 +70931,7 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "users_george_repos_openspine_raw_openspine_positioning_audit_2026_07_30_what_belongs_to_the_product_direction_not_the_current_promise",
-      "community": 80,
+      "community": 1077,
       "norm_label": "what belongs to the product direction, not the current promise"
     },
     {
@@ -99751,7 +99751,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_requirement_identity_schemas_must_not_grant_runtime_authority",
-      "community": 274,
+      "community": 1078,
       "norm_label": "requirement: identity schemas must not grant runtime authority"
     },
     {
@@ -99761,7 +99761,7 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_scenario_known_owner_identity_exists",
-      "community": 274,
+      "community": 1078,
       "norm_label": "scenario: known owner identity exists"
     },
     {
@@ -99771,7 +99771,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_requirement_route_schemas_must_be_declarative_artifacts",
-      "community": 274,
+      "community": 1079,
       "norm_label": "requirement: route schemas must be declarative artifacts"
     },
     {
@@ -99781,7 +99781,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_scenario_owner_telegram_route_exists",
-      "community": 274,
+      "community": 1079,
       "norm_label": "scenario: owner telegram route exists"
     },
     {
@@ -99791,7 +99791,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_requirement_route_resolution_schemas_must_represent_ambiguity",
-      "community": 1078,
+      "community": 274,
       "norm_label": "requirement: route resolution schemas must represent ambiguity"
     },
     {
@@ -99801,7 +99801,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_scenario_two_routes_match_without_deterministic_winner",
-      "community": 1078,
+      "community": 274,
       "norm_label": "scenario: two routes match without deterministic winner"
     },
     {
@@ -100211,7 +100211,7 @@
       "source_location": "L349",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_requirement_worker_identity_addressing_must_serialize_conversations_ad_102",
-      "community": 1079,
+      "community": 274,
       "norm_label": "requirement: worker identity addressing must serialize conversations (ad-102)"
     },
     {
@@ -100221,7 +100221,7 @@
       "source_location": "L355",
       "_origin": "ast",
       "id": "users_george_repos_openspine_openspec_specs_core_runtime_schemas_spec_scenario_identity_addressing_serializes_one_message_per_conversation_identity_addressing_serializes_one_message_per_conversation",
-      "community": 1079,
+      "community": 274,
       "norm_label": "scenario: identity addressing serializes one message per conversation (`identity_addressing_serializes_one_message_per_conversation`)"
     },
     {
@@ -104068,7 +104068,7 @@
       "label": "Requirements",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L5",
+      "source_location": "L7",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_requirements",
       "community": 309,
@@ -104078,7 +104078,7 @@
       "label": "Requirement: Lyra is a named default package",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L6",
+      "source_location": "L8",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_requirement_lyra_is_a_named_default_package",
       "community": 309,
@@ -104088,7 +104088,7 @@
       "label": "Scenario: Inspecting the source package",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L9",
+      "source_location": "L11",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_scenario_inspecting_the_source_package",
       "community": 309,
@@ -104098,7 +104098,7 @@
       "label": "Requirement: Personality carries no authority",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L15",
+      "source_location": "L17",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_requirement_personality_carries_no_authority",
       "community": 309,
@@ -104108,7 +104108,7 @@
       "label": "Scenario: Editing personality guidance",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L18",
+      "source_location": "L20",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_scenario_editing_personality_guidance",
       "community": 309,
@@ -104118,7 +104118,7 @@
       "label": "Requirement: Memory is typed and scoped",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L22",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_requirement_memory_is_typed_and_scoped",
       "community": 309,
@@ -104128,7 +104128,7 @@
       "label": "Scenario: Raw email body is considered for durable memory",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L25",
+      "source_location": "L27",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_scenario_raw_email_body_is_considered_for_durable_memory",
       "community": 309,
@@ -104138,7 +104138,7 @@
       "label": "Requirement: Installation remains declarative",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L29",
+      "source_location": "L31",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_requirement_installation_remains_declarative",
       "community": 309,
@@ -104148,7 +104148,7 @@
       "label": "Scenario: Rolling back an installed package",
       "file_type": "document",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L32",
+      "source_location": "L34",
       "_origin": "ast",
       "id": "openspec_specs_lyra_package_spec_scenario_rolling_back_an_installed_package",
       "community": 309,
@@ -251162,7 +251162,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L5",
+      "source_location": "L7",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_lyra_package_specification",
       "target": "openspec_specs_lyra_package_spec_requirements",
@@ -251172,7 +251172,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L29",
+      "source_location": "L31",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirements",
       "target": "openspec_specs_lyra_package_spec_requirement_installation_remains_declarative",
@@ -251182,7 +251182,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L6",
+      "source_location": "L8",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirements",
       "target": "openspec_specs_lyra_package_spec_requirement_lyra_is_a_named_default_package",
@@ -251192,7 +251192,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L22",
+      "source_location": "L24",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirements",
       "target": "openspec_specs_lyra_package_spec_requirement_memory_is_typed_and_scoped",
@@ -251202,7 +251202,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L15",
+      "source_location": "L17",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirements",
       "target": "openspec_specs_lyra_package_spec_requirement_personality_carries_no_authority",
@@ -251212,7 +251212,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L9",
+      "source_location": "L11",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirement_lyra_is_a_named_default_package",
       "target": "openspec_specs_lyra_package_spec_scenario_inspecting_the_source_package",
@@ -251222,7 +251222,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L18",
+      "source_location": "L20",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirement_personality_carries_no_authority",
       "target": "openspec_specs_lyra_package_spec_scenario_editing_personality_guidance",
@@ -251232,7 +251232,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L25",
+      "source_location": "L27",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirement_memory_is_typed_and_scoped",
       "target": "openspec_specs_lyra_package_spec_scenario_raw_email_body_is_considered_for_durable_memory",
@@ -251242,7 +251242,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "openspec/specs/lyra-package/spec.md",
-      "source_location": "L32",
+      "source_location": "L34",
       "weight": 1.0,
       "source": "openspec_specs_lyra_package_spec_requirement_installation_remains_declarative",
       "target": "openspec_specs_lyra_package_spec_scenario_rolling_back_an_installed_package",
@@ -256560,5 +256560,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "e14731774c6e7734277bad5ebcf9bcae2bfdd4e2"
+  "built_at_commit": "93c7a501339786014ceee455546b9000e0b8e250"
 }
