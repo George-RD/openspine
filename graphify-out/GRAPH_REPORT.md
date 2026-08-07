@@ -1,16 +1,16 @@
 # Graph Report - openspine  (2026-08-07)
 
 ## Corpus Check
-- 767 files · ~643,617 words
+- 767 files · ~646,369 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 11274 nodes · 17745 edges · 1834 communities (771 shown, 1063 thin omitted)
+- 11307 nodes · 17779 edges · 1847 communities (783 shown, 1064 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 1899 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9a4b6272`
+- Built from commit: `04587570`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -449,6 +449,7 @@
 - compose_authority
 - Value
 - Option
+- Result
 - Self
 - Store
 - String
@@ -1152,11 +1153,17 @@
 - Result
 - Digest
 - Option
+- Requirement: Selection-token validation MUST occur inside gate() for token-requiring actions
+- Requirement: Shadow-mode grants MUST return a non-executable decision
+- Phase 2: pricing
+- Research brief
+- Spec: Gate action API
 - ArtifactId
 - Option
 - Result
 - String
 - Vec
+- Requirement: Every effectful action MUST pass through gate
 - HashSet
 - Path
 - Result
@@ -1194,6 +1201,13 @@
 - Vec
 - Option
 - ResponseTemplate
+- Requirement: Gate decisions MUST be auditable
+- Requirement: Gate decisions MUST use task grant precedence
+- Requirement: Grant limits MUST be enforced at runtime
+- Requirement: Kernel-origin actions MUST route through gate() with a KernelOrigin marker
+- Requirement: Compatibility MUST fail closed for dangling learned references
+- Requirement: OpenSpine core runtime objects MUST have explicit schemas
+- Requirement: Route schemas MUST be declarative artifacts
 - String
 - opsx-propose.md
 - SKILL.md
@@ -1795,10 +1809,10 @@
 ## Surprising Connections (you probably didn't know these)
 - `now()` --references--> `Timestamp`  [EXTRACTED]
   connector_reality/connector_reality_tests.rs → crates/openspine-kernel/src/workflow.rs
-- `get_briefcase()` --calls--> `authenticate()`  [INFERRED]
-  crates/openspine-kernel/src/api/briefcase.rs → crates/openspine-kernel/src/api/mod.rs
 - `is_execution_backed_requires_descriptor_and_registered_executor()` --calls--> `test_state()`  [INFERRED]
   crates/openspine-kernel/src/api/effect_readiness_tests.rs → crates/openspine-kernel/src/test_support.rs
+- `handle_worker_report_result()` --calls--> `record_worker_result()`  [INFERRED]
+  crates/openspine-kernel/src/api/worker.rs → crates/openspine-kernel/src/store/worker_dispatch.rs
 - `format2_recovered_blob_reads_and_migrates_to_format3()` --calls--> `digest_of_bytes()`  [INFERRED]
   crates/openspine-kernel/src/artifact_store_format_tests.rs → crates/openspine-schemas/src/digest.rs
 - `format2_post_rename_sync_failure_recovers_once_without_syncing_steady_state_reads()` --calls--> `digest_of_bytes()`  [INFERRED]
@@ -1806,23 +1820,23 @@
 
 ## Import Cycles
 - 2-file cycle: `crates/openspine-kernel/src/model_gateway/mod.rs -> crates/openspine-kernel/src/model_gateway/providers.rs -> crates/openspine-kernel/src/model_gateway/mod.rs`
-- 2-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/action.rs`
-- 2-file cycle: `crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs`
 - 2-file cycle: `crates/openspine-kernel/src/pipeline/lanes.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/pipeline/lanes.rs`
-- 3-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/action.rs`
+- 2-file cycle: `crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs`
+- 2-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/action.rs`
 - 3-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/store/standing_rules.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
 - 3-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/api/handler_registry.rs -> crates/openspine-kernel/src/api/actions.rs`
-- 4-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/reviewed_scope.rs -> crates/openspine-schemas/src/action.rs`
-- 4-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/store/standing_rules.rs -> crates/openspine-kernel/src/store/standing_rules_row.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
+- 3-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/action.rs`
 - 4-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/selection.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
 - 4-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/pipeline/lanes.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
 - 4-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/telegram.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
-- 5-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/reviewed_scope.rs -> crates/openspine-schemas/src/resolved_context.rs -> crates/openspine-schemas/src/action.rs`
-- 5-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/store/standing_rules.rs -> crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/selection.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
+- 4-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/store/standing_rules.rs -> crates/openspine-kernel/src/store/standing_rules_row.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
+- 4-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/reviewed_scope.rs -> crates/openspine-schemas/src/action.rs`
 - 5-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-kernel/src/pipeline/lanes.rs -> crates/openspine-kernel/src/telegram.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
 - 5-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/pipeline/mod.rs -> crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/selection.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
+- 5-file cycle: `crates/openspine-kernel/src/api/actions.rs -> crates/openspine-kernel/src/store/standing_rules.rs -> crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/selection.rs -> crates/openspine-kernel/src/workflow.rs -> crates/openspine-kernel/src/api/actions.rs`
+- 5-file cycle: `crates/openspine-schemas/src/action.rs -> crates/openspine-schemas/src/delegation_contract.rs -> crates/openspine-schemas/src/standing_rule.rs -> crates/openspine-schemas/src/reviewed_scope.rs -> crates/openspine-schemas/src/resolved_context.rs -> crates/openspine-schemas/src/action.rs`
 
-## Communities (1834 total, 1063 thin omitted)
+## Communities (1847 total, 1064 thin omitted)
 
 ### Community 0 - "README.md"
 Cohesion: 0.08
@@ -1837,8 +1851,8 @@ Cohesion: 0.07
 Nodes (74): a_blocked_install_is_told_what_is_missing_every_start(), a_corrupt_marker_reads_as_incomplete(), a_ready_install_greets_once_then_stays_quiet(), blocked(), blocked_notice(), completion_round_trips_through_the_data_directory(), first_start(), FirstStart (+66 more)
 
 ### Community 3 - "handle_owner_update"
-Cohesion: 0.08
-Nodes (64): a_new_thread_participant_restores_ordinary_approval_before_effect(), corrupt_persisted_binding_fails_closed_as_invalid_scope(), mutated_compatibility_epoch_restores_ordinary_approval_before_effect(), mutated_scope_dimension_restores_ordinary_approval_before_effect(), delivery_unknown_retains_reservation_and_leaves_fence_open(), failure_after_attempt_cancels_reservation(), pre_effect_refusal_cancels_reservation_without_writing(), scoped_no_executor_cancels_reservation_and_restores_budget() (+56 more)
+Cohesion: 0.19
+Nodes (37): a_new_thread_participant_restores_ordinary_approval_before_effect(), corrupt_persisted_binding_fails_closed_as_invalid_scope(), mutated_compatibility_epoch_restores_ordinary_approval_before_effect(), mutated_scope_dimension_restores_ordinary_approval_before_effect(), delivery_unknown_retains_reservation_and_leaves_fence_open(), failure_after_attempt_cancels_reservation(), pre_effect_refusal_cancels_reservation_without_writing(), scoped_no_executor_cancels_reservation_and_restores_budget() (+29 more)
 
 ### Community 4 - ".default"
 Cohesion: 0.06
@@ -1849,12 +1863,12 @@ Cohesion: 0.10
 Nodes (44): Authorization, begin(), begin_with_client_id(), default_port(), finish(), parse_authorization_paste(), a_bare_pasted_code_uses_the_authorization_state(), a_pasted_code_carrying_its_state_is_split_and_both_are_sent() (+36 more)
 
 ### Community 6 - "artifact_loader.rs"
-Cohesion: 0.13
+Cohesion: 0.12
 Nodes (25): connector_failure_batches_and_is_audited(), counter_persistence_failure_is_durably_batched_as_resource(), immediate_failure_cannot_enter_digest_lane(), test_state_with_telegram(), digest_detail_corrupt_blob_surfaces_resource_without_leak(), digest_detail_immediate_success_outcome_audit_failure_is_delivery_unknown_and_no_retry(), digest_detail_missing_blob_surfaces_resource_without_leak(), digest_detail_not_found_is_truthful() (+17 more)
 
 ### Community 7 - "config.rs"
-Cohesion: 0.04
-Nodes (48): Purpose, Requirement: ActionCatalog MUST enumerate every trusted-path carve-out around gate(), Requirement: Approval-required decisions MUST not execute immediately, Requirement: Every effectful action MUST pass through gate(), Requirement: Gate decisions MUST be auditable, Requirement: Gate decisions MUST use task grant precedence, Requirement: Gate MUST verify authenticated grant caveat chains offline, Requirement: Grant limits MUST be enforced at runtime (+40 more)
+Cohesion: 0.29
+Nodes (7): Requirement: ActionCatalog MUST enumerate every trusted-path carve-out around gate(), Scenario: An unregistered effectful action fails closed, Scenario: Each enumerated entry has a dedicated test, Scenario: Model activation is classified, Scenario: Model golden-set execution is classified, Scenario: Only declared non-effect reads may use the stub, Scenario: The carve-out set is finite and enumerated
 
 ### Community 8 - "mod.rs"
 Cohesion: 0.04
@@ -1865,24 +1879,24 @@ Cohesion: 0.14
 Nodes (6): AtomicUsize, CounterpartyKeyError, CounterpartyKeyRing, CounterpartyKeyRing, make_v1_aad(), TempFileGuard
 
 ### Community 10 - ".put"
-Cohesion: 0.05
-Nodes (43): Purpose, Requirement: A mutated approved plan MUST be refused at the gate, Requirement: Approval audit MUST avoid plaintext private payloads, Requirement: Approval MUST bind only what the owner was shown, Requirement: Approvals MUST expire, Requirement: Draft creation MUST remain approval-required, Requirement: Draft creation MUST require digest-bound approval, Requirement: Final email send MUST remain denied (+35 more)
+Cohesion: 0.04
+Nodes (47): Purpose, Requirement: A mutated approved plan MUST be refused at the gate, Requirement: Approval audit MUST avoid plaintext private payloads, Requirement: Approval MUST bind only what the owner was shown, Requirement: Approvals MUST expire, Requirement: Draft creation MUST remain approval-required, Requirement: Draft creation MUST require digest-bound approval, Requirement: Final email send MUST remain denied (+39 more)
 
 ### Community 11 - "ProposedArtifact"
-Cohesion: 0.10
-Nodes (28): terminal_owner_lane(), AppState, bounded_preview(), handle_terminal_message(), mint_reconfirm_grant(), Arc, ArtifactStore, Digest (+20 more)
+Cohesion: 0.09
+Nodes (31): audit_count(), scheduled_timer_count(), usage_count(), terminal_owner_lane(), AppState, bounded_preview(), handle_terminal_message(), mint_reconfirm_grant() (+23 more)
 
 ### Community 12 - "client.rs"
 Cohesion: 0.09
-Nodes (14): DataDestination, AccountRole, ResolvedActionContext, ResolvedActionContextError, ResolvedActionContextInput, BTreeMap, BTreeSet, Digest (+6 more)
+Nodes (13): AccountRole, ResolvedActionContext, ResolvedActionContextError, ResolvedActionContextInput, BTreeMap, BTreeSet, Digest, Option (+5 more)
 
 ### Community 13 - "policy.rs"
-Cohesion: 0.06
-Nodes (69): get_skill(), PromotionDenial, recent_promotion_decisions_for_test(), dispatch_skill_context(), skill_context_rejects_unknown_grant_purpose(), skill_context_selects_only_grant_scoped_installed_matches(), task_class_from_grant_purpose(), CeremonyError (+61 more)
+Cohesion: 0.19
+Nodes (17): CeremonyToken, reject_mined_skill(), oversized_skill_id_is_rejected_before_preview_rendering(), promotion_refuses_when_higher_installed_exists(), promotion_retires_lower_installed_version_atomically(), record_preview(), skill_with(), trusted_install_refuses_equal_version_reinstall() (+9 more)
 
 ### Community 14 - "actions.rs"
-Cohesion: 0.10
-Nodes (40): adding_thread_binding_without_resealing_invalidates_mac(), caveat_reorder_or_remove_invalidates_mac(), child_derives_from_parent_tip_without_root_key(), effective_egress_class_intersects_every_caveat(), egress_class_tamper_invalidates_root_mac(), gate_specific_caveats_are_explicitly_supported_only_by_upgraded_verifier(), id_parent_and_action_list_tamper_fail(), identity_field_tamper_invalidates_mac() (+32 more)
+Cohesion: 0.15
+Nodes (28): canonical_json(), pre_egress_mac_hex(), pre_egress_root_bytes(), bindings_valid(), Caveat, caveat_bytes(), chain_structurally_valid(), ChainStep (+20 more)
 
 ### Community 15 - "ADDED Requirements"
 Cohesion: 0.13
@@ -1893,8 +1907,8 @@ Cohesion: 0.18
 Nodes (5): digest_inputs(), StepHandle, StepState, WorkflowCtx<'a>, WorkflowError
 
 ### Community 17 - "content.d.ts"
-Cohesion: 0.15
-Nodes (20): binding_matches_rejects_a_different_provenance_set(), binding_matches_rejects_a_different_requesting_grant(), carve_out_extends_covered_egress_without_new_policy(), check_egress(), ClassifiedBriefcaseItem, coverage_uses_provenance_even_when_generalized_text_is_public(), DisclosureClass, DisclosureGateDecision (+12 more)
+Cohesion: 0.13
+Nodes (22): disclosure_slug(), binding_matches_rejects_a_different_provenance_set(), binding_matches_rejects_a_different_requesting_grant(), carve_out_extends_covered_egress_without_new_policy(), check_egress(), ClassifiedBriefcaseItem, coverage_uses_provenance_even_when_generalized_text_is_public(), DisclosureClass (+14 more)
 
 ### Community 19 - "action.rs"
 Cohesion: 0.15
@@ -1905,16 +1919,16 @@ Cohesion: 0.07
 Nodes (55): append_overlay_finalization_audits(), bind_clock_and_finalize_overlay(), bind_kernel_listener(), build_provider_pool(), Cli, Commands, commit_post_bind_clock(), finalize_overlay_after_bind() (+47 more)
 
 ### Community 21 - "post_action"
-Cohesion: 0.10
-Nodes (14): Arc, ArtifactRef, AtomicBool, Connection, Digest, Mutex, Option, Path (+6 more)
+Cohesion: 0.12
+Nodes (16): Arc, ArtifactRef, AtomicBool, Connection, Digest, Error, Mutex, Option (+8 more)
 
 ### Community 22 - "ApprovalRecord"
-Cohesion: 0.11
-Nodes (28): Formatter, Result, ActionDescriptor, ActionImplementationDescriptor, ActionImplementationId, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy (+20 more)
+Cohesion: 0.15
+Nodes (20): ActionDescriptor, ActionSemantics, BudgetWindowBounds, DarkWindowPolicy, DataDestination, DelegationDefaults, DelegationEligibilityError, DelegationPolicyBounds (+12 more)
 
 ### Community 23 - "ActionId"
-Cohesion: 0.20
-Nodes (22): apply_top_up_refuses_a_denied_decision(), apply_top_up_rejects_replay_of_an_already_decided_request(), apply_top_up_requires_a_correct_digest_binding(), apply_top_up_updates_in_place_when_section_already_packed(), depth_limits_packed_content_for_strangers(), evaluate_top_up_denies_without_a_policy_rule(), ranked_source_requires_matching_requested_depth(), record_top_up_decision_is_gate_visible_in_the_log() (+14 more)
+Cohesion: 0.07
+Nodes (43): BriefcaseView, ReturnedOutput, apply_top_up_refuses_a_denied_decision(), apply_top_up_rejects_replay_of_an_already_decided_request(), apply_top_up_requires_a_correct_digest_binding(), apply_top_up_updates_in_place_when_section_already_packed(), depth_limits_packed_content_for_strangers(), evaluate_top_up_denies_without_a_policy_rule() (+35 more)
 
 ### Community 24 - "AppState"
 Cohesion: 0.12
@@ -1929,16 +1943,16 @@ Cohesion: 0.05
 Nodes (37): first-run-onboarding Specification, Purpose, Requirement: Key material MUST load from an owner-only file beside the configuration, Requirement: Known startup failures MUST name their remedy, Requirement: Model roles MUST be bound only after successful verification, Requirement: `openspine setup` MUST perform real onboarding work, Requirement: Provider login MUST be offered only where the credential can be spent, Requirement: Readiness assessment MUST name every blocking gap and its remedy (+29 more)
 
 ### Community 27 - "Lifecycle"
-Cohesion: 0.10
-Nodes (34): BuildEnvelopeFn, ArtifactRef, Option, Result, Vec, run_pipeline(), run_pipeline_with_envelope(), email_preview_lane() (+26 more)
+Cohesion: 0.11
+Nodes (33): BuildEnvelopeFn, ArtifactRef, Option, Result, Vec, run_pipeline(), run_pipeline_with_envelope(), email_preview_lane() (+25 more)
 
 ### Community 28 - "Requirements"
 Cohesion: 0.14
 Nodes (15): EvalRow, digest(), fractional_timestamp_orders_after_exact_second(), insert_and_query_by_artifact_returns_ordered_rows(), latest_eval_verdict_returns_newest_for_artifact(), query_by_verdict_filters_across_artifacts(), verdict(), verdict_vocabulary_is_open() (+7 more)
 
 ### Community 29 - "OpenSpine Agent-OS Design Log"
-Cohesion: 0.15
-Nodes (25): claim_conversation_in_flight(), connector_restart_cap_available(), connector_restart_count_in_window(), ensure_schema(), record_worker_failed(), release_conversation_in_flight(), release_conversation_in_flight_for_grant(), ArtifactRef (+17 more)
+Cohesion: 0.10
+Nodes (36): claim_conversation_in_flight(), connector_restart_cap_available(), connector_restart_count_in_window(), ensure_schema(), record_worker_failed(), release_conversation_in_flight(), release_conversation_in_flight_for_grant(), ArtifactRef (+28 more)
 
 ### Community 30 - "ArtifactRef"
 Cohesion: 0.24
@@ -1949,8 +1963,8 @@ Cohesion: 0.13
 Nodes (28): already_locked_legacy_lookup_migrates_without_re_locking(), closed_scope_in_memory_blocks_get_and_create(), durability_fsync_only_on_create_erase_and_pending_migration(), existing_migration_marker_is_re_durabilized_before_rename(), legacy_migration_failure_is_propagated(), open_syncs_keys_dir_and_parent_on_creation_and_retry(), osk1_prefixed_legacy_nonce_decrypts_and_migrates(), post_hardlink_dir_fsync_failure_retries_via_pending_marker() (+20 more)
 
 ### Community 32 - "Requirements"
-Cohesion: 0.07
-Nodes (74): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), model_swap_ceremony_switches_real_generate_provider(), mount_send_message_ok(), MockServer, TelegramConnector, Ulid (+66 more)
+Cohesion: 0.09
+Nodes (55): email_read_selected_thread_rejects_malformed_payload(), handle_owner_update(), audit_payload_refs(), malformed_secret_command_is_reserved_from_normal_pipeline(), non_owner_update_is_ignored_and_audited_without_a_grant(), owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat(), owner_update_grant_pins_original_message_raw_ref_through_to_audit(), Store (+47 more)
 
 ### Community 35 - "sandbox.rs"
 Cohesion: 0.10
@@ -1981,12 +1995,12 @@ Cohesion: 0.14
 Nodes (25): ActionHandler, ActionHandlerRegistry, handle_artifact_nominate(), handle_artifact_propose(), handle_artifact_revoke(), handle_lyra_preview(), handle_plan_propose(), handle_read_selected_thread() (+17 more)
 
 ### Community 44 - "ADDED Requirements"
-Cohesion: 0.19
-Nodes (32): email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), EventInputs, owner_build_envelope(), owner_grant_binding(), owner_preflight() (+24 more)
+Cohesion: 0.09
+Nodes (54): email_build_envelope(), email_grant_binding(), email_preflight(), email_route_guard(), EventInputs, owner_build_envelope(), owner_grant_binding(), owner_preflight() (+46 more)
 
 ### Community 45 - "digest.rs"
-Cohesion: 0.23
-Nodes (24): active_v2_survives_stale_approved_v1_recovery(), approved_dangling_recovery_quarantines_and_requests_reconfirm(), commit_before_publish_crash_republishes_exact_active_ref(), fixture(), insert_active_proposal(), insert_approved_proposal(), insert_proposal(), learned_row() (+16 more)
+Cohesion: 0.21
+Nodes (27): digest_of_bytes(), active_v2_survives_stale_approved_v1_recovery(), approved_dangling_recovery_quarantines_and_requests_reconfirm(), commit_before_publish_crash_republishes_exact_active_ref(), fixture(), insert_active_proposal(), insert_approved_proposal(), insert_proposal() (+19 more)
 
 ### Community 46 - "Digest"
 Cohesion: 0.15
@@ -2045,8 +2059,8 @@ Cohesion: 0.18
 Nodes (20): ResolvedPrompt, generate_onyx(), onyx_request_parts(), Client, Result, String, GatewayError, generate_anthropic() (+12 more)
 
 ### Community 60 - "ADDED Requirements"
-Cohesion: 0.13
-Nodes (22): ActorHint, ChannelTrust, Connector, EventEnvelope, EventType, InteractionMode, legacy_without_thread_id_defaults_to_none(), round_trips_through_serde() (+14 more)
+Cohesion: 0.11
+Nodes (37): activation_with_mutated_payload_is_denied(), approve_callback_update(), approved_artifact_activates_into_registry_and_overlay(), model_swap_ceremony_switches_real_generate_provider(), mount_send_message_ok(), MockServer, TelegramConnector, Ulid (+29 more)
 
 ### Community 61 - "ADDED Requirements"
 Cohesion: 0.10
@@ -2061,8 +2075,8 @@ Cohesion: 0.32
 Nodes (23): publish_bundle(), apply_terminal_erasure_delta_removes_key_and_pending_alias(), continuity_id_is_hmac_bound_and_validated(), fixed_permissions_are_applied(), invalid_manifest_hmac_is_rejected(), key(), ledger(), master_key_bytes_are_not_written_into_bundle() (+15 more)
 
 ### Community 64 - "scripts"
-Cohesion: 0.10
-Nodes (39): a_double_tap_on_approve_creates_only_one_gmail_draft(), approval_audit_never_contains_the_plaintext_draft_body(), approval_fixture_grant(), approval_fixture_request(), approve_callback_update(), activate_approved_artifact_audits_failure_when_no_row(), definite_write_failure_is_failed_after_attempt_and_resolves_the_fence(), draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() (+31 more)
+Cohesion: 0.24
+Nodes (24): a_double_tap_on_approve_creates_only_one_gmail_draft(), approval_audit_never_contains_the_plaintext_draft_body(), approval_fixture_grant(), approval_fixture_request(), approve_callback_update(), activate_approved_artifact_audits_failure_when_no_row(), definite_write_failure_is_failed_after_attempt_and_resolves_the_fence(), draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() (+16 more)
 
 ### Community 65 - "compose_authority"
 Cohesion: 0.07
@@ -2073,16 +2087,16 @@ Cohesion: 0.07
 Nodes (27): Purpose, reflection-miner Specification, Requirement: AD-135 digest corrections MUST enter the persona proposal lifecycle, Requirement: Briefcase context MUST be scoped and provenance-bound, Requirement: Consolidation MUST be lifecycle-safe, Requirement: Corrections MUST use positive instruction rewrites, Requirement: Miner admission MUST use an ordinary bounded grant, Requirement: Miner budgets MUST be durably reserved by the kernel (+19 more)
 
 ### Community 67 - "identity.rs"
-Cohesion: 0.17
-Nodes (14): BriefcaseAudit, ensure_schema(), ArtifactRef, Briefcase, Connection, E, F, Option (+6 more)
+Cohesion: 0.15
+Nodes (15): BriefcaseAudit, ensure_schema(), ArtifactRef, Briefcase, Connection, E, F, Option (+7 more)
 
 ### Community 68 - "properties"
 Cohesion: 0.07
 Nodes (26): ADDED Requirements, Reflection miner delta, Requirement: AD-135 digest corrections MUST enter the persona proposal lifecycle, Requirement: Briefcase context MUST be scoped and provenance-bound, Requirement: Consolidation MUST be lifecycle-safe, Requirement: Corrections MUST use positive instruction rewrites, Requirement: Miner admission MUST use an ordinary bounded grant, Requirement: Miner budgets MUST be durably reserved by the kernel (+18 more)
 
 ### Community 69 - "tests.rs"
-Cohesion: 0.07
-Nodes (26): Purpose, Requirement: Dark-window defaults are durable and replay-safe, Requirement: Drift requires re-review, Requirement: Quota and rate are independent atomic boundaries, Requirement: Remaining budget is visible, Requirement: Standing rules are reviewed composition inputs, Requirements, Scenario: Allow default grants one waiver (+18 more)
+Cohesion: 0.04
+Nodes (44): Purpose, Requirement: Bound-context drift MUST restore ordinary approval before any effect, Requirement: Dark-window defaults are durable and replay-safe, Requirement: Drift requires re-review, Requirement: Exactly one compatible scoped rule MUST match before any budget moves, Requirement: Quota and rate are independent atomic boundaries, Requirement: Remaining budget is visible, Requirement: Scope-matched admission MUST map the effect outcome onto the reservation (+36 more)
 
 ### Community 70 - "Proposal: Define OpenSpine development process"
 Cohesion: 0.18
@@ -2101,12 +2115,12 @@ Cohesion: 0.08
 Nodes (25): ADDED Requirements, Requirement: D-107 disclosure budgets are consulted atomically, Requirement: Disclosure coverage is deterministic and provenance-based, Requirement: Disclosure failures are generic to workers and preserve store errors, Requirement: Owner answers persist scoped policy and carve-outs, Requirement: Owner answers resolve durable pending questions, Requirement: Owner questions use the canonical escalation surface, Requirement: Per-egress envelopes are independent and reactivate on re-answer (+17 more)
 
 ### Community 74 - ".put"
-Cohesion: 0.08
-Nodes (25): ADDED Requirements, MODIFIED Requirements, Requirement: Bound-context drift MUST restore ordinary approval before any effect, Requirement: Exactly one compatible scoped rule MUST match before any budget moves, Requirement: Quota and rate are independent atomic boundaries, Requirement: Scope-matched admission MUST map the effect outcome onto the reservation, Requirement: Standing rules MUST bind a reviewed scope, Scenario: A declaration axis changes (+17 more)
+Cohesion: 0.11
+Nodes (24): consult_and_reserve_atomic_budget_saturates_after_max_uses(), consult_and_reserve_cancel_leaves_headroom_unchanged(), consult_and_reserve_is_atomic_wrt_version_reactivation(), manifest(), manifest_validate_rejects_non_positive_windows(), owner_revoke_action_removes_rule_from_live_consultation(), reservation_identity(), Option (+16 more)
 
 ### Community 75 - "SKILL.md"
-Cohesion: 0.14
-Nodes (29): action_for_egress(), action_for_scope(), cancel_reservations(), collect_nested_strings(), disclosure_slug(), DisclosureError, DisclosureRequest, egress_slug() (+21 more)
+Cohesion: 0.20
+Nodes (20): cancel_reservations(), collect_nested_strings(), prepared_query_mints_consumes_once_and_verifies_digest(), DisclosureError, enforce_disclosure_egress(), EnforcedDisclosure, prepare_disclosure_query(), provenance_from_sections() (+12 more)
 
 ### Community 76 - "Tasks: Harden approval and budgets"
 Cohesion: 0.06
@@ -2125,8 +2139,8 @@ Cohesion: 0.19
 Nodes (4): ArtifactLineage, LineageParent, root_has_generation_zero_and_no_parents(), root_round_trips_through_json()
 
 ### Community 80 - "Ok"
-Cohesion: 0.08
-Nodes (25): Purpose, Requirement: Communication dark-window Allow MUST be forbidden, Requirement: Compatibility drift or unavailable resolution MUST require re-review, Requirement: Delegation evidence classes MUST remain distinct, Requirement: Owner review MUST be channel-neutral and digest-bound, Requirement: Responsibility MUST remain a reference view rather than live authority, Requirement: Reusable delegation MUST validate independent action and implementation declarations, Requirement: Reviewed scope matching MUST be protocol-neutral and fail closed (+17 more)
+Cohesion: 0.06
+Nodes (31): Purpose, Requirement: Communication dark-window Allow MUST be forbidden, Requirement: Compatibility drift or unavailable resolution MUST require re-review, Requirement: Delegation evidence classes MUST remain distinct, Requirement: Owner review MUST be channel-neutral and digest-bound, Requirement: Responsibility MUST remain a reference view rather than live authority, Requirement: Reusable delegation MUST validate independent action and implementation declarations, Requirement: Reviewed scope matching MUST be protocol-neutral and fail closed (+23 more)
 
 ### Community 81 - "Proposal: Define core runtime schemas"
 Cohesion: 0.24
@@ -2200,17 +2214,13 @@ Nodes (22): choose_provider(), complete_login(), ensure_codex_identity(), headle
 Cohesion: 0.05
 Nodes (20): Ord, Ordering, PartialOrd, AuthorityCandidate, AuthorityCandidate<T>, AuthorityClass, AuthorityClass<'a, T>, AuthorityClassId (+12 more)
 
-### Community 99 - "artifact_activation_tests.rs"
-Cohesion: 0.16
-Nodes (6): BundleName, atomic_write(), cleanup_temp(), remove_durable(), sync_dir(), OverlayControl
-
 ### Community 100 - "Design: Authority composition"
 Cohesion: 0.21
 Nodes (12): OverlayControl, check_continuity_alignment(), ensure_data_root_dir(), marker_path(), read_generation_marker(), write_generation_marker(), newer_ledger(), valid_transition() (+4 more)
 
 ### Community 101 - "Tasks: Backfill implemented capability specs"
-Cohesion: 0.14
-Nodes (16): Option, Result, String, Transaction, Store, epoch_nanos_to_timestamp(), Digest, Option (+8 more)
+Cohesion: 0.10
+Nodes (23): Option, Result, String, Transaction, Store, epoch_nanos_to_timestamp(), Digest, Option (+15 more)
 
 ### Community 102 - "ADDED Requirements"
 Cohesion: 0.18
@@ -2265,8 +2275,8 @@ Cohesion: 0.18
 Nodes (8): append(), consumer_id_is_bound_to_filter(), failed_handler_does_not_advance_checkpoint(), filtered_replay_is_idempotent(), kind_filter_preserves_global_order(), persisted_checkpoint_survives_reload(), replay_after_watermark_skips_earlier_rows(), unique_ids_and_per_aggregate_sequences()
 
 ### Community 115 - "Design: Telegram owner control slice"
-Cohesion: 0.08
-Nodes (24): 1. The cautious agent power user, 2. The agent product builder, 3. The capable-agent sceptic, Category line, Competitive position, Copy rules, Core offer, Current-proof line (+16 more)
+Cohesion: 0.09
+Nodes (23): 1. The cautious agent power user, 2. The agent product builder, 3. The capable-agent sceptic, Competitive position, Copy rules, Core offer, Customer personas, Decision (+15 more)
 
 ### Community 116 - "Requirement: Selection tokens MUST be single-use, expiring, and scope-fixed"
 Cohesion: 0.09
@@ -2297,12 +2307,12 @@ Cohesion: 0.16
 Nodes (7): verify_update(), configured_owner_text_message_is_verified(), missing_sender_is_ignored(), non_text_update_from_owner_is_ignored(), owner_message_in_a_group_chat_is_ignored_not_routed(), unknown_telegram_user_is_ignored_not_routed(), update()
 
 ### Community 123 - "D-001 — Lyra is a runtime/substrate, not a single agent"
-Cohesion: 0.09
-Nodes (23): 10x challenge, 1/10 challenge, Bonuses, scarcity, and urgency, Copy implications, Current market context, Direct reader evidence, Executive finding, Fastest honest win (+15 more)
+Cohesion: 0.20
+Nodes (10): Copy implications, Executive finding, Fastest honest win, Limitations, OpenSpine layperson-first offer rerun, Phase 1: starving crowd, Phase 3: value equation, Phase 4: problem-to-solution stack (+2 more)
 
 ### Community 124 - "mod.rs"
-Cohesion: 0.21
-Nodes (20): a_tier_routed_oauth_provider_spends_its_own_credential(), email_reply_drafter_grant(), email_reply_drafter_template_wraps_untrusted_context_on_the_wire(), grant_with_limits(), max_artifacts_of_one_denies_the_second_call_with_a_single_provider_hit(), max_model_calls_of_one_denies_the_second_call_with_a_single_provider_hit(), post_model_generate(), JoinHandle (+12 more)
+Cohesion: 0.34
+Nodes (15): a_tier_routed_oauth_provider_spends_its_own_credential(), email_reply_drafter_grant(), email_reply_drafter_template_wraps_untrusted_context_on_the_wire(), grant_with_limits(), max_artifacts_of_one_denies_the_second_call_with_a_single_provider_hit(), max_model_calls_of_one_denies_the_second_call_with_a_single_provider_hit(), post_model_generate(), JoinHandle (+7 more)
 
 ### Community 125 - "D-042 — Reply recipient is kernel-derived, never shell-supplied: newest non-owner sender, matched against a configured mailbox address"
 Cohesion: 0.16
@@ -2317,8 +2327,8 @@ Cohesion: 0.21
 Nodes (17): a_refresh_carries_the_first_party_client_headers(), oauth_refresher_handles_definitive_failure_and_enqueues_notification(), oauth_refresher_renews_token_within_skew_window(), oauth_refresher_retains_credential_on_transient_network_failure(), oauth_refresher_single_flights_concurrent_refreshes(), OAuthRefresher, parse_expires_at(), registered_anthropic_client() (+9 more)
 
 ### Community 128 - "D-004 — Every effectful action goes through `gate()`"
-Cohesion: 0.25
-Nodes (7): ArtifactRef, Option, Result, Ulid, Store, Error, StoreError
+Cohesion: 0.23
+Nodes (5): ArtifactRef, Option, Result, Ulid, Store
 
 ### Community 129 - "D-005 — Private-data shell must be contained"
 Cohesion: 0.17
@@ -2337,8 +2347,8 @@ Cohesion: 0.17
 Nodes (17): webhook_minted_headless_draft_refuses_before_any_write(), headless_owner_route_binds_owner_persona_before_grant(), install_headless_route(), invalid_webhook_is_dropped_with_rejection_audit_and_no_grant(), production_owner_route_binds_seeded_persona(), replayed_webhook_is_dropped_with_rejection_audit(), Option, signed_request() (+9 more)
 
 ### Community 134 - "D-024 — OpenSpec is the development/change-management layer, not the runtime"
-Cohesion: 0.22
-Nodes (20): owner_review_is_digest_bound_serializable_and_channel_neutral(), owner_review_rejects_limits_outside_catalog_policy(), owner_review_requires_reject_revoke_and_a_valid_scope(), provenance_copy_is_derived_from_the_evidence_kind(), repeated_approval_evidence_must_match_the_reviewed_scope(), repeated_approval_evidence_rejects_weak_or_recursive_sets(), responsibility_is_a_reference_view_and_drift_requires_review(), context_input() (+12 more)
+Cohesion: 0.25
+Nodes (18): owner_review_is_digest_bound_serializable_and_channel_neutral(), owner_review_rejects_limits_outside_catalog_policy(), owner_review_requires_reject_revoke_and_a_valid_scope(), provenance_copy_is_derived_from_the_evidence_kind(), responsibility_is_a_reference_view_and_drift_requires_review(), context_input(), descriptor(), digest() (+10 more)
 
 ### Community 135 - "D-026 — Shell containment via a `SandboxDriver` trait (Process dev-only / Docker)"
 Cohesion: 0.19
@@ -2369,7 +2379,7 @@ Cohesion: 0.18
 Nodes (11): DelegationEvidence, DelegationEvidenceError, DelegationEvidenceKind, OwnerApprovalEvidence, ArtifactRef, Digest, Option, Result (+3 more)
 
 ### Community 142 - "Skills & workflows"
-Cohesion: 0.16
+Cohesion: 0.19
 Nodes (17): agent_manifests_round_trip(), artifacts_dir(), email_grant_pack_excludes_read_inbox_and_send(), every_fixture_file_is_covered_by_a_test(), global_policy_round_trips_and_denies_send(), owner_control_pack_round_trips(), owner_email_selected_thread_route_is_expressible_declaratively(), owner_telegram_route_is_expressible_declaratively() (+9 more)
 
 ### Community 143 - "Reflection & product surface"
@@ -2385,8 +2395,8 @@ Cohesion: 0.18
 Nodes (6): AgentManifest, CapabilityPack, Policy, PromptTemplate, WorkflowManifest, Identified
 
 ### Community 146 - "D-037 — Gmail OAuth via a plain refresh-token POST (no `oauth2` crate); `base64` promoted from transitive to direct dependency"
-Cohesion: 0.24
-Nodes (16): admits_more_than_three_tiny_items(), canonical_unavailable_marker_view_does_not_grow_items_or_audits(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item() (+8 more)
+Cohesion: 0.26
+Nodes (15): admits_more_than_three_tiny_items(), canonical_unavailable_marker_view_does_not_grow_items_or_audits(), detail_pages(), detail_pages_reconstruct_every_byte_on_utf8_boundaries(), drains_aggregate_across_pages_without_duplicates(), handle_command(), handle_detail_command(), item() (+7 more)
 
 ### Community 147 - "model_swap.rs"
 Cohesion: 0.10
@@ -2409,8 +2419,8 @@ Cohesion: 0.19
 Nodes (18): deny_unknown_fields_rejects_capability_pack_id(), EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity, identity_json_has_no_authority_field(), IdentityResolution (+10 more)
 
 ### Community 152 - "D-045 — WYSIWYS: a truncated preview refuses an approval button rather than splitting the message"
-Cohesion: 0.18
-Nodes (13): Briefcase, BriefcaseError, BriefcaseSection, CounterpartyRef, depth(), LearnedSource, RelationshipTier, select_relevant_sources() (+5 more)
+Cohesion: 0.11
+Nodes (20): build_state(), build_state_with_store(), repo_lyra_dir(), GmailConnector, Option, PathBuf, Store, TelegramConnector (+12 more)
 
 ### Community 153 - "D-046 — Grant budgets are enforced kernel-dispatch-side; the artifact budget counts only shell-initiated puts"
 Cohesion: 0.19
@@ -2425,24 +2435,24 @@ Cohesion: 0.10
 Nodes (19): ADDED Requirements, Failure surfacing, Requirement: Artifact-backed dead letters, Requirement: Connector counters, Requirement: Delivery-unknown crash semantics, Requirement: Direct authenticated bad-request surfacing, Requirement: Durable effect receipts, Requirement: Failure taxonomy routing (+11 more)
 
 ### Community 156 - "D-049 — Capability specs are backfilled for subsystems implemented inside earlier slices"
-Cohesion: 0.10
-Nodes (19): digest-bound-draft-approval Specification Delta, MODIFIED Requirements, Requirement: The kernel MUST re-derive digests from artifact-store bytes at approval-effect time, Scenario: Approved admission sources converge on one executor, Scenario: Confirmed creation is executed exactly once in evidence, Scenario: Delivery is unknown after a provider write attempt, Scenario: Delivery-unknown retains the reserved budget and the fence, Scenario: Exact stored plan bytes are approved (+11 more)
+Cohesion: 0.07
+Nodes (27): add-channel-neutral-responsibility-review, Agent-OS change sequence (2026-07-07, AD canon), bound-dark-window-exceptions, compose-whole-responsibilities, define-responsibility-contract, Event substrate, Failure surfacing & operations, implement-connector-reality (+19 more)
 
 ### Community 157 - "D-050 — `max_model_calls` is enforced with an atomic upsert, not a count-then-compare"
 Cohesion: 0.05
 Nodes (79): allowed_action_returns_allow(), allowed_plus_approval_required_returns_approval_required(), allowed_plus_denied_returns_deny(), approval_for(), approval_required_action_does_not_execute(), approval_required_action_returns_approval_required(), approved_but_payload_changed_since_is_denied_not_reasked(), audit_metadata_records_action_grant_and_refs_not_plaintext() (+71 more)
 
 ### Community 158 - "D-006 — Identity is not authority"
-Cohesion: 0.10
-Nodes (19): MODIFIED Requirements, Requirement: Compatibility drift or unavailable resolution MUST require re-review, Requirement: Delegation evidence classes MUST remain distinct, Requirement: Reviewed scope matching MUST be protocol-neutral and fail closed, Requirement: Trusted action context MUST be resolved by the kernel, responsibility-contract Specification Delta, Scenario: Approvals across two targets are not one pattern, Scenario: Compatibility epoch and scope key move independently (+11 more)
+Cohesion: 0.08
+Nodes (25): ADDED Requirements, MODIFIED Requirements, Requirement: Bound-context drift MUST restore ordinary approval before any effect, Requirement: Exactly one compatible scoped rule MUST match before any budget moves, Requirement: Quota and rate are independent atomic boundaries, Requirement: Scope-matched admission MUST map the effect outcome onto the reservation, Requirement: Standing rules MUST bind a reviewed scope, Scenario: A declaration axis changes (+17 more)
 
 ### Community 159 - "D-011 — Approval must be digest-bound"
 Cohesion: 0.10
 Nodes (19): Purpose, Requirement: Approval-required MUST override plain allow, Requirement: Authority composition MUST be deny-by-default, Requirement: Authority widening MUST require explicit approval, Requirement: Connector and account role MUST NOT grant authority by themselves, Requirement: Explicit deny MUST override allow, Requirement: Identity MUST NOT grant authority by itself, Requirement: Main assistant grant MUST NOT inherit specialist workflow authority (+11 more)
 
 ### Community 160 - "D-012 — Audit stores private payloads by encrypted/hash reference"
-Cohesion: 0.10
-Nodes (19): type, default, type, anyOf, anyOf, anyOf, properties, description (+11 more)
+Cohesion: 0.09
+Nodes (22): type, default, type, anyOf, default, anyOf, anyOf, anyOf (+14 more)
 
 ### Community 161 - "D-013 — Dynamic behavior easy; dynamic authority hard"
 Cohesion: 0.22
@@ -2453,8 +2463,8 @@ Cohesion: 0.12
 Nodes (5): complete_u32(), divergent_inputs_fail_closed(), ledger_corruption_fails_closed(), ModelOutput, String
 
 ### Community 163 - "D-015 — Phase 1 should avoid final email send"
-Cohesion: 0.29
-Nodes (18): catalog_with(), communication_delegation_rejects_action_only_scope_and_allow_defaults(), communication_scope_floor_covers_external_services_and_counterparties(), compatibility_epoch_and_scope_key_move_independently(), context_input(), descriptor(), digest(), implementation() (+10 more)
+Cohesion: 0.26
+Nodes (20): catalog_with(), communication_delegation_rejects_action_only_scope_and_allow_defaults(), communication_scope_floor_covers_external_services_and_counterparties(), compatibility_epoch_and_scope_key_move_independently(), context_input(), descriptor(), digest(), implementation() (+12 more)
 
 ### Community 164 - "D-016 — Capability packs are candidate profiles, not live authority"
 Cohesion: 0.20
@@ -2609,20 +2619,20 @@ Cohesion: 0.12
 Nodes (17): Build and run the checks, Current trade-offs, Documentation, How Lyra grows through delegation, License, Local terminal conversation, OpenSpine, Proof you can run (+9 more)
 
 ### Community 202 - "proposal.rs"
-Cohesion: 0.13
-Nodes (20): disclosure_policy_does_not_revoke_existing_egress_standing_rule(), disclosure_policy_recovers_carve_outs_from_store(), enforcement_allows_after_owner_answer(), forum_request(), owner_answer_persists_as_standing_rule_with_carve_outs(), owner_disclosure_answer_creates_policy_and_clears_pending(), per_egress_revocation_is_independent(), prepared_query_mints_consumes_once_and_verifies_digest() (+12 more)
+Cohesion: 0.15
+Nodes (16): disclosure_policy_does_not_revoke_existing_egress_standing_rule(), disclosure_policy_recovers_carve_outs_from_store(), enforcement_allows_after_owner_answer(), owner_answer_persists_as_standing_rule_with_carve_outs(), owner_disclosure_answer_creates_policy_and_clears_pending(), per_egress_revocation_is_independent(), reanswer_after_revoke_reactivates_via_version_bump(), same_scope_two_egress_classes_merge_without_erasing() (+8 more)
 
 ### Community 203 - "autoresearch.sh"
-Cohesion: 0.19
-Nodes (12): EffectExecutorRegistry, Option, Self, build_state_at(), full_export_restore_e2e_regression_under_newer_base(), mint_composed_owner_grant(), mode(), Path (+4 more)
+Cohesion: 0.17
+Nodes (13): EffectExecutorRegistry, HashMap, Option, Self, build_state_at(), full_export_restore_e2e_regression_under_newer_base(), mint_composed_owner_grant(), mode() (+5 more)
 
 ### Community 205 - "README.md"
 Cohesion: 0.26
 Nodes (15): deny_limit_exceeded(), GenerateRequestBody, GenerateResponseBody, post_model_generate(), Arc, HeaderMap, Json, Option (+7 more)
 
 ### Community 206 - "check.sh"
-Cohesion: 0.26
-Nodes (15): authenticate(), bearer_token(), get_status(), internal_error(), router(), Arc, ArtifactRef, Display (+7 more)
+Cohesion: 0.19
+Nodes (18): authenticate(), bearer_token(), get_status(), internal_error(), router(), Arc, ArtifactRef, Display (+10 more)
 
 ### Community 207 - "check-claims.sh"
 Cohesion: 0.28
@@ -2633,8 +2643,8 @@ Cohesion: 0.12
 Nodes (14): 1. Create a Google Cloud OAuth client, 2. Obtain a refresh token, 3. Add the `gmail` block to `openspine.yaml`, 4. Select a thread with `/draft <thread_id>`, 5. Containment requirements, Bare metal, Docker Compose, Gmail selected-thread drafting setup (+6 more)
 
 ### Community 209 - "README.md"
-Cohesion: 0.12
-Nodes (23): EffectOutcome, HashMap, create_approved_draft(), gmail_create_draft_executor(), Result, handle_activate_artifact(), handle_create_approved_draft(), handle_headless_approved() (+15 more)
+Cohesion: 0.07
+Nodes (37): EffectOutcome, Result, run_benchmarks(), create_approved_draft(), gmail_create_draft_executor(), Result, handle_draft_approval_callback(), Result (+29 more)
 
 ### Community 211 - "index.mdx"
 Cohesion: 0.12
@@ -2661,8 +2671,8 @@ Cohesion: 0.12
 Nodes (15): durable-workflow-replay Specification, Purpose, Requirement: Failures are terminal and replayable, Requirement: Gated and approval identity is bound, Requirement: Private payloads do not leak, Requirement: Timers have atomic durable transitions, Requirement: Workflow steps replay by exact durable handle, Requirements (+7 more)
 
 ### Community 219 - "SKILL.md"
-Cohesion: 0.18
-Nodes (25): record_worker_result(), surface_stranded_worker(), handle_worker_report_result(), classified_empty_output_channel_denial(), commission(), commission_is_receipt_idempotent(), commission_receipt_binding_rejects_different_parent_or_request(), commissioning_persists_briefcase_without_board_row() (+17 more)
+Cohesion: 0.20
+Nodes (23): record_worker_result(), classified_empty_output_channel_denial(), commission(), commission_is_receipt_idempotent(), commission_receipt_binding_rejects_different_parent_or_request(), commissioning_persists_briefcase_without_board_row(), gate_request(), minimal_briefcase() (+15 more)
 
 ### Community 220 - "SKILL.md"
 Cohesion: 0.12
@@ -2713,8 +2723,8 @@ Cohesion: 0.13
 Nodes (14): MODIFIED Requirements, Requirement: Dark-window defaults are durable and replay-safe, Scenario: Allow default grants one waiver, Scenario: Deny default grants no waiver, Scenario: Failed effects release reservations, Scenario: Fired missing executor cancels and re-arms the token, Scenario: Fired token is digest-bound and one-use, Scenario: Invalid persisted recovery data fails closed (+6 more)
 
 ### Community 268 - "content-assets.mjs"
-Cohesion: 0.13
-Nodes (14): ADDED Requirements, gate-action-api Specification Delta, MODIFIED Requirements, Requirement: Scope-matched admission MUST supply only a kernel-resolved request to the executor, Requirement: Unspecified actions MUST be denied, Scenario: Agent requests unknown action, Scenario: Catalogued effectful action has no executor, Scenario: Declared non-effect read retains the stub boundary (+6 more)
+Cohesion: 0.29
+Nodes (20): install_skill(), promote_mined_skill(), select_skills_for_task(), tokens_of(), benign_body(), containment_gate_denies_denied_action_regardless_of_malicious_skill(), make_skill(), malicious_body() (+12 more)
 
 ### Community 269 - "content-modules.mjs"
 Cohesion: 0.13
@@ -2789,8 +2799,8 @@ Cohesion: 0.28
 Nodes (8): Bot, Arc, Self, String, TelegramBotState, VerifiedOwnerContext, VerifiedUpdate, Url
 
 ### Community 291 - "artifact_propose.rs"
-Cohesion: 0.10
-Nodes (45): test_state(), dispatch_task_timer_event(), concurrent_owner_callbacks_are_serialized_by_handler(), BundleNamePayload, foreign_principal_is_rejected(), handle_overlay_export(), handle_overlay_restore(), invoked_action_must_match_handler() (+37 more)
+Cohesion: 0.12
+Nodes (36): test_state(), complete_task_and_wake(), dispatch_task_timer_event(), dispatch_task_wake(), reattempt_handed_off(), recover_timer_dispatches(), run_task_deadline_consumer(), TimerDispatchOutcome (+28 more)
 
 ### Community 292 - "Overlay & key model"
 Cohesion: 0.29
@@ -2826,11 +2836,11 @@ Nodes (12): ADDED Requirements, model-gateway delta, Requirement: Codex OAuth gr
 
 ### Community 300 - "tasks.md"
 Cohesion: 0.15
-Nodes (13): Requirement: Base and overlay namespace collisions MUST refuse replacement, Requirement: Compatibility MUST fail closed for dangling learned references, Requirement: Every AD-081/AD-083 anti-pattern MUST have an eval probe, Requirement: Owner reconfirmation MUST commit atomically before publication, Requirement: Persona artifacts MUST never enter kernel authority, Requirement: Prompt templates MUST NOT be proposable at runtime, Requirements, Scenario: A template proposal is rejected (+5 more)
+Nodes (13): Requirement: Base and overlay namespace collisions MUST refuse replacement, Requirement: Every AD-081/AD-083 anti-pattern MUST have an eval probe, Requirement: Owner reconfirmation MUST commit atomically before publication, Requirement: Persona artifacts MUST never enter kernel authority, Requirement: Personality seed MUST NOT be kernel-baked base fixtures, Requirement: Prompt templates MUST NOT be proposable at runtime, Requirements, Scenario: A template proposal is rejected (+5 more)
 
 ### Community 301 - "Implementation notes"
 Cohesion: 0.15
-Nodes (13): Requirement: Commissioned workers MUST receive a briefcase, not the board (D-085), Requirement: Event envelopes MUST include source authenticity fields, Requirement: OpenSpine core runtime objects MUST have explicit schemas, Requirement: Route schemas MUST be declarative artifacts, Requirement: Worker grants MUST have no effective output channel (reply chokepoint), Requirement: Worker result recording MUST be receipt-keyed and fail-closed (D-083), Requirements, Scenario: Briefcase scoped to the worker (`commissioning_persists_briefcase_without_board_row`) (+5 more)
+Nodes (13): Requirement: Commissioned workers MUST receive a briefcase, not the board (D-085), Requirement: Event envelopes MUST include source authenticity fields, Requirement: Route resolution schemas MUST represent ambiguity, Requirement: Worker grants MUST have no effective output channel (reply chokepoint), Requirement: Worker identity addressing MUST serialize conversations (AD-102), Requirement: Worker result recording MUST be receipt-keyed and fail-closed (D-083), Requirements, Scenario: Briefcase scoped to the worker (`commissioning_persists_briefcase_without_board_row`) (+5 more)
 
 ### Community 302 - "tests.rs"
 Cohesion: 0.15
@@ -2853,8 +2863,8 @@ Cohesion: 0.15
 Nodes (12): Capability cannot quietly widen itself, How responsibility is meant to grow, Model-driven effects cross one gate, One poisoned email, One task has one permission result, The autonomy gap, The four commitments, The model does not own the keys (+4 more)
 
 ### Community 307 - ".fmt"
-Cohesion: 0.23
-Nodes (7): BriefcaseView, ReturnedOutput, TopUpDecision, TopUpOutcome, TopUpPolicy, TopUpRequest, SectionKind
+Cohesion: 0.10
+Nodes (19): digest-bound-draft-approval Specification Delta, MODIFIED Requirements, Requirement: The kernel MUST re-derive digests from artifact-store bytes at approval-effect time, Scenario: Approved admission sources converge on one executor, Scenario: Confirmed creation is executed exactly once in evidence, Scenario: Delivery is unknown after a provider write attempt, Scenario: Delivery-unknown retains the reserved budget and the fence, Scenario: Exact stored plan bytes are approved (+11 more)
 
 ### Community 308 - "artifact_propose.rs"
 Cohesion: 0.16
@@ -2873,8 +2883,8 @@ Cohesion: 0.17
 Nodes (11): Goals, Non-goals, OpenSpec / OpenSpine boundary, OpenSpine / Lyra boundary, Proposal: Define OpenSpine development process, Proposed first implementation slices after this change, Risks, Scope (+3 more)
 
 ### Community 313 - "editUrl"
-Cohesion: 0.25
-Nodes (10): ConversationClaimGuard, handle_worker_failed(), surface_restart_cap_exhausted(), WorkerBoundParameterPayload, WorkerCommissionPayload, WorkerCommissionResponse, WorkerFailedPayload, WorkerReportPayload (+2 more)
+Cohesion: 0.10
+Nodes (19): MODIFIED Requirements, Requirement: Compatibility drift or unavailable resolution MUST require re-review, Requirement: Delegation evidence classes MUST remain distinct, Requirement: Reviewed scope matching MUST be protocol-neutral and fail closed, Requirement: Trusted action context MUST be resolved by the kernel, responsibility-contract Specification Delta, Scenario: Approvals across two targets are not one pattern, Scenario: Compatibility epoch and scope key move independently (+11 more)
 
 ### Community 314 - "Proposal: Implement identity store and principal"
 Cohesion: 0.17
@@ -2921,20 +2931,20 @@ Cohesion: 0.17
 Nodes (11): Design: First-run onboarding, Key decisions, Problem, Readiness drives the notice, not the marker alone, Rejected alternatives, Remedies are matched on the failure, not guessed at the call site, Shape, The environment lookup is injected (+3 more)
 
 ### Community 325 - "Arc"
-Cohesion: 0.16
-Nodes (4): disclosure_policy_round_trips_through_store(), DisclosurePendingQuestion, Store, PreparedQuery
+Cohesion: 0.20
+Nodes (3): disclosure_policy_round_trips_through_store(), DisclosurePendingQuestion, Store
 
 ### Community 326 - "Error"
 Cohesion: 0.26
 Nodes (4): ConnectorCallError, ConnectorProbePermit, ConnectorRuntime, ConnectorRuntimeState
 
 ### Community 327 - "D-015 — Phase 1 should avoid final email send"
-Cohesion: 0.17
-Nodes (11): Authority, containment, audit, failure modes, Design: Mine and match reusable authority by scope, Drift restores approval before the effect, never after, `EffectOutcome` → reservation, Known limitation: silent thread participants, Matching: exactly one, before any budget moves, Rejected alternatives, `ResolvedActionContext` is reused, not rebuilt (+3 more)
+Cohesion: 0.25
+Nodes (15): BundleNamePayload, foreign_principal_is_rejected(), handle_overlay_export(), handle_overlay_restore(), invoked_action_must_match_handler(), malformed_and_unknown_payload_fields_fail(), mint_grant(), non_root_parent_or_chain_is_rejected() (+7 more)
 
 ### Community 328 - "D-016 — Capability packs are candidate profiles, not live authority"
-Cohesion: 0.17
-Nodes (24): batched_failure_details(), committed_usage_count(), draft_created_event(), execution_backed_readiness_and_no_executor_summaries_are_distinct(), headless_and_non_headless_approval_converge_on_gmail_executor(), headless_refusal_appends_no_dispatched_audit(), reserved_usage_count(), Digest (+16 more)
+Cohesion: 0.18
+Nodes (15): batched_failure_details(), committed_usage_count(), delegated_email_draft_without_resolved_scope_is_refused_before_dispatch(), draft_created_event(), execution_backed_readiness_and_no_executor_summaries_are_distinct(), headless_and_non_headless_approval_converge_on_gmail_executor(), headless_refusal_appends_no_dispatched_audit(), reserved_usage_count() (+7 more)
 
 ### Community 329 - "standing_rule_timer.rs"
 Cohesion: 0.38
@@ -2942,7 +2952,7 @@ Nodes (12): a_failed_token_refresh_surfaces_as_an_error(), a_non_404_api_error_i
 
 ### Community 330 - "Result"
 Cohesion: 0.22
-Nodes (22): commissioned_grant_for_receipt(), CommissionReceipt, ensure_schema(), mark_worker_stranded_notified(), pending_worker_dispatches(), record_worker_commissioned(), ArtifactRef, Briefcase (+14 more)
+Nodes (23): commissioned_grant_for_receipt(), CommissionReceipt, ensure_schema(), mark_worker_stranded_notified(), pending_worker_dispatches(), record_worker_commissioned(), ArtifactRef, Briefcase (+15 more)
 
 ### Community 331 - "Tasks: Define OpenSpine development process"
 Cohesion: 0.17
@@ -2961,8 +2971,8 @@ Cohesion: 0.17
 Nodes (11): Purpose, Requirement: Configurable caps, Requirement: Global daily spend ledger, Requirement: Lane-aware breach boundary, Requirements, Scenario: Concurrent reservation cannot overspend, Scenario: Configured caps are enforced, Scenario: Counters persist by UTC day (+3 more)
 
 ### Community 335 - "Value"
-Cohesion: 0.20
-Nodes (12): items, items, properties, required, type, icon, link, tag (+4 more)
+Cohesion: 0.15
+Nodes (15): items, default, items, type, properties, required, type, head (+7 more)
 
 ### Community 336 - "MockServer"
 Cohesion: 0.17
@@ -2977,16 +2987,16 @@ Cohesion: 0.33
 Nodes (10): canonical_catalog(), counterparty_classification_is_kernel_owned_and_fails_closed(), email_draft_has_a_reviewed_descriptor_and_a_registered_implementation(), every_delegation_descriptor_names_a_catalogued_action(), handler_registry_requires_explicit_classification(), id(), non_effect_stub_allowlist_is_explicit_and_fails_closed(), overlay_export_restore_are_non_delegable_with_no_egress() (+2 more)
 
 ### Community 339 - "String"
-Cohesion: 0.24
-Nodes (7): Option, Result, Self, String, scoped_rule_matches(), ScopedConsultOutcome, Store
+Cohesion: 0.38
+Nodes (14): get_skill(), PromotionDenial, recent_promotion_decisions_for_test(), owner_decide_promotion(), benign_body(), make_mined_skill(), malicious_body(), owner_approval_promotes_through_evaluator() (+6 more)
 
 ### Community 340 - "D-033 — Action identifiers are exact-match dotted strings; unverified senders are audited and ignored"
 Cohesion: 0.35
 Nodes (9): ResponsibilityAssessment, ResponsibilityCompatibilityBinding, ResponsibilityDriftReason, ResponsibilityManifest, ResponsibilityStatus, ArtifactId, BTreeSet, Digest (+1 more)
 
 ### Community 341 - "MockServer"
-Cohesion: 0.20
-Nodes (5): Authority boundary, Build, Configure Onyx and LFM2.5, Direct terminal chat, Run
+Cohesion: 0.13
+Nodes (9): Authority boundary, Build, Configure Onyx and LFM2.5, Direct terminal chat, Run, Canon sources, Completed / archived, OpenSpine OpenSpec change sequence (+1 more)
 
 ### Community 342 - "Timestamp"
 Cohesion: 0.18
@@ -3053,8 +3063,8 @@ Cohesion: 0.18
 Nodes (10): ADDED Requirements, Lyra package, Requirement: Installation remains declarative, Requirement: Lyra is a named default package, Requirement: Memory is typed and scoped, Requirement: Personality carries no authority, Scenario: Editing personality guidance, Scenario: Inspecting the source package (+2 more)
 
 ### Community 364 - "HeaderMap"
-Cohesion: 0.18
-Nodes (11): add-channel-neutral-responsibility-review, bound-dark-window-exceptions, compose-whole-responsibilities, define-responsibility-contract, make-reusable-authority-evaluation-proposal-specific, mine-and-match-reusable-authority-by-scope, Progressive delegation contract and proofs, prove-progressive-delegation-portability (+3 more)
+Cohesion: 0.13
+Nodes (14): ADDED Requirements, gate-action-api Specification Delta, MODIFIED Requirements, Requirement: Scope-matched admission MUST supply only a kernel-resolved request to the executor, Requirement: Unspecified actions MUST be denied, Scenario: Agent requests unknown action, Scenario: Catalogued effectful action has no executor, Scenario: Declared non-effect read retains the stub boundary (+6 more)
 
 ### Community 365 - "connectors_tests.rs"
 Cohesion: 0.31
@@ -3165,8 +3175,8 @@ Cohesion: 0.20
 Nodes (9): Acceptance Criteria, Authority sensitivity, Change: Implement first-run onboarding and a working setup wizard, Dependencies, Layer, Out of Scope, Prerequisite this change surfaces, What Changes (+1 more)
 
 ### Community 397 - "HeaderMap"
-Cohesion: 0.20
-Nodes (9): 1. Add the reviewed-scope key to the resolved context, 2. Bind a reviewed scope to the standing-rule manifest, 3. Construct the resolved context at the kernel boundary, 4. Match exactly one compatible scoped rule, 5. Restore ordinary approval on drift, 6. Reach the shared executor and map the outcome, 7. Test the boundaries, 8. Document and record (authority-sensitive) (+1 more)
+Cohesion: 0.27
+Nodes (13): adding_thread_binding_without_resealing_invalidates_mac(), caveat_reorder_or_remove_invalidates_mac(), child_derives_from_parent_tip_without_root_key(), effective_egress_class_intersects_every_caveat(), egress_class_tamper_invalidates_root_mac(), gate_specific_caveats_are_explicitly_supported_only_by_upgraded_verifier(), id_parent_and_action_list_tamper_fail(), identity_field_tamper_invalidates_mac() (+5 more)
 
 ### Community 398 - "Json"
 Cohesion: 0.20
@@ -3177,8 +3187,8 @@ Cohesion: 0.20
 Nodes (9): Declarative model, How Lyra is meant to grow, Installation direction, Local terminal conversation, Lyra, Package and runtime, Personality versus memory versus authority, Selected Gmail draft (+1 more)
 
 ### Community 400 - "Result"
-Cohesion: 0.12
-Nodes (20): digest_of_bytes(), prune_non_highest_active_preserves_persona_typed_and_source_entries(), accepted_dependency_fingerprint_migration_is_idempotent(), accepted_dependency_fingerprint_round_trips(), activation_cannot_replace_erased_identity_with_other_scope(), base_namespace_cannot_be_recorded_as_learned(), learned_artifact_round_trip_preserves_typed_provenance(), mark_reconfirmation_required_excludes_erased_rows() (+12 more)
+Cohesion: 0.24
+Nodes (13): accepted_dependency_fingerprint_migration_is_idempotent(), accepted_dependency_fingerprint_round_trips(), activation_cannot_replace_erased_identity_with_other_scope(), base_namespace_cannot_be_recorded_as_learned(), learned_artifact_round_trip_preserves_typed_provenance(), mark_reconfirmation_required_excludes_erased_rows(), owner_accepted_is_durable_across_round_trip(), owner_reconfirmation_cannot_replace_erased_identity_with_other_scope() (+5 more)
 
 ### Community 401 - "State"
 Cohesion: 0.33
@@ -3361,8 +3371,8 @@ Cohesion: 0.25
 Nodes (7): ADDED Requirements, direct-terminal-chat Delta, Requirement: An explicit local login command SHALL trigger provider OAuth, Requirement: Chat SHALL release its runtime before login starts, Scenario: Lifetime lock is reacquirable at login time, Scenario: One-shot chat never interprets login, Scenario: Owner triggers login from chat
 
 ### Community 458 - "Value"
-Cohesion: 0.25
-Nodes (7): Acceptance Criteria, Dependencies, Invariant, Mine and match reusable authority by scope, Out of Scope, Problem/Context, Proposed Solution
+Cohesion: 0.17
+Nodes (11): Authority, containment, audit, failure modes, Design: Mine and match reusable authority by scope, Drift restores approval before the effect, never after, `EffectOutcome` → reservation, Known limitation: silent thread participants, Matching: exactly one, before any budget moves, Rejected alternatives, `ResolvedActionContext` is reused, not rebuilt (+3 more)
 
 ### Community 459 - "Vec"
 Cohesion: 0.25
@@ -3376,9 +3386,17 @@ Nodes (8): Current adopter qualification, Maya: the curious adopter, Personas, P
 Cohesion: 0.25
 Nodes (8): Authority rail, Buttons, Claim ledger, Core components, Gate ledger, Instrument panel, OpenSpine mark, Policy layers and task grant
 
+### Community 462 - "Value"
+Cohesion: 0.35
+Nodes (10): CeremonyError, install_mined_skill(), install_seed_skill(), install_skill_internal(), install_user_skill(), OwnerSkillDecision, causal_containment_through_skill_context_dispatch(), make_skill() (+2 more)
+
 ### Community 463 - "Option"
 Cohesion: 0.25
 Nodes (3): clear_upgrade_pending_sync_failure_retains_marker_for_retry(), format2_post_rename_sync_failure_recovers_once_without_syncing_steady_state_reads(), format2_recovered_blob_reads_and_migrates_to_format3()
+
+### Community 464 - "Result"
+Cohesion: 0.25
+Nodes (5): action_for_egress(), action_for_scope(), egress_slug(), disclosure_envelope_budget_exhaustion_blocks(), EgressClass
 
 ### Community 466 - "Store"
 Cohesion: 0.43
@@ -3421,8 +3439,8 @@ Cohesion: 0.29
 Nodes (6): MODIFIED Requirements, Requirement: Task grants MUST be explicit live authority objects, Scenario: Bound parameters are caveats, Scenario: Root grant defaults, Scenario: Sub-grant is the sole presented authority, Spec: Core runtime schemas
 
 ### Community 478 - "Vec"
-Cohesion: 0.62
-Nodes (6): complete_task_and_wake(), dispatch_task_wake(), reattempt_handed_off(), recover_timer_dispatches(), run_task_deadline_consumer(), TimerDispatchOutcome
+Cohesion: 0.20
+Nodes (9): 1. Add the reviewed-scope key to the resolved context, 2. Bind a reviewed scope to the standing-rule manifest, 3. Construct the resolved context at the kernel boundary, 4. Match exactly one compatible scoped rule, 5. Restore ordinary approval on drift, 6. Reach the shared executor and map the outcome, 7. Test the boundaries, 8. Document and record (authority-sensitive) (+1 more)
 
 ### Community 479 - "Result"
 Cohesion: 0.29
@@ -3517,8 +3535,8 @@ Cohesion: 0.29
 Nodes (6): Authority reset and continuation, Design: OTP-style supervision with authority reset, Failure terminal transition, Identity addressing and serialization, Restart-intensity accounting, Tests
 
 ### Community 504 - "String"
-Cohesion: 0.54
-Nodes (7): dispatch_artifact_nominate(), approve_callback(), learned_route(), nomination_owner_tap_persists_nominated_status_and_audit(), nomination_rejects_persona_kind_without_compatible_learned_artifact(), nomination_requires_explicit_depersonalized_assertion(), telegram_ok()
+Cohesion: 0.38
+Nodes (8): ArtifactNominatePayload, dispatch_artifact_nominate(), approve_callback(), learned_route(), nomination_owner_tap_persists_nominated_status_and_audit(), nomination_rejects_persona_kind_without_compatible_learned_artifact(), nomination_requires_explicit_depersonalized_assertion(), telegram_ok()
 
 ### Community 505 - "Timestamp"
 Cohesion: 0.29
@@ -3538,7 +3556,7 @@ Nodes (6): 1. Control and bundle primitives, 2. Monotonic erasure control state,
 
 ### Community 509 - "Result"
 Cohesion: 0.08
-Nodes (51): mediate_and_dispatch_action(), email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_malformed_payload(), email_read_selected_thread_rejects_second_use(), email_read_selected_thread_returns_thread_via_mocked_gmail(), gmail_connector(), mint_grant_with_selection_token() (+43 more)
+Nodes (45): email_read_selected_thread_rejects_expired_token(), email_read_selected_thread_rejects_foreign_grant(), email_read_selected_thread_rejects_second_use(), email_read_selected_thread_returns_thread_via_mocked_gmail(), gmail_connector(), mint_grant_with_selection_token(), mount_gmail_thread_endpoint(), mount_gmail_token_endpoint() (+37 more)
 
 ### Community 510 - "Ulid"
 Cohesion: 0.29
@@ -3597,12 +3615,12 @@ Cohesion: 0.29
 Nodes (6): Acceptance Criteria, Dependencies, Out of Scope, Problem/Context, Proposed Solution, Separate generic capability, selected proof, and portability evidence in the checked roadmap
 
 ### Community 524 - "String"
-Cohesion: 0.29
-Nodes (7): Authority growth, implement-disclosure-policy, implement-egress-classes, implement-model-swap-ceremony, implement-overlay-eval-gate, implement-plan-digest-approval, implement-standing-rules
+Cohesion: 0.31
+Nodes (4): PromotionDenial, record_verdict(), run_promotion_review(), SkillReviewPassed
 
 ### Community 527 - "Timestamp"
-Cohesion: 0.29
-Nodes (7): define-grant-chain-and-modes, define-lineage-and-eval-store, harden-gate-trusted-paths, implement-identity-store-and-principal, Kernel foundation, refactor-kernel-registries, refactor-pipeline-driver
+Cohesion: 0.22
+Nodes (4): corrupt_scoped_target_with_valid_flat_source_fails_migration(), legacy_blob_with_tag_colliding_nonce_still_migrates(), legacy_blobs_migrate_under_system_scope(), legacy_migration_recovers_from_crash_between_write_and_cleanup()
 
 ### Community 528 - "Ulid"
 Cohesion: 0.33
@@ -3677,8 +3695,8 @@ Cohesion: 0.33
 Nodes (6): Consequences, D-002 — First usable UX should include an owner control channel, Decision, Rationale, Trade-offs, Would change if
 
 ### Community 552 - "Error"
-Cohesion: 0.53
-Nodes (5): plan_preview_records_telegram_success_counter(), plan_proposal_budget_exhaustion_persists_no_request(), plan_propose_approve_rederives_gate_and_resolves(), proposed_plan_fixture(), tampered_plan_artifact_is_refused_at_approval_callback()
+Cohesion: 0.25
+Nodes (7): Acceptance Criteria, Dependencies, Invariant, Mine and match reusable authority by scope, Out of Scope, Problem/Context, Proposed Solution
 
 ### Community 553 - "D-031 — Docker Compose is the first reference deployment target"
 Cohesion: 0.33
@@ -3765,16 +3783,16 @@ Cohesion: 0.33
 Nodes (5): 1. Author the version 2 schema, migration, and corrected records, 2. Extend the validator with the new truth rules (TDD), 3. Update the renderer and regenerate the roadmap, 4. Verify, Tasks
 
 ### Community 574 - "Timestamp"
-Cohesion: 0.33
-Nodes (6): Agent-OS change sequence (2026-07-07, AD canon), Event substrate, implement-durable-workflow-replay, implement-event-bus-subscriptions, implement-task-board, Loop execution contract (AD-145)
+Cohesion: 0.43
+Nodes (7): forum_request(), provenance(), request(), uncovered_egress_blocks_and_produces_owner_question(), DisclosureRequest, relationship_slug(), RelationshipKind
 
 ### Community 576 - "Box"
-Cohesion: 0.33
-Nodes (6): Failure surfacing & operations, implement-connector-reality, implement-day2-operations, implement-failure-surfacing-contract, implement-secret-intake, implement-spend-kill-switch
+Cohesion: 0.29
+Nodes (7): Authority growth, implement-disclosure-policy, implement-egress-classes, implement-model-swap-ceremony, implement-overlay-eval-gate, implement-plan-digest-approval, implement-standing-rules
 
 ### Community 577 - "Requirement: Dark-window defaults are durable and replay-safe"
-Cohesion: 0.33
-Nodes (6): implement-authority-equivalence-matcher, implement-seed-workflows, implement-skill-artifact-class, implement-workflow-state-machines, Skills & workflows, wire-authority-equivalence-selection
+Cohesion: 0.29
+Nodes (7): define-grant-chain-and-modes, define-lineage-and-eval-store, harden-gate-trusted-paths, implement-identity-store-and-principal, Kernel foundation, refactor-kernel-registries, refactor-pipeline-driver
 
 ### Community 579 - "String"
 Cohesion: 0.40
@@ -4017,8 +4035,8 @@ Cohesion: 0.40
 Nodes (5): Consequences, D-069 — Kernel connector counters are the minimal observability surface, Decision, Rationale, Would change if
 
 ### Community 651 - "String"
-Cohesion: 0.09
-Nodes (29): handle_draft_approval_callback(), Result, Ulid, resolve_post_approval_handler(), PostApprovalHandler, kernel_notify_grant(), notify_owner_best_effort(), notify_owner_required() (+21 more)
+Cohesion: 0.14
+Nodes (21): kernel_notify_grant(), notify_owner_required(), notify_owner_required_outcome(), notify_owner_with_digest(), NotifyOutcome, record_notify_skipped(), handoff_complete(), run() (+13 more)
 
 ### Community 652 - "String"
 Cohesion: 0.40
@@ -4109,8 +4127,8 @@ Cohesion: 0.40
 Nodes (5): Consequences, D-091 — Seed workflows ship as overlay artifacts through the standard path, Decision, Rationale, Would change if
 
 ### Community 678 - "Ulid"
-Cohesion: 0.11
-Nodes (18): ensure_schema(), Connection, Option, Result, Ulid, Vec, Store, WorkerRelayClaim (+10 more)
+Cohesion: 0.13
+Nodes (13): ensure_schema(), Connection, Option, Result, Ulid, Vec, Store, WorkerRelayClaim (+5 more)
 
 ### Community 679 - "ArtifactId"
 Cohesion: 0.40
@@ -4425,8 +4443,8 @@ Cohesion: 0.40
 Nodes (5): D-019 — Implement minimal slice first, not full agent OS, Decision, Minimal slice, Rationale, Would change if
 
 ### Community 825 - "docs.schema.json"
-Cohesion: 0.40
-Nodes (5): Phase 0: product and audience, Primary audience, Product, Secondary audience, Wrong-fit audience today
+Cohesion: 0.29
+Nodes (7): Requirement: Unspecified actions MUST be denied, Scenario: Agent requests unknown action, Scenario: Catalogued effectful action has no executor, Scenario: Declared non-effect read retains the stub boundary, Scenario: Registered effectful paths cannot return success stubs, Scenario: Scope-matched admission does not widen the dispatch boundary, Scenario: Unknown ids are not stub-eligible
 
 ### Community 826 - "Ulid"
 Cohesion: 0.40
@@ -4437,24 +4455,24 @@ Cohesion: 0.40
 Nodes (4): Gate, Gotchas, openspine, Where to look
 
 ### Community 832 - "Timestamp"
-Cohesion: 0.40
-Nodes (4): Canon sources, Completed / archived, OpenSpine OpenSpec change sequence, Reconciliation of the previous "later changes" list
+Cohesion: 0.33
+Nodes (6): implement-authority-equivalence-matcher, implement-seed-workflows, implement-skill-artifact-class, implement-workflow-state-machines, Skills & workflows, wire-authority-equivalence-selection
 
 ### Community 833 - "sql_timestamp"
-Cohesion: 0.40
-Nodes (5): Delegation & containment, implement-briefcase-packing, implement-escalation-and-refusal, implement-worker-runtime, implement-worker-supervision
+Cohesion: 0.33
+Nodes (6): Requirement: Approval-required decisions MUST not execute immediately, Requirement: Kernel-originated owner notifications are a trusted, audited path, Requirements, Scenario: Draft creation requires approval, Scenario: Kernel-origin action needs no approval but is audited, Scenario: Kernel sends a courtesy notice
 
 ### Community 834 - "Mine and match reusable authority by scope"
-Cohesion: 0.40
-Nodes (5): implement-nerve-subscribers, implement-persona-binding-and-headless-lanes, implement-personality-seed, implement-reflection-miner, Reflection & product surface
+Cohesion: 0.33
+Nodes (6): Category line, Current-proof line, Headline, Primary call to action, Recommended copy direction, Supporting copy
 
 ### Community 835 - "Option"
-Cohesion: 0.50
-Nodes (3): client_error(), get_briefcase(), post_topup()
+Cohesion: 0.53
+Nodes (5): atomic_write(), cleanup_temp(), remove_durable(), sync_dir(), Write
 
 ### Community 836 - "dispatch_artifact_nominate"
-Cohesion: 0.50
-Nodes (3): Result, run_benchmarks(), Instant
+Cohesion: 0.53
+Nodes (4): dispatch_skill_context(), skill_context_rejects_unknown_grant_purpose(), skill_context_selects_only_grant_scoped_installed_matches(), task_class_from_grant_purpose()
 
 ### Community 837 - "Option"
 Cohesion: 0.50
@@ -4537,8 +4555,8 @@ Cohesion: 0.25
 Nodes (25): cleanup_temp_at(), is_allowed_platform_redirect(), o_cloexec(), o_creat(), o_directory(), o_nofollow(), open_canonical_dir_nofollow(), open_or_create_control_dir_relative() (+17 more)
 
 ### Community 881 - "Self"
-Cohesion: 0.50
-Nodes (4): implement-counterparty-key-model, implement-overlay-export-restore, implement-overlay-model, Overlay & key model
+Cohesion: 0.67
+Nodes (5): load_checkpoint(), route_failure(), run_worker_failed_consumer(), worker_failed_consumer_iteration(), worker_failed_filter()
 
 ### Community 883 - "Vec"
 Cohesion: 0.67
@@ -4577,12 +4595,12 @@ Cohesion: 0.67
 Nodes (3): Requirement: EventEnvelope MUST carry an optional dormant thread_id, Scenario: EventEnvelope with thread_id round-trips, Scenario: EventEnvelope without thread_id deserializes as None
 
 ### Community 917 - "opsx-propose.md"
-Cohesion: 0.67
-Nodes (3): anyOf, default, editUrl
+Cohesion: 0.40
+Nodes (5): Delegation & containment, implement-briefcase-packing, implement-escalation-and-refusal, implement-worker-runtime, implement-worker-supervision
 
 ### Community 918 - "SKILL.md"
-Cohesion: 0.67
-Nodes (3): default, type, head
+Cohesion: 0.40
+Nodes (5): implement-nerve-subscribers, implement-persona-binding-and-headless-lanes, implement-personality-seed, implement-reflection-miner, Reflection & product surface
 
 ### Community 925 - "Requirement: Approval records MUST bind reviewed payloads and targets"
 Cohesion: 0.67
@@ -4604,6 +4622,18 @@ Nodes (4): ReflectionProposal, Result, Value, MinerError
 Cohesion: 0.48
 Nodes (5): allow_and_deny_lists_never_overlap_in_the_fixture(), AppliesTo, CapabilityPack, owner_control_basic_pack(), round_trips_through_serde()
 
+### Community 1092 - "Vec"
+Cohesion: 0.40
+Nodes (5): Bonuses, scarcity, and urgency, Final offer statement, Offer name, Phase 5: enhancement, Risk reversal
+
+### Community 1110 - "build_owner_envelope"
+Cohesion: 0.50
+Nodes (4): Requirement: Gate MUST verify authenticated grant caveat chains offline, Scenario: Action outside an action_allowlist caveat is not granted, Scenario: Tampered or reordered caveats are rejected, Scenario: Valid sealed root allow
+
+### Community 1111 - "Tasks"
+Cohesion: 0.50
+Nodes (4): Requirement: Scope-matched admission MUST supply only a kernel-resolved request to the executor, Scenario: Scope-matched admission hands over kernel-resolved values, Scenario: Shell cannot supply an executor-bound value, Scenario: Unconstructible context never reaches the executor
+
 ### Community 1189 - "Digest"
 Cohesion: 0.29
 Nodes (5): Receiver, Request, Respond, Sender, FirstCallbackGate
@@ -4612,41 +4642,77 @@ Nodes (5): Receiver, Request, Respond, Sender, FirstCallbackGate
 Cohesion: 0.33
 Nodes (9): dispatch_polled_updates_for_test(), initialize_telegram_bot_id(), initialize_telegram_bot_id_until_ready(), is_already_processed(), resolve_telegram_offset(), resolve_telegram_offset_for_test(), dispatch_polled_updates(), poll_telegram_once_for_test() (+1 more)
 
+### Community 1197 - "Requirement: Selection-token validation MUST occur inside gate() for token-requiring actions"
+Cohesion: 0.50
+Nodes (4): Requirement: Selection-token validation MUST occur inside gate() for token-requiring actions, Scenario: Consumption stays at dispatch, Scenario: Gate denies a missing, foreign, wrong-type, or expired token, Scenario: Gate validates a bound, live, unexpired token
+
+### Community 1198 - "Requirement: Shadow-mode grants MUST return a non-executable decision"
+Cohesion: 0.50
+Nodes (4): Requirement: Shadow-mode grants MUST return a non-executable decision, Scenario: Dispatch does not execute on effect_suppressed, Scenario: Shadow allow becomes effect_suppressed, Scenario: Shadow deny remains deny
+
+### Community 1199 - "Phase 2: pricing"
+Cohesion: 0.50
+Nodes (4): 10x challenge, 1/10 challenge, Phase 2: pricing, Position
+
+### Community 1200 - "Research brief"
+Cohesion: 0.50
+Nodes (4): Current market context, Direct reader evidence, Product truth, Research brief
+
+### Community 1207 - "Requirement: Every effectful action MUST pass through gate"
+Cohesion: 0.67
+Nodes (3): Requirement: Every effectful action MUST pass through gate(), Scenario: Agent requests external read, Scenario: Every carve-out is mediated or enumerated
+
+### Community 1245 - "Requirement: Gate decisions MUST be auditable"
+Cohesion: 0.67
+Nodes (3): Requirement: Gate decisions MUST be auditable, Scenario: Gate denies email send, Scenario: Kernel-origin notify is still audited
+
+### Community 1246 - "Requirement: Gate decisions MUST use task grant precedence"
+Cohesion: 0.67
+Nodes (3): Requirement: Gate decisions MUST use task grant precedence, Scenario: Action appears in allowed and approval-required lists, Scenario: Action appears in allowed and denied lists
+
+### Community 1247 - "Requirement: Grant limits MUST be enforced at runtime"
+Cohesion: 0.67
+Nodes (3): Requirement: Grant limits MUST be enforced at runtime, Scenario: Model call beyond the budget, Scenario: Shell-initiated artifact creation beyond the budget
+
+### Community 1248 - "Requirement: Kernel-origin actions MUST route through gate() with a KernelOrigin marker"
+Cohesion: 0.67
+Nodes (3): Requirement: Kernel-origin actions MUST route through gate() with a KernelOrigin marker, Scenario: Kernel notify routes through gate but is exempt from approval, Scenario: Kernel-origin call outside the enumerated set is denied
+
 ### Community 1983 - "standing_rules_pending.rs"
 Cohesion: 0.16
 Nodes (15): ensure_schema(), PendingScheduleCtx, ArtifactRef, Connection, Option, Result, StandingRuleManifest, String (+7 more)
 
 ### Community 2442 - "audit_support.rs"
 Cohesion: 0.09
-Nodes (21): Vec, ActionCatalog, ActionEgressDeclaration, ActionId, EffectPath, EffectPathClass, Display, From (+13 more)
+Nodes (26): Vec, ActionCatalog, ActionEgressDeclaration, ActionId, EffectPath, EffectPathClass, Display, Formatter (+18 more)
 
 ### Community 2455 - "dispatch_plan_preview"
-Cohesion: 0.12
-Nodes (36): ActionRequestBody, ActionResponseBody, cleanup_pre_effect_reservations(), dispatch_lyra_preview(), dispatch_read_selected_thread(), FailureSurface, guard_connector_dispatch(), mediate_and_dispatch_action_headless() (+28 more)
+Cohesion: 0.13
+Nodes (36): ActionRequestBody, ActionResponseBody, cleanup_pre_effect_reservations(), dispatch_lyra_preview(), dispatch_read_selected_thread(), FailureSurface, guard_connector_dispatch(), mediate_and_dispatch_action() (+28 more)
 
 ### Community 2460 - "atomic_write"
 Cohesion: 0.08
-Nodes (24): CanonicalValue<'a>, Digest, digest_from_hash(), digest_of_bytes_hashes_raw_content_directly(), digest_of_is_a_pinned_golden_value(), digest_round_trips_through_serde(), HasherWriter, HasherWriter<'a> (+16 more)
+Nodes (25): CanonicalValue, CanonicalValue<'a>, Digest, digest_from_hash(), digest_of_bytes_hashes_raw_content_directly(), digest_of_is_a_pinned_golden_value(), digest_round_trips_through_serde(), HasherWriter (+17 more)
 
 ## Knowledge Gaps
-- **3388 isolated node(s):** `set.sh script`, `autoresearch.sh script`, `ArtifactNominatePayload`, `ArtifactProposePayload`, `BundleNamePayload` (+3383 more)
+- **3416 isolated node(s):** `set.sh script`, `autoresearch.sh script`, `ArtifactNominatePayload`, `ArtifactProposePayload`, `BundleNamePayload` (+3411 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **1063 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1064 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppState` connect `ProposedArtifact` to `handle_owner_update`, `D-023 — OpenSpine is the substrate; Lyra is a product built on it`, `artifact_loader.rs`, `audit_support.rs`, `String`, `action.rs`, `StoreError`, `dispatch_plan_preview`, `AppState`, `Lifecycle`, `Requirements`, `D-013 — Dynamic behavior easy; dynamic authority hard`, `artifact_propose.rs`, `Requirements`, `Requirements`, `properties`, `ADDED Requirements`, `D-032 — Kernel↔shell transport is HTTP/JSON with a per-task bearer token`, `Design: OpenSpine development process`, `Requirements`, `ADDED Requirements`, `scripts`, `dispatch_artifact_nominate`, `D-016 — Capability packs are candidate profiles, not live authority`, `SKILL.md`, `autoresearch.sh`, `README.md`, `check.sh`, `README.md`, `SKILL.md`, `Telegram owner-control setup (Phase 1)`, `mod.rs`, `Result`?**
-  _High betweenness centrality (0.054) - this node is a cross-community bridge._
+- **Why does `AppState` connect `ProposedArtifact` to `handle_owner_update`, `D-023 — OpenSpine is the substrate; Lyra is a product built on it`, `artifact_loader.rs`, `audit_support.rs`, `action.rs`, `StoreError`, `dispatch_plan_preview`, `AppState`, `D-045 — WYSIWYS: a truncated preview refuses an approval button rather than splitting the message`, `Lifecycle`, `Requirements`, `D-013 — Dynamic behavior easy; dynamic authority hard`, `artifact_propose.rs`, `Requirements`, `Requirements`, `properties`, `ADDED Requirements`, `D-032 — Kernel↔shell transport is HTTP/JSON with a per-task bearer token`, `Design: OpenSpine development process`, `Requirements`, `ADDED Requirements`, `ADDED Requirements`, `scripts`, `D-016 — Capability packs are candidate profiles, not live authority`, `SKILL.md`, `autoresearch.sh`, `README.md`, `check.sh`, `README.md`, `SKILL.md`, `Telegram owner-control setup (Phase 1)`, `mod.rs`, `Result`?**
+  _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **Why does `SecretStore` connect `action.rs` to `Tasks: Implement digest-bound draft approval`, `event.rs`, `quickstart.md`, `D-030 — Telegram carries the entire owner-control UX for phases 1–3`, `GmailConnector`, `ProposedArtifact`, `retry_worker.rs`, `Runtime schema groups`, `ADDED Requirements`, `D-003 — Gmail is a guarded workflow, not the whole product`?**
   _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **Why does `Timestamp` connect `ADDED Requirements` to `D-004 — Every effectful action goes through `gate()``, `D-022 — Agent-owned inbox is distinct from owner mailbox access`, `D-023 — OpenSpine is the substrate; Lyra is a product built on it`, `banner`, `Requirements`, `StoreError`, `AppState`, `Lifecycle`, `OpenSpine Agent-OS Design Log`, `D-013 — Dynamic behavior easy; dynamic authority hard`, `Overlay & key model`, `D-010 — Model calls with private context go through model gateway`, `Requirements`, `Design: OpenSpine development process`, `offset.rs`, `D-035 — Kernel advertises a separate `advertise_endpoint` from its `bind_addr`; no Unix-domain-socket transport for `ProcessDriver``, `ADDED Requirements`, `standing_rules_pending.rs`, `roadmap.md`, `threat-model.md`, `Proposal: Define OpenSpine development process`, `proposal.rs`, `SKILL.md`, `Result`, `README.md`, `String`, `SKILL.md`, `Tasks: Backfill implemented capability specs`, `connectors_tests.rs`, `String`, `Vec`, `Result`?**
-  _High betweenness centrality (0.026) - this node is a cross-community bridge._
+- **Why does `Timestamp` connect `ADDED Requirements` to `D-004 — Every effectful action goes through `gate()``, `D-022 — Agent-owned inbox is distinct from owner mailbox access`, `D-023 — OpenSpine is the substrate; Lyra is a product built on it`, `banner`, `Requirements`, `StoreError`, `AppState`, `Lifecycle`, `OpenSpine Agent-OS Design Log`, `D-013 — Dynamic behavior easy; dynamic authority hard`, `Overlay & key model`, `D-010 — Model calls with private context go through model gateway`, `Requirements`, `Design: OpenSpine development process`, `offset.rs`, `D-035 — Kernel advertises a separate `advertise_endpoint` from its `bind_addr`; no Unix-domain-socket transport for `ProcessDriver``, `standing_rules_pending.rs`, `roadmap.md`, `threat-model.md`, `Proposal: Define OpenSpine development process`, `proposal.rs`, `SKILL.md`, `Result`, `README.md`, `SKILL.md`, `Tasks: Backfill implemented capability specs`, `connectors_tests.rs`, `String`, `Vec`, `Result`?**
+  _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Are the 113 inferred relationships involving `test_state()` (e.g. with `artifact_propose_rejects_non_proposed_lifecycle()` and `artifact_propose_rejects_non_proposed_persona_kind()`) actually correct?**
   _`test_state()` has 113 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 93 inferred relationships involving `handle_owner_update()` (e.g. with `activation_with_mutated_payload_is_denied()` and `approved_artifact_activates_into_registry_and_overlay()`) actually correct?**
   _`handle_owner_update()` has 93 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `set.sh script`, `autoresearch.sh script`, `ArtifactNominatePayload` to the rest of the system?**
-  _3388 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _3416 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `README.md` be split into smaller, more focused modules?**
   _Cohesion score 0.08019323671497584 - nodes in this community are weakly interconnected._
