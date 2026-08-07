@@ -131,6 +131,7 @@ impl Store {
         action: &ActionId,
         decision: &GateDecision,
         payload_refs: &[ArtifactRef],
+        now: jiff::Timestamp,
     ) -> Result<bool, StoreError> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -143,7 +144,7 @@ impl Store {
                 grant_id.to_string(),
                 agent_id,
                 pack_id,
-                jiff::Timestamp::now().to_string(),
+                super::sql_timestamp(now),
             ],
         )?;
         if changed != 1 {

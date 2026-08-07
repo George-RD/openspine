@@ -146,6 +146,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-151 | Whole-responsibility composition is authored as a typed non-authoritative composition compiled onto existing kernel objects; builder validation and simulation never substitute for proposal-specific evaluation or owner approval, and the composition track does not pull forward of the Gmail proof | Accepted |
 | D-152 | Capability authoring is a contained proposer role separate from the deterministic evidence miner, with zero activation authority; privileged bricks (connectors, resolvers, executors) remain developer-landed kernel code | Accepted |
 | D-153 | The one shared Gmail draft executor is reached by two delivered admission sources — per-instance digest-bound approval and the D-117 headless approved lane; scope-matched standing-rule admission remains #128, and the generic shell dispatch path fails closed rather than reconstructing digest-bound context | Accepted |
+| D-154 | `TEXT` timestamp columns that SQL compares by inequality or orders by MUST be written and compared through `store::sql_time::sql_timestamp`, a fixed nine-digit RFC 3339 rendering; jiff's variable-width `Display` is not an order-preserving encoding | Accepted |
 
 ---
 
@@ -3635,6 +3636,34 @@ The generic dispatch path ever receives a kernel-resolved `ActionRequest` (rathe
 
 ---
 
+# D-154 — Order-compared `TEXT` timestamp columns use one fixed-width canonical rendering
+
+## Decision
+
+Every `TEXT` timestamp column that SQL compares with an inequality or orders by MUST be written AND compared through `store::sql_time::sql_timestamp`, which renders RFC 3339 with a fixed nine-digit fraction. jiff's `Timestamp` `Display` is NOT permitted at those sites. Columns compared only for equality, and instants already stored as epoch-nanosecond `INTEGER`s, are unaffected. Versioned migration v4 normalizes the existing rows in the seven affected columns; it is idempotent and skips NULLs and anything outside the legacy 20..29-character shape.
+
+## Rationale
+
+SQLite compares `TEXT` bytewise, so a string timestamp is only a valid sort key if its rendering is order-preserving. jiff's `Display` is not: it trims trailing fractional zeros and omits the fraction entirely on a whole second (`fmt/temporal/printer.rs:247`, `fmt/buffer.rs:527-538`). Because `'Z'` (0x5A) sorts after `'.'` (0x2E), a whole-second value compares GREATER than any sub-second value in the same second — `"…:57Z" > "…:57.000123456Z"` — inverting time order inside every second boundary.
+
+That was not theoretical. It broke two live paths, each now covered by a deterministic regression: a dead letter whose `next_attempt_at` landed on an exact second was not claimable until the next second (`a_whole_second_retry_deadline_is_claimable_one_nanosecond_later`), and — the fail-open direction — a skill-context selection token expiring on an exact second read as still live for up to a second under `expires_at > ?` (`a_token_expiring_on_an_exact_second_is_refused_one_nanosecond_later`). The dead-letter case surfaced as a rare post-merge suite failure whose probability is roughly the chance that the clock reads an exact whole second.
+
+Fixed-width rendering was chosen over migrating the columns to `INTEGER` epoch nanoseconds because it preserves the stored shape, round-trips through the existing `str::parse::<Timestamp>()` readers unchanged, needs no column rewrite, and keeps the downgrade path trivial. Making the encoding correct is also cheaper to keep correct than auditing each comparison site forever.
+
+## Consequences
+
+- `store::sql_time::sql_timestamp` is the single canonical renderer; `sql_time`'s own tests assert the ordering property, fixed width, and parse round-trip, including the exact case `Display` gets wrong.
+- Affected columns: `notify_dead_letters.{enqueued_at, next_attempt_at, claimed_until}`, `task_grants.expires_at`, `skill_context_selections.expires_at`, `connector_restart_ledger.occurred_at`, `worker_dispatch.created_at`.
+- `Store::consume_skill_context_selection_and_append_audit` now takes `now: Timestamp` instead of reading the clock internally, matching `claim_due_dead_letter(now)`. That is what makes the token-expiry boundary testable at all; the one caller already had `now` in scope from `gate()`.
+- `worker_dispatch.{updated_at, failed_at, recovery_claimed_at}` and `conversation_in_flight.claimed_at` are deliberately left on `Display`: nothing compares them by inequality. Adding such a comparison requires moving the column to the canonical renderer first.
+- The v4 `down` is a version-stamp rollback only. Normalized values parse to the same instants and older code reads them correctly, so no data is restored.
+
+## Would change if
+
+These columns move to epoch-nanosecond `INTEGER`s (which would make the renderer unnecessary for ordering), or a future store gains a timestamp column whose comparison semantics cannot be expressed by byte order at all.
+
+---
+
 
 
 ## Change Log
@@ -3688,4 +3717,5 @@ The generic dispatch path ever receives a kernel-resolved `ActionRequest` (rathe
 | 2026-08-06 | Added D-147 (Codex OAuth spendability via the ChatGPT backend Responses transport with access-token identity, scrubbed errors, and a Codex-specific wire fingerprint), D-148 (owner-authored `model_tiers` tier routing, fail-closed at load, id+client pair resolution), and D-149 (stored-credential re-bind behind the spendability refusal, canonical-transport cutover, vault-scoped refresh single-flight), settled while implementing `add-openai-codex-provider-transport`. |
 | 2026-08-06 | Added D-150 (external platform comparisons settle build-versus-borrow: study and independently reproduce, never adopt or fork; credential-boundary inversion and PolyForm Shield noncompete recorded), D-151 (composed responsibilities are authored as typed non-authoritative compositions compiled onto kernel objects; builder validation/simulation never substitutes for proposal-specific evaluation; no pull-forward ahead of the Gmail proof), and D-152 (capability author is a contained proposer role separate from the evidence miner, with zero activation authority; privileged bricks stay developer-landed), settled in the 2026-08-06 external-comparison roadmap review (assessment archived at `.raw/openspine-autogpt-comparison-2026-08-06.md`). |
 | 2026-08-06 | Added D-153 (the one shared Gmail draft executor is reached by per-instance digest-bound approval and the D-117 headless approved lane; scope-matched standing-rule admission and the `EffectOutcome`→reservation mapping remain #128; the generic shell dispatch path fails closed; the non-effect stub allowlist is closed at seven catalogued read ids), settled while implementing `unify-approved-and-delegated-effect-execution` (#127). |
+| 2026-08-07 | Added D-154 (order-compared `TEXT` timestamp columns are written and compared through the fixed nine-digit `store::sql_time::sql_timestamp`; jiff's variable-width `Display` inverts time order inside a second, which stalled dead-letter retries and left selection tokens expiring on an exact second readable as live; versioned migration v4 normalizes existing rows), found by a post-merge `scripts/check.sh` failure on `main` after `#152`. |
 

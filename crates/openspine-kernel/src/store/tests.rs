@@ -496,7 +496,7 @@ fn sweep_removes_only_grants_expired_more_than_a_day() {
                 params![
                     id,
                     format!("hash-for-{id}"),
-                    expires_at.to_string(),
+                    sql_timestamp(expires_at),
                     "{}",
                     format!("sha256:{}", "0".repeat(64)),
                     555,

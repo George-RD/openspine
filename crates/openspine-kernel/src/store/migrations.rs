@@ -279,7 +279,69 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
         version: 3,
         up: "ALTER TABLE skills ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;",
     },
+    // Entry v4 normalizes the `TEXT` timestamp columns that SQL compares with
+    // an inequality or orders by. They were written with jiff's `Display`,
+    // which trims trailing fractional zeros and drops the fraction entirely on
+    // a whole second — so byte order disagreed with instant order inside a
+    // second (`'Z'` 0x5A sorts after `'.'` 0x2E). See `store::sql_time`.
+    // Rewrites each legacy value (length 20..29) to the fixed-width
+    // nine-digit form new writes use; canonical rows (length 30) and NULLs are
+    // left alone, so the migration is idempotent and never invents an instant.
+    VersionedMigration {
+        version: 4,
+        up: TIMESTAMP_NORMALIZATION_SQL,
+    },
 ];
+
+/// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
+/// fraction. `substr(col, 1, 19)` is `YYYY-MM-DDTHH:MM:SS`; anything past
+/// position 20 up to the trailing `Z` is the existing fraction, which is
+/// right-padded with zeros and clipped to nine digits.
+///
+/// Precondition: a four-digit, non-negative year, which is what every writer
+/// in this crate produces (`jiff::Timestamp` is UTC and the store holds only
+/// runtime instants). An expanded-year rendering such as `-0001-01-01T…`
+/// would shift the fixed offsets, so the guard below also bounds the length —
+/// but a future column admitting expanded years MUST NOT reuse this macro.
+macro_rules! normalize_timestamp_column {
+    ($table:literal, $col:literal) => {
+        concat!(
+            "UPDATE ",
+            $table,
+            " SET ",
+            $col,
+            " = substr(",
+            $col,
+            ", 1, 19) || '.' || substr(",
+            "CASE WHEN length(",
+            $col,
+            ") > 20 THEN substr(",
+            $col,
+            ", 21, length(",
+            $col,
+            ") - 21) ELSE '' END || '000000000', 1, 9) || 'Z' WHERE ",
+            $col,
+            " IS NOT NULL AND length(",
+            $col,
+            ") BETWEEN 20 AND 29;"
+        )
+    };
+}
+
+const TIMESTAMP_NORMALIZATION_SQL: &str = concat!(
+    normalize_timestamp_column!("notify_dead_letters", "enqueued_at"),
+    normalize_timestamp_column!("notify_dead_letters", "next_attempt_at"),
+    normalize_timestamp_column!("notify_dead_letters", "claimed_until"),
+    normalize_timestamp_column!("task_grants", "expires_at"),
+    normalize_timestamp_column!("skill_context_selections", "expires_at"),
+    normalize_timestamp_column!("connector_restart_ledger", "occurred_at"),
+    normalize_timestamp_column!("worker_dispatch", "created_at"),
+);
+
+#[cfg(test)]
+pub(super) fn timestamp_normalization_sql_for_test() -> &'static str {
+    TIMESTAMP_NORMALIZATION_SQL
+}
 
 /// Inverse `down` SQL for each versioned migration (AD-139 downgrade path),
 /// test-only — production never reverts. Kept in lockstep with
@@ -288,6 +350,10 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
 const VERSIONED_DOWNS: &[(i64, &str)] = &[
     (2, "DROP TABLE IF EXISTS boot_meta;"),
     (3, "ALTER TABLE skills DROP COLUMN schema_version;"),
+    // v4 normalized values, not schema: the pre-v4 renderings parse to the
+    // same instants, and older code reads the canonical form correctly, so
+    // the documented downgrade only rolls the version stamp back.
+    (4, ""),
 ];
 
 /// Latest reachable schema version: the ad-hoc baseline, or the highest

@@ -83,6 +83,48 @@ fn notification_failure_is_truthful_and_retryable() {
     assert!(store.pending_dead_letters().unwrap().is_empty());
 }
 
+/// A dead letter whose `next_attempt_at` lands on an exact second must be
+/// claimable one nanosecond later. `next_attempt_at <= ?1` is a `TEXT`
+/// comparison, and jiff's `Display` omits the fraction on a whole second, so
+/// the stored value used to sort AFTER any sub-second `now` in the same
+/// second (`'Z'` > `'.'`) and the retry silently stalled until the next
+/// second. See `store::sql_time`.
+#[test]
+fn a_whole_second_retry_deadline_is_claimable_one_nanosecond_later() {
+    let store = Store::open_in_memory().expect("test store");
+    let grant = ulid::Ulid::new();
+    let id = store
+        .record_notify_failure(555, "failure", grant, "wiremock failure")
+        .expect("record failure");
+    let first = store
+        .claim_due_dead_letter(jiff::Timestamp::now())
+        .expect("claim")
+        .expect("freshly enqueued dead letter is immediately due");
+
+    let boundary = jiff::Timestamp::new(1_775_000_000, 0).expect("representable instant");
+    assert!(
+        store
+            .reschedule_dead_letter_failure(
+                id,
+                first.claim_token.as_deref().unwrap(),
+                boundary,
+                "retry failed",
+                grant,
+            )
+            .expect("reschedule"),
+        "claim was current"
+    );
+
+    let just_after = jiff::Timestamp::new(1_775_000_000, 1).expect("representable instant");
+    assert!(
+        store
+            .claim_due_dead_letter(just_after)
+            .expect("claim")
+            .is_some(),
+        "a deadline on an exact second must be due one nanosecond later"
+    );
+}
+
 #[test]
 fn counter_persistence_failure_is_durably_batched_as_resource() {
     let state = crate::test_support::fixtures::test_state();

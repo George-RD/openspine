@@ -40,7 +40,7 @@ pub fn connector_restart_cap_available(
     restart_limit: u32,
 ) -> Result<bool, StoreError> {
     let conn = store.conn.lock();
-    let cutoff = (now - window).to_string();
+    let cutoff = super::sql_timestamp(now - window);
     let count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM connector_restart_ledger \
@@ -176,7 +176,7 @@ pub fn record_worker_failed(
     // The configured limit is the last failure that exhausts continuation:
     // the event for that failure is denied and the commission boundary refuses
     // any fresh recomposition until the window expires.
-    let cutoff = (now - window).to_string();
+    let cutoff = super::sql_timestamp(now - window);
     let prior: i64 = tx
         .query_row(
             "SELECT COUNT(*) FROM connector_restart_ledger \
@@ -216,7 +216,11 @@ pub fn record_worker_failed(
     tx.execute(
         "INSERT INTO connector_restart_ledger (id, connector, occurred_at) \
          VALUES (?1, ?2, ?3)",
-        params![Ulid::new().to_string(), connector, now.to_string()],
+        params![
+            Ulid::new().to_string(),
+            connector,
+            super::sql_timestamp(now)
+        ],
     )
     .map_err(StoreError::from)?;
     // Reclaim the crashed worker's in-flight conversation slot atomically so
@@ -279,7 +283,7 @@ pub fn connector_restart_count_in_window(
     now: jiff::Timestamp,
 ) -> Result<u32, StoreError> {
     let conn = store.conn.lock();
-    let cutoff = (now - window).to_string();
+    let cutoff = super::sql_timestamp(now - window);
     let count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM connector_restart_ledger \

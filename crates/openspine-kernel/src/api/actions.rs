@@ -460,6 +460,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 &action,
                 &outcome.decision,
                 payload_ref.as_slice(),
+                now,
             )
             .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
         if !consumed {

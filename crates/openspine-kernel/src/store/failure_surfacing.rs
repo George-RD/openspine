@@ -1,7 +1,7 @@
 use super::failure_surfacing_types::{
     detail_insert_columns, DeadLetterState, DetailReceipt, NotifyDeadLetter,
 };
-use super::{Store, StoreError};
+use super::{sql_timestamp, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
 use rusqlite::{params, OptionalExtension};
@@ -67,12 +67,12 @@ impl Store {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending', ?8, ?9, ?10, ?11, ?12)",
             params![
                 id.to_string(),
-                now.to_string(),
+                sql_timestamp(now),
                 chat_id,
                 text_ref,
                 task_grant_id.to_string(),
                 ids,
-                now.to_string(),
+                sql_timestamp(now),
                 semantic_kind,
                 detail_ref,
                 page_index,
@@ -175,7 +175,7 @@ impl Store {
                  WHERE ((state = 'pending' AND next_attempt_at <= ?1) \
                     OR (state = 'in_progress' AND claimed_until <= ?1)) \
                  ORDER BY next_attempt_at LIMIT 1",
-                params![now.to_string()],
+                params![sql_timestamp(now)],
                 |row| {
                     Ok((
                         row.get(0)?,
@@ -219,7 +219,13 @@ impl Store {
         let changed = tx.execute(
             "UPDATE notify_dead_letters SET state = 'in_progress', attempts = ?2, claimed_until = ?3, claim_token = ?4 \
              WHERE id = ?1 AND ((state = 'pending' AND next_attempt_at <= ?5) OR (state = 'in_progress' AND claimed_until <= ?5))",
-            params![id, new_attempts, lease_until.to_string(), claim_token, now.to_string()],
+            params![
+                id,
+                new_attempts,
+                sql_timestamp(lease_until),
+                claim_token,
+                sql_timestamp(now)
+            ],
         )?;
         if changed != 1 {
             return Ok(None);
@@ -341,7 +347,11 @@ impl Store {
         let changed = tx.execute(
             "UPDATE notify_dead_letters SET state = 'pending', next_attempt_at = ?2, claimed_until = NULL, claim_token = NULL \
              WHERE id = ?1 AND state = 'in_progress' AND claim_token = ?3",
-            params![id.to_string(), next_attempt_at.to_string(), claim_token],
+            params![
+                id.to_string(),
+                sql_timestamp(next_attempt_at),
+                claim_token
+            ],
         )?;
         if changed != 1 {
             return Ok(false);
