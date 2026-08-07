@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "openspec/openspine-change-sequence.md": {
-    "mtime": 1786113798.2602267,
-    "ast_hash": "eb37fc3c1bdcbf6c6150be1a8b50cf09",
+    "mtime": 1786121766.331624,
+    "ast_hash": "cf815c9b6984944b815ba1e20ecedda1",
     "semantic_hash": ""
   },
   "openspec/specs/authority-composition/spec.md": {
@@ -265,7 +265,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/telegram.rs": {
-    "mtime": 1784900607.822811,
+    "mtime": 1786121826.6302896,
     "ast_hash": "e112f84579e3f2a8d738e9b8c2f83201",
     "semantic_hash": ""
   },
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/standing-rules/spec.md": {
-    "mtime": 1786113798.2617297,
-    "ast_hash": "ab355557bd5c73a3065fc010b5988947",
+    "mtime": 1786121732.714501,
+    "ast_hash": "92d3d63ddb97c8da03c03db161e4edf0",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/pipeline/worker_e2e_tests.rs": {
@@ -3650,8 +3650,8 @@
     "semantic_hash": ""
   },
   "openspec/specs/responsibility-contract/spec.md": {
-    "mtime": 1786113798.26126,
-    "ast_hash": "9982879fad2169476c228da21cd3d972",
+    "mtime": 1786121732.712307,
+    "ast_hash": "e80637779bf9e6909dc2858f98e0f81d",
     "semantic_hash": ""
   },
   "openspine.terminal.example.yaml": {
@@ -4149,27 +4149,27 @@
     "ast_hash": "71be2eb457f737dab701c9045ec40601",
     "semantic_hash": ""
   },
-  "openspec/changes/bound-dark-window-exceptions/design.md": {
+  "openspec/changes/archive/2026-08-07-bound-dark-window-exceptions/design.md": {
     "mtime": 1786121114.2272346,
     "ast_hash": "dab61d861d4c8fab534951798f0c1064",
     "semantic_hash": ""
   },
-  "openspec/changes/bound-dark-window-exceptions/proposal.md": {
+  "openspec/changes/archive/2026-08-07-bound-dark-window-exceptions/proposal.md": {
     "mtime": 1786119773.202589,
     "ast_hash": "40324c9773ce8d7abc1ab0bc4a071071",
     "semantic_hash": ""
   },
-  "openspec/changes/bound-dark-window-exceptions/specs/responsibility-contract/spec.md": {
+  "openspec/changes/archive/2026-08-07-bound-dark-window-exceptions/specs/responsibility-contract/spec.md": {
     "mtime": 1786120160.2967424,
     "ast_hash": "357c80ae34be77cdd7ca9b36540180c8",
     "semantic_hash": ""
   },
-  "openspec/changes/bound-dark-window-exceptions/specs/standing-rules/spec.md": {
+  "openspec/changes/archive/2026-08-07-bound-dark-window-exceptions/specs/standing-rules/spec.md": {
     "mtime": 1786119800.3572102,
     "ast_hash": "8e620dec80909fafe78900a699399707",
     "semantic_hash": ""
   },
-  "openspec/changes/bound-dark-window-exceptions/tasks.md": {
+  "openspec/changes/archive/2026-08-07-bound-dark-window-exceptions/tasks.md": {
     "mtime": 1786119967.3572338,
     "ast_hash": "8a90f314e180c84c0a453a1d3883687f",
     "semantic_hash": ""

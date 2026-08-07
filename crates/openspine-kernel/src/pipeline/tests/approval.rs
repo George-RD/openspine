@@ -492,3 +492,6 @@ async fn approval_audit_never_contains_the_plaintext_draft_body() {
 
 #[path = "approval_draft_reconcile_tests.rs"]
 mod approval_draft_reconcile_tests;
+
+#[path = "write_admission_ordering_tests.rs"]
+mod write_admission_ordering_tests;

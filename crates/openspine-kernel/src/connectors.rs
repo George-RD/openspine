@@ -102,6 +102,26 @@ impl ConnectorRegistry {
         telegram: TelegramConnector,
         gmail: Option<GmailConnector>,
     ) -> Result<Self, EgressRegistrationError> {
+        Self::with_rate_limit(telegram, gmail, RateLimitConfig::default())
+    }
+
+    /// Build a registry whose connector buckets use an explicit
+    /// [`RateLimitConfig`] instead of the default 10-permits-per-100ms shape.
+    ///
+    /// `RateLimitBucket` is already clock-injectable — it takes `now` from its
+    /// caller precisely so nothing has to race a real clock — but the registry
+    /// hardcoded the default config, so the only way to reach a rate-limited
+    /// admission was to drain nine permits and hope the next call landed
+    /// inside the 100ms refill window. `last_refill` is stamped once at
+    /// construction and holds do not reset it, so any 100ms between
+    /// construction and the admission under test silently refills a permit and
+    /// the scenario evaporates. Supplying the config removes the wall clock
+    /// from the setup entirely (openspine#163).
+    pub fn with_rate_limit(
+        telegram: TelegramConnector,
+        gmail: Option<GmailConnector>,
+        rate_limit: RateLimitConfig,
+    ) -> Result<Self, EgressRegistrationError> {
         let mut declared = telegram.egress_endpoints();
         if let Some(gmail) = &gmail {
             declared.extend(gmail.egress_endpoints());
@@ -111,20 +131,12 @@ impl ConnectorRegistry {
         let mut runtimes = HashMap::new();
         runtimes.insert(
             "telegram".to_string(),
-            ConnectorRuntime::new(
-                RateLimitConfig::default(),
-                CircuitBreakerConfig::default(),
-                now,
-            ),
+            ConnectorRuntime::new(rate_limit, CircuitBreakerConfig::default(), now),
         );
         if gmail.is_some() {
             runtimes.insert(
                 "gmail".to_string(),
-                ConnectorRuntime::new(
-                    RateLimitConfig::default(),
-                    CircuitBreakerConfig::default(),
-                    now,
-                ),
+                ConnectorRuntime::new(rate_limit, CircuitBreakerConfig::default(), now),
             );
         }
         Ok(Self {

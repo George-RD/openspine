@@ -288,7 +288,7 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
 /// counts only `state = 'pending'`, so it cannot see a row that was inserted
 /// and then resolved — which is exactly what the ordering assertion below
 /// needs to rule out.
-fn total_pending_draft_write_rows(state: &AppState) -> i64 {
+pub(super) fn total_pending_draft_write_rows(state: &AppState) -> i64 {
     state
         .store
         .conn
@@ -336,78 +336,6 @@ async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
         total_pending_draft_write_rows(&state),
         0,
         "refusing at the thread fetch must record no pending-write fence"
-    );
-    assert_eq!(
-        state
-            .store
-            .count_audit_events_of_kind("draft.created")
-            .unwrap(),
-        0
-    );
-}
-
-#[tokio::test]
-async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
-    // #127 ordering invariant: the executor takes the write's connector permit
-    // BEFORE recording the pending-write fence, so a rejected write admission
-    // — which has polled no WRITE future and attempted no provider write — is a
-    // true pre-effect refusal that leaves NO fence row at all. An
-    // inserted-then-resolved row would falsely record an attempted Gmail write
-    // in the reconciliation table.
-    //
-    // Setup: the default token bucket holds 10 permits refilling every 100ms.
-    // Holding 9 leaves exactly one for the executor's live thread fetch, so the
-    // subsequent write admission is rate-limited. The breaker stays Closed, so
-    // holding the permits has no drop side effects.
-    let token_server = MockServer::start().await;
-    let api_server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/gmail/v1/users/me/threads/thread-1"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
-        )
-        .mount(&api_server)
-        .await;
-    // No drafts mock: the rejection must happen before any write is attempted.
-    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let state = test_state_with_gmail(gmail);
-    let grant = approval_fixture_grant();
-    let request = approval_fixture_request(
-        &state,
-        grant.id,
-        "Re: invoice",
-        "sounds good",
-        "alice@example.com",
-    );
-    let _held: Vec<_> = (0..9)
-        .map(|_| {
-            state
-                .connectors
-                .acquire_connector_with_generation("gmail")
-                .expect("draining the gmail rate-limit bucket")
-        })
-        .collect();
-
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
-
-    assert_eq!(
-        outcome,
-        EffectOutcome::RefusedPreEffect,
-        "a rejected write admission never attempted a provider write"
-    );
-    assert_eq!(
-        total_pending_draft_write_rows(&state),
-        0,
-        "the fence must be recorded only after the write permit is held"
-    );
-    assert_eq!(
-        state
-            .store
-            .count_audit_events_of_kind("draft.creation_failed")
-            .unwrap(),
-        1
     );
     assert_eq!(
         state

@@ -32,10 +32,41 @@ pub(crate) mod fixtures {
     fn build_state(telegram: TelegramConnector, gmail: Option<GmailConnector>) -> AppState {
         build_state_with_store(Store::open_in_memory().unwrap(), telegram, gmail)
     }
+
+    /// Build a Gmail-backed state whose connector buckets use an explicit
+    /// rate-limit config, so a test can reach a rate-limited admission
+    /// deterministically instead of racing the default 100ms refill
+    /// (openspine#163).
+    pub(crate) fn test_state_with_gmail_and_rate_limit(
+        gmail: GmailConnector,
+        rate_limit: crate::connector_reality::RateLimitConfig,
+    ) -> AppState {
+        build_state_inner(
+            Store::open_in_memory().unwrap(),
+            TelegramConnector::new("test-token".to_string()),
+            Some(gmail),
+            rate_limit,
+        )
+    }
+
     pub(crate) fn build_state_with_store(
         store: Store,
         telegram: TelegramConnector,
         gmail: Option<GmailConnector>,
+    ) -> AppState {
+        build_state_inner(
+            store,
+            telegram,
+            gmail,
+            crate::connector_reality::RateLimitConfig::default(),
+        )
+    }
+
+    fn build_state_inner(
+        store: Store,
+        telegram: TelegramConnector,
+        gmail: Option<GmailConnector>,
+        rate_limit: crate::connector_reality::RateLimitConfig,
     ) -> AppState {
         let registry = crate::artifact_loader::load_registry(&repo_lyra_dir()).unwrap();
         let key = [7u8; 32];
@@ -73,7 +104,7 @@ pub(crate) mod fixtures {
             secrets,
             action_catalog: crate::action_catalog::canonical_catalog(),
             sandbox: Sandbox::Process(ProcessDriver::default()),
-            connectors: ConnectorRegistry::new(telegram, gmail)
+            connectors: ConnectorRegistry::with_rate_limit(telegram, gmail, rate_limit)
                 .expect("built-in egress ratings are conflict-free"),
             terminal_reply_tx: None,
             webhook_verifier: WebhookVerifier::new(
