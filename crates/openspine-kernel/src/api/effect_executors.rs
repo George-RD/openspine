@@ -78,6 +78,17 @@ impl EffectExecutorRegistry {
         EffectExecutorRegistry { map }
     }
 
+    /// A registry with no executors, for proving that an admission source
+    /// holding a standing-rule reservation still fails closed — and releases
+    /// that reservation — when its catalogued `executor_id` resolves to
+    /// nothing.
+    #[cfg(test)]
+    pub(crate) fn empty() -> Self {
+        EffectExecutorRegistry {
+            map: HashMap::new(),
+        }
+    }
+
     /// Resolve an executor by stable executor id.
     pub(crate) fn lookup(&self, executor_id: &str) -> Option<EffectExecutor> {
         self.map.get(executor_id).copied()

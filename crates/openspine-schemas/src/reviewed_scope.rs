@@ -190,7 +190,11 @@ impl ReviewedActionScope {
     }
 }
 
-fn value_for(
+/// Build a `ReviewedScopeValue` for `dimension` from a resolved context.
+/// `None` when the context does not carry that instance value (e.g. an
+/// unresolvable account identity). `pub(crate)` so the resolved-context
+/// scope key can be derived here and the digest helper can be shared.
+pub(crate) fn value_for(
     dimension: ReviewedScopeDimension,
     context: &ResolvedActionContext,
 ) -> Option<ReviewedScopeValue> {
@@ -262,4 +266,49 @@ fn value_for(
             .cloned()
             .map(ReviewedScopeValue::TaskShape),
     }
+}
+
+/// Sealed digest over the *values* named by the descriptor's required scope
+/// dimensions — the standing-rule scope key (design.md §"Two digests"). The
+/// pre-image is a canonical-JSON object whose keys are the snake_case
+/// dimension names and whose values are the reviewed values.
+///
+/// Dimension *ordering* is deliberately not load-bearing here: `digest_of`
+/// canonicalizes through `canonical_json`, which sorts object keys at every
+/// depth, so the insertion order of this map cannot reach the pre-image. Two
+/// contexts that agree on every required dimension therefore always produce
+/// byte-identical pre-images, whatever order the dimensions were visited in.
+///
+/// This deliberately excludes every declaration axis the compatibility digest
+/// covers (action/descriptor/implementation/executor/resolver/egress), so two
+/// different accounts or targets cannot collide into one scope key.
+pub fn reviewed_scope_digest_of(
+    values: &BTreeMap<ReviewedScopeDimension, ReviewedScopeValue>,
+) -> Digest {
+    let mut object = serde_json::Map::new();
+    for (dimension, value) in values {
+        object.insert(
+            serde_json::to_value(dimension)
+                .expect("reviewed scope dimension serializes as a string")
+                .as_str()
+                .expect("reviewed scope dimension serializes as a string")
+                .to_string(),
+            serde_json::to_value(value).expect("reviewed scope value is fully serializable"),
+        );
+    }
+    digest_of(&serde_json::Value::Object(object))
+}
+
+/// Compute a per-dimension reviewed value map for a resolved context over
+/// exactly the dimensions named by the descriptor's `required_scope_dimensions`.
+/// `None` when any required dimension cannot be valued (missing instance), so
+/// the caller fails closed rather than sealing a partial scope.
+pub fn reviewed_scope_values_of(
+    context: &ResolvedActionContext,
+) -> Option<BTreeMap<ReviewedScopeDimension, ReviewedScopeValue>> {
+    let mut values = BTreeMap::new();
+    for dimension in context.required_scope_dimensions() {
+        values.insert(*dimension, value_for(*dimension, context)?);
+    }
+    Some(values)
 }

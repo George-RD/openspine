@@ -76,12 +76,20 @@ Scope-matched admission becomes the third caller, and it is the *right* third ca
 | Outcome | Reservation | Why |
 | --- | --- | --- |
 | `Executed` | finalize | the effect happened; the budget was spent |
-| `DeliveryUnknown` | retain, fence stays open | releasing budget for a write that may have landed under-counts real effects; reconciliation resolves it |
+| `DeliveryUnknown` | retain (stays `reserved`), fence stays open | releasing budget for a write that may have landed under-counts real effects |
 | `RefusedPreEffect` | cancel | proven pre-effect; #127 semantics unchanged |
 | `FailedAfterAttempt` | cancel | no confirmed effect; #127 semantics unchanged |
 | `NoExecutor` (dispatch) | cancel | #127 semantics unchanged |
 
 `DeliveryUnknown` retaining the reservation is the deliberately conservative direction: it may over-count a write that never landed, and it can never under-count one that did. The existing fired-token rule is unchanged — a one-use token is re-armed only after its cancellation *succeeds*.
+
+**What "retain" means precisely.** The usage rows stay `reserved`: neither cancelled nor finalized. They keep counting against quota and rate, because every headroom query counts `status IN ('reserved', 'committed')`, and the rule's lapse clock and AD-010 drift trigger are still advanced so a responsibility that keeps saturating through ambiguous outcomes is still surfaced for owner re-review. Nothing then settles the row automatically — it ages out of its trailing window like any other spent unit. There is deliberately **no** fence reconciler today: `resolve_pending_draft_write` flips only the fence row and never touches `standing_rule_usage`. Leaving the reservation `reserved` rather than `committed` is what keeps a future reconciler *able* to release it, since a cancel can only delete a row that is still `reserved`. That reconciler is follow-up work, not current behaviour.
+
+### Known limitation: silent thread participants
+
+The reviewed scope binds the thread's participant set through `BoundParameters` and the drafted recipient through `TargetDigest`, both kernel-resolved from the read-only thread fetch. That set is derived from the `From` header of each message in the thread, because `GmailMessage` carries only `from` — `parse_thread` never reads `To` or `Cc`. A counterparty who is CC'd onto a reviewed thread but never posts is therefore invisible to the kernel and cannot enter the reviewed scope, so the rule keeps matching.
+
+This is acceptable to land because of what a scope-matched admission can actually do: `email.send` is in `denied_actions` (`artifacts/lyra/policies/global.yaml`), so the only admitted effect is `email.create_draft` — an unsent draft in the owner's own mailbox. A silent CC receives nothing; the owner still sees and sends the draft. Closing the gap means extracting `To`/`Cc` in the Gmail thread parser, which is D-042 parser territory and a separate change.
 
 ## Authority, containment, audit, failure modes
 

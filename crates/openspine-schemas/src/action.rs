@@ -202,6 +202,13 @@ impl ActionCatalog {
         self.non_effect_stub_actions.contains(id)
     }
 
+    /// How many ids the non-effect stub allowlist holds. Exposed so the
+    /// catalog test can pin the "exactly seven catalogued READ ids" boundary
+    /// by cardinality, not only by membership.
+    pub fn non_effect_stub_count(&self) -> usize {
+        self.non_effect_stub_actions.len()
+    }
+
     /// Mark the given actions as requiring a selection token of the expected type (D-055.1):
     /// `gate()` validates possession of a matching, unexpired, grant-bound
     /// selection token before granting them. Returns `self` for chaining.

@@ -353,6 +353,7 @@ pub(crate) fn record_owner_answer(
         },
         expires_after_secs: 7_776_000,
         dark_window: None,
+        reviewed_scope: None,
     };
     store.activate_standing_rule(&manifest, None, now)?;
     let policy_id = format!(

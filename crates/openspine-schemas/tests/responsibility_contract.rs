@@ -389,3 +389,80 @@ fn repeated_approval_evidence_binds_context_and_set_digest() {
     assert_eq!(evidence.approval_count(), Some(2));
     assert!(evidence.evidence_set_digest().is_some());
 }
+
+#[test]
+fn two_accounts_and_two_targets_cannot_form_one_pattern() {
+    // Two contexts that differ only in bound instance axes (account identity,
+    // connector instance, counterparty, canonical target) must produce
+    // different `reviewed_scope_digest` values — so a rule reviewed for one
+    // can never admit the other (design.md §"Two digests", invariant).
+    let mut account_b = context_input();
+    account_b.account_identity_digest = Some(digest('b'));
+    let account_a = resolved(context_input());
+    let account_b = resolved(account_b);
+    assert_ne!(
+        account_a.reviewed_scope_digest().unwrap(),
+        account_b.reviewed_scope_digest().unwrap(),
+        "two accounts must not form one pattern"
+    );
+
+    let mut target_b = context_input();
+    target_b.target_refs[0].id = Some("conversation-99".into());
+    let target_b = resolved(target_b);
+    assert_ne!(
+        account_a.reviewed_scope_digest().unwrap(),
+        target_b.reviewed_scope_digest().unwrap(),
+        "two targets must not form one pattern"
+    );
+}
+
+#[test]
+fn compatibility_epoch_and_scope_key_move_independently() {
+    // The compatibility digest (drift epoch) is computed over declaration
+    // axes only, so a change confined to an instance axis MUST leave it equal
+    // while the reviewed-scope digest MUST change (standing-rules spec:
+    // "Compatibility epoch and scope key move independently"). Conversely a
+    // declaration change MUST move the compatibility digest.
+    let original = resolved(context_input());
+
+    let mut instance_changed = context_input();
+    instance_changed.connector_instance_id = "matrix-secondary".into();
+    instance_changed.account_identity_digest = Some(digest('f'));
+    instance_changed.target_refs[0].id = Some("conversation-42".into());
+    let instance_changed = resolved(instance_changed);
+
+    assert_eq!(
+        original.compatibility_digest(),
+        instance_changed.compatibility_digest(),
+        "an instance-axis change must not move the compatibility epoch"
+    );
+    assert_ne!(
+        original.reviewed_scope_digest().unwrap(),
+        instance_changed.reviewed_scope_digest().unwrap(),
+        "an instance-axis change must move the reviewed-scope key"
+    );
+
+    // A declaration change (descriptor version) moves the compatibility
+    // digest. The descriptor in `descriptor()` has descriptor_version 2;
+    // bump it and rebuild through a fresh catalog so construction reflects
+    // the new declaration axis.
+    let mut declaration_changed = descriptor();
+    declaration_changed.descriptor_version = 3;
+    let implementation = implementation();
+    let action_id = declaration_changed.action_id.clone();
+    let implementation_id = implementation.implementation_id.clone();
+    let catalog = catalog_with(
+        declaration_changed,
+        implementation,
+        ActionEgressDeclaration::default(),
+    );
+    let declaration_changed =
+        ResolvedActionContext::try_new(&catalog, &action_id, &implementation_id, context_input())
+            .unwrap();
+
+    assert_ne!(
+        original.compatibility_digest(),
+        declaration_changed.compatibility_digest(),
+        "a declaration change must move the compatibility epoch"
+    );
+}

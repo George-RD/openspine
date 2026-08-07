@@ -13,7 +13,7 @@ use crate::store::standing_rules_tests::manifest;
 use crate::telegram::{CallbackQueryUpdate, TelegramConnector};
 use crate::test_support::fixtures::{owner_update, test_state, test_state_with_gmail_and_telegram};
 use jiff::Timestamp;
-use openspine_schemas::action::{ActionId, ActionRequest};
+use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::{digest_of, Digest};
 use openspine_schemas::event::{TargetRef, TargetRefKind};
@@ -82,8 +82,16 @@ fn draft_created_event(state: &crate::pipeline::AppState) -> Value {
         .expect("draft.created audit row")
 }
 
+/// #128: `email.create_draft` is scope-bound. An action-keyed standing rule
+/// carrying no reviewed scope is refused at *activation* now — the store never
+/// holds a rule that looks active while being unmatchable — and a request
+/// whose kernel-resolved context cannot be constructed (here: no
+/// content-addressed intent and no Gmail connector) is refused before
+/// dispatch. Both are strictly more closed than #127's post-dispatch
+/// `NoExecutor`: no reservation is ever taken and no draft evidence or stub
+/// result is written.
 #[tokio::test]
-async fn delegated_email_draft_fails_closed_and_cancels_reservation() {
+async fn delegated_email_draft_without_resolved_scope_is_refused_before_dispatch() {
     let state = test_state();
     let store = state.store.clone();
     let now = Timestamp::now();
@@ -101,7 +109,19 @@ async fn delegated_email_draft_fails_closed_and_cancels_reservation() {
         },
         None,
     );
-    store.activate_standing_rule(&rule, None, now).unwrap();
+    let rejected = store.activate_standing_rule(&rule, None, now);
+    assert!(
+        rejected.is_err(),
+        "an unbounded rule may not be activated for an action whose descriptor \
+         declares required reviewed scope dimensions"
+    );
+    assert!(
+        store
+            .active_standing_rule_for_action(&ActionId::new("email.create_draft"), now)
+            .unwrap()
+            .is_none(),
+        "a refused activation leaves no active rule row"
+    );
 
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
@@ -123,10 +143,14 @@ async fn delegated_email_draft_fails_closed_and_cancels_reservation() {
     )
     .await;
 
-    assert!(matches!(
-        result,
-        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("email.create_draft")
-    ));
+    let (decision, _deferral, dispatch_result, budget) =
+        result.expect("a refused admission is an ordinary ApprovalRequired, not a transport error");
+    assert!(
+        matches!(decision, GateDecision::ApprovalRequired { .. }),
+        "an unresolvable reviewed scope returns the action to ordinary owner approval"
+    );
+    assert!(dispatch_result.is_none(), "nothing was dispatched");
+    assert!(budget.is_none(), "a refusal exposes no headroom");
     assert_eq!(
         reserved_usage_count(&store, "rule-email-draft-no-executor"),
         0
@@ -137,10 +161,17 @@ async fn delegated_email_draft_fails_closed_and_cancels_reservation() {
     );
     assert_eq!(
         store
-            .standing_rule_remaining("rule-email-draft-no-executor", now)
+            .count_audit_events_of_kind("standing_rule.scope_binding_rejected")
             .unwrap(),
-        (3, 3),
-        "a pre-effect NoExecutor failure cancels the standing-rule reservation"
+        1,
+        "the refused activation leaves durable owner-actionable evidence"
+    );
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("action.scope_context_unresolved")
+            .unwrap(),
+        1,
+        "the construction failure is named in a durable audit event"
     );
     assert_eq!(
         store.count_audit_events_of_kind("draft.created").unwrap(),

@@ -83,9 +83,14 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
     let state = test_state();
     let store = state.store.clone();
     let now = Timestamp::now();
+    // #128: `email.create_draft` is scope-bound, so an unbounded rule for it
+    // is now refused at activation. This test is about the fired-token
+    // reservation lifecycle, not about that action, so it uses an action with
+    // no delegation descriptor that still reaches `NoExecutor` — the boundary
+    // under test is unchanged.
     let rule = manifest(
         "rule-fired-no-executor",
-        "email.create_draft",
+        "coolify.deploy",
         3600,
         BudgetWindow {
             max: 5,
@@ -102,16 +107,16 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
     );
     store.activate_standing_rule(&rule, None, now).unwrap();
     let active_rule = store
-        .active_standing_rule_for_action(&ActionId::new("email.create_draft"), now)
+        .active_standing_rule_for_action(&ActionId::new("coolify.deploy"), now)
         .unwrap()
         .unwrap();
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
-        &["email.create_draft"],
+        &["coolify.deploy"],
         now + Duration::from_secs(120),
     );
     grant.allowed_actions.clear();
-    grant.approval_required_actions = vec![ActionId::new("email.create_draft")];
+    grant.approval_required_actions = vec![ActionId::new("coolify.deploy")];
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let payload = json!({"subject": "draft", "body": "body"});
     let payload_ref = Some(
@@ -146,7 +151,7 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
     let result = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("email.create_draft"),
+        ActionId::new("coolify.deploy"),
         OWNER_CHAT_ID,
         Some(&payload),
         FailureSurface::Detached,
@@ -155,7 +160,7 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
     .await;
     assert!(matches!(
         result,
-        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("email.create_draft")
+        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("coolify.deploy")
     ));
     assert_eq!(reserved_usage_count(&store, &active_rule.rule_id), 0);
     assert_eq!(committed_usage_count(&store, &active_rule.rule_id), 0);
@@ -183,9 +188,12 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
     let state = test_state();
     let store = state.store.clone();
     let now = Timestamp::now();
+    // See the note above: an unbounded rule may no longer be activated for a
+    // scope-bound action, and the fired-token lifecycle under test is
+    // action-agnostic.
     let rule = manifest(
         "rule-fired-cancel-failure",
-        "email.create_draft",
+        "coolify.deploy",
         3600,
         BudgetWindow {
             max: 5,
@@ -202,16 +210,16 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
     );
     store.activate_standing_rule(&rule, None, now).unwrap();
     let active_rule = store
-        .active_standing_rule_for_action(&ActionId::new("email.create_draft"), now)
+        .active_standing_rule_for_action(&ActionId::new("coolify.deploy"), now)
         .unwrap()
         .unwrap();
     let (mut grant, _) = mint_grant_with_selection_token(
         &state,
-        &["email.create_draft"],
+        &["coolify.deploy"],
         now + Duration::from_secs(120),
     );
     grant.allowed_actions.clear();
-    grant.approval_required_actions = vec![ActionId::new("email.create_draft")];
+    grant.approval_required_actions = vec![ActionId::new("coolify.deploy")];
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
     let payload = json!({"subject": "draft", "body": "body"});
     let payload_ref = Some(
@@ -251,7 +259,7 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
     let result = mediate_and_dispatch_action(
         &state,
         &grant,
-        ActionId::new("email.create_draft"),
+        ActionId::new("coolify.deploy"),
         OWNER_CHAT_ID,
         Some(&payload),
         FailureSurface::Detached,
@@ -260,7 +268,7 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
     .await;
     assert!(matches!(
         result,
-        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("email.create_draft")
+        Err(DispatchError::NoExecutor(id)) if id == ActionId::new("coolify.deploy")
     ));
     assert!(
         pending_token_consumed_at(&store, &pending.pending_id).is_some(),

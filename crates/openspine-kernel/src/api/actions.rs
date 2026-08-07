@@ -492,6 +492,39 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     let mut consult_reservation: Option<(String, u32, String)> = None;
     let mut fired_reservation: Option<(String, u32, String)> = None;
     let mut disclosure_reservations: Vec<crate::disclosure::DisclosureReservation> = Vec::new();
+    // #128: for an action whose kernel-resolved context is constructible, the
+    // authority that admits an effect is the reviewed scope the owner
+    // approved, not the bare action key. Resolution happens here — before any
+    // standing-rule consultation, any reservation, and any timer — and only
+    // on the normal path (a fired dark-window default already carries its own
+    // digest-bound waiver, and the headless lane re-gates its own approval).
+    let scoped = if fired_pending.is_none()
+        && !headless
+        && matches!(decision, GateDecision::ApprovalRequired { .. })
+    {
+        super::scoped_admission::resolve_scoped_admission(
+            state,
+            grant,
+            &action,
+            payload_ref.as_ref(),
+            now,
+        )
+        .await?
+    } else {
+        super::scoped_admission::ScopedAdmission::NotApplicable
+    };
+    // A construction failure consults no rule at all: falling back to the
+    // action-keyed path would admit an effect that no reviewed scope covers.
+    // The failure is already audited; the decision stays ApprovalRequired.
+    let (scoped_resolved, scoped_unresolvable) = match scoped {
+        super::scoped_admission::ScopedAdmission::Resolved(resolved) => (Some(resolved), false),
+        super::scoped_admission::ScopedAdmission::Unresolvable => (None, true),
+        super::scoped_admission::ScopedAdmission::NotApplicable => (None, false),
+    };
+    // Set only when a scoped rule admitted this effect: dispatch then goes to
+    // the shared executor with the kernel-resolved, digest-bound request
+    // rather than through the generic shell dispatch path.
+    let mut scoped_admitted: Option<Box<super::scoped_admission::ScopedAdmissionContext>> = None;
     if let Some(token) = fired_pending {
         // Fired dark-window default (owner silence): re-dispatch this action
         // with a digest-bound, one-use token. Consume it *before* the effect
@@ -531,7 +564,35 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 }
             }
         }
-    } else if !headless && matches!(decision, GateDecision::ApprovalRequired { .. }) {
+    } else if let Some(resolved) = scoped_resolved {
+        // Scope-matched admission (#128). The selection, its audit, and its
+        // headroom live in `scoped_admission` so this module does not grow a
+        // second admission policy inline.
+        let admitted = super::scoped_admission::consult_scoped_rule(
+            state,
+            grant,
+            &action,
+            &resolved,
+            payload_ref.as_slice(),
+            now,
+        )?;
+        consult_reservation = admitted.reservation;
+        if admitted.allow {
+            decision = GateDecision::Allow;
+            standing_budget = Some(StandingRuleBudgetInfo {
+                quota_remaining: admitted.quota_remaining,
+                rate_remaining: admitted.rate_remaining,
+                // A scoped consultation never schedules a dark-window timer:
+                // selection completes before scheduling would be reached, and
+                // `email.create_draft` prohibits dark windows by policy.
+                dark_window_scheduled: false,
+            });
+            scoped_admitted = Some(resolved);
+        }
+    } else if !headless
+        && !scoped_unresolvable
+        && matches!(decision, GateDecision::ApprovalRequired { .. })
+    {
         // Normal path: an active, non-expired, non-revoked rule covers this
         // action and still has budget → reserve it atomically and allow
         // without a fresh owner approval; otherwise keep ApprovalRequired and,
@@ -964,14 +1025,28 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
         prepared_payload = Some(json!({ "generalized_query": enforced.query.generalized_query }));
     }
 
-    let dispatched = super::connector_breaker::dispatch_allowed_action(
-        state,
-        grant,
-        &action,
-        bound_chat_id,
-        prepared_payload.as_ref(),
-    )
-    .await;
+    // A scope-matched admission is the third caller of the shared
+    // `gmail.create_draft` executor (#128 task 6): it hands over the
+    // kernel-resolved, digest-bound request, never the shell's opaque
+    // payload. Every other action keeps the generic dispatch path, which
+    // still refuses to reconstruct a digest-bound context and still fails
+    // closed exactly as #127 left it.
+    let dispatched = match scoped_admitted.as_deref() {
+        Some(admission) => {
+            super::scoped_admission::dispatch_scoped_effect(state, grant, admission, bound_chat_id)
+                .await
+        }
+        None => {
+            super::connector_breaker::dispatch_allowed_action(
+                state,
+                grant,
+                &action,
+                bound_chat_id,
+                prepared_payload.as_ref(),
+            )
+            .await
+        }
+    };
     match dispatched {
         Ok(result) => {
             if let Some((rule_id, version, reservation_id)) = &consult_reservation {
@@ -1014,13 +1089,39 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             Ok((GateDecision::Allow, None, Some(result), standing_budget))
         }
         Err(err) => {
-            // DeliveryUnknown means the provider may have acted before the
-            // response was lost. Keep the budget consumed and fence retries;
-            // releasing either reservation would permit a duplicate effect.
+            // An ambiguous outcome means the provider may have acted before
+            // the response was lost. The reservation is RETAINED — left
+            // `reserved`, neither cancelled nor finalized — and the retry is
+            // fenced. A retained `reserved` row still counts against quota and
+            // rate everywhere headroom is computed
+            // (`status IN ('reserved','committed')`), so the budget stays
+            // conservatively consumed; finalizing it to `committed` instead
+            // would foreclose any later release, because
+            // `cancel_standing_rule_reservation` can only delete a row that is
+            // still `reserved`.
+            //
+            // What happens to the row after that, precisely: nothing
+            // automatic. It stays `reserved` and ages out of its trailing
+            // window like any other spent unit. There is no reconciler today
+            // that reads the open pending-write fence and settles the matching
+            // reservation — `resolve_pending_draft_write` only flips the fence
+            // row and never touches `standing_rule_usage`. Keeping the row
+            // releasable is what makes that reconciler possible later; it is
+            // future work, not current behaviour (D-157).
             let retain_reservation = match &err {
                 // Ambiguous provider outcome: retain budget and fence any retry.
                 DispatchError::DeliveryUnknown(_) => true,
-                // Only these variants are proven pre-effect failures here.
+                // Cancelled here. `BadRequest`/`ConnectorUnavailable`/
+                // `NoExecutor` are proven pre-effect — no write future was
+                // polled. `Connector` carries BOTH scoped-lane effect
+                // outcomes that cancel: `RefusedPreEffect` (the executor
+                // refused before polling any write future, so nothing was
+                // sent and no fence was recorded) and `FailedAfterAttempt` (a
+                // *definite* post-attempt failure — the provider answered that
+                // nothing took hold and the executor already resolved its
+                // pending-write fence). Releasing the budget is correct for
+                // both; only an outcome that might have landed is retained,
+                // and that is the arm above.
                 DispatchError::BadRequest(_)
                 | DispatchError::Connector(_)
                 | DispatchError::ConnectorUnavailable(_)
@@ -1030,41 +1131,28 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 DispatchError::Resource(_) => true,
             };
             if retain_reservation {
-                if let Some((rule_id, version, reservation_id)) = &consult_reservation {
-                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
-                        rule_id,
-                        *version,
-                        reservation_id,
-                        now,
-                    ) {
-                        tracing::error!(error = %finalize_err, reservation_id, "standing-rule reservation finalize failed after delivery-unknown dispatch");
+                // Deliberately no finalize and no cancel: every reservation on
+                // this path stays `reserved` and keeps counting against its
+                // window. Each retained rule is still *used*, so refresh its
+                // lapse clock and re-evaluate the AD-010 drift trigger — a
+                // rule that keeps saturating through ambiguous outcomes is
+                // exactly the one the owner needs surfaced for re-review.
+                for (rule_id, _, _) in consult_reservation
+                    .iter()
+                    .chain(fired_reservation.iter())
+                    .chain(disclosure_reservations.iter())
+                {
+                    if let Err(use_err) = state.store.note_standing_rule_use(rule_id, now) {
+                        tracing::error!(error = %use_err, rule_id, "standing-rule use not recorded after retained dispatch");
                     }
                 }
-                if let Some((rule_id, version, reservation_id)) = &fired_reservation {
-                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
-                        rule_id,
-                        *version,
-                        reservation_id,
-                        now,
-                    ) {
-                        tracing::error!(error = %finalize_err, reservation_id, "standing-rule fired reservation finalize failed after delivery-unknown dispatch");
-                    }
+                if let Some((_, _, reservation_id)) = &fired_reservation {
                     let receipt = format!("delivery-unknown:{reservation_id}:{now}");
                     if let Err(mark_err) = state
                         .store
                         .mark_fired_effect_attempted(reservation_id, &receipt)
                     {
                         tracing::error!(error = %mark_err, reservation_id, "standing-rule fired delivery-unknown attempt not recorded");
-                    }
-                }
-                for (rule_id, version, reservation_id) in &disclosure_reservations {
-                    if let Err(finalize_err) = state.store.finalize_standing_rule_reservation(
-                        rule_id,
-                        *version,
-                        reservation_id,
-                        now,
-                    ) {
-                        tracing::error!(error = %finalize_err, reservation_id, "disclosure reservation finalize failed after delivery-unknown dispatch");
                     }
                 }
             } else {

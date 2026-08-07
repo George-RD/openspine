@@ -53,6 +53,7 @@ impl ReflectionProposal {
                     },
                     expires_after_secs: 90 * 24 * 3600,
                     dark_window: None,
+                    reviewed_scope: None,
                 };
                 let yaml =
                     serde_yaml::to_string(&manifest).map_err(|_| MinerError::PayloadSerialize)?;

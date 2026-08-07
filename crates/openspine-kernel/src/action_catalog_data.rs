@@ -36,6 +36,17 @@ pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
             ReviewedScopeDimension::AccountRole,
             ReviewedScopeDimension::AccountIdentity,
             ReviewedScopeDimension::Target,
+            // Two dimensions, two distinct jobs. `Target` above is the thread
+            // reference alone. `TargetDigest` seals the single address the
+            // draft is addressed to (`newest_non_owner_recipient`), so a
+            // change of reply recipient stops the rule matching.
+            // `BoundParameters` carries the kernel-resolved participant *set*
+            // for the thread, so a new participant posting into a reviewed
+            // thread also stops it matching. Without both, the thread ref and
+            // the compatibility epoch are unchanged and neither digest can see
+            // the drift.
+            ReviewedScopeDimension::TargetDigest,
+            ReviewedScopeDimension::BoundParameters,
             ReviewedScopeDimension::Counterparty,
             ReviewedScopeDimension::RelationshipTier,
             ReviewedScopeDimension::EffectDestination,
@@ -74,6 +85,21 @@ pub(crate) fn delegation_descriptors() -> Vec<ActionDescriptor> {
             fresh_target_selection_required: true,
         }),
     }]
+}
+
+/// The reviewed scope dimensions the canonical descriptor declares for
+/// `action`, or `None` when no descriptor declares any. Single source of truth
+/// shared by the catalog and by activation-time scope-binding enforcement
+/// (standing-rules spec, "Reviewed scope is bound at activation"), so the two
+/// can never disagree about what a rule for this action must bind.
+pub(crate) fn required_scope_dimensions_for(
+    action: &ActionId,
+) -> Option<BTreeSet<ReviewedScopeDimension>> {
+    delegation_descriptors()
+        .into_iter()
+        .find(|descriptor| &descriptor.action_id == action)
+        .map(|descriptor| descriptor.required_scope_dimensions)
+        .filter(|dimensions| !dimensions.is_empty())
 }
 
 /// Concrete resolver/executor declarations for actions whose effect path is
