@@ -69,6 +69,12 @@ pub(crate) async fn retry_due_notifications(state: &AppState) -> Result<()> {
             return Ok(());
         }
     };
+    // Authorized mint site (2 of 2): the Telegram notifier is re-addressing a
+    // dead-letter row it wrote itself, whose chat id came from an already
+    // owner-verified surface. Minting is adapter-only by visibility — see
+    // `telegram::telegram_owner_surface`.
+    let owner_surface =
+        crate::telegram::telegram_owner_surface(state.owner_principal_id, dead_letter.chat_id);
     crate::spend::guard_connector(state, true).await?;
     match crate::api::connector_breaker::call_with_connector_preflight(
         state,
@@ -77,7 +83,7 @@ pub(crate) async fn retry_due_notifications(state: &AppState) -> Result<()> {
         state
             .connectors
             .telegram()
-            .send_reply(dead_letter.chat_id, &text),
+            .send_reply(&owner_surface, &text),
     )
     .await
     {

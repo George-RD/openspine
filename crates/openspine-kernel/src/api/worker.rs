@@ -44,6 +44,7 @@ use crate::store::worker_supervision::{
     release_conversation_in_flight_for_grant, worker_commission_admission,
 };
 use crate::store::StoreError;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use std::str::FromStr;
 
 /// Per-connector restart-intensity cap (AD-100): at most `WORKER_RESTART_LIMIT`
@@ -56,20 +57,17 @@ const WORKER_RESTART_WINDOW: std::time::Duration = std::time::Duration::from_sec
 /// grant transfer.
 async fn surface_restart_cap_exhausted(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     connector: &str,
     restart_count: u32,
     restart_limit: u32,
 ) {
-    if chat_id == 0 {
-        return;
-    }
     let detail = format!(
         "Worker restart cap exhausted for connector '{connector}' ({restart_count}/{restart_limit} in the active window); continuation is held for owner review."
     );
     let _ = crate::failure_surfacing::notify_immediate_failure(
         state,
-        chat_id,
+        owner_surface,
         crate::failure_surfacing::FailureClass::Escalation,
         &detail,
     )
@@ -220,7 +218,7 @@ pub(crate) fn handle_worker_commission<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     _action: &'a ActionId,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -302,7 +300,7 @@ pub(crate) fn handle_worker_commission<'a>(
             drop(_admission);
             surface_restart_cap_exhausted(
                 state,
-                chat_id,
+                owner_surface,
                 &preflight_connector,
                 WORKER_RESTART_LIMIT,
                 WORKER_RESTART_LIMIT,
@@ -452,7 +450,7 @@ pub(crate) fn handle_worker_commission<'a>(
             &worker,
             &pending_ref,
             &token_ref,
-            chat_id,
+            owner_surface,
             &briefcase,
             &p.receipt,
             &request_digest,
@@ -495,7 +493,7 @@ pub(crate) fn handle_worker_commission<'a>(
                 drop(_admission);
                 surface_restart_cap_exhausted(
                     state,
-                    chat_id,
+                    owner_surface,
                     &connector,
                     WORKER_RESTART_LIMIT,
                     WORKER_RESTART_LIMIT,
@@ -572,7 +570,7 @@ pub(crate) fn handle_worker_commission<'a>(
                         if !event.recomposition_permitted {
                             surface_restart_cap_exhausted(
                                 state,
-                                chat_id,
+                                owner_surface,
                                 &event.connector,
                                 event.restart_count,
                                 event.restart_limit,
@@ -606,7 +604,7 @@ pub(crate) fn handle_worker_commission<'a>(
                     Ok(event) if !event.recomposition_permitted => {
                         surface_restart_cap_exhausted(
                             state,
-                            chat_id,
+                            owner_surface,
                             &event.connector,
                             event.restart_count,
                             event.restart_limit,
@@ -648,7 +646,7 @@ pub(crate) fn handle_worker_report_result<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     _action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -717,7 +715,7 @@ pub(crate) fn handle_worker_failed<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     _action: &'a ActionId,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -770,7 +768,7 @@ pub(crate) fn handle_worker_failed<'a>(
         if !event.recomposition_permitted {
             surface_restart_cap_exhausted(
                 state,
-                chat_id,
+                owner_surface,
                 &event.connector,
                 event.restart_count,
                 event.restart_limit,

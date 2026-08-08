@@ -2,6 +2,7 @@ use super::*;
 use crate::test_support::fixtures::*;
 
 pub(crate) mod approval;
+mod approval_replay_tests;
 mod bot_identity;
 mod bot_identity_support;
 mod callback_ack;
@@ -13,6 +14,7 @@ mod effect_paths;
 mod headless;
 mod headless_draft_boundary;
 mod offset;
+mod owner_surface_binding;
 mod plan;
 mod route_ambiguity;
 mod secret_intake_integration;
@@ -65,7 +67,7 @@ async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat(
     assert_eq!(grant.workflow_id, "owner_control_conversation");
     assert_eq!(grant.route_id, "owner_telegram_main_assistant");
 
-    let (stored_grant, pending_ref, bound_chat_id) = state
+    let (stored_grant, pending_ref, bound_surface) = state
         .store
         .find_task_grant_by_token(&grant.task_token)
         .unwrap()
@@ -74,7 +76,10 @@ async fn owner_update_composes_authority_and_persists_a_grant_bound_to_the_chat(
     let mut expected = grant.clone();
     expected.task_token = String::new();
     assert_eq!(stored_grant, expected);
-    assert_eq!(bound_chat_id, 555);
+    assert_eq!(
+        bound_surface,
+        crate::test_support::owner_surface_for(&state, 555)
+    );
     assert_eq!(state.artifacts.get(&pending_ref).unwrap(), b"hello lyra");
     assert!(state.store.verify_audit_chain().unwrap());
 }
@@ -96,7 +101,7 @@ async fn terminal_owner_message_composes_local_cli_grant_and_persists_input() {
     assert_eq!(grant.route_id, "owner_cli_main_assistant");
     assert_eq!(grant.capability_pack_id, "owner_terminal_basic_pack");
 
-    let (stored_grant, pending_ref, bound_chat_id) = state
+    let (stored_grant, pending_ref, bound_surface) = state
         .store
         .find_task_grant_by_token(&grant.task_token)
         .unwrap()
@@ -104,7 +109,16 @@ async fn terminal_owner_message_composes_local_cli_grant_and_persists_input() {
     let mut expected = grant.clone();
     expected.task_token = String::new();
     assert_eq!(stored_grant, expected);
-    assert_eq!(bound_chat_id, state.owner_user_id);
+    // The terminal lane binds its own authenticated surface and never
+    // borrows Telegram's: a terminal grant must not carry a chat id at all.
+    assert_eq!(
+        bound_surface,
+        openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
+            state.owner_principal_id
+        )
+    );
+    assert_ne!(bound_surface, state.telegram_owner_surface());
+    assert!(crate::telegram::telegram_chat_id(&bound_surface).is_err());
     assert_eq!(
         state.artifacts.get(&pending_ref).unwrap(),
         b"hello from terminal"

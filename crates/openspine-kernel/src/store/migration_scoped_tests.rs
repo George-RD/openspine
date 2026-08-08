@@ -18,7 +18,7 @@ fn v5_standing_rule_scope_binding_columns_added_and_dropped() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 7);
+        assert_eq!(user_version, 9);
 
         // Both columns exist after a fresh open.
         let cols: i64 = conn
@@ -61,7 +61,7 @@ fn v5_standing_rule_scope_binding_columns_added_and_dropped() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 7);
+        assert_eq!(user_version, 9);
         let cols: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM pragma_table_info('standing_rules') \
@@ -107,7 +107,7 @@ fn v6_dark_window_exception_columns_added_and_dropped() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 7);
+        assert_eq!(user_version, 9);
         assert_eq!(count_columns(&conn), 3, "all three columns exist after v6");
     }
     drop(store);
@@ -134,7 +134,7 @@ fn v6_dark_window_exception_columns_added_and_dropped() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 7);
+        assert_eq!(user_version, 9);
         assert_eq!(count_columns(&conn), 3, "columns are re-added on re-open");
     }
 }

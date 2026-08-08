@@ -35,7 +35,7 @@ impl Store {
             i64,
             String,
             String,
-            i64,
+            Option<String>,
             Option<String>,
             String,
             String,
@@ -43,7 +43,7 @@ impl Store {
         let rows: Vec<PendingRecoverRow> = conn
             .prepare(
                 "SELECT pending_id, rule_id, rule_version, task_grant_id, action_id, \
-                        bound_chat_id, payload_ref_json, request_fingerprint, dark_window_default \
+                        owner_surface_json, payload_ref_json, request_fingerprint, dark_window_default \
                  FROM standing_rule_pending_actions \
                  WHERE resolution = 'allowed' AND dispatch_state = 'none'",
             )?
@@ -68,7 +68,7 @@ impl Store {
             rule_version,
             task_grant_id,
             action_id,
-            bound_chat_id,
+            owner_surface_json,
             payload_ref_json,
             request_fingerprint,
             default_str,
@@ -86,7 +86,9 @@ impl Store {
                 rule_version: rule_version as u32,
                 task_grant_id: grant_id,
                 action_id: ActionId::new(&action_id),
-                bound_chat_id,
+                owner_surface: super::standing_rules_pending::parse_owner_surface(
+                    owner_surface_json,
+                )?,
                 payload_ref,
                 default: if default_str == "allow" {
                     DarkWindowDefault::Allow
@@ -120,7 +122,7 @@ impl Store {
             i64,
             String,
             String,
-            i64,
+            Option<String>,
             Option<String>,
             String,
             String,
@@ -128,7 +130,7 @@ impl Store {
         let rows: Vec<PendingClaimedRow> = conn
             .prepare(
                 "SELECT pending_id, rule_id, rule_version, task_grant_id, action_id, \
-                        bound_chat_id, payload_ref_json, request_fingerprint, dark_window_default \
+                        owner_surface_json, payload_ref_json, request_fingerprint, dark_window_default \
                  FROM standing_rule_pending_actions \
                  WHERE resolution = 'allowed' AND dispatch_state = 'claimed' \
                    AND owner_attention_since IS NULL",
@@ -154,7 +156,7 @@ impl Store {
             rule_version,
             task_grant_id,
             action_id,
-            bound_chat_id,
+            owner_surface_json,
             payload_ref_json,
             request_fingerprint,
             default_str,
@@ -172,7 +174,9 @@ impl Store {
                 rule_version: rule_version as u32,
                 task_grant_id: grant_id,
                 action_id: ActionId::new(&action_id),
-                bound_chat_id,
+                owner_surface: super::standing_rules_pending::parse_owner_surface(
+                    owner_surface_json,
+                )?,
                 payload_ref,
                 default: if default_str == "allow" {
                     DarkWindowDefault::Allow

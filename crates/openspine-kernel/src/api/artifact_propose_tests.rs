@@ -87,7 +87,7 @@ async fn artifact_propose_persists_and_sends_approval_button() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -157,7 +157,7 @@ async fn artifact_propose_rejects_malformed_yaml() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -197,7 +197,7 @@ async fn artifact_propose_rejects_unknown_kind() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -239,7 +239,7 @@ async fn artifact_propose_rejects_template_kind() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -279,7 +279,7 @@ async fn artifact_propose_rejects_non_proposed_persona_kind() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -335,7 +335,7 @@ async fn artifact_propose_rejects_duplicate_id_version() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -345,7 +345,7 @@ async fn artifact_propose_rejects_duplicate_id_version() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -380,7 +380,7 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -403,5 +403,7 @@ async fn artifact_propose_rejects_non_proposed_lifecycle() {
         .proposed_artifact_exists("route", "preactivate_route", 1)
         .unwrap());
 }
+#[path = "artifact_propose_miner_grant_tests.rs"]
+mod artifact_propose_miner_grant_tests;
 #[path = "artifact_propose_miner_tests.rs"]
 mod miner_tests;

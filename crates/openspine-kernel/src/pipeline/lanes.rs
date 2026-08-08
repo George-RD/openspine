@@ -19,6 +19,7 @@ use openspine_schemas::event::{
     InteractionMode, Lane, Source, TargetRef, TargetRefKind, TrustContext, VerificationMethod,
 };
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use ulid::Ulid;
 
 /// The parsed, lane-agnostic intake the driver consumes. Lane selection has
@@ -26,7 +27,10 @@ use ulid::Ulid;
 /// reaches the driver; `thread_id` is `Some` only for the email-preview lane.
 #[derive(Debug, Clone)]
 pub struct EventInputs {
-    pub chat_id: i64,
+    /// The authenticated owner surface this intake arrived on. Channel-neutral
+    /// by construction: the Telegram adapter mints it from its chat id, and the
+    /// terminal lane mints its own rather than borrowing Telegram's.
+    pub owner_surface: OwnerSurfaceRef,
     pub text: String,
     pub thread_id: Option<String>,
     pub owner_verified: Option<crate::telegram::VerifiedOwnerContext>,
@@ -184,7 +188,8 @@ pub(super) fn owner_build_envelope(
     now: Timestamp,
 ) -> anyhow::Result<(EventEnvelope, ArtifactRef)> {
     let raw_ref = state.artifacts.put(inputs.text.as_bytes())?;
-    let envelope = telegram::build_owner_envelope(inputs.chat_id, raw_ref.clone(), now);
+    let chat_id = telegram::telegram_chat_id(&inputs.owner_surface)?;
+    let envelope = telegram::build_owner_envelope(chat_id, raw_ref.clone(), now);
     Ok((envelope, raw_ref))
 }
 

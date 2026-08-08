@@ -213,7 +213,7 @@ async fn a_new_thread_participant_restores_ordinary_approval_before_effect() {
         &state,
         &grant,
         ActionId::new("email.create_draft"),
-        CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, CHAT_ID),
         Some(&draft_payload()),
         FailureSurface::DirectResponse,
         None,

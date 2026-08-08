@@ -158,6 +158,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-163 | Reusable-authority replay means concrete cases executed against the exact proposed binding and derived from what that proposal already binds; a case-free or one-sided ledger is a denial, and a check that measures availability is named for what it measures | Accepted |
 | D-164 | Evaluation verdicts record the epochs they were computed under and their currency is decided at read time by comparing stored epochs against live values, re-checked at activation; no sweeper rewrites a stored verdict | Accepted |
 | D-165 | Owner-facing evaluation copy is rendered from the stored verdicts and their executed-case ledger, never authored as free text, and every evaluator is named by what it did | Accepted |
+| D-166 | Owner reviews are immutable digest-bound records; authenticated surfaces submit intents only, approval atomically activates the derived standing rule, lifecycle controls target that bound rule, and generic kernel seams carry a typed `OwnerSurfaceRef` instead of a channel's chat id | Accepted |
 
 ---
 
@@ -3927,6 +3928,36 @@ PR #125 shipped copy claiming prior examples were replayed when only corpus pres
 
 The gate summary is replaced by the review object as the single owner-facing evaluation surface, at which point the same render-not-author rule moves with it.
 
+---
+
+# D-166 — Channel-neutral owner review is an immutable decision record, not a channel authority
+
+## Decision
+
+The canonical `OwnerReviewRequest` is persisted whole as a content-addressed artifact and referenced by a review row binding its immutable bytes to one owner principal, expiry, state, and binding digest. Telegram and local terminal render those same bytes and submit only typed intents; neither adapter may derive scope, choose authority, or perform lifecycle transitions.
+
+Approve atomically records the exact digest-bound decision and activates a `StandingRuleManifest` derived from the reviewed scope, compatibility digest, limits, and description. The review-to-rule association is committed in the same transaction. The standing rule is only a composition input: every later matching effect still receives a fresh task grant and crosses scoped admission and `gate()` under D-007/D-158. Narrow constructs and persists a new immutable review with a strict subset of set-valued reviewed dimensions; it never mutates or approves the broader record. Pause and resume target only the bound standing rule. Revoke and explicit Expire revoke the bound standing rule and record a `Revoked`/`Expired` review disposition. Resume re-verifies the exact version, scope binding, catalog compatibility, executor readiness, and connector health before returning it to active.
+
+Telegram callbacks carry the immutable review id plus a 48-bit prefix of the displayed binding digest to stay below Telegram's 64-byte callback-data limit. The kernel reloads and verifies the full artifact digest and full review binding before accepting the intent. Full owner-facing rendering must fit the smallest supported surface before an approvable review is persisted.
+
+## Rationale
+
+D-146 requires one protocol-neutral review object, D-011 requires what the owner decides to be exactly what was shown, D-107 makes standing rules the lifecycle object, and D-158 keeps live authority on the gate-consulted rule rather than on a descriptive responsibility view. Channel-specific lifecycle code or mutable review rows would violate all four boundaries. Atomic review approval plus rule activation closes the crash gap in which a receipt could claim authority that was not actually activated.
+
+## Consequences
+
+- The review row is the sole decision disposition; content bytes remain immutable in `ArtifactStore`.
+- A pending proposal exposes approval decisions, while lifecycle buttons appear only after an approved review is transactionally bound to an active rule.
+- Duplicate pause, resume, and revoke transitions are no-ops and write no duplicate transition audit.
+- Narrowing may subset targets or output channels; deleting a bound-parameter pin is widening and is rejected.
+- Proposal copy is derived from stored provenance and reports executor readiness through `AppState::is_execution_backed`; receipts describe only committed lifecycle/authority outcomes and never claim that an external effect executed.
+
+## Would change if
+
+A future owner surface has an authenticated message identity that can carry the full digest without a compact token, or if a separately accepted replacement for D-007 makes a review record itself executable authority.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -3982,3 +4013,5 @@ The gate summary is replaced by the review object as the single owner-facing eva
 | 2026-08-07 | Added D-155–D-158 (separate reviewed-scope and compatibility digests; exact-one scoped matching with fail-closed ambiguity; conservative `EffectOutcome` reservation mapping; and standing-rule gate-time authority over the `ResponsibilityManifest` reference view), including authority-boundary, audit-boundary, and #127 non-regression verification obligations, settled while implementing `mine-and-match-reusable-authority-by-scope` (#128). |
 | 2026-08-07 | Added D-159–D-162 (outstanding dark-window exceptions bounded per reviewed rule version and counted inside the scheduling transaction; the cap and the fired-token binding keyed separately; fired exceptions accounted as exceptions rather than quota and excluded from the lapse clock; and dark-window `Allow` eligibility made an explicit empty allowlist enforced at activation and swept over stored rules), settled while implementing `bound-dark-window-exceptions` (#135). |
 | 2026-08-07 | Added D-163, D-164, D-165 for make-reusable-authority-evaluation-proposal-specific (#133): proposal-bound executed-case replay, verdict epoch binding with read-time staleness, and owner copy rendered from stored verdicts. |
+| 2026-08-07 | Added D-166 (immutable content-addressed owner reviews; authenticated channel adapters submit digest-bound intents only; approval atomically activates and binds the derived standing rule; Narrow creates a strict immutable replacement; replay-safe lifecycle controls act on the rule; the `OwnerSurfaceRef` cutover removes `bound_chat_id` from every generic kernel seam), settled while implementing `add-channel-neutral-responsibility-review` (#129). |
+

@@ -17,6 +17,7 @@ use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::digest::digest_of;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::lineage::ArtifactLineage;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use ulid::Ulid;
@@ -42,7 +43,7 @@ pub(crate) async fn dispatch_artifact_propose(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
     // 1. Payload contract.
@@ -406,7 +407,7 @@ pub(crate) async fn dispatch_artifact_propose(
         action,
         grant,
         state.connectors.telegram().send_reply_with_approval_button(
-            bound_chat_id,
+            owner_surface,
             &summary,
             action_request_id,
         ),

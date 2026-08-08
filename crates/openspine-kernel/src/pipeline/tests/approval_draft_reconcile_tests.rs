@@ -45,9 +45,14 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
         schema_version: 1,
     };
 
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    let outcome = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await
+    .unwrap();
     assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
     assert_eq!(
         state
@@ -99,9 +104,14 @@ async fn target_mutated_since_approval_is_refused_without_a_draft() {
         "bob@example.com",
     );
 
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    let outcome = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
     assert_eq!(
@@ -152,9 +162,14 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
         "alice@example.com",
     );
 
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    let outcome = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(outcome, EffectOutcome::DeliveryUnknown);
     assert_eq!(
@@ -213,9 +228,14 @@ async fn successful_draft_write_is_executed_and_resolves_pending_row() {
         "alice@example.com",
     );
 
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    let outcome = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(outcome, EffectOutcome::Executed);
     assert_eq!(
@@ -240,7 +260,12 @@ async fn owner_notify_routes_through_gate_and_audits() {
         "test-token".to_string(),
         tg.uri().parse().unwrap(),
     ));
-    crate::pipeline::notify_owner_best_effort(&state, 555, "pipeline failure detail").await;
+    crate::pipeline::notify_owner_best_effort(
+        &state,
+        &crate::test_support::owner_surface(&state),
+        "pipeline failure detail",
+    )
+    .await;
     assert_eq!(
         state
             .store
@@ -271,9 +296,14 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
         schema_version: 1,
     };
 
-    crate::pipeline::artifact_activation::activate_approved_artifact(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    crate::pipeline::artifact_activation::activate_approved_artifact(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(
         state
@@ -288,7 +318,7 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
 /// counts only `state = 'pending'`, so it cannot see a row that was inserted
 /// and then resolved — which is exactly what the ordering assertion below
 /// needs to rule out.
-pub(super) fn total_pending_draft_write_rows(state: &AppState) -> i64 {
+pub(crate) fn total_pending_draft_write_rows(state: &AppState) -> i64 {
     state
         .store
         .conn
@@ -325,8 +355,13 @@ async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
         state.connectors.record_connector_outcome("gmail", false);
     }
 
-    let result =
-        crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555).await;
+    let result = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface(&state),
+    )
+    .await;
 
     assert!(
         result.is_err(),
@@ -343,69 +378,5 @@ async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
             .count_audit_events_of_kind("draft.created")
             .unwrap(),
         0
-    );
-}
-
-#[tokio::test]
-async fn definite_write_failure_is_failed_after_attempt_and_resolves_the_fence() {
-    // The provider explicitly reported the draft write as failed, so no effect
-    // took hold: the outcome is `FailedAfterAttempt` (not `DeliveryUnknown`,
-    // which would fence the row open for reconciliation) and the fence it
-    // recorded before the call is resolved.
-    let token_server = MockServer::start().await;
-    let api_server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/gmail/v1/users/me/threads/thread-1"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
-        )
-        .mount(&api_server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/gmail/v1/users/me/drafts"))
-        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
-            "error": {"code": 400, "message": "invalid draft"}
-        })))
-        .mount(&api_server)
-        .await;
-    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let state = test_state_with_gmail(gmail);
-    let grant = approval_fixture_grant();
-    let request = approval_fixture_request(
-        &state,
-        grant.id,
-        "Re: invoice",
-        "sounds good",
-        "alice@example.com",
-    );
-
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
-
-    assert_eq!(outcome, EffectOutcome::FailedAfterAttempt);
-    assert_eq!(
-        state
-            .store
-            .count_audit_events_of_kind("draft.creation_failed")
-            .unwrap(),
-        1
-    );
-    assert_eq!(
-        state
-            .store
-            .count_audit_events_of_kind("draft.created")
-            .unwrap(),
-        0
-    );
-    assert_eq!(
-        state.store.count_pending_draft_writes().unwrap(),
-        0,
-        "a confirmed failure resolves the fence instead of leaving it open"
-    );
-    assert_eq!(
-        total_pending_draft_write_rows(&state),
-        1,
-        "the fence was recorded before the attempted write"
     );
 }

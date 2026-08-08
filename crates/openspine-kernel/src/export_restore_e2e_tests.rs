@@ -192,7 +192,7 @@ async fn full_export_restore_e2e_regression_under_newer_base() {
             &state,
             &grant,
             &ActionId::new(EXPORT_ACTION),
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             Some(&payload),
         )
         .await
@@ -236,7 +236,7 @@ async fn full_export_restore_e2e_regression_under_newer_base() {
             &state,
             &grant,
             &ActionId::new(RESTORE_ACTION),
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             Some(&payload),
         )
         .await

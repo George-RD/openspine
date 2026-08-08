@@ -18,6 +18,7 @@ use std::pin::Pin;
 
 use openspine_schemas::action::ActionRequest;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 use crate::pipeline::AppState;
 
@@ -26,8 +27,12 @@ pub(crate) type EffectExecutorFuture<'a> =
     Pin<Box<dyn Future<Output = anyhow::Result<EffectOutcome>> + Send + 'a>>;
 
 /// A kernel-owned executor for one catalogued effect implementation.
-pub(crate) type EffectExecutor =
-    for<'a> fn(&'a AppState, &'a TaskGrant, &'a ActionRequest, i64) -> EffectExecutorFuture<'a>;
+pub(crate) type EffectExecutor = for<'a> fn(
+    &'a AppState,
+    &'a TaskGrant,
+    &'a ActionRequest,
+    &'a OwnerSurfaceRef,
+) -> EffectExecutorFuture<'a>;
 
 /// The truthful result of one attempted effect. The safety-relevant partition
 /// is "may an external write have reached the provider": only

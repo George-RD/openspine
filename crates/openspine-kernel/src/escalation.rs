@@ -34,7 +34,7 @@ pub(crate) async fn route_escalation(
     event: &EscalationEvent,
 ) -> Result<(), crate::store::StoreError> {
     debug_assert_eq!(grant.id, event.task_grant_id);
-    let Some((stored_grant, _pending_ref, owner_chat_id)) =
+    let Some((stored_grant, _pending_ref, owner_surface)) =
         state.store.find_task_grant_by_id(event.task_grant_id)?
     else {
         return Err(crate::store::StoreError::TaskGrantNotFound(
@@ -49,9 +49,9 @@ pub(crate) async fn route_escalation(
     let owner_message = owner_escalation_message(event);
 
     // AD-133: mandatory owner delivery uses the task's kernel-owned bound
-    // owner chat. It returns an error on missing key, gate denial, or send
+    // owner surface. It returns an error on missing key, gate denial, or send
     // failure, so action.escalated is never recorded as a false success.
-    crate::pipeline::notify_owner_required(state, owner_chat_id, &owner_message).await?;
+    crate::pipeline::notify_owner_surface_required(state, &owner_surface, &owner_message).await?;
 
     let (audit_kind, action, decision, reason) = match &event.payload {
         EscalationPayload::GateDenial {

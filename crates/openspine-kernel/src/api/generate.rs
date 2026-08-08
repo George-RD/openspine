@@ -99,7 +99,7 @@ pub(super) async fn post_model_generate(
     headers: HeaderMap,
     Json(body): Json<GenerateRequestBody>,
 ) -> Result<Json<GenerateResponseBody>, (StatusCode, Json<Value>)> {
-    let (grant, _pending_ref, bound_chat_id) = authenticate(&state, &headers).await?;
+    let (grant, _pending_ref, owner_surface) = authenticate(&state, &headers).await?;
     let now = Timestamp::now();
     let action = ActionId::new("model.generate:approved_provider");
     if !crate::spend::admit_spend(&state, crate::spend::SpendLane::from_grant(&grant), now)
@@ -222,7 +222,7 @@ pub(super) async fn post_model_generate(
     let history = state
         .store
         .recent_conversation_for_channel_workflow(
-            bound_chat_id,
+            &owner_surface,
             &grant.workflow_id,
             CONVERSATION_HISTORY_LIMIT,
         )

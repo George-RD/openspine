@@ -90,7 +90,7 @@ fn commission(
         &worker,
         &artifact_ref('a'),
         &artifact_ref('b'),
-        42,
+        &crate::test_support::telegram_surface(42),
         &briefcase(),
         &format!("supervision-receipt-{}", worker.id),
         &digest_of(&serde_json::json!({"worker": worker.id.to_string()})),

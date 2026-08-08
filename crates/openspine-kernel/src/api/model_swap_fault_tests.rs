@@ -70,7 +70,7 @@ async fn injected_activation_tx_failure_keeps_approved_old_state() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&proposal),
     )
     .await

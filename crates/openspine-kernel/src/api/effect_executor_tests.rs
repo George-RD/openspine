@@ -136,7 +136,7 @@ async fn delegated_email_draft_without_resolved_scope_is_refused_before_dispatch
         &state,
         &grant,
         ActionId::new("email.create_draft"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         None,
         FailureSurface::DirectResponse,
         None,
@@ -204,7 +204,7 @@ async fn execution_backed_readiness_and_no_executor_summaries_are_distinct() {
         &backed,
         &backed_grant,
         ActionId::new("email.create_draft"),
-        OWNER_CHAT_ID,
+        &crate::test_support::telegram_surface(OWNER_CHAT_ID),
         None,
         FailureSurface::DirectResponse,
         None,
@@ -226,7 +226,7 @@ async fn execution_backed_readiness_and_no_executor_summaries_are_distinct() {
         &unbacked,
         &unbacked_grant,
         ActionId::new("email.send"),
-        OWNER_CHAT_ID,
+        &crate::test_support::telegram_surface(OWNER_CHAT_ID),
         None,
         FailureSurface::DirectResponse,
         None,
@@ -312,7 +312,7 @@ async fn run_approved_draft_case(
     let pending_ref = state.artifacts.put(b"pending approval").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, state.owner_user_id)
+        .insert_task_grant(&grant, &pending_ref, &state.telegram_owner_surface())
         .unwrap();
     let payload_ref = state
         .artifacts

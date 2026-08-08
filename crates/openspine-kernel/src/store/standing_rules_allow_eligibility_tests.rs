@@ -134,12 +134,17 @@ fn a_drifted_context_cannot_spend_a_pre_drift_waiver() {
         digest: digest_of_bytes(b"payload"),
         schema_version: 1,
     });
-    let fingerprint = standing_rule_fingerprint(&ActionId::new(ACTION), grant_id, 7, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &ActionId::new(ACTION),
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &payload_ref,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            7,
+            &crate::test_support::telegram_surface(7),
             payload_ref.clone(),
             &fingerprint,
             Some("sha256:reviewed-scope"),
@@ -176,7 +181,7 @@ fn a_drifted_context_cannot_spend_a_pre_drift_waiver() {
                 &pending_id,
                 &ActionId::new(ACTION),
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 &payload_ref,
                 Some("sha256:different-scope"),
                 Some("sha256:epoch"),
@@ -192,7 +197,7 @@ fn a_drifted_context_cannot_spend_a_pre_drift_waiver() {
             &pending_id,
             &ActionId::new(ACTION),
             grant_id,
-            7,
+            &crate::test_support::telegram_surface(7),
             &payload_ref,
             Some("sha256:reviewed-scope"),
             Some("sha256:different-epoch"),
@@ -206,7 +211,7 @@ fn a_drifted_context_cannot_spend_a_pre_drift_waiver() {
             &pending_id,
             &ActionId::new(ACTION),
             grant_id,
-            7,
+            &crate::test_support::telegram_surface(7),
             &payload_ref,
             Some("sha256:reviewed-scope"),
             Some("sha256:epoch"),
@@ -220,7 +225,7 @@ fn a_drifted_context_cannot_spend_a_pre_drift_waiver() {
                 &pending_id,
                 &ActionId::new(ACTION),
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 &payload_ref,
                 Some("sha256:reviewed-scope"),
                 Some("sha256:epoch"),
@@ -312,13 +317,17 @@ fn opening_a_database_retires_a_stored_ineligible_allow_rule() {
             digest: digest_of_bytes(b"payload"),
             schema_version: 1,
         });
-        let fingerprint =
-            standing_rule_fingerprint(&ActionId::new("email.send"), grant_id, 7, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &ActionId::new("email.send"),
+            grant_id,
+            &crate::test_support::telegram_surface(7),
+            &payload_ref,
+        );
         store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 payload_ref,
                 &fingerprint,
                 None,

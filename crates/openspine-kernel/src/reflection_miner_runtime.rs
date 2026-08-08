@@ -23,6 +23,7 @@ use ulid::Ulid;
 use crate::api::actions::mediate_and_dispatch_action_headless;
 use crate::pipeline::AppState;
 use crate::store::StoreError;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 #[path = "reflection_miner_runtime/scheduled.rs"]
 mod scheduled;
@@ -139,7 +140,7 @@ pub(crate) async fn run_reflection_miner(
     pack_constraints: &Constraints,
     miner_grant_id: Ulid,
     submitting_grant_id: Ulid,
-    owner_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> Result<u32, MinerRuntimeError> {
     let (miner_grant, _, _) = state
         .store
@@ -210,7 +211,7 @@ pub(crate) async fn run_reflection_miner(
 
     let mut dispatched = 0u32;
     for proposal in proposals {
-        dispatch_reflection_proposal(state, &grant, proposal, &submitting_grant, owner_chat_id)
+        dispatch_reflection_proposal(state, &grant, proposal, &submitting_grant, owner_surface)
             .await?;
         dispatched += 1;
     }
@@ -225,7 +226,7 @@ async fn dispatch_reflection_proposal(
     grant: &OrdinaryMinerGrant,
     proposal: ReflectionProposal,
     submitting_grant: &TaskGrant,
-    owner_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> Result<(), MinerRuntimeError> {
     // A queued admitted miner must not emit proposals after grant expiry.
     if grant.expires_at < Timestamp::now() {
@@ -276,7 +277,7 @@ async fn dispatch_reflection_proposal(
         state,
         submitting_grant,
         ActionId::new("artifact.propose"),
-        owner_chat_id,
+        owner_surface,
         Some(&payload),
     )
     .await

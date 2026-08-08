@@ -3,6 +3,7 @@ use super::{sql_timestamp, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::task::{Task, TaskStatus};
 use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
@@ -113,7 +114,7 @@ impl Store {
         key: &str,
         grant: &TaskGrant,
         pending_message_ref: &ArtifactRef,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         token_ref: &ArtifactRef,
         timer_id: &str,
         task_id: Option<Ulid>,
@@ -124,15 +125,14 @@ impl Store {
         let mut conn = self.conn.lock();
         let tx = conn.transaction()?;
         tx.execute(
-            "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            super::TASK_GRANT_INSERT_SQL,
             params![
                 grant.id.to_string(),
                 super::budget_support::hash_task_token(&grant.task_token),
                 sql_timestamp(grant.expires_at),
                 serde_json::to_string(&redacted)?,
                 pending_message_ref.digest.as_str(),
-                bound_chat_id,
+                serde_json::to_string(owner_surface)?,
             ],
         )?;
         tx.execute(

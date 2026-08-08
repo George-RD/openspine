@@ -31,6 +31,7 @@ use openspine_schemas::workflow::WorkflowManifest;
 use ulid::Ulid;
 
 use super::{empty_session_policy, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// The audited authority artifacts a single route resolves to. The `route` is
 /// held so the caller can later bind persona from it.
@@ -277,7 +278,7 @@ pub(crate) async fn resolve_ambiguous_route(
     principal_id: Ulid,
     purpose: &str,
     now: Timestamp,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<Option<SelectedRoute>> {
     let resolution = resolve_tied_routes(
         state,
@@ -341,7 +342,7 @@ pub(crate) async fn resolve_ambiguous_route(
             )?;
             crate::failure_surfacing::notify_immediate_failure(
                 state,
-                chat_id,
+                owner_surface,
                 crate::failure_surfacing::FailureClass::Escalation,
                 &summary,
             )

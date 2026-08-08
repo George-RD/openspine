@@ -156,7 +156,11 @@ pub(crate) fn mint_grant_with_selection_token(
     let pending_ref = state.artifacts.put(b"test pending".as_slice()).unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, OWNER_CHAT_ID)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::telegram_surface(OWNER_CHAT_ID),
+        )
         .unwrap();
 
     (grant, token)
@@ -269,7 +273,11 @@ async fn email_read_selected_thread_rejects_foreign_grant() {
     let pending_ref = state.artifacts.put(b"foreign pending".as_slice()).unwrap();
     state
         .store
-        .insert_task_grant(&foreign_grant, &pending_ref, OWNER_CHAT_ID)
+        .insert_task_grant(
+            &foreign_grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;
@@ -498,7 +506,7 @@ async fn unknown_action_is_not_stub_eligible() {
         &state,
         &grant,
         &action,
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         None,
     )
     .await;
@@ -540,7 +548,7 @@ async fn open_gmail_breaker_blocks_effect_with_connector_unavailable_event() {
         &state,
         &grant,
         ActionId::new("email.read_thread:selected_no_attachments"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
         FailureSurface::Detached,
         None,

@@ -14,12 +14,13 @@ use ulid::Ulid;
 use super::{notify_owner_best_effort, AppState};
 use crate::store::learned_artifacts::Provenance;
 use crate::store::proposed_artifacts::ProposedArtifact;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 pub(super) async fn reinstate_artifact(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<()> {
     let Some(payload_ref) = request.payload_ref.as_ref() else {
         state.store.append_audit(
@@ -51,7 +52,12 @@ pub(super) async fn reinstate_artifact(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "That reconfirmation is no longer valid.").await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "That reconfirmation is no longer valid.",
+        )
+        .await;
         return Ok(());
     };
     let current_path = row
@@ -96,7 +102,7 @@ pub(super) async fn reinstate_artifact(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "The overlay changed after review — please re-propose it.",
         )
         .await;
@@ -116,7 +122,7 @@ pub(super) async fn reinstate_artifact(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "The overlay changed since it was flagged — please re-propose it.",
         )
         .await;
@@ -138,7 +144,7 @@ pub(super) async fn reinstate_artifact(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Re-confirmation refused — choose a new identity instead of replacing base.",
         )
         .await;
@@ -279,7 +285,7 @@ pub(super) async fn reinstate_artifact(
                 )?;
                 notify_owner_best_effort(
                     state,
-                    chat_id,
+                    owner_surface,
                     "Re-confirmation version conflict — re-propose with a higher version.",
                 )
                 .await;
@@ -400,7 +406,7 @@ pub(super) async fn reinstate_artifact(
     }
     notify_owner_best_effort(
         state,
-        chat_id,
+        owner_surface,
         &format!("Artifact {} v{} restored.", row.artifact_id, row.version),
     )
     .await;

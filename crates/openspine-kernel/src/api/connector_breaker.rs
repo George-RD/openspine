@@ -19,6 +19,7 @@
 use anyhow::anyhow;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use std::future::Future;
 use tokio::time::timeout;
 
@@ -246,12 +247,12 @@ pub(crate) async fn dispatch_allowed_action(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&serde_json::Value>,
 ) -> Result<serde_json::Value, DispatchError> {
     let id = action.0.as_str();
     match state.action_handlers.lookup(id) {
-        Some(handler) => handler(state, grant, action, bound_chat_id, payload).await,
+        Some(handler) => handler(state, grant, action, owner_surface, payload).await,
         None if state.action_catalog.is_non_effect_stub(action) => Ok(serde_json::json!({
             "stub": true,
             "note": format!("{id} has no Step 4 kernel-side implementation yet"),

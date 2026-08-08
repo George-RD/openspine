@@ -41,7 +41,12 @@ fn atomic_grant_and_briefcase_persists_both_on_success() {
         schema_version: 1,
     };
     store
-        .insert_grant_and_briefcase_atomic(&grant, &pending_message_ref, 555, &minimal_briefcase())
+        .insert_grant_and_briefcase_atomic(
+            &grant,
+            &pending_message_ref,
+            &crate::test_support::telegram_surface(555),
+            &minimal_briefcase(),
+        )
         .unwrap();
     // Both rows landed and are mutually consistent.
     assert!(store
@@ -76,7 +81,7 @@ fn atomic_grant_and_briefcase_rolls_back_on_briefcase_failure() {
     let result = store.insert_grant_and_briefcase_atomic(
         &grant,
         &pending_message_ref,
-        555,
+        &crate::test_support::telegram_surface(555),
         &minimal_briefcase(),
     );
     assert!(

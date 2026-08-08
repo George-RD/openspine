@@ -8,6 +8,7 @@
 pub(crate) mod retry_worker;
 use crate::pipeline::AppState;
 use crate::store::{Store, StoreError};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// AD-138's failure-routing taxonomy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,7 +144,7 @@ pub(crate) fn record_callback_ack(state: &AppState, success: bool, error: Option
 /// before the send actually happens.
 pub(crate) async fn notify_immediate_failure(
     state: &crate::pipeline::AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     class: FailureClass,
     summary: &str,
 ) -> Result<(), StoreError> {
@@ -153,7 +154,8 @@ pub(crate) async fn notify_immediate_failure(
             class.as_str()
         )));
     }
-    match crate::pipeline::notify_owner_with_digest(state, chat_id, summary, &[], None).await {
+    match crate::pipeline::notify_owner_with_digest(state, owner_surface, summary, &[], None).await
+    {
         crate::pipeline::NotifyOutcome::Sent => Ok(()),
         outcome => {
             let detail = format!(

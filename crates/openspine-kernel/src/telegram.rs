@@ -12,14 +12,59 @@
 
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::digest::Digest;
 use openspine_schemas::event::{
     AccountRole, ActorHint, ChannelTrust, Connector, DataClassification, EventEnvelope, EventType,
     InteractionMode, Lane, Source, TrustContext, VerificationMethod,
 };
+use openspine_schemas::owner_review::DecisionIntent;
+use openspine_schemas::owner_surface::{OwnerSurfaceKind, OwnerSurfaceRef};
 use teloxide::prelude::*;
 use teloxide::types::{CallbackQueryId, InlineKeyboardButton, InlineKeyboardMarkup};
 use ulid::Ulid;
 mod credential;
+
+/// Mint the channel-neutral [`OwnerSurfaceRef`] for a verified Telegram
+/// private owner chat. Telegram's chat id is rendered here, inside the
+/// adapter, into the opaque `surface_id` generic kernel code carries.
+///
+/// This is the **mint** half of the surface boundary and it performs no
+/// verification of its own — it cannot, since it has no access to the owner
+/// configuration or the update that proved the chat. It is therefore
+/// `pub(crate)` and adapter-only, with exactly three authorized call sites,
+/// each of which already holds a Telegram-verified chat id:
+///
+/// 1. `pipeline::handle_owner_update`, immediately after [`verify_update`] has
+///    proven the update came from the configured owner in a private chat.
+/// 2. `AppState::telegram_owner_surface`, which mints from the configured
+///    owner chat for kernel-origin notifications that have no inbound update.
+/// 3. `failure_surfacing::retry_worker`, re-addressing a dead-letter row the
+///    Telegram notifier itself wrote from an already-verified surface.
+///
+/// The **resolve** half, [`telegram_chat_id`], fails closed for any surface
+/// that is not a Telegram chat. Together they mean generic kernel code can
+/// neither read a chat id out of a surface nor fabricate a surface for one.
+pub(crate) fn telegram_owner_surface(principal_id: Ulid, chat_id: i64) -> OwnerSurfaceRef {
+    OwnerSurfaceRef::verified_telegram(principal_id, chat_id.to_string(), None)
+}
+
+/// Resolve a surface reference back to the Telegram chat it addresses.
+/// A non-Telegram surface has no chat id and MUST NOT be given a fabricated
+/// one (a terminal owner must never impersonate the Telegram lane), so this
+/// fails closed rather than falling back to the configured owner chat.
+pub fn telegram_chat_id(surface: &OwnerSurfaceRef) -> anyhow::Result<i64> {
+    if surface.kind() != OwnerSurfaceKind::TelegramPrivate {
+        anyhow::bail!(
+            "owner surface {:?} is not a Telegram chat; refusing to synthesize one",
+            surface.kind()
+        );
+    }
+    surface
+        .surface_id()
+        .ok_or_else(|| anyhow::anyhow!("telegram owner surface carries no chat address"))?
+        .parse::<i64>()
+        .map_err(|_| anyhow::anyhow!("telegram owner surface carries a malformed chat address"))
+}
 
 /// Minimal, testable projection of one Telegram update.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -208,6 +253,31 @@ pub fn parse_standing_rule_callback(data: &str) -> Option<(Ulid, bool)> {
         (data.strip_prefix("sr_deny:")?, false)
     };
     Some((prefix.parse().ok()?, allow))
+}
+
+/// Decode compact review button data. The 48-bit digest token keeps callback
+/// data below Telegram's 64-byte limit; the kernel compares it to the full
+/// stored binding digest before routing the decision.
+pub fn parse_owner_review_callback(data: &str) -> Option<(Ulid, DecisionIntent, String)> {
+    let mut parts = data.strip_prefix("or:")?.split(':');
+    let code = parts.next()?;
+    let id = parts.next()?.parse().ok()?;
+    let token = parts.next()?;
+    if parts.next().is_some() || token.len() != 12 || !token.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    let intent = match code {
+        "a" => DecisionIntent::Approve,
+        "r" => DecisionIntent::Reject,
+        "p" => DecisionIntent::Pause,
+        "u" => DecisionIntent::Resume,
+        "x" => DecisionIntent::Expire,
+        "v" => DecisionIntent::Revoke,
+        "i" => DecisionIntent::Inspect,
+        _ => return None,
+    };
+    Some((id, intent, token.to_ascii_lowercase()))
 }
 
 /// Owner answer to a durable disclosure question. `AllowWithCarveOut` uses the
@@ -456,12 +526,13 @@ impl TelegramConnector {
         Ok(updates.iter().map(project_update).collect())
     }
 
-    /// Send a reply to `chat_id`. The caller (the kernel's reply
-    /// dispatcher) is responsible for verifying `chat_id` matches the
-    /// grant-bound owner chat before ever calling this — this function
-    /// itself performs no channel-binding check (spec.md's
-    /// `Deny(ChannelBindingViolation)` requirement lives in the dispatcher,
-    pub async fn send_reply(&self, chat_id: i64, text: &str) -> anyhow::Result<()> {
+    /// Send a reply to the owner surface a grant is bound to. The surface
+    /// reference is the only reply target generic kernel code holds; this
+    /// adapter resolves it back to a chat id, and fails closed if the surface
+    /// belongs to another channel (spec.md's `Deny(ChannelBindingViolation)`
+    /// requirement still lives in the dispatcher, which compares surfaces).
+    pub async fn send_reply(&self, surface: &OwnerSurfaceRef, text: &str) -> anyhow::Result<()> {
+        let chat_id = telegram_chat_id(surface)?;
         self.current_bot()
             .await?
             .send_message(ChatId(chat_id), text)
@@ -469,17 +540,16 @@ impl TelegramConnector {
         Ok(())
     }
 
-    /// Send `text` to `chat_id` with a single inline "Approve" button
+    /// Send `text` to `surface` with a single inline "Approve" button
     /// (D-039/D-043) whose `callback_data` names `action_request_id` —
-    /// [`parse_approve_callback`] is the only thing that ever reads it
-    /// back. Same channel-binding caveat as [`Self::send_reply`]: the
-    /// caller must already have verified `chat_id`.
+    /// [`parse_approve_callback`] is the only thing that ever reads it back.
     pub async fn send_reply_with_approval_button(
         &self,
-        chat_id: i64,
+        surface: &OwnerSurfaceRef,
         text: &str,
         action_request_id: Ulid,
     ) -> anyhow::Result<()> {
+        let chat_id = telegram_chat_id(surface)?;
         let button = InlineKeyboardButton::callback(
             "Approve",
             format!("{APPROVE_CALLBACK_PREFIX}{action_request_id}"),
@@ -497,10 +567,11 @@ impl TelegramConnector {
     /// owner controls bound to the pending action identity.
     pub async fn send_reply_with_standing_rule_buttons(
         &self,
-        chat_id: i64,
+        surface: &OwnerSurfaceRef,
         text: &str,
         pending_id: Ulid,
     ) -> anyhow::Result<()> {
+        let chat_id = telegram_chat_id(surface)?;
         let allow = InlineKeyboardButton::callback("Allow", format!("sr_allow:{pending_id}"));
         let deny = InlineKeyboardButton::callback("Deny", format!("sr_deny:{pending_id}"));
         let markup = InlineKeyboardMarkup::default().append_row(vec![allow, deny]);
@@ -515,10 +586,11 @@ impl TelegramConnector {
     /// Send a complete plan question with a plan-specific approval callback.
     pub async fn send_reply_with_plan_approval_button(
         &self,
-        chat_id: i64,
+        surface: &OwnerSurfaceRef,
         text: &str,
         action_request_id: Ulid,
     ) -> anyhow::Result<()> {
+        let chat_id = telegram_chat_id(surface)?;
         let button = InlineKeyboardButton::callback(
             "Approve plan",
             format!("{APPROVE_PLAN_CALLBACK_PREFIX}{action_request_id}"),
@@ -529,6 +601,48 @@ impl TelegramConnector {
             .send_message(ChatId(chat_id), text)
             .reply_markup(markup)
             .await?;
+        Ok(())
+    }
+
+    /// Render one canonical owner review with only the decisions the stored
+    /// review permits. Raw chat identity remains adapter-local.
+    pub async fn send_owner_review(
+        &self,
+        surface: &OwnerSurfaceRef,
+        text: &str,
+        review_id: Ulid,
+        binding_digest: &Digest,
+        intents: &[DecisionIntent],
+    ) -> anyhow::Result<()> {
+        let chat_id = telegram_chat_id(surface)?;
+        let token = &binding_digest.as_str()["sha256:".len()..][..12];
+        let buttons = intents
+            .iter()
+            .filter_map(|intent| {
+                let (label, code) = match intent {
+                    DecisionIntent::Approve => ("Approve", "a"),
+                    DecisionIntent::Reject => ("Reject", "r"),
+                    DecisionIntent::Pause => ("Pause", "p"),
+                    DecisionIntent::Resume => ("Resume", "u"),
+                    DecisionIntent::Expire => ("Expire", "x"),
+                    DecisionIntent::Revoke => ("Revoke", "v"),
+                    DecisionIntent::Inspect => ("Inspect", "i"),
+                    DecisionIntent::Narrow | DecisionIntent::Edit => return None,
+                };
+                Some(InlineKeyboardButton::callback(
+                    label,
+                    format!("or:{code}:{review_id}:{token}"),
+                ))
+            })
+            .collect::<Vec<_>>();
+        let mut request = self
+            .current_bot()
+            .await?
+            .send_message(ChatId(chat_id), text);
+        if !buttons.is_empty() {
+            request = request.reply_markup(InlineKeyboardMarkup::default().append_row(buttons));
+        }
+        request.await?;
         Ok(())
     }
 

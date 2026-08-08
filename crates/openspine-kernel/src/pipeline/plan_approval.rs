@@ -9,6 +9,7 @@ use ulid::Ulid;
 
 use super::post_approval::resolve_post_approval_handler;
 use super::{notify_owner_best_effort, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 const APPROVAL_TTL: std::time::Duration = std::time::Duration::from_secs(300);
 
@@ -16,7 +17,7 @@ const APPROVAL_TTL: std::time::Duration = std::time::Duration::from_secs(300);
 /// persistence. A changed artifact cannot reach gate or resolution.
 pub(super) async fn handle_plan_approval_callback(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
@@ -50,10 +51,15 @@ pub(super) async fn handle_plan_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "That plan approval is no longer valid.").await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "That plan approval is no longer valid.",
+        )
+        .await;
         return Ok(());
     };
-    let Some((grant, _, bound_chat_id)) =
+    let Some((grant, _, bound_surface)) =
         state.store.find_task_grant_by_id(request.task_grant_id)?
     else {
         state.store.append_audit(
@@ -65,7 +71,7 @@ pub(super) async fn handle_plan_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "The task behind that plan is gone.").await;
+        notify_owner_best_effort(state, owner_surface, "The task behind that plan is gone.").await;
         return Ok(());
     };
     if request.action.as_str() != "plan.execute" {
@@ -80,7 +86,9 @@ pub(super) async fn handle_plan_approval_callback(
         )?;
         return Ok(());
     }
-    if bound_chat_id != chat_id || !state.store.try_consume_action_request(action_request_id)? {
+    if bound_surface != *owner_surface
+        || !state.store.try_consume_action_request(action_request_id)?
+    {
         state.store.append_audit(
             "plan.approval_refused",
             Some(&request.action),
@@ -104,7 +112,7 @@ pub(super) async fn handle_plan_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "That plan proposal is malformed.").await;
+        notify_owner_best_effort(state, owner_surface, "That plan proposal is malformed.").await;
         return Ok(());
     };
     let bytes = match state.artifacts.get(payload_ref) {
@@ -119,8 +127,12 @@ pub(super) async fn handle_plan_approval_callback(
                 &[],
                 &[],
             )?;
-            notify_owner_best_effort(state, chat_id, "That plan changed and cannot be approved.")
-                .await;
+            notify_owner_best_effort(
+                state,
+                owner_surface,
+                "That plan changed and cannot be approved.",
+            )
+            .await;
             return Ok(());
         }
     };
@@ -136,7 +148,7 @@ pub(super) async fn handle_plan_approval_callback(
                 &[],
                 &[],
             )?;
-            notify_owner_best_effort(state, chat_id, "That plan is malformed.").await;
+            notify_owner_best_effort(state, owner_surface, "That plan is malformed.").await;
             return Ok(());
         }
     };
@@ -151,7 +163,12 @@ pub(super) async fn handle_plan_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "That plan changed and cannot be approved.").await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "That plan changed and cannot be approved.",
+        )
+        .await;
         return Ok(());
     }
     let now = Timestamp::now();
@@ -190,7 +207,7 @@ pub(super) async fn handle_plan_approval_callback(
     .decision
     {
         GateDecision::Allow => {
-            resolve_post_approval_handler(&request)(state, &grant, &request, chat_id).await
+            resolve_post_approval_handler(&request)(state, &grant, &request, owner_surface).await
         }
         decision => {
             state.store.append_audit(
@@ -202,7 +219,7 @@ pub(super) async fn handle_plan_approval_callback(
                 &[],
                 &[],
             )?;
-            notify_owner_best_effort(state, chat_id, "That plan approval was refused.").await;
+            notify_owner_best_effort(state, owner_surface, "That plan approval was refused.").await;
             Ok(())
         }
     }
@@ -213,10 +230,10 @@ pub(super) async fn resolve_approved_plan(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<()> {
     let Some(payload_ref) = request.payload_ref.as_ref() else {
-        notify_owner_best_effort(state, chat_id, "Approved plan payload is missing.").await;
+        notify_owner_best_effort(state, owner_surface, "Approved plan payload is missing.").await;
         return Ok(());
     };
     let bytes = state
@@ -234,8 +251,12 @@ pub(super) async fn resolve_approved_plan(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "Approved plan changed; resolution refused.")
-            .await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "Approved plan changed; resolution refused.",
+        )
+        .await;
         return Ok(());
     }
     state.store.append_audit(
@@ -249,7 +270,7 @@ pub(super) async fn resolve_approved_plan(
     )?;
     notify_owner_best_effort(
         state,
-        chat_id,
+        owner_surface,
         "Plan approved and recorded. Its steps were not executed.",
     )
     .await;

@@ -158,7 +158,7 @@ async fn claim_and_redispatch(
         state,
         &grant.0,
         pending.action_id.clone(),
-        pending.bound_chat_id,
+        &pending.owner_surface,
         payload_json.as_ref(),
         crate::api::actions::FailureSurface::Detached,
         Some(&pending.pending_id),
@@ -172,7 +172,7 @@ async fn claim_and_redispatch(
     if matches!(decision, GateDecision::Allow) && result.is_some() {
         crate::pipeline::notify_owner_best_effort(
             state,
-            state.owner_user_id,
+            &state.telegram_owner_surface(),
             &format!(
                 "Standing rule {} dark-window fired: owner silence = pre-agreed consent; action dispatched.",
                 pending.rule_id,
@@ -208,7 +208,7 @@ async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> 
         }
         crate::pipeline::notify_owner_best_effort(
             state,
-            state.owner_user_id,
+            &state.telegram_owner_surface(),
             &format!(
                 "Standing rule {} dark-window fired: owner silence = pre-agreed consent, but the \
                  action was not durably confirmed. Investigate pending {} (never auto-rerun).",
@@ -234,7 +234,7 @@ async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> 
             state,
             &grant.0,
             pending.action_id.clone(),
-            pending.bound_chat_id,
+            &pending.owner_surface,
             payload_json.as_ref(),
             crate::api::actions::FailureSurface::Detached,
             Some(&pending.pending_id),
@@ -345,13 +345,18 @@ mod tests {
             digest: digest_of_bytes(b"encrypted action payload"),
             schema_version: 1,
         });
-        let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &rule.action_id,
+            grant_id,
+            &crate::test_support::owner_surface_for(&state, chat),
+            &payload_ref,
+        );
         let timer_id = state
             .store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                chat,
+                &crate::test_support::owner_surface_for(&state, chat),
                 payload_ref.clone(),
                 &fingerprint,
                 None,
@@ -375,7 +380,7 @@ mod tests {
                 &pending.pending_id,
                 &rule.action_id,
                 grant_id,
-                chat,
+                &crate::test_support::owner_surface_for(&state, chat),
                 &payload_ref,
                 now + std::time::Duration::from_secs(61),
             )
@@ -407,13 +412,18 @@ mod tests {
         // `Err` (fail closed), not silently skip it.
         let grant2 = Ulid::new();
         let chat2 = 78;
-        let fp2 = standing_rule_fingerprint(&rule.action_id, grant2, chat2, &payload_ref);
+        let fp2 = standing_rule_fingerprint(
+            &rule.action_id,
+            grant2,
+            &crate::test_support::owner_surface_for(&state, chat2),
+            &payload_ref,
+        );
         let timer2 = state
             .store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant2,
-                chat2,
+                &crate::test_support::owner_surface_for(&state, chat2),
                 payload_ref.clone(),
                 &fp2,
                 None,
@@ -540,14 +550,18 @@ mod tests {
                 .put(canonical_json(&payload).as_bytes())
                 .unwrap(),
         );
-        let fingerprint =
-            standing_rule_fingerprint(&rule.action_id, grant.id, OWNER_CHAT_ID, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &rule.action_id,
+            grant.id,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            &payload_ref,
+        );
         let timer_id = state
             .store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant.id,
-                OWNER_CHAT_ID,
+                &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
                 payload_ref.clone(),
                 &fingerprint,
                 None,
@@ -687,14 +701,18 @@ mod tests {
                 .put(canonical_json(&payload).as_bytes())
                 .unwrap(),
         );
-        let fingerprint =
-            standing_rule_fingerprint(&rule.action_id, grant.id, OWNER_CHAT_ID, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &rule.action_id,
+            grant.id,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            &payload_ref,
+        );
         let timer_id = state
             .store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant.id,
-                OWNER_CHAT_ID,
+                &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
                 payload_ref,
                 &fingerprint,
                 None,

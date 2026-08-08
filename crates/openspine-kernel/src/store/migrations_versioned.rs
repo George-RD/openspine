@@ -57,6 +57,25 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
     // down path drops the columns. No backfill: a pre-#133 row records no
     // epochs and is therefore compared on no axis.
     VersionedMigration { version: 7, up: "" },
+    // Entry v8 is the first *destructive* migration: it rebuilds
+    // `standing_rules` to add a `CHECK(status IN ('active','paused',
+    // 'needs_review','revoked'))` constraint, so the owner-controlled `paused`
+    // status introduced by #129 is a typed, DB-enforced value rather than free
+    // -form text. Every existing row is preserved verbatim.
+    VersionedMigration {
+        version: 8,
+        up: super::migration_owner_review::PAUSED_STATUS_UP,
+    },
+    // Entry v9 completes the channel-neutral owner-surface cutover: the ad-hoc
+    // lane adds `owner_surface_json` to `task_grants` and
+    // `standing_rule_pending_actions`, and this destructive rebuild drops the
+    // Telegram-shaped `bound_chat_id` column from both. After it, no generic
+    // kernel seam — grant, pending action, notification, receipt — persists a
+    // naked chat id.
+    VersionedMigration {
+        version: 9,
+        up: super::migration_owner_review::OWNER_SURFACE_UP,
+    },
 ];
 
 /// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
@@ -147,4 +166,9 @@ pub(super) const VERSIONED_DOWNS: &[(i64, &str)] = &[
          ALTER TABLE eval_verdicts DROP COLUMN implementation_version;
          ALTER TABLE eval_verdicts DROP COLUMN policy_version;",
     ),
+    // v8 removes the paused-status CHECK while preserving every row.
+    (8, super::migration_owner_review::PAUSED_STATUS_DOWN),
+    // v9 restores the legacy `bound_chat_id` column on both tables; rows keep
+    // their channel-neutral `owner_surface_json` alongside it.
+    (9, super::migration_owner_review::OWNER_SURFACE_DOWN),
 ];

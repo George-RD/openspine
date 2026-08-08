@@ -9,6 +9,7 @@ use openspine_schemas::event::{
 };
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::identity::{IdentityResolution, MatchedIdentifierType, RelationshipKind};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use openspine_schemas::reflection_miner::{
     ApprovalObservation, ReflectionObservation, ReflectionProvenance,
@@ -29,12 +30,12 @@ pub(crate) const REFLECTION_SCHEDULED_SUBMITTER_ROUTE: &str = "reflection_schedu
 pub(crate) fn find_active_grant_by_route(
     state: &AppState,
     route: &str,
-) -> Result<Option<(TaskGrant, ArtifactRef, i64)>, MinerRuntimeError> {
+) -> Result<Option<(TaskGrant, ArtifactRef, OwnerSurfaceRef)>, MinerRuntimeError> {
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
     let conn = state.store.conn.lock();
-    let rows: Vec<(String, String, i64)> = (|| -> Result<_, StoreError> {
+    let rows: Vec<(String, String, Option<String>)> = (|| -> Result<_, StoreError> {
         let mut statement = conn.prepare(
-            "SELECT grant_json, pending_message_digest, bound_chat_id
+            "SELECT grant_json, pending_message_digest, owner_surface_json
              FROM task_grants
              WHERE json_extract(grant_json, '$.route_id') = ?1
              ORDER BY id DESC",
@@ -44,7 +45,7 @@ pub(crate) fn find_active_grant_by_route(
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
-                    row.get::<_, i64>(2)?,
+                    row.get::<_, Option<String>>(2)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -52,7 +53,7 @@ pub(crate) fn find_active_grant_by_route(
     })()?;
     drop(conn);
     let now = Timestamp::now();
-    for (grant_json, digest, chat) in rows {
+    for (grant_json, digest, surface_json) in rows {
         let grant: TaskGrant = serde_json::from_str(&grant_json).map_err(StoreError::from)?;
         if grant.is_expired(now) {
             continue;
@@ -62,13 +63,20 @@ pub(crate) fn find_active_grant_by_route(
         }
         let digest = openspine_schemas::digest::Digest::parse(digest)
             .map_err(|_| StoreError::BadDigest("pending_message_digest".into()))?;
+        // A pre-v7 grant row has no channel-neutral owner binding; refuse it
+        // rather than resurrecting a scheduled miner against an unauthenticated
+        // surface (fail closed).
+        let surface: OwnerSurfaceRef = serde_json::from_str(
+            &surface_json.ok_or_else(|| StoreError::BadOwnerSurface("task_grants".into()))?,
+        )
+        .map_err(|err| StoreError::BadOwnerSurface(err.to_string()))?;
         return Ok(Some((
             grant,
             ArtifactRef {
                 digest,
                 schema_version: 1,
             },
-            chat,
+            surface,
         )));
     }
     Ok(None)
@@ -79,7 +87,7 @@ fn compose_scheduled_grant(
     expected_route_id: &str,
     channel_account: &str,
     purpose: &str,
-) -> Result<(TaskGrant, ArtifactRef, i64), MinerRuntimeError> {
+) -> Result<(TaskGrant, ArtifactRef, OwnerSurfaceRef), MinerRuntimeError> {
     let now = Timestamp::now();
     let raw_ref = state
         .artifacts
@@ -207,8 +215,8 @@ fn compose_scheduled_grant(
     grant.seal_root(&key);
     state
         .store
-        .insert_task_grant(&grant, &raw_ref, state.owner_user_id)?;
-    Ok((grant, raw_ref, state.owner_user_id))
+        .insert_task_grant(&grant, &raw_ref, &state.telegram_owner_surface())?;
+    Ok((grant, raw_ref, state.telegram_owner_surface()))
 }
 
 fn derive_repeated_approval_observation(
@@ -323,7 +331,7 @@ pub(crate) async fn reflection_miner_tick(state: &AppState) -> Result<u32, Miner
         &pack_constraints,
         miner_grant.id,
         submitting_grant.id,
-        state.owner_user_id,
+        &state.telegram_owner_surface(),
     )
     .await
 }

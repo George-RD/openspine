@@ -80,6 +80,7 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::digest::{canonical_json, Digest};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::workflow::ApprovalSemantics;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
@@ -202,13 +203,13 @@ pub(crate) struct GatedDepartureInputs {
 /// Gate-bound input digest for typed workflow dispatch. The concrete action
 /// is selected by the adapter and the existing handler registry binds it to
 /// the operation; no caller-supplied closure can diverge from the request.
-/// The digest binds the actual payload and the grant's bound chat, so a
-/// replayed step is tied to the same request content and target it recorded.
+/// The digest binds the actual payload and the grant's bound owner surface, so
+/// a replayed step is tied to the same request content and target it recorded.
 #[derive(Debug, Clone, Serialize)]
 struct GatedStepDigest {
     action: String,
     grant_id: String,
-    bound_chat_id: i64,
+    owner_surface: String,
     inputs_digest: String,
     payload_digest: Option<String>,
 }
@@ -1160,7 +1161,7 @@ impl<'a> WorkflowCtx<'a> {
         grant: &TaskGrant,
         artifacts: &ArtifactStore,
         action: ActionId,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         payload: Option<&Value>,
         inputs: &impl Serialize,
     ) -> Result<StepState<ArtifactRef>, WorkflowError> {
@@ -1172,7 +1173,8 @@ impl<'a> WorkflowCtx<'a> {
         let gated = GatedStepDigest {
             action: action.to_string(),
             grant_id: grant.id.to_string(),
-            bound_chat_id,
+            owner_surface: serde_json::to_string(owner_surface)
+                .map_err(|err| WorkflowError::Step(err.to_string()))?,
             inputs_digest: digest_inputs(inputs)?,
             payload_digest,
         };
@@ -1199,7 +1201,7 @@ impl<'a> WorkflowCtx<'a> {
                     state,
                     grant,
                     action.clone(),
-                    bound_chat_id,
+                    owner_surface,
                     payload,
                     FailureSurface::Detached,
                     None,
@@ -1254,7 +1256,7 @@ impl<'a> WorkflowCtx<'a> {
         state: &AppState,
         grant: &TaskGrant,
         artifacts: &ArtifactStore,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         inputs: &impl Serialize,
     ) -> Result<StepState<ArtifactRef>, WorkflowError> {
         self.run_gated_step(
@@ -1262,7 +1264,7 @@ impl<'a> WorkflowCtx<'a> {
             grant,
             artifacts,
             ActionId::new("openspine.status.read"),
-            bound_chat_id,
+            owner_surface,
             None,
             inputs,
         )

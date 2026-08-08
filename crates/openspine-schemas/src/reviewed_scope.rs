@@ -1,5 +1,9 @@
 //! Serializable, protocol-neutral owner-reviewed action scopes.
 
+#[path = "reviewed_scope_narrow.rs"]
+mod narrow;
+pub use narrow::ReviewedScopeNarrowError;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};

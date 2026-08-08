@@ -164,7 +164,10 @@ async fn draft_command_for_a_real_thread_composes_a_bound_selection_grant() {
         .find_task_grant_by_token(&grant.task_token)
         .unwrap()
         .expect("grant must be persisted");
-    assert_eq!(bound_chat_id, 555);
+    assert_eq!(
+        bound_chat_id,
+        crate::test_support::owner_surface_for(&state, 555)
+    );
     assert!(state.store.verify_audit_chain().unwrap());
 }
 

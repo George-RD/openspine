@@ -19,6 +19,7 @@ use openspine_schemas::digest::canonical_json;
 use openspine_schemas::disclosure_policy::PreparedQueryRef;
 use openspine_schemas::escalation::{surface_denial, EscalationEvent};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::str::FromStr;
@@ -96,7 +97,7 @@ pub(super) async fn post_actions(
     headers: HeaderMap,
     Json(body): Json<ActionRequestBody>,
 ) -> Result<Json<ActionResponseBody>, (StatusCode, Json<Value>)> {
-    let (grant, _pending_ref, bound_chat_id) = authenticate(&state, &headers).await?;
+    let (grant, _pending_ref, owner_surface) = authenticate(&state, &headers).await?;
     let action = ActionId::new(body.action);
     let payload = body.payload;
     let token_text = body.skill_context_token_id.as_deref();
@@ -178,7 +179,7 @@ pub(super) async fn post_actions(
             &state,
             &grant,
             action,
-            bound_chat_id,
+            &owner_surface,
             payload.as_ref(),
             FailureSurface::DirectResponse,
             skill_attribution.as_ref(),
@@ -265,7 +266,7 @@ pub(crate) async fn mediate_and_dispatch_action(
     state: &AppState,
     grant: &TaskGrant,
     action: ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
     surface: FailureSurface,
     fired_pending: Option<&str>,
@@ -282,7 +283,7 @@ pub(crate) async fn mediate_and_dispatch_action(
         state,
         grant,
         action,
-        bound_chat_id,
+        owner_surface,
         payload,
         surface,
         None,
@@ -301,7 +302,7 @@ pub(crate) async fn mediate_and_dispatch_action_headless(
     state: &AppState,
     grant: &TaskGrant,
     action: ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
 ) -> Result<
     (
@@ -316,7 +317,7 @@ pub(crate) async fn mediate_and_dispatch_action_headless(
         state,
         grant,
         action,
-        bound_chat_id,
+        owner_surface,
         payload,
         FailureSurface::Detached,
         None,
@@ -332,7 +333,7 @@ pub(crate) async fn mediate_and_dispatch_action_with_attribution(
     state: &AppState,
     grant: &TaskGrant,
     action: ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
     surface: FailureSurface,
     skill_attribution: Option<&SkillAttribution>,
@@ -342,7 +343,7 @@ pub(crate) async fn mediate_and_dispatch_action_with_attribution(
             state,
             grant,
             action,
-            bound_chat_id,
+            owner_surface,
             payload,
             surface,
             skill_attribution,
@@ -359,7 +360,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     state: &AppState,
     grant: &TaskGrant,
     action: ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
     surface: FailureSurface,
     skill_attribution: Option<&SkillAttribution>,
@@ -538,7 +539,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                     token,
                     &action,
                     grant.id,
-                    bound_chat_id,
+                    owner_surface,
                     &payload_ref,
                     now,
                 )
@@ -598,10 +599,10 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
         // without a fresh owner approval; otherwise keep ApprovalRequired and,
         // if a dark window is configured, let the gate schedule its timer.
         let ctx = PendingScheduleCtx {
-            bound_chat_id,
+            owner_surface: owner_surface.clone(),
             grant_id: grant.id,
             payload_ref: payload_ref.clone(),
-            fingerprint: standing_rule_fingerprint(&action, grant.id, bound_chat_id, &payload_ref),
+            fingerprint: standing_rule_fingerprint(&action, grant.id, owner_surface, &payload_ref),
             // This is the action-keyed path: the rule carries no reviewed
             // scope, so there is no resolved context to bind the exception to.
             // The per-rule-version cap still applies.
@@ -682,7 +683,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                                 .connectors
                                 .telegram()
                                 .send_reply_with_standing_rule_buttons(
-                                    bound_chat_id,
+                                    owner_surface,
                                     "Standing-rule budget is exhausted. Choose the pending action's Allow or Deny outcome.",
                                     pending_ulid,
                                 )
@@ -1038,7 +1039,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     // closed exactly as #127 left it.
     let dispatched = match scoped_admitted.as_deref() {
         Some(admission) => {
-            super::scoped_admission::dispatch_scoped_effect(state, grant, admission, bound_chat_id)
+            super::scoped_admission::dispatch_scoped_effect(state, grant, admission, owner_surface)
                 .await
         }
         None => {
@@ -1046,7 +1047,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 state,
                 grant,
                 &action,
-                bound_chat_id,
+                owner_surface,
                 prepared_payload.as_ref(),
             )
             .await
@@ -1301,7 +1302,7 @@ pub(super) async fn dispatch_lyra_preview(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     preview: &PreviewPayload,
 ) -> Result<Value, DispatchError> {
     let full = format!(
@@ -1333,7 +1334,7 @@ pub(super) async fn dispatch_lyra_preview(
             state
                 .connectors
                 .telegram()
-                .send_reply(bound_chat_id, &truncate_with_notice(&full)),
+                .send_reply(owner_surface, &truncate_with_notice(&full)),
         )
         .await?;
         return Ok(json!({"sent": true}));
@@ -1347,7 +1348,7 @@ pub(super) async fn dispatch_lyra_preview(
                 action,
                 grant,
                 state.connectors.telegram().send_reply_with_approval_button(
-                    bound_chat_id,
+                    owner_surface,
                     &text,
                     action_request_id,
                 ),
@@ -1396,7 +1397,7 @@ pub(super) async fn dispatch_lyra_preview(
                 "telegram",
                 action,
                 grant,
-                state.connectors.telegram().send_reply(bound_chat_id, &text),
+                state.connectors.telegram().send_reply(owner_surface, &text),
             )
             .await?;
             return Ok(json!({"sent": true}));

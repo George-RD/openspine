@@ -630,7 +630,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             "telegram",
             None,
             state.connectors.telegram().send_reply_with_approval_button(
-                state.owner_user_id,
+                &state.telegram_owner_surface(),
                 summary,
                 *request_id,
             ),
@@ -653,7 +653,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             state
                 .connectors
                 .telegram()
-                .send_reply(state.owner_user_id, notice),
+                .send_reply(&state.telegram_owner_surface(), notice),
         )
         .await;
         if let Err(err) = result {
@@ -699,7 +699,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 store::worker_dispatch::pending_worker_dispatches(&recovery_state.store, boot_started_at)
                     .context("loading stranded worker rows")?
             {
-                let Some(bound_chat_id) = store::worker_dispatch::worker_parent_grant(
+                let Some(owner_surface) = store::worker_dispatch::worker_parent_grant(
                     &recovery_state.store,
                     grant_id,
                 )
@@ -711,11 +711,14 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                         .find_task_grant_by_id(parent_id)
                         .ok()
                         .flatten()
-                        .map(|(_, _, chat_id)| chat_id)
+                        .map(|(_, _, owner_surface)| owner_surface)
                 })
-                .filter(|chat_id| *chat_id != 0)
+                .filter(|owner_surface| {
+                    owner_surface.kind()
+                        == openspine_schemas::owner_surface::OwnerSurfaceKind::TelegramPrivate
+                })
                 else {
-                    tracing::error!(%grant_id, "cannot resolve owner chat for stranded worker; skipping notification");
+                    tracing::error!(%grant_id, "cannot resolve owner surface for stranded worker; skipping notification");
                     continue;
                 };
                 let text = format!("Worker {grant_id} was dispatched but never reported a result. The worker's shell may have exited without reporting. No further action is taken automatically.");
@@ -728,7 +731,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 };
                 if let Err(e) = store::worker_dispatch::surface_stranded_worker(
                     &recovery_state.store,
-                    bound_chat_id,
+                    &owner_surface,
                     text_ref.digest.as_str(),
                     grant_id,
                     "stranded worker dispatch (no result recorded)",
@@ -757,15 +760,18 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 continue;
             };
             for (grant_id, parent_grant_id) in stranded {
-                let Some(bound_chat_id) = watchdog_state
+                let Some(owner_surface) = watchdog_state
                     .store
                     .find_task_grant_by_id(parent_grant_id)
                     .ok()
                     .flatten()
-                    .map(|(_, _, chat_id)| chat_id)
-                    .filter(|chat_id| *chat_id != 0)
+                    .map(|(_, _, owner_surface)| owner_surface)
+                    .filter(|owner_surface| {
+                        owner_surface.kind()
+                            == openspine_schemas::owner_surface::OwnerSurfaceKind::TelegramPrivate
+                    })
                 else {
-                    tracing::error!(%grant_id, %parent_grant_id, "cannot resolve owner chat for watchdog notification; retrying");
+                    tracing::error!(%grant_id, %parent_grant_id, "cannot resolve owner surface for watchdog notification; retrying");
                     continue;
                 };
                 let text = format!(
@@ -780,7 +786,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 };
                 if let Err(e) = store::worker_dispatch::surface_stranded_worker(
                     &watchdog_state.store,
-                    bound_chat_id,
+                    &owner_surface,
                     text_ref.digest.as_str(),
                     grant_id,
                     "stranded worker timeout (no result within 2h)",

@@ -216,7 +216,11 @@ pub(crate) fn mint_draft_grant(state: &AppState, thread_id: &str) -> TaskGrant {
     let pending_ref = state.artifacts.put(b"test pending".as_slice()).unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, CHAT_ID)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(state, CHAT_ID),
+        )
         .unwrap();
     let briefcase = Briefcase {
         schema_version: 1,
@@ -338,7 +342,7 @@ pub(super) async fn dispatch(state: &AppState, grant: &TaskGrant) -> (GateDecisi
         state,
         grant,
         ActionId::new("email.create_draft"),
-        CHAT_ID,
+        &crate::test_support::owner_surface_for(state, CHAT_ID),
         Some(&draft_payload()),
         FailureSurface::DirectResponse,
         None,

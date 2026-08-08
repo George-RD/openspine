@@ -13,6 +13,7 @@ use super::actions::DispatchError;
 use super::handler_registry::HandlerFuture;
 use crate::overlay_export_restore::ControlError;
 use crate::pipeline::AppState;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 const EXPORT_ACTION: &str = "openspine.overlay.export";
 const RESTORE_ACTION: &str = "openspine.overlay.restore";
@@ -106,7 +107,7 @@ pub(crate) fn handle_overlay_export<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -124,7 +125,7 @@ pub(crate) fn handle_overlay_restore<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -223,7 +224,11 @@ mod tests {
         let pending = state.artifacts.put(b"overlay-pending").unwrap();
         state
             .store
-            .insert_task_grant(&grant, &pending, OWNER_CHAT_ID)
+            .insert_task_grant(
+                &grant,
+                &pending,
+                &crate::test_support::owner_surface_for(state, OWNER_CHAT_ID),
+            )
             .unwrap();
         grant
     }
@@ -240,9 +245,15 @@ mod tests {
             false,
         );
         let payload = json!({"bundle_name": "backup-1"});
-        let result = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect("root owner export stages");
+        let result = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect("root owner export stages");
         assert_eq!(result["restart_required"], true);
         assert_eq!(result["bundle_name"], "backup-1");
         assert_eq!(result["action"], EXPORT_ACTION);
@@ -271,7 +282,7 @@ mod tests {
             &state,
             &export_grant,
             &ActionId::new(EXPORT_ACTION),
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             Some(&export_payload),
         )
         .await
@@ -291,9 +302,15 @@ mod tests {
             .unwrap();
 
         let payload = json!({"bundle_name": "backup-1"});
-        let result = handle_overlay_restore(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect("root owner restore stages");
+        let result = handle_overlay_restore(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect("root owner restore stages");
         assert_eq!(result["restart_required"], true);
         assert_eq!(result["action"], RESTORE_ACTION);
     }
@@ -304,9 +321,15 @@ mod tests {
         let action = ActionId::new(EXPORT_ACTION);
         let grant = mint_grant(&state, Ulid::new().to_string(), EXPORT_ACTION, None, false);
         let payload = json!({"bundle_name": "backup-1"});
-        let err = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect_err("foreign principal fails");
+        let err = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect_err("foreign principal fails");
         assert!(matches!(err, DispatchError::BadRequest(msg) if msg.contains("configured owner")));
     }
 
@@ -323,9 +346,15 @@ mod tests {
             true,
         );
         let payload = json!({"bundle_name": "backup-1"});
-        let err = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect_err("non-root fails");
+        let err = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect_err("non-root fails");
         assert!(matches!(err, DispatchError::BadRequest(msg) if msg.contains("root grant")));
     }
 
@@ -341,9 +370,15 @@ mod tests {
             true,
         );
         let payload = json!({"bundle_name": "backup-1"});
-        let err = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect_err("worker fails");
+        let err = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect_err("worker fails");
         assert!(matches!(err, DispatchError::BadRequest(msg) if msg.contains("root grant")));
     }
 
@@ -361,9 +396,15 @@ mod tests {
             false,
         );
         let payload = json!({"bundle_name": "backup-1"});
-        let err = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect_err("export handler rejects restore action id");
+        let err = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect_err("export handler rejects restore action id");
         assert!(matches!(err, DispatchError::BadRequest(msg) if msg.contains("export")));
     }
 
@@ -383,9 +424,15 @@ mod tests {
         assert!(state.action_catalog.is_non_delegable(&action));
 
         let payload = json!({"bundle_name": "backup-1"});
-        let result = handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, Some(&payload))
-            .await
-            .expect("production-composed multi-action grant stages export");
+        let result = handle_overlay_export(
+            &state,
+            &grant,
+            &action,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+            Some(&payload),
+        )
+        .await
+        .expect("production-composed multi-action grant stages export");
         assert_eq!(result["restart_required"], true);
         assert_eq!(result["action"], EXPORT_ACTION);
     }
@@ -408,10 +455,15 @@ mod tests {
             Some(json!({"path": "/tmp/backup"})),
             Some(json!({"bundle_name": 1})),
         ] {
-            let err =
-                handle_overlay_export(&state, &grant, &action, OWNER_CHAT_ID, payload.as_ref())
-                    .await
-                    .expect_err("malformed payload fails");
+            let err = handle_overlay_export(
+                &state,
+                &grant,
+                &action,
+                &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+                payload.as_ref(),
+            )
+            .await
+            .expect_err("malformed payload fails");
             assert!(matches!(err, DispatchError::BadRequest(_)));
         }
     }

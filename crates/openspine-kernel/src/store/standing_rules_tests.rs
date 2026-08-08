@@ -463,33 +463,3 @@ fn consult_and_reserve_is_atomic_wrt_version_reactivation() {
         "v2 is now current"
     );
 }
-
-#[test]
-fn owner_revoke_action_removes_rule_from_live_consultation() {
-    let store = Store::open_in_memory().unwrap();
-    let now = Timestamp::from_second(2_000_000).unwrap();
-    let rule = manifest(
-        "rule-owner-revoke",
-        "calendar.book",
-        3600,
-        BudgetWindow {
-            max: 2,
-            window_secs: 3600,
-        },
-        BudgetWindow {
-            max: 2,
-            window_secs: 60,
-        },
-        None,
-    );
-    store.activate_standing_rule(&rule, None, now).unwrap();
-    assert!(store
-        .standing_rule_is_current("rule-owner-revoke", 1)
-        .unwrap());
-    assert!(store
-        .revoke_standing_rule("rule-owner-revoke", now)
-        .unwrap());
-    assert!(!store
-        .standing_rule_is_current("rule-owner-revoke", 1)
-        .unwrap());
-}

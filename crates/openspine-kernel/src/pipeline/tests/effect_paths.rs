@@ -32,7 +32,12 @@ async fn test_path_1_notify_owner_gated_and_audited() {
         tg.uri().parse().unwrap(),
     ));
 
-    notify_owner_best_effort(&state, 555, "test failure message").await;
+    notify_owner_best_effort(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "test failure message",
+    )
+    .await;
 
     let events = state.store.all_audit_event_jsons().unwrap();
     let gated_event = events
@@ -88,9 +93,14 @@ async fn test_path_2_create_draft_payload_mutated_audited() {
         schema_version: 1,
     };
 
-    crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface_for(&state, 555),
+    )
+    .await
+    .unwrap();
 
     let events = state.store.all_audit_event_jsons().unwrap();
     let mismatch_event = events
@@ -125,9 +135,14 @@ async fn test_path_3_activate_artifact_failure_audited() {
         schema_version: 1,
     };
 
-    crate::pipeline::artifact_activation::activate_approved_artifact(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    crate::pipeline::artifact_activation::activate_approved_artifact(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface_for(&state, 555),
+    )
+    .await
+    .unwrap();
 
     let events = state.store.all_audit_event_jsons().unwrap();
     let fail_event = events
@@ -310,7 +325,11 @@ async fn shadow_grant_effect_suppressed_skips_effect_handler() {
     let pending_ref = state.artifacts.put(b"shadow pending".as_slice()).unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
 
     let store = state.store.clone();
@@ -573,7 +592,14 @@ async fn notify_send_failure_records_attempt_failure_and_dead_letter() {
         tg.uri().parse().unwrap(),
     ));
 
-    let outcome = notify_owner_with_digest(&state, 555, "retry me", &[], None).await;
+    let outcome = notify_owner_with_digest(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "retry me",
+        &[],
+        None,
+    )
+    .await;
     assert_eq!(outcome, NotifyOutcome::SendFailed);
     let events = state.store.all_audit_event_jsons().unwrap();
     let kinds: Vec<_> = events
@@ -628,7 +654,12 @@ async fn notify_owner_required_succeeds_when_sent() {
         "test-token".to_string(),
         tg.uri().parse().unwrap(),
     ));
-    let result = notify_owner_required(&state, 555, "escalation message").await;
+    let result = notify_owner_required(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "escalation message",
+    )
+    .await;
     assert!(result.is_ok(), "required notify must succeed when Sent");
     let events = state.store.all_audit_event_jsons().unwrap();
     assert!(events
@@ -658,7 +689,12 @@ async fn notify_owner_required_errors_and_audits_on_send_failure() {
         "test-token".to_string(),
         tg.uri().parse().unwrap(),
     ));
-    let result = notify_owner_required(&state, 555, "escalation message").await;
+    let result = notify_owner_required(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "escalation message",
+    )
+    .await;
     assert!(
         matches!(
             result,
@@ -697,7 +733,14 @@ async fn notify_owner_with_digest_records_success_counter() {
         "test-token".to_string(),
         tg.uri().parse().unwrap(),
     ));
-    let outcome = notify_owner_with_digest(&state, 555, "hi", &[], None).await;
+    let outcome = notify_owner_with_digest(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "hi",
+        &[],
+        None,
+    )
+    .await;
     assert_eq!(outcome, NotifyOutcome::Sent);
     assert_eq!(
         state
@@ -721,7 +764,12 @@ async fn required_send_failure_keeps_dlq_when_counter_persistence_breaks() {
         tg.uri().parse().unwrap(),
     ));
     state.store.break_connector_counters_for_test();
-    let result = notify_owner_required(&state, 555, "escalation message").await;
+    let result = notify_owner_required(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "escalation message",
+    )
+    .await;
     assert!(matches!(
         result,
         Err(crate::store::StoreError::OwnerNotificationFailed(_))

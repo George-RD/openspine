@@ -6,7 +6,7 @@ async fn captured_value_stays_out_of_audit_metadata() {
     let proof = crate::telegram::VerifiedOwnerContext::test_new();
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -14,9 +14,13 @@ async fn captured_value_stays_out_of_audit_metadata() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "never-in-audit")
-            .await
-            .expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "never-in-audit"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Stored(SecretMode::Intake))
     );
     for event in state.store.all_audit_event_jsons().expect("audit rows") {
@@ -41,11 +45,23 @@ async fn invalid_pending_state_is_consumed_and_never_replayed() {
         .set_kv(PENDING_KEY, "not-json")
         .expect("set pending");
     assert_eq!(
-        capture(&state, 42, "secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Rejected)
     );
     assert_eq!(
-        capture(&state, 42, "ordinary").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "ordinary"
+        )
+        .await
+        .expect("capture"),
         None
     );
 }
@@ -79,7 +95,7 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     // First half: client_secret should be staged, not live.
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -87,7 +103,13 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "new-secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "new-secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Staged(SecretMode::Intake))
     );
     assert!(state
@@ -106,7 +128,7 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     // Second half: refresh_token validates the pair and promotes both.
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -114,7 +136,13 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "new-refresh").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "new-refresh"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Stored(SecretMode::Intake))
     );
     assert_eq!(
@@ -161,7 +189,7 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     // First half: refresh_token.
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -169,13 +197,19 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "r-token").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "r-token"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Staged(SecretMode::Intake))
     );
     // Second half: client_secret validates and promotes.
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -183,7 +217,13 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "c-secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "c-secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Stored(SecretMode::Intake))
     );
     assert_eq!(
@@ -206,7 +246,7 @@ async fn audit_failure_rolls_back_live_credential() {
 
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Rotate,
@@ -218,7 +258,12 @@ async fn audit_failure_rolls_back_live_credential() {
     state.store.break_audit_for_test();
 
     // Capture must return Err.
-    let result = capture(&state, 42, "new-value").await;
+    let result = capture(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 42),
+        "new-value",
+    )
+    .await;
     assert!(result.is_err(), "capture must fail on audit failure");
 
     // The credential must still be the old value, not the new one.
@@ -257,7 +302,7 @@ async fn audit_failure_rolls_back_paired_promotion() {
     // 1. Stage the first half (client_secret).
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -265,7 +310,13 @@ async fn audit_failure_rolls_back_paired_promotion() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "staged-secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "staged-secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Staged(SecretMode::Intake))
     );
 
@@ -283,7 +334,7 @@ async fn audit_failure_rolls_back_paired_promotion() {
     // 3. Arm the second half (refresh_token).
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -295,7 +346,12 @@ async fn audit_failure_rolls_back_paired_promotion() {
     state.store.break_audit_for_test();
 
     // 5. Capture should fail.
-    let result = capture(&state, 42, "new-refresh").await;
+    let result = capture(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 42),
+        "new-refresh",
+    )
+    .await;
     assert!(result.is_err(), "paired capture must fail on audit failure");
 
     // 6. Assert live slots were rolled back to pre-seeded old values.

@@ -157,7 +157,7 @@ pub(crate) async fn dispatch_task_timer_event(
         openspine_schemas::event::EventType::TimerDeadlineFired
     };
     let inputs = EventInputs {
-        chat_id: state.owner_user_id,
+        owner_surface: state.telegram_owner_surface(),
         text: format!("task:{}", task.id),
         thread_id: None,
         owner_verified: None,
@@ -279,7 +279,7 @@ pub(crate) async fn dispatch_task_wake(
         openspine_schemas::event::EventType::TimerDeadlineFired
     };
     let inputs = EventInputs {
-        chat_id: state.owner_user_id,
+        owner_surface: state.telegram_owner_surface(),
         text: format!("task:{}", task.id),
         thread_id: None,
         owner_verified: None,

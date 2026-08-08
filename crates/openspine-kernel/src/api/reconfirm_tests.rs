@@ -56,7 +56,7 @@ async fn reconfirm_tap_restores_orphaned_artifact() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -178,7 +178,7 @@ async fn reconfirm_tap_refuses_tampered_yaml() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -281,7 +281,7 @@ async fn orphaned_reconfirm_fixture(
         state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::telegram_surface(OWNER_CHAT_ID),
         Some(&payload),
     )
     .await

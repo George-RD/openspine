@@ -59,7 +59,11 @@ async fn failed_callback_ack_does_not_abort_approval_and_is_durable() {
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
     let request = super::approval::approval_fixture_request(
         &state,

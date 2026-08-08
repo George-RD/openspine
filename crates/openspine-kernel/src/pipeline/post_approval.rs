@@ -23,50 +23,60 @@ use super::artifact_nomination::finalize_nomination;
 use super::artifact_reconfirmation::reinstate_artifact;
 use super::plan_approval::resolve_approved_plan;
 use super::AppState;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 type PostApprovalFuture<'a> = Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
 
-pub(super) type PostApprovalHandler =
-    for<'a> fn(&'a AppState, &'a TaskGrant, &'a ActionRequest, i64) -> PostApprovalFuture<'a>;
+pub(super) type PostApprovalHandler = for<'a> fn(
+    &'a AppState,
+    &'a TaskGrant,
+    &'a ActionRequest,
+    &'a OwnerSurfaceRef,
+) -> PostApprovalFuture<'a>;
 
 fn handle_activate_artifact<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
-    Box::pin(activate_approved_artifact(state, grant, request, chat_id))
+    Box::pin(activate_approved_artifact(
+        state,
+        grant,
+        request,
+        owner_surface,
+    ))
 }
 
 fn handle_reconfirm_artifact<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
-    Box::pin(reinstate_artifact(state, grant, request, chat_id))
+    Box::pin(reinstate_artifact(state, grant, request, owner_surface))
 }
 
 fn handle_nominate_upstream<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
-    Box::pin(finalize_nomination(state, grant, request, chat_id))
+    Box::pin(finalize_nomination(state, grant, request, owner_surface))
 }
 
 fn handle_create_approved_draft<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
     Box::pin(async move {
         // The executor owns the draft's audit, notification, and pending-write
         // evidence. This admission source holds no standing-rule reservation,
         // so the outcome has no caller-side decision to drive.
-        let _outcome = create_approved_draft(state, grant, request, chat_id).await?;
+        let _outcome = create_approved_draft(state, grant, request, owner_surface).await?;
         Ok(())
     })
 }
@@ -75,20 +85,20 @@ fn handle_resolve_approved_plan<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
-    Box::pin(resolve_approved_plan(state, grant, request, chat_id))
+    Box::pin(resolve_approved_plan(state, grant, request, owner_surface))
 }
 
 fn handle_headless_approved<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
     Box::pin(async move {
         if request.params.get("headless").map(String::as_str) != Some("true") {
-            return handle_unknown_approved_action(state, grant, request, chat_id).await;
+            return handle_unknown_approved_action(state, grant, request, owner_surface).await;
         }
         let now = jiff::Timestamp::now();
         let outcome = gate(
@@ -125,7 +135,7 @@ fn handle_headless_approved<'a>(
             .implementation_descriptor_for_action(&request.action)
         {
             if let Some(executor) = state.effect_executors.lookup(&descriptor.executor_id) {
-                let effect_outcome = executor(state, grant, request, chat_id).await?;
+                let effect_outcome = executor(state, grant, request, owner_surface).await?;
                 if effect_outcome == EffectOutcome::Executed {
                     state.store.append_audit(
                         "headless.approved_dispatched",
@@ -144,7 +154,7 @@ fn handle_headless_approved<'a>(
             state,
             grant,
             &request.action,
-            chat_id,
+            owner_surface,
             None,
         )
         .await
@@ -165,7 +175,7 @@ fn handle_unknown_approved_action<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> PostApprovalFuture<'a> {
     Box::pin(async move {
         state.store.append_audit(
@@ -179,7 +189,7 @@ fn handle_unknown_approved_action<'a>(
         )?;
         super::notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Approval recorded, but no resolver exists for that action.",
         )
         .await;

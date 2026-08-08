@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::pipeline::AppState;
 use crate::secret_store::SecretStore;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use ulid::Ulid;
 
 const PENDING_KEY: &str = "secret.intake.pending";
@@ -54,7 +55,7 @@ pub enum SecretMode {
 struct Pending {
     slot: String,
     mode: SecretMode,
-    chat_id: i64,
+    owner_surface: OwnerSurfaceRef,
     target_digest: Digest,
     grant_id: Ulid,
     action_request_id: Ulid,
@@ -151,7 +152,7 @@ fn owner_grant(
 /// Gate a metadata-only mode request and persist its bound, expiring pending slot.
 pub fn arm(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     owner_principal_id: Ulid,
     proof: &crate::telegram::VerifiedOwnerContext,
     mode: SecretMode,
@@ -225,7 +226,7 @@ pub fn arm(
     let pending = Pending {
         slot: slot.to_string(),
         mode,
-        chat_id,
+        owner_surface: owner_surface.clone(),
         grant_id: grant.id,
         action_request_id: request.id,
         requested_at: now,

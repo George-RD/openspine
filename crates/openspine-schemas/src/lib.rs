@@ -10,6 +10,7 @@
 //! which shape produced it.
 
 pub mod action;
+pub mod action_compatibility;
 pub mod agent;
 pub mod approval;
 pub mod artifact;
@@ -32,6 +33,7 @@ pub mod model;
 pub mod model_swap;
 pub mod nerve;
 pub mod owner_review;
+pub mod owner_surface;
 pub mod pack;
 pub mod persona;
 pub mod plan;

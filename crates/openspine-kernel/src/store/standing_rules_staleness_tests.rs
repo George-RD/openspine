@@ -69,12 +69,17 @@ fn scheduled_exception_with_default(
         digest: digest_of_bytes(b"payload"),
         schema_version: 1,
     });
-    let fingerprint = standing_rule_fingerprint(&ActionId::new(ACTION), grant_id, 7, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &ActionId::new(ACTION),
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &payload_ref,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            7,
+            &crate::test_support::telegram_surface(7),
             payload_ref,
             &fingerprint,
             None,

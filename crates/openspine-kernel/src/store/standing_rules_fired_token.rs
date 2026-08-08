@@ -5,6 +5,7 @@
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
@@ -14,7 +15,8 @@ use super::{Store, StoreError};
 impl Store {
     /// Consume a fired dark-window one-use token (P1-11): invoked from the
     /// shared mediation boundary when a re-dispatched action is still
-    /// over-budget. Digest-bound to the exact request (action + grant + chat +
+    /// over-budget. Digest-bound to the exact request (action + grant + owner
+    /// surface +
     /// payload fingerprint) so it cannot be replayed against a different
     /// request, and one-use (the `token_consumed_at` flip means a second
     /// attempt, or a replay after a successful dispatch, returns `None` and
@@ -32,7 +34,7 @@ impl Store {
         pending_id: &str,
         action: &ActionId,
         grant_id: Ulid,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         payload_ref: &Option<ArtifactRef>,
         now: Timestamp,
     ) -> Result<Option<(String, u32, String)>, StoreError> {
@@ -40,7 +42,7 @@ impl Store {
             pending_id,
             action,
             grant_id,
-            bound_chat_id,
+            owner_surface,
             payload_ref,
             None,
             None,
@@ -60,7 +62,7 @@ impl Store {
         pending_id: &str,
         action: &ActionId,
         grant_id: Ulid,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         payload_ref: &Option<ArtifactRef>,
         reviewed_scope_digest: Option<&str>,
         compatibility_digest: Option<&str>,
@@ -69,7 +71,7 @@ impl Store {
         let fingerprint = super::standing_rules::standing_rule_fingerprint(
             action,
             grant_id,
-            bound_chat_id,
+            owner_surface,
             payload_ref,
         );
         let now_nanos = timestamp_to_epoch_nanos(now)?;

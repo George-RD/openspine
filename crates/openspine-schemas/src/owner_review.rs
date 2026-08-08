@@ -1,5 +1,9 @@
 //! Channel-neutral owner review contract for reusable delegation proposals.
 
+#[path = "owner_review_narrow.rs"]
+mod narrow;
+pub use narrow::OwnerReviewNarrowError;
+
 use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
@@ -107,6 +111,128 @@ pub enum ResponsibilityLifecycleControl {
     Resume,
     Expire,
     Revoke,
+}
+
+/// The lifecycle state of a persisted owner-review record. Pause and resume
+/// are standing-rule runtime statuses, NOT review states, so they are absent
+/// here: a rule paused and resumed twice has no representable review state,
+/// because the review object itself is unchanged by a pause. `needs_review`
+/// is likewise a standing-rule/system status, not a review state; the review
+/// object distinguishes owner-controlled decisions from system-triggered
+/// re-review by the provenance of the transition, not by a `needs_review`
+/// review state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OwnerReviewState {
+    Pending,
+    Approved,
+    Rejected,
+    Narrowed,
+    Revoked,
+    Expired,
+}
+
+/// Whether `from -> to` is a legal owner-review transition. `Revoked` is
+/// reachable from any non-terminal state when the underlying standing rule is
+/// revoked; `Expired` is terminal. Any transition not listed is illegal.
+pub fn can_transition(from: OwnerReviewState, to: OwnerReviewState) -> bool {
+    use OwnerReviewState::*;
+    matches!(
+        (from, to),
+        (Pending, Approved)
+            | (Pending, Rejected)
+            | (Pending, Narrowed)
+            | (Pending, Expired)
+            | (Narrowed, Approved)
+            | (Narrowed, Rejected)
+            | (Narrowed, Narrowed)
+            | (Narrowed, Expired)
+            | (Approved, Expired)
+            | (Rejected, Expired)
+            | (Revoked, Expired)
+            | (Pending, Revoked)
+            | (Narrowed, Revoked)
+            | (Approved, Revoked)
+            | (Rejected, Revoked)
+    )
+}
+
+/// A principal-bound decision intent submitted by an owner surface. It is a
+/// TOTAL mapping onto the union of the two existing digest-bound decision
+/// sets: `OwnerReviewDecision` (`Approve`, `Reject`, `Narrow`, `Edit`) and
+/// `ResponsibilityLifecycleControl` (`Pause`, `Resume`, `Expire`, `Revoke`).
+/// Every intent except `Inspect` is gated by the membership rule — a decision
+/// intent drawn from `OwnerReviewDecision` must be present in the review's
+/// `available_decisions`, and one drawn from `ResponsibilityLifecycleControl`
+/// must be present in the review's `lifecycle_controls` — before it may be
+/// submitted. `Inspect` is a read-only intent that causes no state transition
+/// and is exempt from the membership check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionIntent {
+    Approve,
+    Reject,
+    Narrow,
+    Edit,
+    Pause,
+    Resume,
+    Expire,
+    Revoke,
+    Inspect,
+}
+
+impl DecisionIntent {
+    /// The `OwnerReviewDecision` this intent maps to, when it is a decision
+    /// intent (drawn from `OwnerReviewDecision`). `None` for lifecycle
+    /// controls and `Inspect`.
+    pub fn as_decision(self) -> Option<OwnerReviewDecision> {
+        match self {
+            DecisionIntent::Approve => Some(OwnerReviewDecision::Approve),
+            DecisionIntent::Reject => Some(OwnerReviewDecision::Reject),
+            DecisionIntent::Narrow => Some(OwnerReviewDecision::Narrow),
+            DecisionIntent::Edit => Some(OwnerReviewDecision::Edit),
+            _ => None,
+        }
+    }
+
+    /// The `ResponsibilityLifecycleControl` this intent maps to, when it is a
+    /// lifecycle control (drawn from `ResponsibilityLifecycleControl`). `None`
+    /// for decision intents and `Inspect`.
+    pub fn as_control(self) -> Option<ResponsibilityLifecycleControl> {
+        match self {
+            DecisionIntent::Pause => Some(ResponsibilityLifecycleControl::Pause),
+            DecisionIntent::Resume => Some(ResponsibilityLifecycleControl::Resume),
+            DecisionIntent::Expire => Some(ResponsibilityLifecycleControl::Expire),
+            DecisionIntent::Revoke => Some(ResponsibilityLifecycleControl::Revoke),
+            _ => None,
+        }
+    }
+
+    /// Whether this intent is read-only (`Inspect`), causing no state
+    /// transition and exempt from the membership check.
+    pub fn is_read_only(self) -> bool {
+        matches!(self, DecisionIntent::Inspect)
+    }
+
+    /// Whether this intent is permitted for a review carrying the given
+    /// decision and control sets. `Inspect` is always permitted (read-only);
+    /// every other intent must be present in the matching set.
+    pub fn is_permitted(
+        self,
+        available_decisions: &BTreeSet<OwnerReviewDecision>,
+        lifecycle_controls: &BTreeSet<ResponsibilityLifecycleControl>,
+    ) -> bool {
+        if self.is_read_only() {
+            return true;
+        }
+        if let Some(decision) = self.as_decision() {
+            return available_decisions.contains(&decision);
+        }
+        if let Some(control) = self.as_control() {
+            return lifecycle_controls.contains(&control);
+        }
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,3 +409,7 @@ impl OwnerReviewRequest {
         digest_of(&value)
     }
 }
+
+#[cfg(test)]
+#[path = "owner_review_tests.rs"]
+mod tests;

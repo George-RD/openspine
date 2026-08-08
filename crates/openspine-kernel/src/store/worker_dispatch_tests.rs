@@ -81,7 +81,7 @@ fn commission(store: &Store, parent: &TaskGrant) -> TaskGrant {
         &worker,
         &ref_of('a'),
         &ref_of('b'),
-        0,
+        &crate::test_support::telegram_surface(0),
         &minimal_briefcase(),
         &format!("receipt-{}", parent.id),
         &request_digest(),
@@ -241,7 +241,7 @@ fn commission_is_receipt_idempotent() {
         &worker,
         &ref_of('a'),
         &ref_of('b'),
-        0,
+        &crate::test_support::telegram_surface(0),
         &minimal_briefcase(),
         &receipt,
         &request_digest(),
@@ -260,7 +260,7 @@ fn commission_is_receipt_idempotent() {
         &worker,
         &ref_of('a'),
         &ref_of('b'),
-        0,
+        &crate::test_support::telegram_surface(0),
         &minimal_briefcase(),
         &receipt,
         &request_digest(),
@@ -322,7 +322,7 @@ fn commission_receipt_binding_rejects_different_parent_or_request() {
         &worker,
         &ref_of('a'),
         &ref_of('b'),
-        0,
+        &crate::test_support::telegram_surface(0),
         &minimal_briefcase(),
         receipt,
         &request_digest(),
@@ -635,7 +635,13 @@ fn stranded_worker_timeout_detects_expired() {
 fn stranded_worker_surface_uses_parent_bound_chat_atomically() {
     let store = Store::open_in_memory().unwrap();
     let parent = sample_grant("worker-parent-owner-chat");
-    store.insert_task_grant(&parent, &ref_of('a'), 777).unwrap();
+    store
+        .insert_task_grant(
+            &parent,
+            &ref_of('a'),
+            &crate::test_support::telegram_surface(777),
+        )
+        .unwrap();
     let worker = commission(&store, &parent);
     store
         .conn
@@ -647,10 +653,10 @@ fn stranded_worker_surface_uses_parent_bound_chat_atomically() {
         .unwrap();
     let parent_id = worker_parent_grant(&store, worker.id).unwrap().unwrap();
     let (_, _, chat_id) = store.find_task_grant_by_id(parent_id).unwrap().unwrap();
-    assert_eq!(chat_id, 777);
+    assert_eq!(chat_id, crate::test_support::telegram_surface(777));
     surface_stranded_worker(
         &store,
-        chat_id,
+        &crate::test_support::telegram_surface(777),
         "sha256:owner-notification",
         worker.id,
         "stranded worker regression",
@@ -677,7 +683,13 @@ fn stranded_worker_surface_uses_parent_bound_chat_atomically() {
 fn stranded_worker_surface_rolls_back_when_dispatch_not_eligible() {
     let store = Store::open_in_memory().unwrap();
     let parent = sample_grant("worker-parent-owner-chat-rollback");
-    store.insert_task_grant(&parent, &ref_of('b'), 888).unwrap();
+    store
+        .insert_task_grant(
+            &parent,
+            &ref_of('b'),
+            &crate::test_support::telegram_surface(888),
+        )
+        .unwrap();
     let worker = commission(&store, &parent);
     let result = WorkerResult {
         outcome: WorkerOutcome::Completed,
@@ -688,7 +700,7 @@ fn stranded_worker_surface_rolls_back_when_dispatch_not_eligible() {
     record_worker_result(&store, worker.id, &result).unwrap();
     assert!(surface_stranded_worker(
         &store,
-        888,
+        &crate::test_support::telegram_surface(888),
         "sha256:owner-notification",
         worker.id,
         "terminal worker regression",
@@ -733,15 +745,23 @@ fn pending_worker_dispatches_respects_fixed_cutoff() {
     assert_eq!(pending[0].0, worker.id);
 }
 
-/// Regression (advisory): surfacing a stranded worker with an unresolvable
-/// owner chat (0) must reject without touching the dispatch row or enqueuing
-/// any notification.
+/// Regression (advisory): a non-Telegram owner surface has no Telegram chat to
+/// enqueue, so surfacing must fail closed — without touching the dispatch row
+/// or enqueuing a notification — rather than fabricating a chat id for it.
 #[test]
-fn surface_stranded_worker_rejects_zero_chat() {
+fn surface_stranded_worker_rejects_non_telegram_surface() {
     let store = Store::open_in_memory().unwrap();
     let worker = commission(&store, &sample_grant("zero-chat-parent"));
-    let err = surface_stranded_worker(&store, 0, "ref", worker.id, "no owner chat");
-    assert!(err.is_err(), "zero-owner-chat surfacing is rejected");
+    let err = surface_stranded_worker(
+        &store,
+        &openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
+            ulid::Ulid::new(),
+        ),
+        "ref",
+        worker.id,
+        "no owner chat",
+    );
+    assert!(err.is_err(), "non-Telegram surfacing is rejected");
     let claimed: Option<String> = store
         .conn
         .lock()
@@ -753,14 +773,17 @@ fn surface_stranded_worker_rejects_zero_chat() {
         .unwrap();
     assert!(
         claimed.is_none(),
-        "zero-chat surfacing leaves row unclaimed"
+        "non-Telegram surfacing leaves row unclaimed"
     );
     let notifies: i64 = store
         .conn
         .lock()
         .query_row("SELECT COUNT(*) FROM notify_dead_letters", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(notifies, 0, "zero-chat surfacing enqueues no notification");
+    assert_eq!(
+        notifies, 0,
+        "non-Telegram surfacing enqueues no notification"
+    );
 }
 
 /// Regression (advisory): an enqueue failure must roll back the whole surface
@@ -780,7 +803,13 @@ fn surface_stranded_worker_rolls_back_on_enqueue_failure() {
             [],
         )
         .unwrap();
-    let err = surface_stranded_worker(&store, 777, "ref", worker.id, "enqueue will fail");
+    let err = surface_stranded_worker(
+        &store,
+        &crate::test_support::telegram_surface(777),
+        "ref",
+        worker.id,
+        "enqueue will fail",
+    );
     assert!(err.is_err(), "enqueue failure surfaces as an error");
     let claimed: Option<String> = store
         .conn

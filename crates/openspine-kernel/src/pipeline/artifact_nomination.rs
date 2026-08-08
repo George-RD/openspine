@@ -7,6 +7,7 @@ use openspine_schemas::grant::TaskGrant;
 use serde::Deserialize;
 
 use super::{notify_owner_best_effort, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,7 +23,7 @@ pub(super) async fn finalize_nomination(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<()> {
     let Some(payload_ref) = request.payload_ref.as_ref() else {
         state.store.append_audit(
@@ -65,7 +66,7 @@ pub(super) async fn finalize_nomination(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Nomination refused — content must be marked depersonalized.",
         )
         .await;
@@ -100,7 +101,7 @@ pub(super) async fn finalize_nomination(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Nomination refused — artifact content changed after review.",
         )
         .await;
@@ -124,7 +125,7 @@ pub(super) async fn finalize_nomination(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 &format!(
                     "Artifact {} v{} nominated for upstream review.",
                     assertion.artifact_id, assertion.version
@@ -142,7 +143,8 @@ pub(super) async fn finalize_nomination(
                 &[],
                 &[],
             )?;
-            notify_owner_best_effort(state, chat_id, "Nomination could not be completed.").await;
+            notify_owner_best_effort(state, owner_surface, "Nomination could not be completed.")
+                .await;
         }
     }
     Ok(())

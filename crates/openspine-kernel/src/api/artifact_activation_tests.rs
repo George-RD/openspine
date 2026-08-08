@@ -96,7 +96,7 @@ async fn approved_artifact_activates_into_registry_and_overlay() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -190,7 +190,7 @@ async fn standing_rule_activation_ceremony_reaches_live_consultation() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&json!({"kind": "standing_rule", "yaml": yaml})),
     )
     .await
@@ -251,7 +251,7 @@ async fn activation_with_mutated_payload_is_denied() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
     )
     .await
@@ -279,7 +279,7 @@ async fn activation_with_mutated_payload_is_denied() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&second_payload),
     )
     .await
@@ -383,7 +383,7 @@ async fn model_swap_ceremony_switches_real_generate_provider() {
             &state,
             &grant,
             &ActionId::new("artifact.propose"),
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             Some(&forged)
         )
         .await
@@ -399,7 +399,7 @@ async fn model_swap_ceremony_switches_real_generate_provider() {
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&valid),
     )
     .await
