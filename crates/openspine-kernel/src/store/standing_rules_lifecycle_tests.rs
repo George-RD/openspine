@@ -3,7 +3,25 @@
 use jiff::Timestamp;
 use openspine_schemas::standing_rule::BudgetWindow;
 
-use super::{standing_rules_tests::manifest, Store};
+use super::{standing_rules_tests::manifest, PauseStandingRuleOutcome, Store};
+fn run_pair<T: Send + 'static>(store: &Store, operation: fn(&Store) -> T) -> Vec<T> {
+    let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
+    let handles = (0..2)
+        .map(|_| {
+            let store = store.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                operation(&store)
+            })
+        })
+        .collect::<Vec<_>>();
+    barrier.wait();
+    handles
+        .into_iter()
+        .map(|handle| handle.join().unwrap())
+        .collect()
+}
 
 #[test]
 fn new_version_supersedes_a_paused_rule() {
@@ -58,31 +76,18 @@ fn concurrent_lifecycle_intents_write_one_transition_audit() {
     );
     store.activate_standing_rule(&rule, None, now).unwrap();
 
-    let run_pair = |operation: fn(&Store) -> bool| {
-        let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
-        let handles = (0..2)
-            .map(|_| {
-                let store = store.clone();
-                let barrier = barrier.clone();
-                std::thread::spawn(move || {
-                    barrier.wait();
-                    operation(&store)
-                })
-            })
-            .collect::<Vec<_>>();
-        barrier.wait();
-        handles
-            .into_iter()
-            .map(|handle| handle.join().unwrap())
-            .collect::<Vec<_>>()
-    };
-
-    let paused = run_pair(|store| {
+    let paused = run_pair(&store, |store| {
         store
             .pause_standing_rule("rule-concurrent-lifecycle", Timestamp::now())
             .unwrap()
     });
-    assert_eq!(paused.iter().filter(|changed| **changed).count(), 1);
+    assert_eq!(
+        paused
+            .iter()
+            .filter(|outcome| matches!(outcome, PauseStandingRuleOutcome::Paused))
+            .count(),
+        1
+    );
     assert_eq!(
         store
             .count_audit_events_of_kind("standing_rule.paused")
@@ -90,7 +95,7 @@ fn concurrent_lifecycle_intents_write_one_transition_audit() {
         1
     );
 
-    let resumed = run_pair(|store| {
+    let resumed = run_pair(&store, |store| {
         store
             .resume_standing_rule("rule-concurrent-lifecycle", 1)
             .unwrap()
@@ -103,7 +108,7 @@ fn concurrent_lifecycle_intents_write_one_transition_audit() {
         1
     );
 
-    let revoked = run_pair(|store| {
+    let revoked = run_pair(&store, |store| {
         store
             .revoke_standing_rule("rule-concurrent-lifecycle", Timestamp::now())
             .unwrap()

@@ -1,5 +1,4 @@
 use super::*;
-use crate::connector_reality::BreakerState;
 use crate::gmail::GmailConnector;
 use crate::telegram::TelegramConnector;
 use openspine_schemas::action::{ActionId, ActionRequest};
@@ -247,12 +246,11 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
 }
 
 #[tokio::test]
-async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
-    // Draft-write candidate (D-071 precedent): a `gmail.create_draft` that
-    // times out (the provider may have
-    // acted before the response was lost) is delivery-unknown, never a
-    // confirmed failure. Each timeout leaves a durable pending row for manual
-    // reconciliation and emits the distinct `draft.delivery_unknown` audit.
+async fn draft_write_timeout_is_delivery_unknown_and_retry_is_fenced() {
+    // A timed-out provider write remains delivery-unknown and leaves one
+    // durable pending row. A later owner callback for the same protected
+    // request is fenced before the Gmail write, rather than claiming
+    // exactly-once delivery or automatically resending.
     let token_server = MockServer::start().await;
     let api_server = MockServer::start().await;
     Mock::given(method("GET"))
@@ -270,6 +268,7 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
                 .set_body_json(json!({"id": "draft-x"}))
                 .set_delay(std::time::Duration::from_millis(500)),
         )
+        .expect(1)
         .mount(&api_server)
         .await;
 
@@ -300,31 +299,49 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
             &crate::test_support::owner_surface(&state),
         )
         .unwrap();
-    for _ in 0..3u64 {
-        let request = approval_fixture_request(
-            &state,
-            grant.id,
-            "Re: invoice",
-            "sounds good",
-            "alice@example.com",
-        );
-        state.store.insert_action_request(&request).unwrap();
-        let update = approve_callback_update(request.id);
-        // Times out → DeliveryUnknown; must not panic or terminate the request.
-        assert!(handle_owner_update(&state, &update)
-            .await
-            .unwrap()
-            .is_none());
-    }
+    let request = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+    let request_fingerprint = crate::store::draft_request_fingerprint(
+        request.action.as_str(),
+        request
+            .target_ref
+            .as_ref()
+            .and_then(|target| target.id.as_deref())
+            .unwrap(),
+        request.target_digest.as_ref().unwrap(),
+        &request.payload_ref.as_ref().unwrap().digest,
+    );
+    state.store.insert_action_request(&request).unwrap();
+    let update = approve_callback_update(request.id);
+    // Times out -> DeliveryUnknown; the callback returns normally while the
+    // durable fence remains open for manual reconciliation.
+    assert!(handle_owner_update(&state, &update)
+        .await
+        .unwrap()
+        .is_none());
 
-    // Real wrapper-recorded timeouts must trip the breaker: three timed-out
-    // writes are three failures, so the gmail breaker is Open afterwards.
-    assert!(matches!(
-        state.connectors.breaker_state("gmail"),
-        Some(BreakerState::Open { .. })
-    ));
+    let retry = approval_fixture_request(
+        &state,
+        grant.id,
+        "Re: invoice",
+        "sounds good",
+        "alice@example.com",
+    );
+    state.store.insert_action_request(&retry).unwrap();
+    let retry_update = approve_callback_update(retry.id);
+    // A second owner callback for the same protected request still fetches
+    // the thread but never reaches the Gmail write.
+    assert!(handle_owner_update(&state, &retry_update)
+        .await
+        .unwrap()
+        .is_none());
 
-    assert_eq!(state.store.count_pending_draft_writes().unwrap(), 3);
+    assert_eq!(state.store.count_pending_draft_writes().unwrap(), 1);
     assert_eq!(
         state
             .store
@@ -344,8 +361,32 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
             .store
             .count_audit_events_of_kind("draft.delivery_unknown")
             .unwrap(),
-        3
+        1
     );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("draft.pending_write_fenced")
+            .unwrap(),
+        1
+    );
+
+    let pending_id: Ulid = {
+        let conn = state.store.conn.lock();
+        conn.query_row(
+            "SELECT id FROM pending_draft_writes WHERE state = 'pending'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap()
+        .parse()
+        .unwrap()
+    };
+    state.store.resolve_pending_draft_write(pending_id).unwrap();
+    assert!(!state
+        .store
+        .has_pending_draft_write(&request_fingerprint)
+        .unwrap());
 }
 
 #[tokio::test]

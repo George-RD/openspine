@@ -140,6 +140,7 @@ async fn test_path_3_activate_artifact_failure_audited() {
         &grant,
         &request,
         &crate::test_support::owner_surface_for(&state, 555),
+        None,
     )
     .await
     .unwrap();

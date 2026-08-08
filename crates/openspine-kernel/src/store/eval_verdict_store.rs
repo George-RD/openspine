@@ -280,13 +280,12 @@ impl Store {
         insert_eval_verdict_conn(&conn, row)
     }
 
-    pub fn eval_verdicts_for_artifact(
-        &self,
+    pub(crate) fn eval_verdicts_for_artifact_conn(
+        conn: &rusqlite::Connection,
         artifact_kind: &str,
         artifact_id: &str,
         artifact_version: u32,
     ) -> Result<Vec<EvalVerdict>, StoreError> {
-        let conn = self.conn.lock();
         let mut stmt = conn.prepare(&format!(
             "SELECT {SELECT_COLS} FROM eval_verdicts \
              WHERE artifact_kind = ?1 AND artifact_id = ?2 AND artifact_version = ?3 \
@@ -299,6 +298,16 @@ impl Store {
         rows.map(|r| map_row(r?).map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e))))
             .collect::<Result<Vec<_>, _>>()
             .map_err(StoreError::from)
+    }
+
+    pub fn eval_verdicts_for_artifact(
+        &self,
+        artifact_kind: &str,
+        artifact_id: &str,
+        artifact_version: u32,
+    ) -> Result<Vec<EvalVerdict>, StoreError> {
+        let conn = self.conn.lock();
+        Self::eval_verdicts_for_artifact_conn(&conn, artifact_kind, artifact_id, artifact_version)
     }
 
     pub fn eval_verdicts_by_verdict(&self, verdict: &str) -> Result<Vec<EvalVerdict>, StoreError> {

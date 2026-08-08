@@ -6,9 +6,11 @@
 //! rule mutator, so every result must go through the normal artifact lifecycle.
 
 use crate::artifact::{ArtifactRef, Lifecycle};
+use crate::delegation_evidence::DelegationEvidence;
 use crate::event::DataClassification;
 use crate::grant::{GrantLimits, TaskGrant};
 use crate::policy::Constraints;
+use crate::standing_rule::ReviewedScopeBinding;
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
@@ -160,7 +162,6 @@ impl OrdinaryMinerGrant {
                 && entry.exchange == provenance.source_exchange
         })
     }
-
     /// Whether `artifact_id` appears in the kernel-packed briefcase. The miner
     /// only consolidates artifacts the store has actually recorded (P1-10).
     pub fn briefcase_contains(&self, artifact_id: &str) -> bool {
@@ -168,17 +169,6 @@ impl OrdinaryMinerGrant {
             .entries
             .iter()
             .any(|entry| entry.artifact_id == artifact_id)
-    }
-
-    /// Count how many kernel-packed audit entries reference `artifact_id`.
-    /// Repeated-approval evidence is derived from this slice, never from a
-    /// caller-supplied count (P1-9).
-    pub fn audit_entries_for(&self, artifact_id: &str) -> usize {
-        self.briefcase
-            .entries
-            .iter()
-            .filter(|entry| entry.artifact_id == artifact_id)
-            .count()
     }
 }
 fn classification_within(value: DataClassification, ceiling: DataClassification) -> bool {
@@ -240,7 +230,6 @@ impl CorrectionObservation {
         }
     }
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApprovalObservation {
     pub kind: String,
@@ -248,6 +237,8 @@ pub struct ApprovalObservation {
     pub version: u32,
     pub action_id: String,
     pub candidate: String,
+    pub evidence: DelegationEvidence,
+    pub reviewed_scope_binding: ReviewedScopeBinding,
     pub provenance: ReflectionProvenance,
 }
 
@@ -264,7 +255,7 @@ pub struct PreferenceObservation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReflectionObservation {
     Correction(CorrectionObservation),
-    RepeatedApproval(ApprovalObservation),
+    RepeatedApproval(Box<ApprovalObservation>),
     StatedPreference(PreferenceObservation),
 }
 
@@ -290,6 +281,7 @@ pub enum ReflectionProposalBody {
     StandingRuleCandidate {
         candidate: String,
         action_id: String,
+        reviewed_scope_binding: ReviewedScopeBinding,
     },
     StatedPreference {
         statement: String,
@@ -312,6 +304,10 @@ pub struct ReflectionProposal {
     pub lifecycle_state: Lifecycle,
     pub task_grant_id: Ulid,
     pub provenance: ReflectionProvenance,
+    /// Typed evidence is retained only for repeated-approval proposals so the
+    /// kernel can construct the existing owner-review contract after the
+    /// shared artifact-propose evaluation has passed.
+    pub evidence: Option<DelegationEvidence>,
     pub body: ReflectionProposalBody,
 }
 
@@ -378,14 +374,16 @@ impl ReflectionMiner {
                 )
             }
             ReflectionObservation::RepeatedApproval(a) => {
-                if a.candidate.trim().is_empty() {
-                    return Err(MinerError::EmptyCorrection);
-                }
-                // Evidence is kernel-verifiable: count the real audit entries
-                // in the packed briefcase, never a caller-supplied number.
-                if grant.audit_entries_for(&a.artifact_id) < 2 {
+                let Some(approval_count) = a.evidence.approval_count() else {
+                    return Err(MinerError::InsufficientApprovals);
+                };
+                if approval_count < 2
+                    || !a.evidence.supports_pattern_claim()
+                    || !a.evidence.integrity_is_valid()
+                {
                     return Err(MinerError::InsufficientApprovals);
                 }
+                let candidate = format!("{approval_count} matching owner approvals");
                 (
                     ReflectionOutputClass::RepeatedApprovals,
                     a.kind.clone(),
@@ -393,8 +391,9 @@ impl ReflectionMiner {
                     a.version,
                     a.provenance.clone(),
                     ReflectionProposalBody::StandingRuleCandidate {
-                        candidate: a.candidate.clone(),
+                        candidate,
                         action_id: a.action_id.clone(),
+                        reviewed_scope_binding: a.reviewed_scope_binding.clone(),
                     },
                 )
             }
@@ -414,6 +413,12 @@ impl ReflectionMiner {
                 )
             }
         };
+        let evidence = match observation {
+            ReflectionObservation::RepeatedApproval(a) => Some(a.evidence.clone()),
+            ReflectionObservation::Correction(_) | ReflectionObservation::StatedPreference(_) => {
+                None
+            }
+        };
         Ok(ReflectionProposal {
             id: Ulid::new(),
             class,
@@ -423,6 +428,7 @@ impl ReflectionMiner {
             lifecycle_state: Lifecycle::Proposed,
             task_grant_id: grant.grant_id,
             provenance,
+            evidence,
             body,
         })
     }
@@ -456,6 +462,7 @@ impl ReflectionMiner {
             lifecycle_state: Lifecycle::Proposed,
             task_grant_id: grant.grant_id,
             provenance,
+            evidence: None,
             body: ReflectionProposalBody::Consolidation {
                 merge_ids,
                 prune_ids,

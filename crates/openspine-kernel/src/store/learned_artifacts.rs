@@ -2,8 +2,11 @@
 //! Durable metadata for learned overlay artifacts (AD-023/070/071).
 
 use jiff::Timestamp;
+use openspine_schemas::action::ReviewedScopeDimension;
 use openspine_schemas::artifact::{ArtifactNamespace, ArtifactRef};
 use openspine_schemas::digest::digest_of_bytes;
+use openspine_schemas::reviewed_scope::ReviewedScopeValue;
+use openspine_schemas::standing_rule::StandingRuleManifest;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
@@ -733,6 +736,12 @@ impl Store {
                 for (identity, _) in &matching {
                     match identity.kind.as_str() {
                         "standing_rule" => {
+                            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                                &tx,
+                                identity.artifact_id.as_str(),
+                                Some(identity.version),
+                                revoked_at,
+                            )?;
                             tx.execute(
                                 "UPDATE standing_rules
                                     SET status = 'revoked', revoked_at = ?3
@@ -758,9 +767,67 @@ impl Store {
                         _ => {}
                     }
                 }
+                // A standing rule may have been created directly from an
+                // owner-review request and therefore have no learned-artifact
+                // provenance row. Sweep every live rule whose generic
+                // reviewed scope binds this counterparty in the same
+                // transaction as the provenance invalidation and terminal
+                // marker. Parsing the stored manifest keeps the sweep
+                // protocol-neutral: no connector-specific scope field is
+                // interpreted here.
+                let mut scoped_rule_ids: Vec<(String, u32)> = Vec::new();
+                {
+                    let mut stmt = tx.prepare(
+                        "SELECT rule_id, rule_json
+                           FROM standing_rules
+                          WHERE status IN ('active', 'paused', 'needs_review')",
+                    )?;
+                    let rows = stmt.query_map([], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                    })?;
+                    for row in rows {
+                        let (rule_id, rule_json) = row?;
+                        let manifest: StandingRuleManifest = serde_json::from_str(&rule_json)?;
+                        let matches_erased = manifest
+                            .reviewed_scope
+                            .as_ref()
+                            .and_then(|binding| {
+                                binding
+                                    .scope
+                                    .dimensions()
+                                    .get(&ReviewedScopeDimension::Counterparty)
+                            })
+                            .is_some_and(|value| {
+                                matches!(
+                                    value,
+                                    ReviewedScopeValue::Counterparty(id)
+                                        if *id == counterparty_id
+                                )
+                            });
+                        if matches_erased {
+                            scoped_rule_ids.push((rule_id, manifest.version));
+                        }
+                    }
+                }
+                for (rule_id, rule_version) in scoped_rule_ids {
+                    super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                        &tx,
+                        &rule_id,
+                        Some(rule_version),
+                        revoked_at,
+                    )?;
+                    tx.execute(
+                        "UPDATE standing_rules
+                            SET status = 'revoked', revoked_at = ?2
+                          WHERE rule_id = ?1
+                            AND status IN ('active', 'paused', 'needs_review')",
+                        params![rule_id, revoked_at],
+                    )?;
+                }
 
                 let marker_new = tx.execute(
                     "INSERT OR IGNORE INTO erased_counterparties
+
                              (counterparty_id, erased_at) VALUES (?1, ?2)",
                     params![counterparty_id.to_string(), invalidated_at.to_string()],
                 )?;
@@ -807,6 +874,20 @@ impl Store {
                 })
             },
         )
+    }
+    /// Return the durable erasure decision for a counterparty scope. This
+    /// query is the admission source of truth; filesystem key-ring tombstones
+    /// and imported ledgers are deliberately not consulted by matchers.
+    pub(crate) fn is_counterparty_erased(&self, counterparty_id: Ulid) -> Result<bool, StoreError> {
+        let conn = self.conn.lock();
+        let erased: i64 = conn.query_row(
+            "SELECT EXISTS(
+                 SELECT 1 FROM erased_counterparties WHERE counterparty_id = ?1
+             )",
+            params![counterparty_id.to_string()],
+            |row| row.get(0),
+        )?;
+        Ok(erased != 0)
     }
 
     /// Durable closure markers awaiting (or safe to repeat through) key-ring

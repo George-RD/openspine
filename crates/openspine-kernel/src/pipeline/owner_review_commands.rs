@@ -8,12 +8,10 @@ use openspine_schemas::owner_review::{DecisionIntent, OwnerReviewRequest};
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::reviewed_scope::{ReviewedActionScope, ReviewedScopeValue};
 
-use super::owner_review_decision::{
-    load_owner_review_for_surface, submit_owner_review_decision, OwnerReviewDecisionOutcome,
-};
+use super::owner_review_decision::{load_owner_review_for_surface, OwnerReviewDecisionOutcome};
 use super::AppState;
 
-pub(crate) fn handle_owner_review_command(
+pub(crate) async fn handle_owner_review_command(
     state: &AppState,
     surface: &OwnerSurfaceRef,
     text: &str,
@@ -40,7 +38,7 @@ pub(crate) fn handle_owner_review_command(
         }
         None
     };
-    let outcome = match submit_owner_review_decision(
+    let outcome = match super::owner_review_decision::submit_owner_review_decision_async(
         state,
         surface,
         review_id,
@@ -48,7 +46,9 @@ pub(crate) fn handle_owner_review_command(
         intent,
         narrowed_scope,
         now,
-    ) {
+    )
+    .await
+    {
         Ok(outcome) => outcome,
         Err(error) => return Ok(Some(format!("Review decision refused: {error}"))),
     };

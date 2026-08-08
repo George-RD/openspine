@@ -294,8 +294,14 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     super::skill_promotion_decisions::ensure_schema(conn)?;
     super::skill_preview_records::ensure_schema(conn)?;
     super::task_board::ensure_schema(conn)?;
-    // Candidate Gmail draft-write extension: durable pending evidence.
+    // Candidate Gmail draft-write extension: durable pending evidence and a
+    // protected-reference retry fence. Legacy rows receive NULL and therefore
+    // cannot silently fence a request whose identity was never persisted.
     super::pending_draft::ensure_schema(conn)?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE pending_draft_writes ADD COLUMN request_fingerprint TEXT",
+    )?;
     super::worker_dispatch::ensure_schema(conn)?;
     super::worker_supervision::ensure_schema(conn)?;
     super::worker_result_relay::ensure_schema(conn)?;

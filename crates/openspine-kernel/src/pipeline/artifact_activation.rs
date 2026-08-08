@@ -1,6 +1,7 @@
 static ACTIVATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 use crate::store::learned_artifacts::{CompatibilityStatus, LearnedArtifact, NominationStatus};
 use jiff::Timestamp;
+use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::artifact::ArtifactNamespace;
 use openspine_schemas::grant::TaskGrant;
@@ -17,6 +18,7 @@ pub(super) async fn activate_approved_artifact(
     grant: &TaskGrant,
     request: &ActionRequest,
     owner_surface: &OwnerSurfaceRef,
+    owner_review_approval: Option<crate::store::activation::OwnerReviewApprovalCommit>,
 ) -> anyhow::Result<()> {
     let _activation_guard = ACTIVATION_LOCK.lock().await;
     let Some(row) = state
@@ -46,6 +48,35 @@ pub(super) async fn activate_approved_artifact(
         .payload_ref
         .as_ref()
         .expect("checked by dispatch_artifact_propose before dispatch");
+    let mut activation_request = request.clone();
+    activation_request.task_grant_id = grant.id;
+    let gate_outcome = gate(
+        grant,
+        &activation_request,
+        ActionOrigin::Shell,
+        &state.store,
+        &state.action_catalog,
+        &state.connectors,
+        Timestamp::now(),
+    );
+    state.store.append_audit(
+        "artifact.activation_gated",
+        Some(&activation_request.action),
+        Some(&gate_outcome.decision),
+        Some("owner-approved artifact activation re-gated under its activation grant"),
+        Some(grant.id),
+        &[],
+        std::slice::from_ref(payload_ref),
+    )?;
+    if !matches!(
+        gate_outcome.decision,
+        openspine_schemas::action::GateDecision::Allow
+    ) {
+        anyhow::bail!(
+            "owner-approved artifact activation failed its fresh-grant gate: {:?}",
+            gate_outcome.decision
+        );
+    }
     let bytes = state.artifacts.get(payload_ref)?;
     let yaml = std::str::from_utf8(&bytes)?;
 
@@ -184,11 +215,6 @@ pub(super) async fn activate_approved_artifact(
         .store
         .find_task_grant_by_id(row.task_grant_id)?
         .ok_or_else(|| anyhow::anyhow!("grant for learned artifact provenance is missing"))?;
-    state.store.set_proposed_artifact_state(
-        row.id,
-        openspine_schemas::artifact::Lifecycle::ReviewRequired,
-        openspine_schemas::artifact::Lifecycle::Approved,
-    )?;
     let committed =
         state
             .store
@@ -223,6 +249,7 @@ pub(super) async fn activate_approved_artifact(
                     .map(|manifest| (manifest, Some(grant.id))),
                 dangling: !dangling.is_empty(),
                 superseded_old_version,
+                owner_review_approval,
                 // Live epochs for the #133 verdict-currency re-check. Read
                 // from the canonical catalog at activation time, so a
                 // descriptor or implementation revised since the proposal was

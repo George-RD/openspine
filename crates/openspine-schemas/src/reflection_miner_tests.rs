@@ -1,9 +1,12 @@
 use super::*;
 use crate::action::ActionId;
 use crate::artifact::ArtifactRef;
+use crate::delegation_evidence::{DelegationEvidence, OwnerApprovalEvidence};
 use crate::digest::Digest;
 use crate::grant::GrantMode;
 use crate::persona::PersonaElement;
+use crate::reviewed_scope::ReviewedActionScope;
+use crate::standing_rule::ReviewedScopeBinding;
 use jiff::Timestamp;
 
 fn exchange() -> ArtifactRef {
@@ -22,6 +25,35 @@ fn provenance() -> ReflectionProvenance {
         source_event_id: source_event(),
         source_exchange: exchange(),
     }
+}
+fn reviewed_scope_binding() -> ReviewedScopeBinding {
+    let scope: ReviewedActionScope = serde_json::from_str(
+        r#"{"schema_version":1,"scope_version":1,"action_id":"artifact.propose","descriptor_version":1,"dimensions":{"action":{"kind":"action","value":"artifact.propose"},"descriptor":{"kind":"descriptor_version","value":1}},"context_class_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"}"#,
+    )
+    .unwrap();
+    ReviewedScopeBinding::derive_from(
+        scope,
+        Digest::parse("sha256:3333333333333333333333333333333333333333333333333333333333333333")
+            .unwrap(),
+    )
+}
+fn repeated_evidence(count: usize) -> DelegationEvidence {
+    let owner_principal_id = Ulid::from_string("01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap();
+    let request_digest = Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap();
+    let approvals = (0..count)
+        .map(|index| OwnerApprovalEvidence {
+            decision_event_id: Ulid::from_parts(1, index as u128 + 1),
+            owner_principal_id,
+            request_digest: request_digest.clone(),
+            target_digest: Digest::parse(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            payload_digest: Digest::parse(format!("sha256:{}", "d".repeat(64))).unwrap(),
+        })
+        .collect();
+    DelegationEvidence::repeated_approvals(
+        Digest::parse(format!("sha256:{}", "e".repeat(64))).unwrap(),
+        approvals,
+    )
+    .unwrap()
 }
 
 fn grant() -> TaskGrant {
@@ -277,16 +309,18 @@ fn repeated_approval_is_only_a_standing_rule_candidate() {
     let proposal = ReflectionMiner
         .mine(
             &miner,
-            &[ReflectionObservation::RepeatedApproval(
+            &[ReflectionObservation::RepeatedApproval(Box::new(
                 ApprovalObservation {
                     kind: "standing_rule".into(),
                     artifact_id: "short_replies".into(),
                     version: 1,
                     action_id: "openspine.status.read".into(),
-                    candidate: "Keep approved replies concise".into(),
+                    candidate: "ignored free text".into(),
+                    evidence: repeated_evidence(2),
+                    reviewed_scope_binding: reviewed_scope_binding(),
                     provenance: provenance(),
                 },
-            )],
+            ))],
         )
         .unwrap()
         .remove(0);
@@ -305,16 +339,24 @@ fn repeated_approval_requires_kernel_verifiable_evidence() {
     let err = ReflectionMiner
         .mine(
             &miner,
-            &[ReflectionObservation::RepeatedApproval(
+            &[ReflectionObservation::RepeatedApproval(Box::new(
                 ApprovalObservation {
                     kind: "standing_rule".into(),
                     artifact_id: "micro-1".into(),
                     version: 1,
                     action_id: "openspine.status.read".into(),
-                    candidate: "Keep replies concise".into(),
+                    candidate: "ignored free text".into(),
+                    evidence: DelegationEvidence::ExplicitOwnerRequest {
+                        schema_version: 1,
+                        decision_event_id: Ulid::new(),
+                        owner_principal_id: Ulid::new(),
+                        request_digest: Digest::parse(format!("sha256:{}", "f".repeat(64)))
+                            .unwrap(),
+                    },
+                    reviewed_scope_binding: reviewed_scope_binding(),
                     provenance: provenance(),
                 },
-            )],
+            ))],
         )
         .unwrap_err();
     assert_eq!(err, MinerError::InsufficientApprovals);

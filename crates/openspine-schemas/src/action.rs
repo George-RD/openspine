@@ -185,18 +185,18 @@ impl ActionCatalog {
         &self.ids
     }
 
-    /// Mark actions that worker commission may never delegate. Returns
-    /// `self` for chaining.
+    /// Mark actions that worker commission may never delegate; returns `self`.
     pub fn with_non_delegable(mut self, actions: impl IntoIterator<Item = ActionId>) -> Self {
         self.non_delegable_actions = actions.into_iter().collect();
         self
     }
 
     /// True when `id` is catalogued as root-only and non-delegable.
-    /// Unknown actions return false; catalog membership is validated
-    /// independently by authority composition and the gate.
     pub fn is_non_delegable(&self, id: &ActionId) -> bool {
         self.non_delegable_actions.contains(id)
+    }
+    pub fn non_delegable_count(&self) -> usize {
+        self.non_delegable_actions.len()
     }
 
     /// Mark actions eligible to return the dispatcher's non-effect stub when

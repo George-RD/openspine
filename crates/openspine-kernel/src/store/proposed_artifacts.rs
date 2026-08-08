@@ -466,7 +466,7 @@ impl Store {
         replay: ReplayPassed,
         judge: JudgePassed,
         epochs: super::eval_verdict_store::VerdictEpochs,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(Ulid, Ulid), StoreError> {
         if replay.artifact_digest() != judge.artifact_digest() {
             return Err(StoreError::ProposedArtifactLifecycle(
                 "replay and judge proofs have different artifact digests".to_string(),
@@ -503,9 +503,11 @@ impl Store {
         // deterministic across the two semantically different rows.
         let replay_at = Timestamp::now();
         let judge_at = replay_at + std::time::Duration::from_nanos(1);
+        let replay_verdict_id = Ulid::new();
+        let judge_verdict_id = Ulid::new();
         for (id, verdict, fitness, evidence, evaluator, recorded_at) in [
             (
-                Ulid::new(),
+                replay_verdict_id,
                 replay.verdict(),
                 replay.fitness(),
                 replay.evidence_json(),
@@ -513,7 +515,7 @@ impl Store {
                 replay_at,
             ),
             (
-                Ulid::new(),
+                judge_verdict_id,
                 judge.verdict(),
                 judge.fitness(),
                 judge.evidence_json(),
@@ -552,6 +554,6 @@ impl Store {
             ));
         }
         tx.commit()?;
-        Ok(())
+        Ok((replay_verdict_id, judge_verdict_id))
     }
 }

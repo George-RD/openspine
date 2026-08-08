@@ -230,7 +230,43 @@ pub(super) async fn handle_draft_approval_callback(
         &state.connectors,
         now,
     );
-    state.store.append_audit(
+    let approval_context_json = if outcome.decision == GateDecision::Allow
+        && request.action.as_str() == "email.create_draft"
+    {
+        match crate::api::resolve_scoped_admission(
+            state,
+            &grant,
+            &request.action,
+            Some(payload_ref),
+            now,
+        )
+        .await
+        {
+            Ok(crate::api::ScopedAdmission::Resolved(admission)) => {
+                let scope_artifact =
+                    crate::store::OwnerApprovalScopeArtifact::from_context(&admission.context)
+                        .and_then(|scope| serde_json::to_vec(&scope).ok())
+                        .and_then(|bytes| {
+                            admission
+                                .context
+                                .counterparty_identity_id()
+                                .and_then(|id| state.artifacts.put_scoped(id, &bytes).ok())
+                        });
+                scope_artifact
+                    .and_then(|scope_ref| {
+                        crate::store::OwnerApprovalAuditMetadata::from_context(
+                            &admission.context,
+                            scope_ref,
+                        )
+                    })
+                    .and_then(|metadata| serde_json::to_string(&metadata).ok())
+            }
+            Ok(_) | Err(_) => None,
+        }
+    } else {
+        None
+    };
+    state.store.append_audit_with_payload_json(
         "action.gated",
         Some(&request.action),
         Some(&outcome.decision),
@@ -238,6 +274,7 @@ pub(super) async fn handle_draft_approval_callback(
         Some(grant.id),
         &[],
         std::slice::from_ref(payload_ref),
+        approval_context_json.as_deref(),
     )?;
     match outcome.decision {
         GateDecision::Allow => {

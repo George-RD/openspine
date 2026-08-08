@@ -45,6 +45,7 @@ fn handle_activate_artifact<'a>(
         grant,
         request,
         owner_surface,
+        None,
     ))
 }
 

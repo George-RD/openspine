@@ -162,6 +162,7 @@ async fn activation_path_refuses_a_stale_verdict() {
         dangling: false,
         superseded_old_version: None,
         standing_rule: Some((manifest.clone(), None)),
+        owner_review_approval: None,
         live_descriptor_version: descriptor_version,
         live_implementation_version: None,
         live_policy_version: None,

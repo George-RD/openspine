@@ -44,11 +44,16 @@ impl ResumeRefusal {
         }
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ResumeOutcome {
+    Resumed,
+    AlreadyActive,
+    Refused(ResumeRefusal),
+}
 
-/// Revalidate a paused rule before resume and, if compatible, return it to
-/// `active`. Returns `Ok(true)` when the rule was resumed, `Ok(false)` when
-/// it was refused (with a distinct audit event per reason), and `Err` only on
-/// a genuine store failure.
+/// Revalidate a paused rule before resume and, if compatible, return the
+/// typed lifecycle outcome. An active exact version is an unchanged replay;
+/// every other failed check is a refusal with a distinct audit event.
 ///
 /// The caller MUST have already verified the submitting principal is the
 /// bound owner and that the `Resume` intent is permitted.
@@ -57,56 +62,61 @@ pub(crate) fn resume_standing_rule_revalidated(
     rule_id: &str,
     version: u32,
     now: Timestamp,
-) -> Result<bool, anyhow::Error> {
+) -> Result<ResumeOutcome, anyhow::Error> {
     // 1. The rule must still be paused at exactly this version. An already
     //    active exact version is the replay-safe outcome of a concurrent
     //    resume and returns unchanged without a refusal audit.
     let Some(rule) = state.store.paused_standing_rule(rule_id, version)? else {
         if state.store.standing_rule_is_current(rule_id, version)? {
-            return Ok(false);
+            return Ok(ResumeOutcome::AlreadyActive);
         }
         let reason = match state.store.standing_rule_latest_version(rule_id)? {
             Some(latest) if latest > version => ResumeRefusal::Superseded,
             _ => ResumeRefusal::NotPaused,
         };
         refuse(state, rule_id, reason)?;
-        return Ok(false);
+        return Ok(ResumeOutcome::Refused(reason));
     };
 
     // 2. Expiry: a paused rule that has lapsed is refused.
     let reference = rule.last_used_at.unwrap_or(rule.activated_at);
     let deadline_nanos = reference.as_nanosecond() as i64 + rule.expires_after_secs * 1_000_000_000;
     if deadline_nanos <= now.as_nanosecond() as i64 {
-        refuse(state, rule_id, ResumeRefusal::Expired)?;
-        return Ok(false);
+        let reason = ResumeRefusal::Expired;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     }
 
     // 3. Deserialize the manifest and re-verify the reviewed-scope binding.
     let manifest: StandingRuleManifest = match serde_json::from_str(&rule.rule_json) {
         Ok(m) => m,
         Err(_) => {
-            refuse(state, rule_id, ResumeRefusal::InvalidScope)?;
-            return Ok(false);
+            let reason = ResumeRefusal::InvalidScope;
+            refuse(state, rule_id, reason)?;
+            return Ok(ResumeOutcome::Refused(reason));
         }
     };
     let Some(binding) = manifest.reviewed_scope.as_ref() else {
         // A rule with no scope binding is a legacy unbounded rule; it has no
         // reviewed scope to revalidate, so it is not eligible for a
         // revalidated resume.
-        refuse(state, rule_id, ResumeRefusal::InvalidScope)?;
-        return Ok(false);
+        let reason = ResumeRefusal::InvalidScope;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     };
     if !binding.binding_is_valid() {
-        refuse(state, rule_id, ResumeRefusal::InvalidScope)?;
-        return Ok(false);
+        let reason = ResumeRefusal::InvalidScope;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     }
 
     // 4. Executor readiness: the action's descriptor AND its registered
     //    executor must both be present, or the reusable effect path is not
     //    ready and the rule must not resume.
     if !state.is_execution_backed(&rule.action_id) {
-        refuse(state, rule_id, ResumeRefusal::Unavailable)?;
-        return Ok(false);
+        let reason = ResumeRefusal::Unavailable;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     }
 
     // 5. Connector/account health: reuse the connector registry's breaker
@@ -116,8 +126,9 @@ pub(crate) fn resume_standing_rule_revalidated(
     if let Some(connector) = connector {
         if let Some(breaker) = state.connectors.breaker_state(connector.as_str()) {
             if breaker != crate::connector_reality::BreakerState::Closed {
-                refuse(state, rule_id, ResumeRefusal::Unavailable)?;
-                return Ok(false);
+                let reason = ResumeRefusal::Unavailable;
+                refuse(state, rule_id, reason)?;
+                return Ok(ResumeOutcome::Refused(reason));
             }
         }
     }
@@ -131,27 +142,35 @@ pub(crate) fn resume_standing_rule_revalidated(
         .action_catalog
         .compatibility_digest_for(&rule.action_id)
     else {
-        refuse(state, rule_id, ResumeRefusal::Unavailable)?;
-        return Ok(false);
+        let reason = ResumeRefusal::Unavailable;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     };
     if rule.compatibility_digest.as_ref() != Some(&current_epoch) {
-        refuse(state, rule_id, ResumeRefusal::ScopeDrift)?;
-        return Ok(false);
+        let reason = ResumeRefusal::ScopeDrift;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     }
 
     // 7. Reviewed-scope binding validity: the persisted binding must be
     //    internally consistent (stored values agree with the stored digest).
     //    A corrupt binding is an invalid scope and must not resume.
     if !binding.binding_is_valid() {
-        refuse(state, rule_id, ResumeRefusal::InvalidScope)?;
-        return Ok(false);
+        let reason = ResumeRefusal::InvalidScope;
+        refuse(state, rule_id, reason)?;
+        return Ok(ResumeOutcome::Refused(reason));
     }
 
     // 8. All checks passed: atomically flip the status and write the audit.
-    state
-        .store
-        .resume_standing_rule(rule_id, version)
-        .map_err(anyhow::Error::from)
+    if state.store.resume_standing_rule(rule_id, version)? {
+        return Ok(ResumeOutcome::Resumed);
+    }
+    if state.store.standing_rule_is_current(rule_id, version)? {
+        return Ok(ResumeOutcome::AlreadyActive);
+    }
+    let reason = ResumeRefusal::NotPaused;
+    refuse(state, rule_id, reason)?;
+    Ok(ResumeOutcome::Refused(reason))
 }
 
 fn refuse(state: &AppState, rule_id: &str, reason: ResumeRefusal) -> Result<(), anyhow::Error> {

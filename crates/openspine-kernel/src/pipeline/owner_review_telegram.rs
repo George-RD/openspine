@@ -4,9 +4,10 @@ use openspine_schemas::owner_review::DecisionIntent;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use ulid::Ulid;
 
-use super::owner_review_decision::{submit_owner_review_callback, OwnerReviewDecisionOutcome};
+use super::owner_review_decision::{
+    submit_owner_review_callback_async, OwnerReviewDecisionOutcome,
+};
 use super::{notify_owner_best_effort, AppState};
-
 pub(crate) async fn handle_owner_review_callback(
     state: &AppState,
     owner_surface: &OwnerSurfaceRef,
@@ -15,15 +16,15 @@ pub(crate) async fn handle_owner_review_callback(
     digest_token: &str,
     intent: DecisionIntent,
 ) -> anyhow::Result<()> {
-    let outcome = submit_owner_review_callback(
+    let outcome = submit_owner_review_callback_async(
         state,
         owner_surface,
         review_id,
         digest_token,
         intent,
         jiff::Timestamp::now(),
-    );
-
+    )
+    .await;
     crate::spend::guard_connector(state, true).await?;
     state
         .connectors

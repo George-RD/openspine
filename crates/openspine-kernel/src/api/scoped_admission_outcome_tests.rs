@@ -2,11 +2,12 @@
 //! (#128). Every test drives a real `email.create_draft` request through the
 //! production mediation path and asserts the durable reservation, fence, and
 //! audit consequences of each outcome.
-
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
+use openspine_schemas::digest::canonical_json;
 use rusqlite::params;
 use serde_json::json;
+use ulid::Ulid;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -86,6 +87,64 @@ async fn delivery_unknown_retains_reservation_and_leaves_fence_open() {
         last_used.is_some(),
         "a retained reservation still records the rule as used"
     );
+}
+/// Acceptance: an existing delivery-unknown row is an identity-specific
+/// retry fence. The second request returns to owner approval before scoped
+/// consultation, so it neither reserves budget nor calls Gmail.
+#[tokio::test]
+async fn pending_delivery_unknown_fences_scoped_retry_before_reservation() {
+    let env = draft_env(&["thread-1"]).await;
+    mount_drafts(&env.api_server, 200, json!({"id": "must-not-write"})).await;
+    let grant = mint_draft_grant(&env.state, "thread-1");
+    let context = resolved_context(&env.state, &grant).await;
+    env.state
+        .store
+        .activate_standing_rule(
+            &scoped_manifest("rule-fenced-retry", &context),
+            None,
+            Timestamp::now(),
+        )
+        .unwrap();
+
+    let payload_ref = env
+        .state
+        .artifacts
+        .put(canonical_json(&draft_payload()).as_bytes())
+        .unwrap();
+    let target_ref = context
+        .target_refs()
+        .first()
+        .and_then(|target| target.id.clone())
+        .expect("resolved target carries the thread id");
+    let target_digest = context.target_digest().expect("resolved target digest");
+    let fingerprint = crate::store::draft_request_fingerprint(
+        "email.create_draft",
+        &target_ref,
+        target_digest,
+        &payload_ref.digest,
+    );
+    env.state
+        .store
+        .insert_pending_draft_write(
+            Ulid::new(),
+            grant.id,
+            Ulid::new(),
+            &target_ref,
+            &fingerprint,
+        )
+        .unwrap();
+
+    let (decision, budget) = dispatch(&env.state, &grant).await;
+
+    assert!(
+        matches!(decision, GateDecision::ApprovalRequired { .. }),
+        "a pending write must return to owner approval"
+    );
+    assert!(budget.is_none(), "fenced retries expose no scoped headroom");
+    assert_eq!(drafts_written(&env.api_server).await, 0);
+    assert_eq!(usage_count(&env.state, "rule-fenced-retry", "reserved"), 0);
+    assert_eq!(env.state.store.count_pending_draft_writes().unwrap(), 1);
+    assert!(audit_count(&env.state, "draft.pending_reconciliation_required") >= 1);
 }
 
 /// Acceptance: a confirmed post-attempt failure cancels the reservation and

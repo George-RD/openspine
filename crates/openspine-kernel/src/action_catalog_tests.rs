@@ -277,6 +277,19 @@ fn overlay_export_restore_are_non_delegable_with_no_egress() {
         );
     }
 }
+#[test]
+fn non_delegable_catalog_is_exactly_the_root_only_set() {
+    let catalog = canonical_catalog();
+    let expected = [
+        "openspine.overlay.export",
+        "openspine.overlay.restore",
+        "email.send",
+    ];
+    assert_eq!(catalog.non_delegable_count(), expected.len());
+    for action in expected {
+        assert!(catalog.is_non_delegable(&ActionId::new(action)));
+    }
+}
 
 #[test]
 fn approval_narrowing_allowlist_is_explicit_and_fails_closed() {

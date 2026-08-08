@@ -134,6 +134,31 @@ impl Store {
         let now_nanos = timestamp_to_epoch_nanos(now)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(counterparty_id) = context.counterparty_identity_id() {
+            let erased: i64 = tx.query_row(
+                "SELECT EXISTS(
+                     SELECT 1 FROM erased_counterparties WHERE counterparty_id = ?1
+                 )",
+                params![counterparty_id.to_string()],
+                |row| row.get(0),
+            )?;
+            if erased != 0 {
+                Self::append_audit_conn(
+                    &tx,
+                    "action.scope_context_unresolved",
+                    Some(context.action_id()),
+                    None,
+                    Some(
+                        "counterparty was erased before scoped rule selection; ordinary owner review required",
+                    ),
+                    None,
+                    &[],
+                    &[],
+                )?;
+                tx.commit()?;
+                return Ok(ScopedConsultOutcome::none());
+            }
+        }
 
         let rows: Vec<RuleRow> = {
             let mut stmt = tx.prepare(&format!(

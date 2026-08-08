@@ -86,3 +86,102 @@ fn membership_check_gates_every_intent_except_inspect() {
     assert!(Inspect.is_permitted(&decisions, &controls));
     assert!(Inspect.is_permitted(&BTreeSet::new(), &BTreeSet::new()));
 }
+#[test]
+fn legacy_owner_review_binding_digest_is_stable_for_schema_additions() {
+    let review = legacy_owner_review_fixture();
+    let expected =
+        Digest::parse("sha256:85265a2739be2544180b28e8d6b06f082ba1a071fadb30d2ca7588a564ef9b78")
+            .unwrap();
+    assert_eq!(review.calculate_binding_digest(), expected);
+    let encoded = serde_json::to_vec(&review).unwrap();
+    assert!(!String::from_utf8(encoded.clone())
+        .unwrap()
+        .contains("evaluation_binding"));
+    let decoded: OwnerReviewRequest = serde_json::from_slice(&encoded).unwrap();
+    assert_eq!(decoded.calculate_binding_digest(), expected);
+}
+
+fn legacy_owner_review_fixture() -> OwnerReviewRequest {
+    OwnerReviewRequest {
+        id: Ulid::from_string("01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap(),
+        schema_version: 1,
+        review_version: 1,
+        proposal_kind: ProposalKind::Responsibility,
+        provenance: ProposalProvenance {
+            schema_version: 1,
+            kind: DelegationEvidenceKind::RepeatedApprovals,
+            summary: "2 matching owner approvals".into(),
+            evidence_digest: Digest::parse(
+                "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            )
+            .unwrap(),
+            evidence_count: 2,
+        },
+        title: "Legacy owner review".into(),
+        description: "A review persisted before evaluation binding.".into(),
+        reviewed_scope: serde_json::from_value(serde_json::json!({
+            "schema_version": 1,
+            "scope_version": 1,
+            "action_id": "artifact.propose",
+            "descriptor_version": 1,
+            "dimensions": {
+                "action": {
+                    "kind": "action",
+                    "value": "artifact.propose"
+                },
+                "descriptor": {
+                    "kind": "descriptor_version",
+                    "value": 1
+                }
+            },
+            "context_class_digest":
+                "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }))
+        .unwrap(),
+        automatic_effects: vec!["Persist a proposed artifact".into()],
+        remaining_boundaries: vec!["Activation remains owner-controlled".into()],
+        limits: ReviewLimits {
+            quota: BudgetWindow {
+                max: 5,
+                window_secs: 604_800,
+            },
+            rate: BudgetWindow {
+                max: 1,
+                window_secs: 3_600,
+            },
+            expires_after_secs: 86_400,
+        },
+        fallback_behavior: ReviewFallbackBehavior {
+            scope_mismatch: BoundaryBehavior::RequireApproval,
+            compatibility_drift: BoundaryBehavior::RequireApproval,
+            budget_exhaustion: BoundaryBehavior::RequireApproval,
+            timeout: BoundaryBehavior::RequireApproval,
+        },
+        proposal_digest: Digest::parse(
+            "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        )
+        .unwrap(),
+        compatibility_digest: Digest::parse(
+            "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        )
+        .unwrap(),
+        available_decisions: [
+            OwnerReviewDecision::Approve,
+            OwnerReviewDecision::Reject,
+            OwnerReviewDecision::Narrow,
+        ]
+        .into_iter()
+        .collect(),
+        lifecycle_controls: [
+            ResponsibilityLifecycleControl::Pause,
+            ResponsibilityLifecycleControl::Revoke,
+        ]
+        .into_iter()
+        .collect(),
+        evaluation_binding: None,
+        binding_digest: Digest::parse(
+            "sha256:85265a2739be2544180b28e8d6b06f082ba1a071fadb30d2ca7588a564ef9b78",
+        )
+        .unwrap(),
+    }
+}

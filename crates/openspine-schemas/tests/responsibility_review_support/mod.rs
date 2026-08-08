@@ -220,6 +220,7 @@ pub fn review_input(
             ResponsibilityLifecycleControl::Expire,
             ResponsibilityLifecycleControl::Revoke,
         ]),
+        evaluation_binding: None,
     }
 }
 

@@ -102,3 +102,41 @@ impl Store {
         Err(StoreError::ProposedArtifactLifecycle(reason))
     }
 }
+
+pub(crate) fn reject_stale_eval_verdicts_conn(
+    conn: &rusqlite::Connection,
+    kind: &str,
+    artifact_id: &str,
+    version: u32,
+    live: &VerdictEpochs,
+) -> Result<(), StoreError> {
+    let verdicts = super::Store::eval_verdicts_for_artifact_conn(conn, kind, artifact_id, version)?;
+    let mut stale_axes: Vec<&'static str> = Vec::new();
+    for verdict in &verdicts {
+        let mut recorded = verdict.epochs.clone();
+        recorded.proposal_digest = None;
+        for axis in recorded.stale_axes(live) {
+            if !stale_axes.contains(&axis) {
+                stale_axes.push(axis);
+            }
+        }
+    }
+    if stale_axes.is_empty() {
+        return Ok(());
+    }
+    let reason = format!(
+        "evaluation verdicts for {kind} {artifact_id} v{version} are stale on: {}",
+        stale_axes.join(", ")
+    );
+    Store::append_audit_conn(
+        conn,
+        "eval_verdict.stale_at_activation",
+        None,
+        None,
+        Some(&reason),
+        None,
+        &[],
+        &[],
+    )?;
+    Err(StoreError::ProposedArtifactLifecycle(reason))
+}

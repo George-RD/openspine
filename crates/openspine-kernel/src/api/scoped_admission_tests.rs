@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: caller-level scoped-admission tests share one production HTTP/Gmail harness so matching, erasure, receipt, budget, and denial controls remain auditable together.
 //! Selection and matching acceptance tests for scope-matched standing-rule
 //! admission (#128): exactly-one matching, disjoint coexistence with
 //! independent budgets, and the fail-closed zero/ambiguous outcomes. Every
@@ -12,6 +13,7 @@ use serde_json::json;
 use ulid::Ulid;
 
 use super::scoped_admission_support::*;
+use crate::api::actions::{mediate_and_dispatch_action, FailureSurface};
 use crate::store::standing_rules_tests::manifest;
 
 /// Acceptance: a resolved, digest-bound context reaches the shared
@@ -80,6 +82,82 @@ async fn scoped_rule_admits_draft_through_production_path_and_finalizes_reservat
         gated.contains(context.reviewed_scope_digest().expect("scope key").as_str()),
         "the reviewed scope digest is recorded with the admission"
     );
+    assert!(
+        gated.contains(context.target_digest().expect("target digest").as_str()),
+        "the canonical target reference is recorded with the admission"
+    );
+}
+/// Acceptance: an effective scoped Allow returns a responsibility receipt
+/// naming the admitted rule, canonical target, and post-reservation headroom.
+#[tokio::test]
+async fn scoped_allow_returns_responsibility_receipt() {
+    let env = draft_env(&["thread-1"]).await;
+    mount_drafts(&env.api_server, 200, json!({"id": "draft-receipt"})).await;
+    let grant = mint_draft_grant(&env.state, "thread-1");
+    let context = resolved_context(&env.state, &grant).await;
+    env.state
+        .store
+        .activate_standing_rule(
+            &scoped_manifest("rule-receipt", &context),
+            None,
+            Timestamp::now(),
+        )
+        .unwrap();
+
+    let (decision, _, _, budget) = mediate_and_dispatch_action(
+        &env.state,
+        &grant,
+        openspine_schemas::action::ActionId::new("email.create_draft"),
+        &crate::test_support::telegram_surface(CHAT_ID),
+        Some(&draft_payload()),
+        FailureSurface::DirectResponse,
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(matches!(decision, GateDecision::Allow));
+    let budget = budget.expect("scoped Allow exposes headroom");
+    let receipt = budget
+        .responsibility
+        .expect("scoped Allow exposes responsibility provenance");
+    assert_eq!(receipt.rule_id, "rule-receipt");
+    assert_eq!(receipt.rule_version, 1);
+    assert_eq!(receipt.target, context.target_refs().to_vec());
+    assert_eq!(receipt.quota_remaining, 4);
+    assert_eq!(receipt.rate_remaining, 2);
+}
+/// Regression: a scoped rule cannot exercise authority after its bound
+/// counterparty is crypto-erased. The retry returns to ordinary owner
+/// approval and performs no Gmail write.
+#[tokio::test]
+async fn erased_counterparty_scoped_admission_falls_back_to_owner_approval() {
+    let env = draft_env(&["thread-1"]).await;
+    mount_drafts(&env.api_server, 200, json!({"id": "draft-1"})).await;
+    let grant = mint_draft_grant(&env.state, "thread-1");
+    let context = resolved_context(&env.state, &grant).await;
+    env.state
+        .store
+        .activate_standing_rule(
+            &scoped_manifest("rule-erased-counterparty", &context),
+            None,
+            Timestamp::now(),
+        )
+        .unwrap();
+
+    env.state
+        .store
+        .mark_learned_artifacts_erased(Ulid::from(11_u128), &env.state.artifacts)
+        .unwrap();
+
+    let (decision, budget) = dispatch(&env.state, &grant).await;
+
+    assert!(
+        matches!(decision, GateDecision::ApprovalRequired { .. }),
+        "crypto-erased counterparties must never admit through reusable scope"
+    );
+    assert!(budget.is_none());
+    assert_eq!(drafts_written(&env.api_server).await, 0);
 }
 
 /// Acceptance: two different targets cannot form one pattern — a rule

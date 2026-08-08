@@ -20,6 +20,7 @@
 //! ad-hoc lane once a destructive schema change is first needed.
 
 mod pending_draft;
+pub(crate) use pending_draft::draft_request_fingerprint;
 mod sql_time;
 pub(crate) use sql_time::sql_timestamp;
 use std::path::Path;
@@ -39,6 +40,12 @@ use rusqlite::{params, Connection, OptionalExtension};
 use ulid::Ulid;
 
 pub(crate) const OWNER_APPROVAL_GATE_REASON: &str = "owner-approved request re-gated";
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PauseStandingRuleOutcome {
+    Paused,
+    AlreadyPaused,
+    Refused,
+}
 
 /// The one statement that writes a `task_grants` row. Shared by every insert
 /// site (direct, dispatch-handoff, worker commission, briefcase-atomic) so the
@@ -725,6 +732,7 @@ impl Store {
 }
 
 pub(crate) mod activation;
+mod audit_append;
 mod audit_support;
 pub(crate) mod boot_clock;
 pub(crate) use boot_clock::BootClockCheck;
@@ -777,6 +785,7 @@ mod owner_review_tests;
 pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
 mod reflection_miner_support;
+pub(crate) use reflection_miner_support::{OwnerApprovalAuditMetadata, OwnerApprovalScopeArtifact};
 pub(crate) mod skill_preview_records;
 pub(crate) mod skill_promotion_decisions;
 pub(crate) mod skill_read_queries;

@@ -301,6 +301,7 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
         &grant,
         &request,
         &crate::test_support::owner_surface(&state),
+        None,
     )
     .await
     .unwrap();

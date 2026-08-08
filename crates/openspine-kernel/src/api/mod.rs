@@ -25,13 +25,14 @@ pub(crate) mod worker;
 #[cfg(test)]
 pub(crate) use actions::DispatchError;
 mod artifact_nominate;
-mod artifact_propose;
+pub(crate) mod artifact_propose;
 pub(crate) mod effect_executors;
 mod generate;
 pub(crate) mod handler_registry;
 pub(crate) mod plan;
 mod proposal;
 mod scoped_admission;
+pub(crate) use scoped_admission::{resolve_scoped_admission, ScopedAdmission};
 mod task;
 pub(crate) mod telegram_truncate;
 mod webhook;

@@ -1,3 +1,4 @@
+// openspine:allow-large-module reason: scoped admission keeps kernel context resolution, erased-counterparty checks, transactional reservation, and shared Gmail execution in one trust-boundary module.
 //! Kernel-boundary construction of the resolved action context, and the
 //! third caller of the shared `gmail.create_draft` executor
 //! (mine-and-match-reusable-authority-by-scope, #128, tasks 3/5/6).
@@ -215,6 +216,20 @@ pub(crate) async fn resolve_scoped_admission(
             "briefcase counterparty is unresolved; reusable delegation requires an identity-bound counterparty",
         );
     }
+    if let CounterpartyRef::Bound { identity_id, .. } = &briefcase.task_shape.counterparty {
+        if state
+            .store
+            .is_counterparty_erased(*identity_id)
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?
+        {
+            return unresolvable(
+                state,
+                grant,
+                action,
+                "briefcase counterparty has been durably erased; reusable delegation is unavailable",
+            );
+        }
+    }
     let task_shape_digest = digest_of(
         &serde_json::to_value(&briefcase.task_shape)
             .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?,
@@ -329,14 +344,43 @@ pub(crate) async fn resolve_scoped_admission(
         task_grant_id: grant.id,
         action: action.clone(),
         target_ref: Some(target_ref),
-        payload_ref: Some(payload_ref),
-        target_digest: Some(target_digest),
+        payload_ref: Some(payload_ref.clone()),
+        target_digest: Some(target_digest.clone()),
         selection_token_id: None,
         params: Default::default(),
         skill_attribution: None,
         requested_at: now,
         schema_version: 1,
     };
+    let request_fingerprint = crate::store::draft_request_fingerprint(
+        action.as_str(),
+        &token.target_id,
+        &target_digest,
+        &payload_ref.digest,
+    );
+    if state
+        .store
+        .has_pending_draft_write(&request_fingerprint)
+        .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?
+    {
+        let target_ref = ArtifactRef {
+            digest: target_digest.clone(),
+            schema_version: 1,
+        };
+        state
+            .store
+            .append_audit(
+                "draft.pending_reconciliation_required",
+                Some(action),
+                None,
+                Some("delivery-unknown draft write is still pending reconciliation; no retry admitted"),
+                Some(grant.id),
+                std::slice::from_ref(&target_ref),
+                std::slice::from_ref(&payload_ref),
+            )
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        return Ok(ScopedAdmission::Unresolvable);
+    }
     Ok(ScopedAdmission::Resolved(Box::new(
         ScopedAdmissionContext { context, request },
     )))
@@ -410,13 +454,22 @@ pub(crate) fn consult_scoped_rule(
             )
         })
         .unwrap_or_default();
+    let target_refs = resolved
+        .context
+        .target_digest()
+        .map(|digest| ArtifactRef {
+            digest: digest.clone(),
+            schema_version: 1,
+        })
+        .into_iter()
+        .collect::<Vec<_>>();
     if let Err(err) = state.store.append_audit(
         "action.gated",
         Some(action),
         Some(&GateDecision::Allow),
         Some(&note),
         Some(grant.id),
-        &[],
+        target_refs.as_slice(),
         payload_refs,
     ) {
         if let Some((_, _, reservation_id)) = reservation.as_ref() {

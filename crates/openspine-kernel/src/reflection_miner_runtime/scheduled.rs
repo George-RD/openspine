@@ -3,6 +3,8 @@
 use jiff::Timestamp;
 use openspine_authority::{compose_authority, resolve_route, AuthorityInput, AuthorityOutcome};
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::delegation_evidence::{DelegationEvidence, OwnerApprovalEvidence};
+use openspine_schemas::digest::Digest;
 use openspine_schemas::event::{
     ActorHint, ChannelTrust, DataClassification, EventEnvelope, EventType, InteractionMode, Lane,
     Source, TrustContext, VerificationMethod,
@@ -15,6 +17,8 @@ use openspine_schemas::reflection_miner::{
     ApprovalObservation, ReflectionObservation, ReflectionProvenance,
 };
 use openspine_schemas::route::RouteResolution;
+use openspine_schemas::standing_rule::ReviewedScopeBinding;
+use std::collections::{BTreeMap, BTreeSet};
 use ulid::Ulid;
 
 use super::{run_reflection_miner, MinerRuntimeError};
@@ -232,44 +236,122 @@ fn derive_repeated_approval_observation(
         &scope,
         ceiling,
     )?;
-    let mut counts: std::collections::HashMap<(String, String), (usize, usize)> =
-        std::collections::HashMap::new();
-    for (index, entry) in entries.iter().enumerate() {
-        let Some(action_id) = state
-            .store
-            .audit_event_by_id(entry.event_id)?
-            .and_then(|event| event.action)
-            .map(|action| action.as_str().to_string())
+    type Group = (
+        Digest,
+        Vec<OwnerApprovalEvidence>,
+        BTreeSet<Ulid>,
+        ReviewedScopeBinding,
+        ArtifactRef,
+        Ulid,
+    );
+    let mut groups: BTreeMap<(String, String), Group> = BTreeMap::new();
+    for entry in &entries {
+        let Some(event) = state.store.audit_event_by_id(entry.event_id)? else {
+            continue;
+        };
+        let Some(action) = event.action.as_ref() else {
+            continue;
+        };
+        if action.as_str() != "email.create_draft" {
+            continue;
+        }
+        let Some(metadata) = crate::store::OwnerApprovalAuditMetadata::from_payload_json(
+            event.payload_json.as_deref(),
+        ) else {
+            // Historical approval rows have no resolved context metadata and
+            // cannot contribute evidence without guessing.
+            continue;
+        };
+        let Ok(scope_bytes) = state
+            .artifacts
+            .get_scoped(metadata.counterparty_scope_id, &metadata.reviewed_scope_ref)
         else {
             continue;
         };
-        let counter = counts
-            .entry((entry.artifact_id.clone(), action_id))
-            .or_insert((0, index));
-        counter.0 += 1;
+        let Ok(scope_artifact) =
+            serde_json::from_slice::<crate::store::OwnerApprovalScopeArtifact>(&scope_bytes)
+        else {
+            continue;
+        };
+        let binding = ReviewedScopeBinding::derive_from(
+            scope_artifact.scope,
+            scope_artifact.compatibility_digest,
+        );
+        if binding.reviewed_scope_digest != metadata.reviewed_scope_digest
+            || binding.compatibility_digest != metadata.compatibility_digest
+            || binding.scope.context_class_digest() != &metadata.context_class_digest
+        {
+            continue;
+        }
+        let group_key = (
+            action.as_str().to_string(),
+            metadata.context_class_digest.to_string(),
+        );
+        let group = groups.entry(group_key).or_insert_with(|| {
+            (
+                metadata.context_class_digest.clone(),
+                Vec::new(),
+                BTreeSet::new(),
+                binding.clone(),
+                entry.exchange.clone(),
+                event.id,
+            )
+        });
+        if group.3 != binding || !group.2.insert(event.id) {
+            continue;
+        }
+        group.1.push(OwnerApprovalEvidence {
+            decision_event_id: event.id,
+            owner_principal_id: state.owner_principal_id,
+            request_digest: metadata.request_digest,
+            target_digest: metadata.target_digest,
+            payload_digest: metadata.payload_digest,
+        });
     }
-    let Some(((dominant_id, action_id), (count, entry_index))) =
-        counts.into_iter().max_by_key(|(_, (count, _))| *count)
-    else {
+
+    let mut selected: Option<(
+        u32,
+        DelegationEvidence,
+        ReviewedScopeBinding,
+        ArtifactRef,
+        Ulid,
+    )> = None;
+    for (_, (context_class_digest, approvals, _, binding, exchange, source_event_id)) in groups {
+        let Ok(evidence) = DelegationEvidence::repeated_approvals(context_class_digest, approvals)
+        else {
+            continue;
+        };
+        let Some(count) = evidence.approval_count() else {
+            continue;
+        };
+        if selected
+            .as_ref()
+            .is_none_or(|(selected_count, _, _, _, _)| count > *selected_count)
+        {
+            selected = Some((count, evidence, binding, exchange, source_event_id));
+        }
+    }
+    let Some((count, evidence, binding, exchange, source_event_id)) = selected else {
         return Ok(None);
     };
-    if count < 2 {
-        return Ok(None);
-    }
-    let entry = &entries[entry_index];
-    Ok(Some(ReflectionObservation::RepeatedApproval(
+    let context_class_digest = evidence
+        .context_class_digest()
+        .expect("repeated approval evidence always has a context class digest");
+    Ok(Some(ReflectionObservation::RepeatedApproval(Box::new(
         ApprovalObservation {
             kind: "standing_rule".into(),
-            artifact_id: entry.artifact_id.clone(),
+            artifact_id: context_class_digest.to_string(),
             version: 1,
-            action_id: action_id.clone(),
-            candidate: format!("Recurring owner approval of {dominant_id} ({action_id})"),
+            action_id: "email.create_draft".into(),
+            candidate: format!("{count} matching owner approvals"),
+            evidence,
+            reviewed_scope_binding: binding,
             provenance: ReflectionProvenance {
-                source_event_id: entry.event_id,
-                source_exchange: entry.exchange.clone(),
+                source_event_id,
+                source_exchange: exchange,
             },
         },
-    )))
+    ))))
 }
 
 /// Run one scheduled reflection-miner pass.
