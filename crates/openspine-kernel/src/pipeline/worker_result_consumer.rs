@@ -43,6 +43,7 @@ use crate::pipeline::AppState;
 use crate::store::event_bus::PersistedConsumerState;
 use crate::store::worker_dispatch::worker_parent_grant;
 use crate::store::worker_result_relay::WorkerRelayClaim;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 const CONSUMER_ID: &str = "worker_result_consumer";
 const RELAY_ACTION: &str = "telegram.reply:owner_channel";
@@ -127,20 +128,20 @@ fn worker_result_summary(payload_json: &str) -> String {
         Err(_) => "worker result received".to_string(),
     }
 }
-/// Resolve the relay context (chat_id, text) for a worker.result event.
+/// Resolve the relay context (owner surface, text) for a worker.result event.
 /// Returns None for TerminalSkip (structural denial that should not be
 /// surfaced as a dead-letter).
 fn resolve_relay_context(
     state: &AppState,
     event: &AuditEvent,
-) -> anyhow::Result<Option<(i64, String)>> {
+) -> anyhow::Result<Option<(OwnerSurfaceRef, String)>> {
     let Some(worker_grant_id) = event.task_grant_id else {
         return Ok(None);
     };
     let Some(parent_grant_id) = worker_parent_grant(&state.store, worker_grant_id)? else {
         return Ok(None);
     };
-    let Some((parent_grant, _pending_ref, bound_chat_id)) =
+    let Some((parent_grant, _pending_ref, bound_surface)) =
         state.store.find_task_grant_by_id(parent_grant_id)?
     else {
         return Ok(None);
@@ -151,7 +152,7 @@ fn resolve_relay_context(
         .as_deref()
         .map(worker_result_summary)
         .unwrap_or_else(|| "worker result received".to_string());
-    Ok(Some((bound_chat_id, text)))
+    Ok(Some((bound_surface, text)))
 }
 
 /// Relay through the master agent's own gated reply path. Errors before a
@@ -183,7 +184,7 @@ async fn relay_one(state: &AppState, event: &AuditEvent) -> anyhow::Result<Relay
         )?;
         return Ok(RelayOutcome::TerminalSkip);
     };
-    let Some((parent_grant, _pending_ref, bound_chat_id)) =
+    let Some((parent_grant, _pending_ref, bound_surface)) =
         state.store.find_task_grant_by_id(parent_grant_id)?
     else {
         state.store.append_audit(
@@ -208,7 +209,7 @@ async fn relay_one(state: &AppState, event: &AuditEvent) -> anyhow::Result<Relay
         state,
         &parent_grant,
         ActionId::new(RELAY_ACTION),
-        bound_chat_id,
+        &bound_surface,
         Some(&payload),
         FailureSurface::Detached,
         None,
@@ -287,7 +288,7 @@ pub(crate) async fn worker_result_consumer_iteration(state: &AppState) -> anyhow
                 // chat (relay_ctx None) the event is not dead-letterable with a
                 // resolvable owner, so leave it retryable rather than crash or
                 // silently skip.
-                let Some((chat_id, text)) = relay_ctx else {
+                let Some((relay_surface, text)) = relay_ctx else {
                     tracing::error!(
                         %event_id,
                         "worker result relay failed but owner context is unresolvable; leaving retryable"
@@ -298,6 +299,13 @@ pub(crate) async fn worker_result_consumer_iteration(state: &AppState) -> anyhow
                 // the owner notification yet still commit the dead-letter and
                 // advance the checkpoint, permanently hiding the result. Treat
                 // as retryable instead.
+                let Ok(chat_id) = crate::telegram::telegram_chat_id(&relay_surface) else {
+                    tracing::error!(
+                        event_id = %event_id,
+                        "worker result relay failed with an owner surface Telegram cannot address; leaving retryable"
+                    );
+                    return Ok(());
+                };
                 if chat_id == 0 {
                     tracing::error!(
                         %event_id,

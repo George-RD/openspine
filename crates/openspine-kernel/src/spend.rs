@@ -86,7 +86,12 @@ pub(crate) async fn try_drain_breach_alert(state: &AppState, day: &str) {
     }
     let current_day = utc_day(Timestamp::now());
     let message = breach_message(day, &current_day);
-    match crate::pipeline::notify_owner_required_outcome(state, state.owner_user_id, &message).await
+    match crate::pipeline::notify_owner_required_outcome(
+        state,
+        &state.telegram_owner_surface(),
+        &message,
+    )
+    .await
     {
         crate::pipeline::NotifyOutcome::Sent | crate::pipeline::NotifyOutcome::SendFailed => {
             if let Err(err) = state.store.complete_daily_breach_alert(day) {

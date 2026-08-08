@@ -103,7 +103,7 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         .insert_grant_and_briefcase_atomic(
             &parent,
             &parent_pending,
-            state.owner_user_id,
+            &state.telegram_owner_surface(),
             &test_briefcase(),
         )
         .unwrap();
@@ -139,7 +139,7 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         &worker,
         &worker_pending,
         &worker_token,
-        state.owner_user_id,
+        &state.telegram_owner_surface(),
         &test_briefcase(),
         "receipt-consumer-test",
         &request_digest,
@@ -414,21 +414,28 @@ async fn worker_result_relay_unresolvable_owner_stays_retryable() {
         TelegramConnector::with_api_url("test-token".to_string(), server.uri().parse().unwrap());
     let state = test_state_with_telegram(connector);
     commission_and_record(&state).await;
-    // Force the parent grant's bound chat to 0 so the owner is unresolvable.
+    // Rebind the parent grant to the local terminal surface, which Telegram
+    // cannot address, so the relay's owner target is unresolvable.
     state
         .store
         .conn
         .lock()
         .execute(
-            "UPDATE task_grants SET bound_chat_id = 0 WHERE bound_chat_id = ?1",
-            params![state.owner_user_id],
+            "UPDATE task_grants SET owner_surface_json = ?1",
+            params![serde_json::to_string(
+                &openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
+                    state.owner_principal_id
+                )
+            )
+            .unwrap()],
         )
         .unwrap();
     let (_event_id, _global_seq) = worker_result_event_id_and_seq(&state);
 
-    // Drive five attempts (the normal dead-letter threshold). With chat 0 the
-    // relay is left retryable every time, so even at attempt 5 no dead-letter
-    // is committed and the checkpoint never advances.
+    // Drive five attempts (the normal dead-letter threshold). With an
+    // unaddressable owner surface the relay is left retryable every time, so
+    // even at attempt 5 no dead-letter is committed and the checkpoint never
+    // advances.
     for _ in 0..5 {
         let result = worker_result_consumer_iteration(&state).await;
         result.expect("iteration must not error on unresolvable owner");
@@ -436,7 +443,7 @@ async fn worker_result_relay_unresolvable_owner_stays_retryable() {
 
     assert!(
         state.store.worker_result_dead_letters().unwrap().is_empty(),
-        "unresolvable owner (chat 0) must not commit a dead-letter"
+        "an owner surface Telegram cannot address must not commit a dead-letter"
     );
     assert_eq!(
         checkpoint_last_acked(&state),

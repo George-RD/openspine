@@ -17,9 +17,10 @@ pub(crate) async fn run(state: Arc<crate::pipeline::AppState>) {
         match state.store.pending_nerve_deliveries() {
             Ok(items) => {
                 for (interjection_id, class_digest) in items {
+                    let owner_surface = state.telegram_owner_surface();
                     let outcome = crate::pipeline::notify_owner_with_digest(
                         &state,
-                        state.owner_user_id,
+                        &owner_surface,
                         &format!("A governed screener notice is ready (digest {class_digest})."),
                         &[],
                         None,

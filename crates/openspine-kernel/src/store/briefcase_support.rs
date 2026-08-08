@@ -83,7 +83,7 @@ impl Store {
         &self,
         grant: &TaskGrant,
         pending_message_ref: &ArtifactRef,
-        bound_chat_id: i64,
+        owner_surface: &openspine_schemas::owner_surface::OwnerSurfaceRef,
         briefcase: &Briefcase,
     ) -> Result<(), StoreError> {
         // D-047: sweep grants that expired well over a day ago before
@@ -99,14 +99,14 @@ impl Store {
             .map_err(StoreError::from)?;
         let result = (|| {
             conn.execute(
-                "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                super::TASK_GRANT_INSERT_SQL,
                 params![
                     grant.id.to_string(),
                     super::budget_support::hash_task_token(&grant.task_token),
                     super::sql_timestamp(grant.expires_at),
                     serde_json::to_string(&redacted)?,
                     pending_message_ref.digest.as_str(),
-                    bound_chat_id,
+                    serde_json::to_string(owner_surface)?,
                 ],
             )?;
             conn.execute(

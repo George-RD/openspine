@@ -10,9 +10,9 @@
 /// count — a `char` can be up to 2 UTF-16 units (e.g. many emoji), so
 /// counting `char`s alone under-truncates for unit-count limits like
 /// Telegram's.
-pub(super) const TELEGRAM_MAX_MESSAGE_UTF16_UNITS: usize = 4000;
+pub(crate) const TELEGRAM_MAX_MESSAGE_UTF16_UNITS: usize = 4000;
 
-pub(super) fn truncate_for_telegram(text: &str) -> String {
+pub(crate) fn truncate_for_telegram(text: &str) -> String {
     let mut units = 0usize;
     for (idx, ch) in text.char_indices() {
         let w = ch.len_utf16();

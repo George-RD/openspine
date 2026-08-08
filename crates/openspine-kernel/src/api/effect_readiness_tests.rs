@@ -129,14 +129,14 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
     let fingerprint = crate::store::standing_rules::standing_rule_fingerprint(
         &active_rule.action_id,
         grant.id,
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         &payload_ref,
     );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &active_rule,
             grant.id,
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             payload_ref,
             &fingerprint,
             None,
@@ -157,7 +157,7 @@ async fn fired_token_no_executor_cancels_reservation_and_rearms_once() {
         &state,
         &grant,
         ActionId::new("coolify.deploy"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
         FailureSurface::Detached,
         Some(&pending.pending_id),
@@ -237,14 +237,14 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
     let fingerprint = crate::store::standing_rules::standing_rule_fingerprint(
         &active_rule.action_id,
         grant.id,
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         &payload_ref,
     );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &active_rule,
             grant.id,
-            OWNER_CHAT_ID,
+            &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
             payload_ref,
             &fingerprint,
             None,
@@ -270,7 +270,7 @@ async fn fired_token_cancel_failure_does_not_rearm_the_token() {
         &state,
         &grant,
         ActionId::new("coolify.deploy"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&payload),
         FailureSurface::Detached,
         Some(&pending.pending_id),

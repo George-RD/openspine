@@ -221,7 +221,7 @@ async fn commissioned_worker_reports_and_master_relays_through_real_shell() {
         .insert_grant_and_briefcase_atomic(
             &parent,
             &state.artifacts.put(b"parent-pending").unwrap(),
-            state.owner_user_id,
+            &state.telegram_owner_surface(),
             &parent_briefcase(),
         )
         .unwrap();

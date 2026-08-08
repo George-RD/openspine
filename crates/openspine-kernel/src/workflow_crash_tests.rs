@@ -151,7 +151,11 @@ async fn gated_step_persisted_pending_recovers_without_redispatch() {
         let gated = GatedStepDigest {
             action: action.to_string(),
             grant_id: grant.id.to_string(),
-            bound_chat_id,
+            owner_surface: serde_json::to_string(&crate::test_support::owner_surface_for(
+                &state,
+                bound_chat_id,
+            ))
+            .unwrap(),
             inputs_digest: digest_inputs(&()).unwrap(),
             payload_digest: None,
         };
@@ -178,7 +182,7 @@ async fn gated_step_persisted_pending_recovers_without_redispatch() {
             &grant,
             &state.artifacts,
             action.clone(),
-            bound_chat_id,
+            &crate::test_support::owner_surface_for(&state, bound_chat_id),
             None,
             &(),
         )

@@ -192,6 +192,37 @@ fn plan_approval_callback_requires_exact_prefix_and_ulid() {
     assert_eq!(parse_approve_plan_callback("approve_plan:not-a-ulid"), None);
 }
 
+#[test]
+fn owner_review_callback_is_compact_and_digest_bound() {
+    let id = ulid::Ulid::new();
+    let data = format!("or:a:{id}:0123456789ab");
+    assert!(data.len() <= 64);
+    assert_eq!(
+        parse_owner_review_callback(&data),
+        Some((
+            id,
+            openspine_schemas::owner_review::DecisionIntent::Approve,
+            "0123456789ab".into(),
+        ))
+    );
+    assert_eq!(
+        parse_owner_review_callback(&format!("or:x:{id}:0123456789ab")),
+        Some((
+            id,
+            openspine_schemas::owner_review::DecisionIntent::Expire,
+            "0123456789ab".into(),
+        ))
+    );
+    assert_eq!(
+        parse_owner_review_callback(&format!("or:a:{id}:short")),
+        None
+    );
+    assert_eq!(
+        parse_owner_review_callback(&format!("or:a:{id}:0123456789ab:extra")),
+        None
+    );
+}
+
 #[tokio::test]
 async fn rotated_vault_bot_token_is_used_without_restart() {
     let dir = tempfile::tempdir().expect("tempdir");

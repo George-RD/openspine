@@ -64,7 +64,7 @@ async fn propose_path_refuses_a_non_delegable_standing_rule_before_review_requir
         &state,
         &grant,
         &ActionId::new("artifact.propose"),
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&serde_json::json!({"kind": "standing_rule", "yaml": yaml})),
     )
     .await;

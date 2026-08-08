@@ -9,6 +9,7 @@ use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::digest::digest_of;
 use openspine_schemas::digest::digest_of_bytes;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use ulid::Ulid;
@@ -29,7 +30,7 @@ struct ArtifactNominatePayload {
 pub(super) async fn dispatch_artifact_nominate(
     state: &AppState,
     grant: &TaskGrant,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
     let payload = payload.ok_or_else(|| {
@@ -131,7 +132,7 @@ pub(super) async fn dispatch_artifact_nominate(
         &request.action,
         grant,
         state.connectors.telegram().send_reply_with_approval_button(
-            bound_chat_id,
+            owner_surface,
             &summary,
             request.id,
         ),

@@ -221,7 +221,11 @@ async fn a_tier_routed_oauth_provider_spends_its_own_credential() {
     let pending_ref = state.artifacts.put(b"select thread 9").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 556)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 556),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;
@@ -257,7 +261,11 @@ async fn email_reply_drafter_template_wraps_untrusted_context_on_the_wire() {
     let pending_ref = state.artifacts.put(b"select thread 3").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;
@@ -327,7 +335,11 @@ async fn unknown_agent_id_returns_internal_error() {
     let pending_ref = state.artifacts.put(b"owner request").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;
@@ -360,7 +372,11 @@ async fn max_model_calls_of_one_denies_the_second_call_with_a_single_provider_hi
     let pending_ref = state.artifacts.put(b"select thread 3").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;
@@ -403,7 +419,11 @@ async fn max_artifacts_of_one_denies_the_second_call_with_a_single_provider_hit(
     let pending_ref = state.artifacts.put(b"select thread 3").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
 
     let (addr, handle) = start_server(state).await;

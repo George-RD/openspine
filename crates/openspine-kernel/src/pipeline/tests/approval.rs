@@ -102,7 +102,7 @@ pub(crate) fn approval_fixture_request(
 }
 
 /// A verified owner tap on the "Approve" button for `request_id`.
-fn approve_callback_update(request_id: Ulid) -> crate::telegram::TelegramUpdate {
+pub(crate) fn approve_callback_update(request_id: Ulid) -> crate::telegram::TelegramUpdate {
     let mut update = owner_update("");
     update.text = None;
     update.callback_query = Some(crate::telegram::CallbackQueryUpdate {
@@ -115,7 +115,7 @@ fn approve_callback_update(request_id: Ulid) -> crate::telegram::TelegramUpdate 
 /// Mount the Gmail OAuth token endpoint and return a connector pointed at
 /// both mock servers. Every approval test needs a token; only the
 /// thread-fetch and draft-create mocks vary per test.
-async fn gmail_with_token_mock(
+pub(crate) async fn gmail_with_token_mock(
     token_server: &MockServer,
     api_server: &MockServer,
 ) -> GmailConnector {
@@ -136,7 +136,7 @@ async fn gmail_with_token_mock(
     .with_urls(format!("{}/token", token_server.uri()), api_server.uri())
 }
 
-fn thread_with_sender(sender: &str) -> serde_json::Value {
+pub(crate) fn thread_with_sender(sender: &str) -> serde_json::Value {
     json!({
         "messages": [{
             "payload": {
@@ -184,7 +184,11 @@ async fn a_double_tap_on_approve_creates_only_one_gmail_draft() {
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface(&state),
+        )
         .unwrap();
     // Must match exactly what `create_approved_draft` recomputes after
     // fetching the mocked thread above (D-041): the newest non-owner
@@ -290,7 +294,11 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_rows() {
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface(&state),
+        )
         .unwrap();
     for _ in 0..3u64 {
         let request = approval_fixture_request(
@@ -384,7 +392,11 @@ async fn recipient_mutation_since_approval_is_denied_and_creates_no_draft() {
     let pending_ref = state.artifacts.put(b"hi").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface(&state),
+        )
         .unwrap();
     let request = approval_fixture_request(
         &state,
@@ -426,72 +438,11 @@ async fn recipient_mutation_since_approval_is_denied_and_creates_no_draft() {
     // on drop when `api_server` goes out of scope at the end of this test.
 }
 
-#[tokio::test]
-async fn approval_audit_never_contains_the_plaintext_draft_body() {
-    // PRD §18 / D-011: private payloads must be stored as encrypted
-    // artifact refs, never written directly into the audit event.
-    const SUBJECT: &str = "Re: a rather distinctive invoice subject";
-    const BODY: &str = "a rather distinctive draft body sentence";
-
-    let token_server = MockServer::start().await;
-    let api_server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/gmail/v1/users/me/threads/thread-1"))
-        .respond_with(
-            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
-        )
-        .mount(&api_server)
-        .await;
-    Mock::given(method("POST"))
-        .and(path("/gmail/v1/users/me/drafts"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "draft-1"})))
-        .mount(&api_server)
-        .await;
-
-    let gmail = gmail_with_token_mock(&token_server, &api_server).await;
-    let telegram_server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/bottest-token/AnswerCallbackQuery"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
-        .mount(&telegram_server)
-        .await;
-    let state = test_state_with_gmail_and_telegram(
-        gmail,
-        TelegramConnector::with_api_url(
-            "test-token".to_string(),
-            telegram_server.uri().parse().unwrap(),
-        ),
-    );
-    let grant = approval_fixture_grant();
-    let pending_ref = state.artifacts.put(b"hi").unwrap();
-    state
-        .store
-        .insert_task_grant(&grant, &pending_ref, 555)
-        .unwrap();
-    let request = approval_fixture_request(&state, grant.id, SUBJECT, BODY, "alice@example.com");
-    state.store.insert_action_request(&request).unwrap();
-    let update = approve_callback_update(request.id);
-    assert!(handle_owner_update(&state, &update)
-        .await
-        .unwrap()
-        .is_none());
-
-    let events = state.store.all_audit_event_jsons().unwrap();
-    assert!(!events.is_empty());
-    for event in &events {
-        assert!(
-            !event.contains(SUBJECT),
-            "audit event leaked the plaintext subject: {event}"
-        );
-        assert!(
-            !event.contains(BODY),
-            "audit event leaked the plaintext body: {event}"
-        );
-    }
-}
-
 #[path = "approval_draft_reconcile_tests.rs"]
 mod approval_draft_reconcile_tests;
+
+#[path = "approval_draft_admission_tests.rs"]
+mod approval_draft_admission_tests;
 
 #[path = "write_admission_ordering_tests.rs"]
 mod write_admission_ordering_tests;

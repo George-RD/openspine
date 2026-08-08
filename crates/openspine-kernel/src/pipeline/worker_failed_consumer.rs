@@ -51,7 +51,7 @@ async fn route_failure(state: &AppState, event: &AuditEvent) -> anyhow::Result<(
     let Some(grant_id) = event.task_grant_id else {
         return Ok(());
     };
-    let Some((_, _, chat_id)) = state.store.find_task_grant_by_id(grant_id)? else {
+    let Some((_, _, owner_surface)) = state.store.find_task_grant_by_id(grant_id)? else {
         return Ok(());
     };
     let summary = if connector_bound {
@@ -59,7 +59,7 @@ async fn route_failure(state: &AppState, event: &AuditEvent) -> anyhow::Result<(
     } else {
         "worker failure cannot be recomposed: connector identity is unbound"
     };
-    notify_immediate_failure(state, chat_id, FailureClass::Escalation, summary).await?;
+    notify_immediate_failure(state, &owner_surface, FailureClass::Escalation, summary).await?;
     Ok(())
 }
 

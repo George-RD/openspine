@@ -15,6 +15,7 @@ use std::pin::Pin;
 
 use openspine_schemas::action::ActionId;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde_json::{json, Value};
 
 use crate::pipeline::AppState;
@@ -37,13 +38,13 @@ pub(crate) type HandlerFuture<'a> =
     Pin<Box<dyn Future<Output = Result<Value, DispatchError>> + Send + 'a>>;
 
 /// A kernel action handler: given the bound app state, the grant that
-/// authorized the action, the action id, the grant-bound chat id, and the
+/// authorized the action, the action id, the grant-bound owner surface, and the
 /// optional JSON payload, produce the action result (or a [`DispatchError`]).
 pub(crate) type ActionHandler = for<'a> fn(
     &'a AppState,
     &'a TaskGrant,
     &'a ActionId,
-    i64,
+    &'a OwnerSurfaceRef,
     Option<&'a Value>,
 ) -> HandlerFuture<'a>;
 
@@ -117,7 +118,7 @@ fn handle_artifact_revoke<'a>(
     state: &'a AppState,
     _grant: &'a TaskGrant,
     _action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -137,7 +138,7 @@ fn handle_status_read<'a>(
     _state: &'a AppState,
     _grant: &'a TaskGrant,
     _action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &OwnerSurfaceRef,
     _payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move { Ok(json!({"status": "ok"})) })
@@ -147,7 +148,7 @@ fn handle_telegram_reply<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    bound_chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -173,7 +174,7 @@ fn handle_telegram_reply<'a>(
             state
                 .connectors
                 .telegram()
-                .send_reply(bound_chat_id, &reply.text),
+                .send_reply(owner_surface, &reply.text),
         )
         .await?;
         Ok(json!({"sent": true}))
@@ -184,7 +185,7 @@ fn handle_terminal_reply<'a>(
     state: &'a AppState,
     _grant: &'a TaskGrant,
     _action: &'a ActionId,
-    _bound_chat_id: i64,
+    _owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -211,7 +212,7 @@ fn handle_read_selected_thread<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_read_selected_thread(state, grant, action, payload))
@@ -221,7 +222,7 @@ fn handle_lyra_preview<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    bound_chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -234,7 +235,7 @@ fn handle_lyra_preview<'a>(
                     .to_string(),
             )
         })?;
-        dispatch_lyra_preview(state, grant, action, bound_chat_id, &preview).await
+        dispatch_lyra_preview(state, grant, action, owner_surface, &preview).await
     })
 }
 
@@ -242,7 +243,7 @@ fn handle_plan_propose<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    bound_chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
@@ -253,7 +254,7 @@ fn handle_plan_propose<'a>(
             serde_json::from_value(p.clone()).map_err(|_| {
                 DispatchError::BadRequest("plan.propose payload is not a valid Plan".to_string())
             })?;
-        dispatch_plan_preview(state, grant, action, bound_chat_id, &plan).await
+        dispatch_plan_preview(state, grant, action, owner_surface, &plan).await
     })
 }
 
@@ -261,14 +262,14 @@ fn handle_artifact_propose<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     action: &'a ActionId,
-    bound_chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_artifact_propose(
         state,
         grant,
         action,
-        bound_chat_id,
+        owner_surface,
         payload,
     ))
 }
@@ -277,13 +278,13 @@ fn handle_artifact_nominate<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     _action: &'a ActionId,
-    bound_chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_artifact_nominate(
         state,
         grant,
-        bound_chat_id,
+        owner_surface,
         payload,
     ))
 }
@@ -292,7 +293,7 @@ fn handle_skill_context<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     _action: &'a ActionId,
-    _chat_id: i64,
+    _owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(dispatch_skill_context(state, grant, payload))

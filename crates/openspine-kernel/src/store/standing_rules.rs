@@ -18,6 +18,7 @@
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::standing_rule::{DarkWindowDefault, StandingRuleManifest};
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use ulid::Ulid;
@@ -44,10 +45,10 @@ pub struct StandingRulePendingAction {
     pub rule_version: u32,
     pub task_grant_id: Ulid,
     pub action_id: ActionId,
-    pub bound_chat_id: i64,
+    pub owner_surface: OwnerSurfaceRef,
     pub payload_ref: Option<ArtifactRef>,
     pub default: DarkWindowDefault,
-    /// Stable per-request identity (action+grant+chat+payload digest): two
+    /// Stable per-request identity (action+grant+surface+payload digest): two
     /// identical retries collapse onto one pending action; distinct requests
     /// keep separate pending defaults.
     pub request_fingerprint: String,
@@ -67,7 +68,7 @@ pub struct StandingRulePendingAction {
 /// consultation would otherwise fall back to owner approval. `None` (e.g. in
 /// unit tests) means "schedule the row but skip owner notification".
 pub struct PendingScheduleCtx {
-    pub bound_chat_id: i64,
+    pub owner_surface: OwnerSurfaceRef,
     pub grant_id: Ulid,
     pub payload_ref: Option<ArtifactRef>,
     pub fingerprint: String,
@@ -209,10 +210,13 @@ impl Store {
         // action both stay active. A new rule revokes only rules it overlaps —
         // the same reviewed scope, or an unbounded rule (which covers every
         // scope). Two scoped rules with different reviewed_scope_digest values
-        // are disjoint and both remain active.
+        // are disjoint and both remain active. A PAUSED rule is superseded the
+        // same way: a newer version activating over a paused rule transitions
+        // it to `revoked` so a stale paused version cannot silently reappear
+        // on a later resume (the resume version-staleness re-check then fails).
         tx.execute(
             "UPDATE standing_rules SET status = 'revoked', revoked_at = ?3 \
-             WHERE action_id = ?1 AND rule_id != ?2 AND status = 'active' \
+             WHERE action_id = ?1 AND rule_id != ?2 AND status IN ('active', 'paused') \
                AND (reviewed_scope_digest IS NULL OR ?4 IS NULL OR reviewed_scope_digest = ?4)",
             params![
                 manifest.action_id.to_string(),
@@ -272,37 +276,6 @@ impl Store {
             ],
         )?;
         Ok(())
-    }
-
-    /// Revoke (versioned) a standing rule — makes it invisible to gate
-    /// consultation immediately. Idempotent: revoking an already-revoked or
-    /// unknown rule is `Ok(false)`.
-    pub fn revoke_standing_rule(&self, rule_id: &str, now: Timestamp) -> Result<bool, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        Self::append_audit_conn(
-            &tx,
-            "standing_rule.revoked",
-            None,
-            None,
-            Some(rule_id),
-            None,
-            &[],
-            &[],
-        )?;
-        let now_nanos = timestamp_to_epoch_nanos(now)?;
-        // #135: a revoked rule must leave nothing fireable behind. Same
-        // transaction as the revoke, so the two cannot be observed apart.
-        super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-            &tx, rule_id, None, now_nanos,
-        )?;
-        let changed = tx.execute(
-            "UPDATE standing_rules SET status = 'revoked', revoked_at = ?2 \
-             WHERE rule_id = ?1 AND status != 'revoked'",
-            params![rule_id, now_nanos],
-        )?;
-        tx.commit()?;
-        Ok(changed == 1)
     }
 
     /// Find the single active, non-expired, non-revoked rule for an action.
@@ -378,6 +351,32 @@ impl Store {
             .optional()?;
         Ok(found.is_some())
     }
+
+    /// Load a paused standing rule at exactly `version`, for compatibility
+    /// revalidation before resume. Returns `None` when the rule is not paused
+    /// at that version (already active, revoked, superseded, or unknown) — the
+    /// signal that resume must refuse.
+    pub fn paused_standing_rule(
+        &self,
+        rule_id: &str,
+        version: u32,
+    ) -> Result<Option<StandingRule>, StoreError> {
+        let conn = self.conn.lock();
+        let row: Option<RuleRow> = conn
+            .query_row(
+                &format!(
+                    "SELECT {RULE_ROW_COLUMNS} FROM standing_rules \
+                     WHERE rule_id = ?1 AND version = ?2 AND status = 'paused'"
+                ),
+                params![rule_id, version as i64],
+                rule_row_from_row,
+            )
+            .optional()?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        rule_from_row(row, "paused").map(Some)
+    }
     /// Highest activated version for a standing rule bound to `action_id`, or
     /// `None` when no such rule has ever been activated. Used to bump the
     /// version on re-answer so reactivation is not a no-op (equal-version
@@ -406,19 +405,22 @@ pub(super) use crate::store::standing_rules_row::{
 
 /// Stable per-request identity for dark-window deduplication. Mirrors the
 /// `GatedStepDigest` inputs so a fired token re-checked against the same
-/// (action, grant, chat, payload) is accepted and any other request is not.
+/// (action, grant, owner surface, payload) is accepted and any other request
+/// is not. The surface enters the digest through its serialized channel-neutral
+/// form, so two owner surfaces never collapse onto one pending default.
 pub fn standing_rule_fingerprint(
     action: &ActionId,
     grant_id: Ulid,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     payload_ref: &Option<ArtifactRef>,
 ) -> String {
     let payload_key = payload_ref
         .as_ref()
         .map(|r| r.digest.as_str().to_string())
         .unwrap_or_default();
+    let surface_key = serde_json::to_string(owner_surface).unwrap_or_default();
     openspine_schemas::digest::digest_of_bytes(
-        format!("{action}|{grant_id}|{bound_chat_id}|{payload_key}").as_bytes(),
+        format!("{action}|{grant_id}|{surface_key}|{payload_key}").as_bytes(),
     )
     .as_str()
     .to_string()

@@ -137,7 +137,7 @@ pub fn consult_standing_rule_gate(
                     Some(store.schedule_standing_rule_dark_window(
                         &rule,
                         ctx.grant_id,
-                        ctx.bound_chat_id,
+                        &ctx.owner_surface,
                         ctx.payload_ref.clone(),
                         &ctx.fingerprint,
                         ctx.reviewed_scope_digest.as_deref(),

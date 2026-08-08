@@ -8,6 +8,7 @@ use openspine_schemas::grant::TaskGrant;
 use super::notify_owner_best_effort;
 use super::AppState;
 use crate::api::connector_breaker::call_with_connector;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// Overlay so it survives a restart, and insert it into the live registry
 /// so it participates in routing/composition immediately.
@@ -15,7 +16,7 @@ pub(super) async fn activate_approved_artifact(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<()> {
     let _activation_guard = ACTIVATION_LOCK.lock().await;
     let Some(row) = state
@@ -32,8 +33,12 @@ pub(super) async fn activate_approved_artifact(
             &[],
         )?;
         drop(_activation_guard);
-        notify_owner_best_effort(state, chat_id, "That artifact proposal is no longer valid.")
-            .await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "That artifact proposal is no longer valid.",
+        )
+        .await;
         return Ok(());
     };
 
@@ -60,7 +65,7 @@ pub(super) async fn activate_approved_artifact(
             drop(_activation_guard);
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "Approved, but the artifact could not be re-validated — activation aborted.",
             )
             .await;
@@ -144,7 +149,7 @@ pub(super) async fn activate_approved_artifact(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "That version is not newer than what is already active.",
         )
         .await;
@@ -290,7 +295,7 @@ pub(super) async fn activate_approved_artifact(
             &request.action,
             grant,
             state.connectors.telegram().send_reply_with_approval_button(
-                chat_id,
+                owner_surface,
                 &format!(
                     "Re-confirm overlay\nKind: {}\nId: {} v{}\nDigest: {}\n\nApprove to restore.",
                     parsed.kind(),
@@ -314,7 +319,7 @@ pub(super) async fn activate_approved_artifact(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Artifact needs owner re-confirmation because references are unavailable.",
         )
         .await;
@@ -330,7 +335,7 @@ pub(super) async fn activate_approved_artifact(
         drop(_activation_guard);
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             &format!("Standing rule {} v{} is now active.", artifact_id, version),
         )
         .await;
@@ -345,7 +350,7 @@ pub(super) async fn activate_approved_artifact(
     drop(_activation_guard);
     notify_owner_best_effort(
         state,
-        chat_id,
+        owner_surface,
         &format!("Artifact {artifact_id} v{version} is now active."),
     )
     .await;

@@ -17,6 +17,7 @@
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::standing_rule::DarkWindowDefault;
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
@@ -26,6 +27,16 @@ use super::standing_rules::{
 };
 use super::standing_rules_exceptions::DarkWindowSchedule;
 use super::{Store, StoreError};
+
+/// Rebuild the channel-neutral owner binding of a persisted pending action.
+/// A pre-v7 row has none: the dropped chat integer cannot be promoted into a
+/// principal-bound surface, so the row is refused instead of guessed at.
+pub(super) fn parse_owner_surface(json: Option<String>) -> Result<OwnerSurfaceRef, StoreError> {
+    let json = json.ok_or_else(|| {
+        StoreError::BadOwnerSurface("standing_rule_pending_actions.owner_surface_json".into())
+    })?;
+    serde_json::from_str(&json).map_err(|err| StoreError::BadOwnerSurface(err.to_string()))
+}
 
 impl Store {
     /// Persist the exact pending action a dark window will resolve, and
@@ -54,7 +65,7 @@ impl Store {
         &self,
         rule: &StandingRule,
         grant_id: Ulid,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         payload_ref: Option<ArtifactRef>,
         fingerprint: &str,
         reviewed_scope_digest: Option<&str>,
@@ -132,7 +143,7 @@ impl Store {
                 tx.execute(
                     "INSERT INTO standing_rule_pending_actions (
                         pending_id, rule_id, rule_version, task_grant_id, action_id,
-                        bound_chat_id, payload_ref_json, dark_window_default,
+                        owner_surface_json, payload_ref_json, dark_window_default,
                         request_fingerprint, requested_at, resolved_at, resolution,
                         reviewed_scope_digest, compatibility_digest
                     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?11, ?12)",
@@ -142,7 +153,7 @@ impl Store {
                         rule.version as i64,
                         grant_id.to_string(),
                         rule.action_id.to_string(),
-                        bound_chat_id,
+                        serde_json::to_string(owner_surface)?,
                         payload_json,
                         default_str,
                         fingerprint,
@@ -246,7 +257,7 @@ impl Store {
             i64,
             String,
             String,
-            i64,
+            Option<String>,
             Option<String>,
             String,
             String,
@@ -256,7 +267,7 @@ impl Store {
         );
         let pending: Option<PendingRow> = tx
             .query_row(
-                "SELECT rule_id, rule_version, task_grant_id, action_id, bound_chat_id, \
+                "SELECT rule_id, rule_version, task_grant_id, action_id, owner_surface_json, \
                         payload_ref_json, dark_window_default, request_fingerprint, \
                         dispatch_state, resolved_at, resolution \
                  FROM standing_rule_pending_actions WHERE pending_id = ?1",
@@ -283,7 +294,7 @@ impl Store {
             rule_version,
             task_grant_id,
             action_id,
-            bound_chat_id,
+            owner_surface_json,
             payload_ref_json,
             default_str,
             fingerprint,
@@ -367,7 +378,7 @@ impl Store {
             task_grant_id: Ulid::from_string(&task_grant_id)
                 .map_err(|err| StoreError::TimestampRange(format!("bad grant id: {err}")))?,
             action_id: ActionId::new(&action_id),
-            bound_chat_id,
+            owner_surface: parse_owner_surface(owner_surface_json)?,
             payload_ref,
             default: if default_str == "allow" {
                 DarkWindowDefault::Allow

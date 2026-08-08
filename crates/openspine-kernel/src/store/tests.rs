@@ -131,7 +131,11 @@ fn task_grant_round_trips_by_token() {
         schema_version: 1,
     };
     store
-        .insert_task_grant(&grant, &pending_message_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_message_ref,
+            &crate::test_support::telegram_surface(555),
+        )
         .unwrap();
     let (back, back_ref, bound_chat_id) =
         store.find_task_grant_by_token("token-a").unwrap().unwrap();
@@ -140,7 +144,7 @@ fn task_grant_round_trips_by_token() {
     expected.task_token = String::new();
     assert_eq!(back, expected);
     assert_eq!(back_ref, pending_message_ref);
-    assert_eq!(bound_chat_id, 555);
+    assert_eq!(bound_chat_id, crate::test_support::telegram_surface(555));
     assert!(store
         .find_task_grant_by_token("no-such-token")
         .unwrap()
@@ -316,14 +320,26 @@ fn conversation_history_continues_across_grants_in_same_channel_and_workflow() {
     };
 
     let first = sample_grant("conversation-token-a");
-    store.insert_task_grant(&first, &pending, 555).unwrap();
+    store
+        .insert_task_grant(
+            &first,
+            &pending,
+            &crate::test_support::telegram_surface(555),
+        )
+        .unwrap();
     let first_digest = Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap();
     store
         .append_conversation_message(first.id, "user", &first_digest)
         .unwrap();
 
     let second = sample_grant("conversation-token-b");
-    store.insert_task_grant(&second, &pending, 555).unwrap();
+    store
+        .insert_task_grant(
+            &second,
+            &pending,
+            &crate::test_support::telegram_surface(555),
+        )
+        .unwrap();
     let second_digest = Digest::parse(format!("sha256:{}", "2".repeat(64))).unwrap();
     store
         .append_conversation_message(second.id, "assistant", &second_digest)
@@ -331,7 +347,11 @@ fn conversation_history_continues_across_grants_in_same_channel_and_workflow() {
 
     let other_channel = sample_grant("conversation-token-c");
     store
-        .insert_task_grant(&other_channel, &pending, 777)
+        .insert_task_grant(
+            &other_channel,
+            &pending,
+            &crate::test_support::telegram_surface(777),
+        )
         .unwrap();
     let ignored_digest = Digest::parse(format!("sha256:{}", "3".repeat(64))).unwrap();
     store
@@ -339,7 +359,11 @@ fn conversation_history_continues_across_grants_in_same_channel_and_workflow() {
         .unwrap();
 
     let history = store
-        .recent_conversation_for_channel_workflow(555, "owner_control_conversation", 20)
+        .recent_conversation_for_channel_workflow(
+            &crate::test_support::telegram_surface(555),
+            "owner_control_conversation",
+            20,
+        )
         .unwrap();
     assert_eq!(
         history,
@@ -437,7 +461,11 @@ fn find_task_grant_by_token_rejects_the_raw_hash_value() {
         schema_version: 1,
     };
     store
-        .insert_task_grant(&grant, &pending_message_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_message_ref,
+            &crate::test_support::telegram_surface(555),
+        )
         .unwrap();
 
     // Proves hashing actually happened, not merely a naive one-way store:
@@ -466,7 +494,11 @@ fn persisted_grant_json_contains_no_task_token() {
         schema_version: 1,
     };
     store
-        .insert_task_grant(&grant, &pending_message_ref, 555)
+        .insert_task_grant(
+            &grant,
+            &pending_message_ref,
+            &crate::test_support::telegram_surface(555),
+        )
         .unwrap();
 
     let grant_json: String = {
@@ -492,14 +524,14 @@ fn sweep_removes_only_grants_expired_more_than_a_day() {
             (&recent_id, now - std::time::Duration::from_secs(60 * 60)),
         ] {
             conn.execute(
-                "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, owner_surface_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     id,
                     format!("hash-for-{id}"),
                     sql_timestamp(expires_at),
                     "{}",
                     format!("sha256:{}", "0".repeat(64)),
-                    555,
+                    serde_json::to_string(&crate::test_support::telegram_surface(555)).unwrap(),
                 ],
             )
             .unwrap();

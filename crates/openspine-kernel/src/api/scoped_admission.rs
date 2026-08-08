@@ -35,6 +35,7 @@ use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::digest::digest_of;
 use openspine_schemas::event::{Connector, TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::resolved_context::{ResolvedActionContext, ResolvedActionContextInput};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -461,7 +462,7 @@ pub(crate) async fn dispatch_scoped_effect(
     state: &AppState,
     grant: &TaskGrant,
     admission: &ScopedAdmissionContext,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> Result<Value, DispatchError> {
     let Some(executor) = state
         .effect_executors
@@ -469,7 +470,7 @@ pub(crate) async fn dispatch_scoped_effect(
     else {
         return Err(DispatchError::NoExecutor(admission.request.action.clone()));
     };
-    match executor(state, grant, &admission.request, bound_chat_id).await {
+    match executor(state, grant, &admission.request, owner_surface).await {
         Ok(EffectOutcome::Executed) => Ok(json!({"created": true})),
         Ok(EffectOutcome::DeliveryUnknown) => Err(DispatchError::DeliveryUnknown(anyhow!(
             "gmail draft write outcome is unknown; the reconciliation fence stays open"

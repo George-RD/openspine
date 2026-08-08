@@ -1,9 +1,10 @@
 use super::lanes::PreflightFailure;
 use super::{notify_owner_best_effort, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 pub(super) async fn emit_preflight_failure(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     failure: PreflightFailure,
 ) -> anyhow::Result<()> {
     match failure {
@@ -19,7 +20,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "Gmail isn't configured on this kernel yet, so /draft is unavailable.",
             )
             .await;
@@ -36,7 +37,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "This connector lane is temporarily unavailable; try again shortly.",
             )
             .await;
@@ -97,7 +98,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "The connector is temporarily unavailable; try again shortly.",
             )
             .await;
@@ -114,7 +115,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 &format!("Couldn't find a Gmail thread with id \"{thread_id}\"."),
             )
             .await;
@@ -131,7 +132,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "This Gmail thread has no identifiable counterparty.",
             )
             .await;
@@ -149,7 +150,7 @@ pub(super) async fn emit_preflight_failure(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "Couldn't reach Gmail just now — try again shortly.",
             )
             .await;

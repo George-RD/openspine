@@ -26,7 +26,7 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     let proof = crate::telegram::VerifiedOwnerContext::test_new();
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -34,7 +34,13 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "staged-secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "staged-secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Staged(SecretMode::Intake))
     );
     let meta_before = state
@@ -46,14 +52,20 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     state.secrets.arm_fault_put("gmail.client_secret");
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token"
     )
     .expect("arm"));
-    assert!(capture(&state, 42, "new-refresh").await.is_err());
+    assert!(capture(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 42),
+        "new-refresh"
+    )
+    .await
+    .is_err());
     assert_eq!(
         state.secrets.get_string("gmail.client_secret").unwrap(),
         Some("old-c".into())
@@ -103,7 +115,7 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
     let proof = crate::telegram::VerifiedOwnerContext::test_new();
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
@@ -111,7 +123,13 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
     )
     .expect("arm"));
     assert_eq!(
-        capture(&state, 42, "staged-secret").await.expect("capture"),
+        capture(
+            &state,
+            &crate::test_support::owner_surface_for(&state, 42),
+            "staged-secret"
+        )
+        .await
+        .expect("capture"),
         Some(CaptureOutcome::Staged(SecretMode::Intake))
     );
     let meta_before = state
@@ -125,14 +143,20 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
         .arm_fault_delete("secret.staged.gmail.client_secret");
     assert!(arm(
         &state,
-        42,
+        &crate::test_support::owner_surface_for(&state, 42),
         state.owner_principal_id,
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token"
     )
     .expect("arm"));
-    assert!(capture(&state, 42, "new-refresh").await.is_err());
+    assert!(capture(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 42),
+        "new-refresh"
+    )
+    .await
+    .is_err());
     assert_eq!(
         state.secrets.get_string("gmail.client_secret").unwrap(),
         Some("old-c".into())

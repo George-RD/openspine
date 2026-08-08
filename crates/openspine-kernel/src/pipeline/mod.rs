@@ -37,11 +37,25 @@ pub(crate) mod headless;
 mod lanes;
 mod message_notify;
 mod offset;
+pub(crate) mod owner_review;
+#[cfg(test)]
+mod owner_review_adapter_bounds_tests;
+mod owner_review_commands;
+pub(crate) mod owner_review_decision;
+#[cfg(test)]
+mod owner_review_decision_outcome_tests;
+pub(crate) mod owner_review_surface;
+#[cfg(test)]
+mod owner_review_surface_tests;
+mod owner_review_telegram;
+#[cfg(test)]
+#[path = "owner_review_tests.rs"]
+mod owner_review_tests;
 mod polling;
 mod route_ambiguity;
 pub(crate) use message_notify::{
     notify_owner_best_effort, notify_owner_required, notify_owner_required_outcome,
-    notify_owner_with_digest,
+    notify_owner_surface_required, notify_owner_with_digest,
 };
 pub use polling::run_telegram_poll_loop;
 mod plan_approval;
@@ -76,6 +90,7 @@ use openspine_schemas::action::{ActionCatalog, ActionId};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::grant::GrantLimits;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use ulid::Ulid;
 
@@ -155,8 +170,9 @@ pub struct AppState {
     /// AD-143: required global per-day spend cap across model and connector
     /// calls. The lane gate and usage reservations read this kernel setting.
     pub spend_cap: crate::config::SpendCapConfig,
-    pub conversation_locks:
-        parking_lot::Mutex<std::collections::HashMap<i64, std::sync::Arc<tokio::sync::Mutex<()>>>>,
+    pub conversation_locks: parking_lot::Mutex<
+        std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
+    >,
     /// `(kind, id)` identities loaded from base fixtures before overlay merge.
     pub base_artifact_ids: std::collections::HashSet<(String, String)>,
     /// Digest of sorted active base artifacts reviewed by owner taps.
@@ -167,11 +183,27 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn lock_conversation(&self, chat_id: i64) -> tokio::sync::OwnedMutexGuard<()> {
+    /// The channel-neutral surface for the configured Telegram owner chat.
+    /// Kernel-origin notifications (startup notices, headless escalations,
+    /// scheduled miners) have no inbound update to mint a surface from, so
+    /// they address the configured owner chat through this one helper instead
+    /// of passing its integer around.
+    pub fn telegram_owner_surface(&self) -> OwnerSurfaceRef {
+        crate::telegram::telegram_owner_surface(self.owner_principal_id, self.owner_user_id)
+    }
+
+    /// Serialize concurrent owner turns per authenticated owner surface. Keyed
+    /// on the surface's channel-neutral serialization so the Telegram lane and
+    /// the local terminal lane never share (or steal) each other's lock.
+    pub async fn lock_conversation(
+        &self,
+        owner_surface: &OwnerSurfaceRef,
+    ) -> tokio::sync::OwnedMutexGuard<()> {
+        let key = serde_json::to_string(owner_surface).unwrap_or_default();
         let lock = {
             let mut locks = self.conversation_locks.lock();
             locks
-                .entry(chat_id)
+                .entry(key)
                 .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
                 .clone()
         };
@@ -405,22 +437,38 @@ pub async fn handle_owner_update(
         VerifiedUpdate::OwnerCallback { chat_id, .. } => *chat_id,
         VerifiedUpdate::Ignored { .. } => unreachable!(),
     };
+    // The Telegram adapter mints the channel-neutral surface exactly once, at
+    // the edge; everything downstream carries the surface, never the integer.
+    let owner_surface = telegram::telegram_owner_surface(state.owner_principal_id, chat_id);
 
-    let _guard = state.lock_conversation(chat_id).await;
+    let _guard = state.lock_conversation(&owner_surface).await;
 
-    let (chat_id, text, owner_verified) = match verified {
+    let (text, owner_verified) = match verified {
         VerifiedUpdate::OwnerMessage {
-            chat_id,
+            chat_id: _,
             text,
             context,
-        } => (chat_id, text, Some(context)),
+        } => (text, Some(context)),
         VerifiedUpdate::OwnerCallback {
-            chat_id,
+            chat_id: _,
             callback_query_id,
             data,
             context: _,
         } => {
-            if let Some((pending_id, allow)) = telegram::parse_standing_rule_callback(&data) {
+            if let Some((review_id, intent, digest_token)) =
+                telegram::parse_owner_review_callback(&data)
+            {
+                owner_review_telegram::handle_owner_review_callback(
+                    state,
+                    &owner_surface,
+                    &callback_query_id,
+                    review_id,
+                    &digest_token,
+                    intent,
+                )
+                .await?;
+            } else if let Some((pending_id, allow)) = telegram::parse_standing_rule_callback(&data)
+            {
                 let changed = state.store.resolve_pending_action(
                     &pending_id.to_string(),
                     allow,
@@ -434,7 +482,7 @@ pub async fn handle_owner_update(
                     .await?;
                 crate::pipeline::notify_owner_best_effort(
                     state,
-                    chat_id,
+                    &owner_surface,
                     if changed {
                         "Standing-rule request resolved."
                     } else {
@@ -445,7 +493,7 @@ pub async fn handle_owner_update(
             } else if let Some(action_request_id) = telegram::parse_approve_callback(&data) {
                 handle_draft_approval_callback(
                     state,
-                    chat_id,
+                    &owner_surface,
                     &callback_query_id,
                     action_request_id,
                 )
@@ -453,7 +501,7 @@ pub async fn handle_owner_update(
             } else if let Some(action_request_id) = telegram::parse_approve_plan_callback(&data) {
                 handle_plan_approval_callback(
                     state,
-                    chat_id,
+                    &owner_surface,
                     &callback_query_id,
                     action_request_id,
                 )
@@ -494,7 +542,38 @@ pub async fn handle_owner_update(
         }
         VerifiedUpdate::Ignored { .. } => unreachable!(),
     };
-    match crate::secret_intake::capture(state, chat_id, &text).await {
+    match owner_review_commands::handle_owner_review_command(
+        state,
+        &owner_surface,
+        &text,
+        Timestamp::now(),
+    ) {
+        Ok(Some(reply)) => {
+            notify_owner_best_effort(state, &owner_surface, &reply).await;
+            return Ok(None);
+        }
+        Err(error) if text.starts_with("/review") => {
+            state.store.append_audit(
+                "owner_review.decision_refused",
+                None,
+                None,
+                Some(&error.to_string()),
+                None,
+                &[],
+                &[],
+            )?;
+            notify_owner_best_effort(
+                state,
+                &owner_surface,
+                &format!("Review decision refused: {error}"),
+            )
+            .await;
+            return Ok(None);
+        }
+        Ok(None) => {}
+        Err(error) => return Err(error),
+    }
+    match crate::secret_intake::capture(state, &owner_surface, &text).await {
         Ok(Some(outcome)) => {
             let response = match outcome {
                 crate::secret_intake::CaptureOutcome::Stored(
@@ -517,7 +596,7 @@ pub async fn handle_owner_update(
                     "Secret message discarded; intake expired, failed validation, or was not bound to this chat. Retry."
                 }
             };
-            notify_owner_best_effort(state, chat_id, response).await;
+            notify_owner_best_effort(state, &owner_surface, response).await;
             return Ok(None);
         }
         Ok(None) => {}
@@ -526,7 +605,7 @@ pub async fn handle_owner_update(
             tracing::warn!(error = %err, "secret capture failed; pending state cleared");
             notify_owner_best_effort(
                 state,
-                chat_id,
+                &owner_surface,
                 "Secret capture failed; intake was cleared. Retry.",
             )
             .await;
@@ -540,7 +619,7 @@ pub async fn handle_owner_update(
                 .expect("verified owner message carries proof");
             let armed = crate::secret_intake::arm(
                 state,
-                chat_id,
+                &owner_surface,
                 state.owner_principal_id,
                 proof,
                 mode,
@@ -551,11 +630,11 @@ pub async fn handle_owner_update(
             } else {
                 "Secret mode was denied; retry after verifying owner authority."
             };
-            notify_owner_best_effort(state, chat_id, response).await;
+            notify_owner_best_effort(state, &owner_surface, response).await;
         } else {
             notify_owner_best_effort(
                 state,
-                chat_id,
+                &owner_surface,
                 "Invalid /secret command. Use /secret intake <slot> or /secret rotate <slot>.",
             )
             .await;
@@ -600,12 +679,12 @@ pub async fn handle_owner_update(
                             .store
                             .resolve_disclosure_pending_question(&pending_id, now)
                         {
-                            notify_owner_best_effort(state, chat_id, "Disclosure answer was recorded, but cleanup failed; retry is required.").await;
+                            notify_owner_best_effort(state, &owner_surface, "Disclosure answer was recorded, but cleanup failed; retry is required.").await;
                             tracing::error!(error = %err, %pending_id, "disclosure pending-question cleanup failed");
                         } else {
                             notify_owner_best_effort(
                                 state,
-                                chat_id,
+                                &owner_surface,
                                 match mode {
                                     0 => "Disclosure authorized for this relationship and channel.",
                                     1 => "Disclosure authorized for this query only.",
@@ -619,7 +698,7 @@ pub async fn handle_owner_update(
                         tracing::error!(error = %err, %pending_id, "disclosure owner answer failed");
                         notify_owner_best_effort(
                             state,
-                            chat_id,
+                            &owner_surface,
                             "Disclosure answer could not be recorded; the question remains open.",
                         )
                         .await;
@@ -627,12 +706,20 @@ pub async fn handle_owner_update(
                 }
             }
             Ok(None) => {
-                notify_owner_best_effort(state, chat_id, "Unknown or expired disclosure question.")
-                    .await;
+                notify_owner_best_effort(
+                    state,
+                    &owner_surface,
+                    "Unknown or expired disclosure question.",
+                )
+                .await;
             }
             Err(_) => {
-                notify_owner_best_effort(state, chat_id, "Could not resolve disclosure question.")
-                    .await;
+                notify_owner_best_effort(
+                    state,
+                    &owner_surface,
+                    "Could not resolve disclosure question.",
+                )
+                .await;
             }
         }
         return Ok(None);
@@ -640,8 +727,12 @@ pub async fn handle_owner_update(
 
     if let Some(args) = telegram::parse_digest_namespace(&text) {
         if !args.is_empty() && telegram::parse_digest_detail_command(&text).is_none() {
-            notify_owner_best_effort(state, chat_id, "Usage: /digest or /digest <ULID> [page]")
-                .await;
+            notify_owner_best_effort(
+                state,
+                &owner_surface,
+                "Usage: /digest or /digest <ULID> [page]",
+            )
+            .await;
             return Ok(None);
         }
     }
@@ -658,7 +749,7 @@ pub async fn handle_owner_update(
         );
         let message = result.unwrap_or_else(|err| err);
         if !message.is_empty() {
-            notify_owner_best_effort(state, chat_id, &message).await;
+            notify_owner_best_effort(state, &owner_surface, &message).await;
         }
         return Ok(None);
     }
@@ -705,7 +796,7 @@ pub async fn handle_owner_update(
             None => "Usage: /skill install <skill-json> (owner verification required)".to_string(),
         };
         if !message.is_empty() {
-            notify_owner_best_effort(state, chat_id, &message).await;
+            notify_owner_best_effort(state, &owner_surface, &message).await;
         }
         return Ok(None);
     }
@@ -797,7 +888,7 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
                         // content before deciding).
                         let outcome = crate::pipeline::notify_owner_with_digest(
                             state,
-                            chat_id,
+                            &owner_surface,
                             &preview_text,
                             &[],
                             None,
@@ -863,17 +954,17 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
             _ => "Usage: /promote <skill_id> <version> <approve|reject> [reason]".to_string(),
         };
         if !message.is_empty() {
-            notify_owner_best_effort(state, chat_id, &message).await;
+            notify_owner_best_effort(state, &owner_surface, &message).await;
         }
         return Ok(None);
     }
 
     if let Some((id, page)) = telegram::parse_digest_detail_command(&text) {
-        digest_pagination::handle_detail_command(state, chat_id, id, page).await?;
+        digest_pagination::handle_detail_command(state, &owner_surface, id, page).await?;
         return Ok(None);
     }
     if telegram::parse_digest_command(&text) {
-        digest_pagination::handle_command(state, chat_id).await?;
+        digest_pagination::handle_command(state, &owner_surface).await?;
         return Ok(None);
     }
 
@@ -889,7 +980,7 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
         owner_control_lane()
     };
     let inputs = EventInputs {
-        chat_id,
+        owner_surface,
         text,
         thread_id,
         owner_verified,
@@ -912,10 +1003,40 @@ pub async fn handle_terminal_message(
     state: &AppState,
     text: String,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let chat_id = state.owner_user_id;
-    let _guard = state.lock_conversation(chat_id).await;
+    let owner_surface = OwnerSurfaceRef::authenticated_terminal(state.owner_principal_id);
+    let _guard = state.lock_conversation(&owner_surface).await;
+    match owner_review_commands::handle_owner_review_command(
+        state,
+        &owner_surface,
+        &text,
+        Timestamp::now(),
+    ) {
+        Ok(Some(reply)) => {
+            if let Some(tx) = &state.terminal_reply_tx {
+                let _ = tx.send(reply);
+            }
+            return Ok(None);
+        }
+        Err(error) if text.starts_with("/review") => {
+            state.store.append_audit(
+                "owner_review.decision_refused",
+                None,
+                None,
+                Some(&error.to_string()),
+                None,
+                &[],
+                &[],
+            )?;
+            if let Some(tx) = &state.terminal_reply_tx {
+                let _ = tx.send(format!("Review decision refused: {error}"));
+            }
+            return Ok(None);
+        }
+        Ok(None) => {}
+        Err(error) => return Err(error),
+    }
     let inputs = EventInputs {
-        chat_id,
+        owner_surface,
         text,
         thread_id: None,
         owner_verified: None,

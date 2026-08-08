@@ -69,7 +69,11 @@ fn mint_topup_grant(state: &AppState, allow_topup: bool) -> TaskGrant {
         .unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending_ref, OWNER_CHAT_ID)
+        .insert_task_grant(
+            &grant,
+            &pending_ref,
+            &crate::test_support::owner_surface_for(state, OWNER_CHAT_ID),
+        )
         .unwrap();
 
     let briefcase = Briefcase {

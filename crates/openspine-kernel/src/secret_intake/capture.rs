@@ -1,9 +1,10 @@
 use super::*;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// Capture a pending message. Invalid/stale state is consumed and fails closed.
 pub async fn capture(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     text: &str,
 ) -> anyhow::Result<Option<CaptureOutcome>> {
     let Some(raw) = state.store.get_kv(PENDING_KEY)? else {
@@ -32,11 +33,11 @@ pub async fn capture(
     );
     let now = Timestamp::now();
     let target_matches = digest_of_bytes(pending.slot.as_bytes()) == pending.target_digest;
-    if pending.chat_id != chat_id || pending.expires_at <= now || !target_matches {
+    if pending.owner_surface != *owner_surface || pending.expires_at <= now || !target_matches {
         state.store.delete_kv(PENDING_KEY)?;
         let reason = if !target_matches {
             "pending target binding invalid"
-        } else if pending.chat_id != chat_id {
+        } else if pending.owner_surface != *owner_surface {
             "pending chat binding invalid"
         } else {
             "pending capture expired"

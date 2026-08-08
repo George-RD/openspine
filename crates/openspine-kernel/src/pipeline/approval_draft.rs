@@ -10,6 +10,7 @@ use serde_json::json;
 use ulid::Ulid;
 
 use super::{notify_owner_best_effort, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// Actually create the Gmail draft after `gate()` confirms a matching,
 /// unexpired approval. Re-derives the recipient from a live Gmail fetch and
@@ -24,7 +25,7 @@ pub(crate) async fn create_approved_draft(
     state: &AppState,
     grant: &TaskGrant,
     request: &ActionRequest,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
 ) -> anyhow::Result<EffectOutcome> {
     let payload_ref = request
         .payload_ref
@@ -44,7 +45,7 @@ pub(crate) async fn create_approved_draft(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "The draft content changed since you approved it — please run /draft again.",
             )
             .await;
@@ -124,7 +125,7 @@ pub(crate) async fn create_approved_draft(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "Approved, but couldn't determine who to reply to.",
         )
         .await;
@@ -153,7 +154,7 @@ pub(crate) async fn create_approved_draft(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "The thread changed since you approved this draft — please run /draft again.",
         )
         .await;
@@ -253,7 +254,7 @@ pub(crate) async fn create_approved_draft(
                 &[target_ref],
                 &payload_refs,
             )?;
-            notify_owner_best_effort(state, chat_id, "Draft created in Gmail.").await;
+            notify_owner_best_effort(state, owner_surface, "Draft created in Gmail.").await;
             Ok(EffectOutcome::Executed)
         }
         Err(DispatchError::ConnectorUnavailable(err)) => {
@@ -293,7 +294,7 @@ pub(crate) fn gmail_create_draft_executor<'a>(
     state: &'a AppState,
     grant: &'a TaskGrant,
     request: &'a ActionRequest,
-    chat_id: i64,
+    owner_surface: &'a OwnerSurfaceRef,
 ) -> crate::api::effect_executors::EffectExecutorFuture<'a> {
-    Box::pin(create_approved_draft(state, grant, request, chat_id))
+    Box::pin(create_approved_draft(state, grant, request, owner_surface))
 }

@@ -6,7 +6,6 @@
 //! artifact registry and a fully wired [`AppState`] — duplication would
 //! drift as the fixtures evolve.
 
-#[cfg(test)]
 pub(crate) mod fixtures {
     use std::path::Path;
     use std::time::Duration;
@@ -216,4 +215,30 @@ pub(crate) mod fixtures {
             None,
         )
     }
+}
+
+/// The channel-neutral owner surface a Telegram-bound test grant carries.
+/// Mirrors exactly what `handle_owner_update` mints at the adapter edge, so a
+/// fixture grant compares equal to a production-minted binding.
+pub(crate) fn owner_surface_for(
+    state: &crate::pipeline::AppState,
+    chat_id: i64,
+) -> openspine_schemas::owner_surface::OwnerSurfaceRef {
+    crate::telegram::telegram_owner_surface(state.owner_principal_id, chat_id)
+}
+
+/// Standalone Telegram owner surface for store-level fixtures that have no
+/// `AppState`. The principal is fixed and arbitrary: store rows only need a
+/// well-formed, stable binding, and surfaces for different chats still differ.
+pub(crate) fn telegram_surface(chat_id: i64) -> openspine_schemas::owner_surface::OwnerSurfaceRef {
+    crate::telegram::telegram_owner_surface(ulid::Ulid::from_parts(0, 1), chat_id)
+}
+
+/// The Telegram owner surface fixture grants bind to (chat 555, the id every
+/// fixture `owner_update` arrives on). One shared helper so a channel-neutral
+/// binding does not bloat every call site.
+pub(crate) fn owner_surface(
+    state: &crate::pipeline::AppState,
+) -> openspine_schemas::owner_surface::OwnerSurfaceRef {
+    owner_surface_for(state, 555)
 }

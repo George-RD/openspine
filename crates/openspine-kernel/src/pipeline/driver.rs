@@ -59,7 +59,7 @@ pub async fn run_pipeline(
     let preflight_snapshot = match (spec.preflight)(state, inputs, spec.lane, now).await {
         Ok(snapshot) => snapshot,
         Err(failure) => {
-            emit_preflight_failure(state, inputs.chat_id, failure).await?;
+            emit_preflight_failure(state, &inputs.owner_surface, failure).await?;
             return Ok(None);
         }
     };
@@ -197,7 +197,7 @@ pub(crate) async fn run_pipeline_with_envelope(
                 principal_id,
                 spec.purpose,
                 now,
-                inputs.chat_id,
+                &inputs.owner_surface,
             )
             .await?
             else {
@@ -293,7 +293,7 @@ pub(crate) async fn run_pipeline_with_envelope(
                     )?;
                     crate::failure_surfacing::notify_immediate_failure(
                         state,
-                        inputs.chat_id,
+                        &inputs.owner_surface,
                         crate::failure_surfacing::FailureClass::Authority,
                         &format!("Authority denied: {reason}"),
                     )
@@ -313,7 +313,7 @@ pub(crate) async fn run_pipeline_with_envelope(
                     )?;
                     crate::failure_surfacing::notify_immediate_failure(
                         state,
-                        inputs.chat_id,
+                        &inputs.owner_surface,
                         crate::failure_surfacing::FailureClass::Authority,
                         &summary,
                     )
@@ -334,7 +334,7 @@ pub(crate) async fn run_pipeline_with_envelope(
                     )?;
                     crate::failure_surfacing::notify_immediate_failure(
                         state,
-                        inputs.chat_id,
+                        &inputs.owner_surface,
                         crate::failure_surfacing::FailureClass::Escalation,
                         summary,
                     )
@@ -365,7 +365,7 @@ pub(crate) async fn run_pipeline_with_envelope(
         )?;
         crate::failure_surfacing::notify_immediate_failure(
             state,
-            inputs.chat_id,
+            &inputs.owner_surface,
             crate::failure_surfacing::FailureClass::Authority,
             "Grant HMAC key is not configured",
         )
@@ -392,7 +392,7 @@ pub(crate) async fn run_pipeline_with_envelope(
             dispatch_key,
             &grant,
             &pending_ref,
-            inputs.chat_id,
+            &inputs.owner_surface,
             &token_ref,
             inputs.dispatch_timer_id.as_deref().unwrap_or_default(),
             inputs.correlated_task_id,
@@ -416,7 +416,7 @@ pub(crate) async fn run_pipeline_with_envelope(
         let insert_result = state.store.insert_grant_and_briefcase_atomic(
             &grant,
             &pending_ref,
-            inputs.chat_id,
+            &inputs.owner_surface,
             &briefcase,
         );
         if let Err(err) = insert_result {

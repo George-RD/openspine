@@ -245,6 +245,19 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE standing_rule_pending_actions ADD COLUMN owner_attention_since INTEGER",
     )?;
+    // add-channel-neutral-responsibility-review: the channel-neutral,
+    // principal-bound owner surface reference that replaces `bound_chat_id`.
+    // Additive and idempotent, so a legacy file converges here before the
+    // destructive v7 rebuild drops the old column; legacy rows stay NULL and
+    // every reader fails closed on them.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE task_grants ADD COLUMN owner_surface_json TEXT",
+    )?;
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE standing_rule_pending_actions ADD COLUMN owner_surface_json TEXT",
+    )?;
     // implement-standing-rules: re-key the pending-fingerprint uniqueness to
     // include `rule_version` so a reactivated version with the same stable
     // request identity gets its own pending row/timer (idempotency is now
@@ -291,6 +304,10 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
     // egress gate and carrying the owner-approved carve-outs (AD-002/AD-146,
     // AD-133 answer → D-107 standing rule with carve-outs).
     super::disclosure_policies::ensure_schema(conn)?;
+    // add-channel-neutral-responsibility-review (#129): the owner-review row
+    // table (additive; idempotent CREATE TABLE IF NOT EXISTS per AD-139
+    // ad-hoc lane).
+    super::owner_review::ensure_schema(conn)?;
     Ok(())
 }
 
@@ -323,7 +340,7 @@ pub(super) fn latest_user_version() -> i64 {
         .max(BASELINE_USER_VERSION)
 }
 
-fn read_user_version(conn: &Connection) -> Result<i64, StoreError> {
+pub(super) fn read_user_version(conn: &Connection) -> Result<i64, StoreError> {
     Ok(conn.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))?)
 }
 

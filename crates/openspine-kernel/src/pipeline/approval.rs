@@ -16,6 +16,7 @@ use ulid::Ulid;
 
 use super::post_approval::resolve_post_approval_handler;
 use super::{notify_owner_best_effort, AppState};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 #[path = "approval_draft.rs"]
 mod approval_draft;
 pub(super) use approval_draft::create_approved_draft;
@@ -38,7 +39,7 @@ const APPROVAL_TTL: std::time::Duration = std::time::Duration::from_secs(300);
 /// infrastructure failure (store I/O) surfaces as `Err`.
 pub(super) async fn handle_draft_approval_callback(
     state: &AppState,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     callback_query_id: &str,
     action_request_id: Ulid,
 ) -> anyhow::Result<()> {
@@ -79,7 +80,12 @@ pub(super) async fn handle_draft_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "That approval request is no longer valid.").await;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "That approval request is no longer valid.",
+        )
+        .await;
         return Ok(());
     };
     // artifact.reconfirm requests are minted at startup with a reserved
@@ -99,13 +105,13 @@ pub(super) async fn handle_draft_approval_callback(
                     let pending_ref = state.artifacts.put(b"reconfirm-synthetic-pending")?.clone();
                     state
                         .store
-                        .insert_task_grant(&grant, &pending_ref, chat_id)?;
+                        .insert_task_grant(&grant, &pending_ref, owner_surface)?;
                 }
             }
         }
     }
 
-    let Some((grant, _pending_ref, bound_chat_id)) =
+    let Some((grant, _pending_ref, bound_surface)) =
         state.store.find_task_grant_by_id(request.task_grant_id)?
     else {
         state.store.append_audit(
@@ -117,19 +123,19 @@ pub(super) async fn handle_draft_approval_callback(
             &[],
             &[],
         )?;
-        notify_owner_best_effort(state, chat_id, "The task behind that draft is gone.").await;
+        notify_owner_best_effort(state, owner_surface, "The task behind that draft is gone.").await;
         return Ok(());
     };
 
     // Channel binding by construction (same principle as
     // `telegram.reply:owner_channel`'s bound-chat check): only the grant's
     // own bound chat may approve the request it proposed.
-    if bound_chat_id != chat_id {
+    if bound_surface != *owner_surface {
         state.store.append_audit(
             "draft.approval_channel_mismatch",
             Some(&request.action),
             None,
-            Some("callback chat_id does not match the grant's bound chat"),
+            Some("callback owner_surface does not match the grant's bound chat"),
             Some(grant.id),
             &[],
             &[],
@@ -183,7 +189,7 @@ pub(super) async fn handle_draft_approval_callback(
         )?;
         notify_owner_best_effort(
             state,
-            chat_id,
+            owner_surface,
             "That draft proposal is malformed and cannot be approved.",
         )
         .await;
@@ -236,7 +242,7 @@ pub(super) async fn handle_draft_approval_callback(
     match outcome.decision {
         GateDecision::Allow => {
             let handler = resolve_post_approval_handler(&request);
-            handler(state, &grant, &request, chat_id).await
+            handler(state, &grant, &request, owner_surface).await
         }
         other => {
             state.store.append_audit(
@@ -250,7 +256,7 @@ pub(super) async fn handle_draft_approval_callback(
             )?;
             notify_owner_best_effort(
                 state,
-                chat_id,
+                owner_surface,
                 "Couldn't approve that draft — please run /draft again.",
             )
             .await;

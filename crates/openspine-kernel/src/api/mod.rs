@@ -33,7 +33,7 @@ pub(crate) mod plan;
 mod proposal;
 mod scoped_admission;
 mod task;
-mod telegram_truncate;
+pub(crate) mod telegram_truncate;
 mod webhook;
 
 #[cfg(test)]
@@ -98,6 +98,7 @@ use openspine_gate::GateContext;
 use openspine_schemas::approval::ApprovalRecord;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::selection::SelectionToken;
 use serde_json::{json, Value};
 use ulid::Ulid;
@@ -181,7 +182,7 @@ fn bearer_token(headers: &HeaderMap) -> Option<&str> {
 pub(crate) async fn authenticate(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<(TaskGrant, ArtifactRef, i64), (StatusCode, Json<Value>)> {
+) -> Result<(TaskGrant, ArtifactRef, OwnerSurfaceRef), (StatusCode, Json<Value>)> {
     let Some(token) = bearer_token(headers) else {
         if let Err(err) = state.store.append_audit(
             "auth.rejected",
@@ -197,11 +198,28 @@ pub(crate) async fn authenticate(
         return Err(unauthorized());
     };
 
-    let found = state
-        .store
-        .find_task_grant_by_token(token)
-        .map_err(internal_error)?;
-    let Some((grant, pending_ref, bound_chat_id)) = found else {
+    let found = match state.store.find_task_grant_by_token(token) {
+        Ok(found) => found,
+        // A grant whose channel-neutral owner binding is missing or unreadable
+        // (a pre-v7 row, or a corrupt one) is refused like an unknown token
+        // rather than resurrected against a surface nobody authenticated.
+        Err(crate::store::StoreError::BadOwnerSurface(reason)) => {
+            if let Err(err) = state.store.append_audit(
+                "auth.rejected",
+                None,
+                None,
+                Some(&format!("unbound_owner_surface: {reason}")),
+                None,
+                &[],
+                &[],
+            ) {
+                return Err(internal_error(err));
+            }
+            return Err(unauthorized());
+        }
+        Err(err) => return Err(internal_error(err)),
+    };
+    let Some((grant, pending_ref, owner_surface)) = found else {
         if let Err(err) = state.store.append_audit(
             "auth.rejected",
             None,
@@ -245,7 +263,7 @@ pub(crate) async fn authenticate(
         return Err(unauthorized());
     }
 
-    Ok((grant, pending_ref, bound_chat_id))
+    Ok((grant, pending_ref, owner_surface))
 }
 
 // ---- GET /v1/status -------------------------------------------------------

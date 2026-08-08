@@ -44,7 +44,7 @@ pub(super) async fn get_task(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Json<TaskViewBody>, (StatusCode, Json<Value>)> {
-    let (grant, pending_ref, _bound_chat_id) = authenticate(&state, &headers).await?;
+    let (grant, pending_ref, _owner_surface) = authenticate(&state, &headers).await?;
     let pending_bytes = state.artifacts.get(&pending_ref).map_err(internal_error)?;
     let pending_message = String::from_utf8_lossy(&pending_bytes).into_owned();
 
@@ -194,7 +194,7 @@ mod tests {
             &grant,
             &pending,
             &token_ref,
-            state.owner_user_id,
+            &state.telegram_owner_surface(),
             &briefcase(),
             "task-view-dispatch",
             &Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap(),

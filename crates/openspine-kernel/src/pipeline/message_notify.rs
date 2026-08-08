@@ -5,6 +5,7 @@ use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::grant::{GrantLimits, TaskGrant};
+use openspine_schemas::owner_surface::{OwnerSurfaceKind, OwnerSurfaceRef};
 use ulid::Ulid;
 
 use super::AppState;
@@ -18,17 +19,29 @@ pub(crate) enum NotifyOutcome {
     GateDenied,
     AttemptAuditFailed,
     SendFailed,
+    /// The bound owner surface has no Telegram delivery adapter; the caller
+    /// must route it through [`notify_owner_surface_required`] instead of
+    /// fabricating a chat id for it.
+    SurfaceUnsupported,
     DeadLetterPersistFailed,
     OutcomeAuditFailed,
 }
 
 pub(crate) async fn notify_owner_with_digest(
     state: &AppState,
-    chat_id: i64,
+    surface: &OwnerSurfaceRef,
     text: &str,
     digest_item_ids: &[Ulid],
     detail: Option<&DetailReceipt>,
 ) -> NotifyOutcome {
+    // This is the Telegram notification adapter: it hard-codes the Telegram
+    // connector, breaker, and dead-letter row. Resolving the surface once here
+    // is what keeps every caller channel-neutral, and a surface Telegram cannot
+    // address fails closed instead of being delivered somewhere else.
+    if let Err(err) = crate::telegram::telegram_chat_id(surface) {
+        record_notify_skipped(state, &err.to_string());
+        return NotifyOutcome::SurfaceUnsupported;
+    }
     let now = Timestamp::now();
     let Some(notify_grant) = kernel_notify_grant() else {
         record_notify_skipped(state, "notify grant unavailable (HMAC key unset)");
@@ -109,7 +122,7 @@ pub(crate) async fn notify_owner_with_digest(
         "telegram",
         &request.action,
         &notify_grant,
-        state.connectors.telegram().send_reply(chat_id, text),
+        state.connectors.telegram().send_reply(surface, text),
     )
     .await;
     match send_result {
@@ -172,6 +185,14 @@ pub(crate) async fn notify_owner_with_digest(
                     return NotifyOutcome::DeadLetterPersistFailed;
                 }
             };
+            // A dead-letter is Telegram-adapter storage; resolve the chat id
+            // at this adapter boundary. A non-Telegram surface has no
+            // Telegram address to retry, so there is nothing to enqueue and
+            // we fail closed to SendFailed.
+            let Some(chat_id) = crate::telegram::telegram_chat_id(surface).ok() else {
+                tracing::warn!(surface = ?surface.kind(), "notification send failed on a non-Telegram surface; no dead-letter to enqueue");
+                return NotifyOutcome::SendFailed;
+            };
             if let Err(record_err) = state.store.record_notify_failure_with_digest(
                 chat_id,
                 &text_ref,
@@ -208,22 +229,69 @@ pub(crate) async fn notify_owner_with_digest(
 /// `action.escalated`).
 pub(crate) async fn notify_owner_required_outcome(
     state: &AppState,
-    chat_id: i64,
+    surface: &OwnerSurfaceRef,
     text: &str,
 ) -> NotifyOutcome {
-    notify_owner_with_digest(state, chat_id, text, &[], None).await
+    notify_owner_with_digest(state, surface, text, &[], None).await
 }
 
 pub(crate) async fn notify_owner_required(
     state: &AppState,
-    chat_id: i64,
+    surface: &OwnerSurfaceRef,
     text: &str,
 ) -> Result<(), crate::store::StoreError> {
-    match notify_owner_required_outcome(state, chat_id, text).await {
+    match notify_owner_required_outcome(state, surface, text).await {
         NotifyOutcome::Sent => Ok(()),
         other => Err(crate::store::StoreError::OwnerNotificationFailed(format!(
             "required owner notification did not reach Sent: {other:?}"
         ))),
+    }
+}
+
+/// Mandatory owner delivery addressed by the grant's channel-neutral
+/// [`OwnerSurfaceRef`] rather than by a chat integer.
+///
+/// This is the seam every *grant-bound* caller uses: it routes to whichever
+/// authenticated owner surface the grant was actually bound to, so a terminal
+/// owner is told on the terminal instead of the escalation being fired at a
+/// Telegram chat the terminal lane never authenticated. Telegram delivery
+/// reuses [`notify_owner_required`] verbatim — the gate, audit, breaker,
+/// counter, and dead-letter behavior are unchanged — after the Telegram
+/// adapter, and only the Telegram adapter, renders the surface into a chat id.
+pub(crate) async fn notify_owner_surface_required(
+    state: &AppState,
+    owner_surface: &OwnerSurfaceRef,
+    text: &str,
+) -> Result<(), crate::store::StoreError> {
+    match owner_surface.kind() {
+        OwnerSurfaceKind::TelegramPrivate => {
+            notify_owner_required(state, owner_surface, text).await
+        }
+        OwnerSurfaceKind::LocalTerminal => {
+            let sender = state.terminal_reply_tx.as_ref().ok_or_else(|| {
+                crate::store::StoreError::OwnerNotificationFailed(
+                    "terminal owner surface has no active local chat".to_string(),
+                )
+            })?;
+            sender.send(text.to_string()).map_err(|_| {
+                crate::store::StoreError::OwnerNotificationFailed(
+                    "terminal owner chat receiver closed".to_string(),
+                )
+            })?;
+            state.store.append_audit(
+                "owner.notify_attempted",
+                Some(&ActionId::new("owner.notify")),
+                None,
+                Some("local_terminal"),
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(())
+        }
+        OwnerSurfaceKind::WebOrMobile => Err(crate::store::StoreError::OwnerNotificationFailed(
+            "no delivery adapter is registered for a web/mobile owner surface".to_string(),
+        )),
     }
 }
 
@@ -246,8 +314,12 @@ fn record_notify_skipped(state: &AppState, reason: &str) {
 }
 
 /// Compatibility wrapper for notifications with no digest batch metadata.
-pub(crate) async fn notify_owner_best_effort(state: &AppState, chat_id: i64, text: &str) {
-    let _ = notify_owner_with_digest(state, chat_id, text, &[], None).await;
+pub(crate) async fn notify_owner_best_effort(
+    state: &AppState,
+    surface: &OwnerSurfaceRef,
+    text: &str,
+) {
+    let _ = notify_owner_with_digest(state, surface, text, &[], None).await;
 }
 
 /// Synthetic grant for kernel-origin `owner.notify` (D-055.2). `gate()` with

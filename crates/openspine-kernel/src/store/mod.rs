@@ -33,11 +33,20 @@ use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use ulid::Ulid;
 
 pub(crate) const OWNER_APPROVAL_GATE_REASON: &str = "owner-approved request re-gated";
+
+/// The one statement that writes a `task_grants` row. Shared by every insert
+/// site (direct, dispatch-handoff, worker commission, briefcase-atomic) so the
+/// grant's persisted column list — including its channel-neutral
+/// `owner_surface_json` binding — is defined in exactly one place.
+pub(super) const TASK_GRANT_INSERT_SQL: &str = "INSERT INTO task_grants \
+     (id, task_token, expires_at, grant_json, pending_message_digest, owner_surface_json) \
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)";
 
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS task_grants (
@@ -47,7 +56,10 @@ CREATE TABLE IF NOT EXISTS task_grants (
     expires_at TEXT NOT NULL,
     grant_json TEXT NOT NULL,
     pending_message_digest TEXT NOT NULL,
-    bound_chat_id INTEGER NOT NULL
+    -- Channel-neutral, principal-bound owner surface (serialized
+    -- `OwnerSurfaceRef`). NULL only on a pre-v7 legacy row, which every
+    -- reader refuses rather than promoting a bare chat id into a binding.
+    owner_surface_json TEXT
 );
 CREATE TABLE IF NOT EXISTS grant_counters (
     grant_id TEXT PRIMARY KEY,
@@ -247,8 +259,45 @@ pub enum StoreError {
     SkillProvenanceMismatch(String),
     #[error("unsupported skill schema version: {0}")]
     UnsupportedSkillSchemaVersion(u32),
+    /// A pre-v7 grant or pending row whose owner binding predates the
+    /// channel-neutral surface reference. A bare chat id cannot be promoted
+    /// into a principal-bound surface, so the row is refused rather than
+    /// guessed at (fail closed).
+    #[error("owner surface binding is missing or unreadable: {0}")]
+    BadOwnerSurface(String),
     #[error("task not found: {0}")]
     TaskNotFound(Ulid),
+}
+
+/// Rebuild a persisted grant row, refusing any row whose channel-neutral
+/// owner binding is absent or unreadable. A pre-v7 legacy row carries
+/// `owner_surface_json = NULL`: the migration deliberately does not invent a
+/// principal-bound surface from the Telegram chat integer it dropped, so such
+/// a grant fails closed here instead of silently authorizing replies to a
+/// surface nobody authenticated.
+fn hydrate_task_grant(
+    grant_json: String,
+    digest: String,
+    surface_json: Option<String>,
+) -> Result<(TaskGrant, ArtifactRef, OwnerSurfaceRef), StoreError> {
+    // The owner binding is checked first: a row with no authenticated surface
+    // is refused before anything else is read from it, so an unbound grant can
+    // never be resolved far enough to authorize a reply.
+    let surface_json = surface_json
+        .ok_or_else(|| StoreError::BadOwnerSurface("task_grants.owner_surface_json".into()))?;
+    let owner_surface: OwnerSurfaceRef = serde_json::from_str(&surface_json)
+        .map_err(|err| StoreError::BadOwnerSurface(err.to_string()))?;
+    let grant: TaskGrant = serde_json::from_str(&grant_json)?;
+    let digest = Digest::parse(digest)
+        .map_err(|_| StoreError::BadDigest("pending_message_digest".into()))?;
+    Ok((
+        grant,
+        ArtifactRef {
+            digest,
+            schema_version: 1,
+        },
+        owner_surface,
+    ))
 }
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
@@ -353,16 +402,18 @@ impl Store {
     /// host operator can read back via `ps`/`docker inspect`); the shell
     /// fetches it in-process over the authenticated `GET /v1/task` call.
     ///
-    /// `bound_chat_id` is the Telegram chat this grant's replies must go
-    /// to — the reply dispatcher (Step 4's `telegram.reply:owner_channel`
-    /// handler) checks every outgoing reply's target chat against this
-    /// before ever calling the connector, denying with
-    /// `ChannelBindingViolation` on any mismatch (spec.md).
+    /// `owner_surface` is the channel-neutral, principal-bound owner surface
+    /// this grant's replies must go to — the reply dispatcher (Step 4's
+    /// `telegram.reply:owner_channel` handler) compares every outgoing
+    /// reply's target surface against this before ever calling a connector,
+    /// denying with `ChannelBindingViolation` on any mismatch (spec.md). It
+    /// replaces the Telegram-shaped `bound_chat_id` a generic seam must never
+    /// carry; only the Telegram adapter renders a surface into a chat id.
     pub fn insert_task_grant(
         &self,
         grant: &TaskGrant,
         pending_message_ref: &ArtifactRef,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
     ) -> Result<(), StoreError> {
         // D-047: sweep grants that expired well over a day ago before
         // inserting the new one — no separate scheduled job exists yet, so
@@ -375,14 +426,14 @@ impl Store {
         redacted.task_token = String::new();
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO task_grants (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            TASK_GRANT_INSERT_SQL,
             params![
                 grant.id.to_string(),
                 budget_support::hash_task_token(&grant.task_token),
                 sql_timestamp(grant.expires_at),
                 serde_json::to_string(&redacted)?,
                 pending_message_ref.digest.as_str(),
-                bound_chat_id,
+                serde_json::to_string(owner_surface)?,
             ],
         )?;
         Ok(())
@@ -391,29 +442,19 @@ impl Store {
     pub fn find_task_grant_by_token(
         &self,
         token: &str,
-    ) -> Result<Option<(TaskGrant, ArtifactRef, i64)>, StoreError> {
+    ) -> Result<Option<(TaskGrant, ArtifactRef, OwnerSurfaceRef)>, StoreError> {
         let conn = self.conn.lock();
-        let row: Option<(String, String, i64)> = conn
+        let row: Option<(String, String, Option<String>)> = conn
             .query_row(
-                "SELECT grant_json, pending_message_digest, bound_chat_id FROM task_grants WHERE task_token = ?1",
+                "SELECT grant_json, pending_message_digest, owner_surface_json FROM task_grants WHERE task_token = ?1",
                 params![budget_support::hash_task_token(token)],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let Some((grant_json, digest, bound_chat_id)) = row else {
+        let Some((grant_json, digest, surface_json)) = row else {
             return Ok(None);
         };
-        let grant: TaskGrant = serde_json::from_str(&grant_json)?;
-        let digest = Digest::parse(digest)
-            .map_err(|_| StoreError::BadDigest("pending_message_digest".into()))?;
-        Ok(Some((
-            grant,
-            ArtifactRef {
-                digest,
-                schema_version: 1,
-            },
-            bound_chat_id,
-        )))
+        hydrate_task_grant(grant_json, digest, surface_json).map(Some)
     }
 
     /// Backs D-044's approved-draft dispatch: the `callback_query` handler
@@ -423,29 +464,19 @@ impl Store {
     pub fn find_task_grant_by_id(
         &self,
         id: Ulid,
-    ) -> Result<Option<(TaskGrant, ArtifactRef, i64)>, StoreError> {
+    ) -> Result<Option<(TaskGrant, ArtifactRef, OwnerSurfaceRef)>, StoreError> {
         let conn = self.conn.lock();
-        let row: Option<(String, String, i64)> = conn
+        let row: Option<(String, String, Option<String>)> = conn
             .query_row(
-                "SELECT grant_json, pending_message_digest, bound_chat_id FROM task_grants WHERE id = ?1",
+                "SELECT grant_json, pending_message_digest, owner_surface_json FROM task_grants WHERE id = ?1",
                 params![id.to_string()],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .optional()?;
-        let Some((grant_json, digest, bound_chat_id)) = row else {
+        let Some((grant_json, digest, surface_json)) = row else {
             return Ok(None);
         };
-        let grant: TaskGrant = serde_json::from_str(&grant_json)?;
-        let digest = Digest::parse(digest)
-            .map_err(|_| StoreError::BadDigest("pending_message_digest".into()))?;
-        Ok(Some((
-            grant,
-            ArtifactRef {
-                digest,
-                schema_version: 1,
-            },
-            bound_chat_id,
-        )))
+        hydrate_task_grant(grant_json, digest, surface_json).map(Some)
     }
 
     #[cfg(test)]
@@ -540,27 +571,30 @@ impl Store {
         Ok(out)
     }
 
-    /// The most recent messages for one bound owner channel and workflow,
+    /// The most recent messages for one bound owner surface and workflow,
     /// oldest first. Conversation turns remain persisted under the grant that
     /// produced them, while this query gives successive one-shot shell grants
-    /// a continuous dialogue without mixing workflows or channels.
+    /// a continuous dialogue without mixing workflows or surfaces. Matching on
+    /// the serialized surface keeps the terminal lane's history separate from
+    /// Telegram's instead of merging them under one chat integer.
     pub fn recent_conversation_for_channel_workflow(
         &self,
-        bound_chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         workflow_id: &str,
         limit: usize,
     ) -> Result<Vec<(String, Digest)>, StoreError> {
+        let surface_json = serde_json::to_string(owner_surface)?;
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
             "SELECT c.role, c.content_digest
              FROM conversation_state AS c
              JOIN task_grants AS g ON g.id = c.task_grant_id
-             WHERE g.bound_chat_id = ?1
+             WHERE g.owner_surface_json = ?1
                AND json_extract(g.grant_json, '$.workflow_id') = ?2
              ORDER BY c.seq DESC
              LIMIT ?3",
         )?;
-        let rows = stmt.query_map(params![bound_chat_id, workflow_id, limit as i64], |row| {
+        let rows = stmt.query_map(params![surface_json, workflow_id, limit as i64], |row| {
             let role: String = row.get(0)?;
             let digest: String = row.get(1)?;
             Ok((role, digest))
@@ -723,6 +757,9 @@ pub(crate) mod learned_artifacts;
 pub(crate) mod learned_reconfirmation;
 #[cfg(test)]
 mod lineage_tests;
+mod migration_owner_review;
+#[cfg(test)]
+mod migration_owner_surface_tests;
 #[cfg(test)]
 mod migration_scoped_tests;
 #[cfg(test)]
@@ -732,6 +769,11 @@ mod migrations_versioned;
 pub(crate) mod nerve;
 pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
+pub(crate) mod owner_review;
+mod owner_review_approval;
+mod owner_review_schema;
+#[cfg(test)]
+mod owner_review_tests;
 pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
 mod reflection_miner_support;
@@ -753,7 +795,12 @@ pub(crate) mod standing_rules_exceptions;
 #[cfg(test)]
 mod standing_rules_exceptions_tests;
 pub(crate) mod standing_rules_fired_token;
+mod standing_rules_lifecycle;
+#[cfg(test)]
+mod standing_rules_lifecycle_tests;
 mod standing_rules_owner_resolution;
+#[cfg(test)]
+mod standing_rules_pause_tests;
 pub(crate) mod standing_rules_pending;
 pub(crate) mod standing_rules_recovery;
 mod standing_rules_row;

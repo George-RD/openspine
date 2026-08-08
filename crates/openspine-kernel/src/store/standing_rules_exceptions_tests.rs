@@ -108,12 +108,17 @@ fn many_distinct_over_budget_requests_yield_one_exception() {
         let grant_id = Ulid::new();
         let chat = 1_000 + i64::from(i);
         let payload_ref = payload(i);
-        let fingerprint = standing_rule_fingerprint(&action, grant_id, chat, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &action,
+            grant_id,
+            &crate::test_support::telegram_surface(chat),
+            &payload_ref,
+        );
         let outcome = store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                chat,
+                &crate::test_support::telegram_surface(chat),
                 payload_ref,
                 &fingerprint,
                 None,
@@ -156,13 +161,18 @@ fn a_reviewed_allowance_of_two_admits_exactly_two() {
     for i in 0..10u8 {
         let grant_id = Ulid::new();
         let payload_ref = payload(i);
-        let fingerprint = standing_rule_fingerprint(&action, grant_id, 7, &payload_ref);
+        let fingerprint = standing_rule_fingerprint(
+            &action,
+            grant_id,
+            &crate::test_support::telegram_surface(7),
+            &payload_ref,
+        );
         if matches!(
             store
                 .schedule_standing_rule_dark_window(
                     &rule,
                     grant_id,
-                    7,
+                    &crate::test_support::telegram_surface(7),
                     payload_ref,
                     &fingerprint,
                     None,
@@ -191,14 +201,19 @@ fn repeating_one_request_consumes_no_second_slot() {
     let action = ActionId::new(ACTION);
     let grant_id = Ulid::new();
     let payload_ref = payload(1);
-    let fingerprint = standing_rule_fingerprint(&action, grant_id, 7, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &action,
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &payload_ref,
+    );
 
     for _ in 0..5 {
         store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 payload_ref.clone(),
                 &fingerprint,
                 None,
@@ -218,13 +233,18 @@ fn repeating_one_request_consumes_no_second_slot() {
 
     // The second slot is still available to a genuinely distinct request.
     let other_payload = payload(2);
-    let other_fingerprint = standing_rule_fingerprint(&action, grant_id, 7, &other_payload);
+    let other_fingerprint = standing_rule_fingerprint(
+        &action,
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &other_payload,
+    );
     assert!(matches!(
         store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 other_payload,
                 &other_fingerprint,
                 None,
@@ -249,12 +269,17 @@ fn resolving_an_exception_frees_its_slot() {
     let action = ActionId::new(ACTION);
     let grant_id = Ulid::new();
     let first = payload(1);
-    let first_fp = standing_rule_fingerprint(&action, grant_id, 7, &first);
+    let first_fp = standing_rule_fingerprint(
+        &action,
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &first,
+    );
     store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            7,
+            &crate::test_support::telegram_surface(7),
             first,
             &first_fp,
             None,
@@ -274,13 +299,18 @@ fn resolving_an_exception_frees_its_slot() {
         .unwrap();
 
     let second = payload(2);
-    let second_fp = standing_rule_fingerprint(&action, grant_id, 7, &second);
+    let second_fp = standing_rule_fingerprint(
+        &action,
+        grant_id,
+        &crate::test_support::telegram_surface(7),
+        &second,
+    );
     assert_eq!(
         store
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 second.clone(),
                 &second_fp,
                 None,
@@ -303,7 +333,7 @@ fn resolving_an_exception_frees_its_slot() {
             .schedule_standing_rule_dark_window(
                 &rule,
                 grant_id,
-                7,
+                &crate::test_support::telegram_surface(7),
                 second,
                 &second_fp,
                 None,
@@ -363,12 +393,17 @@ fn concurrent_requests_cannot_cross_the_final_slot() {
         handles.push(std::thread::spawn(move || {
             let grant_id = Ulid::new();
             let payload_ref = payload(i);
-            let fingerprint = standing_rule_fingerprint(&action, grant_id, 7, &payload_ref);
+            let fingerprint = standing_rule_fingerprint(
+                &action,
+                grant_id,
+                &crate::test_support::telegram_surface(7),
+                &payload_ref,
+            );
             let outcome = store
                 .schedule_standing_rule_dark_window(
                     &rule,
                     grant_id,
-                    7,
+                    &crate::test_support::telegram_surface(7),
                     payload_ref,
                     &fingerprint,
                     None,

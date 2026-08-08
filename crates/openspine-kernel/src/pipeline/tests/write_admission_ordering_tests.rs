@@ -61,9 +61,14 @@ async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
         "alice@example.com",
     );
 
-    let outcome = crate::pipeline::approval::create_approved_draft(&state, &grant, &request, 555)
-        .await
-        .unwrap();
+    let outcome = crate::pipeline::approval::create_approved_draft(
+        &state,
+        &grant,
+        &request,
+        &crate::test_support::owner_surface_for(&state, 555),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(
         outcome,

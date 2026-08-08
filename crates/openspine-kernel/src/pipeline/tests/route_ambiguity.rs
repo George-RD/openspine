@@ -13,9 +13,9 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 // --- wire-authority-equivalence-selection: route tie resolves through
 // authority-equivalence classes (D-109/D-110) ---
 
-fn owner_inputs() -> EventInputs {
+fn owner_inputs(state: &AppState) -> EventInputs {
     EventInputs {
-        chat_id: 555,
+        owner_surface: crate::test_support::owner_surface_for(state, 555),
         text: "hello lyra".to_string(),
         thread_id: None,
         owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
@@ -88,7 +88,7 @@ async fn tied_authority_equivalent_routes_select_within_class() {
         duplicate.id = "owner_telegram_main_assistant_v2".to_string();
         registry.routes.push(duplicate);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,
@@ -151,7 +151,7 @@ async fn tied_cross_class_routes_escalate_to_owner() {
         divergent.capability_pack = Some("plan_approval_pack".to_string());
         registry.routes.push(divergent);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,
@@ -209,7 +209,7 @@ async fn tied_route_with_missing_authority_metadata_escalates() {
         invalid.agent = Some("missing_agent".to_string());
         registry.routes.push(invalid);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,
@@ -273,7 +273,7 @@ async fn tied_route_composition_failure_escalates() {
         registry.packs.insert(invalid_pack.id.clone(), invalid_pack);
         registry.routes.push(invalid);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,
@@ -335,7 +335,7 @@ async fn tied_routes_differing_only_in_egress_escalate() {
         registry.packs.insert(broader_pack.id.clone(), broader_pack);
         registry.routes.push(broader);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,
@@ -383,7 +383,7 @@ async fn selected_class_persists_composition_snapshot_across_registry_update() {
         duplicate.id = "owner_telegram_main_assistant_v2".to_string();
         registry.routes.push(duplicate);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut lane = owner_control_lane();
     lane.route_containment_guard = widen_selected_pack_after_resolution;
     let mut trace = Vec::new();
@@ -444,7 +444,7 @@ async fn tied_routes_with_no_applicable_pack_are_silent_non_match() {
             .applies_to
             .event_type = Some(EventType::EmailThreadSelected);
     }
-    let inputs = owner_inputs();
+    let inputs = owner_inputs(&state);
     let mut trace = Vec::new();
     let result = run_pipeline(
         &state,

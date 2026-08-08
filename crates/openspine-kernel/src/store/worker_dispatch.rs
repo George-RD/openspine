@@ -16,6 +16,7 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::briefcase::Briefcase;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::worker::{WorkerIdentity, WorkerResult};
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
@@ -38,7 +39,7 @@ pub fn record_worker_commissioned(
     grant: &TaskGrant,
     pending_ref: &ArtifactRef,
     token_ref: &ArtifactRef,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     briefcase: &Briefcase,
     receipt: &str,
     request_digest: &Digest,
@@ -101,16 +102,14 @@ pub fn record_worker_commissioned(
         return Err(StoreError::WorkerRestartCapExceeded(connector.to_string()));
     }
     tx.execute(
-        "INSERT INTO task_grants
-         (id, task_token, expires_at, grant_json, pending_message_digest, bound_chat_id)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        super::TASK_GRANT_INSERT_SQL,
         params![
             grant.id.to_string(),
             super::budget_support::hash_task_token(&grant.task_token),
             sql_timestamp(grant.expires_at),
             serde_json::to_string(&redacted)?,
             pending_ref.digest.as_str(),
-            bound_chat_id,
+            serde_json::to_string(owner_surface)?,
         ],
     )?;
     tx.execute(
@@ -241,18 +240,23 @@ pub fn pending_worker_dispatches(
 /// Atomically enqueue an owner notification and mark a stranded dispatch as
 /// surfaced. A failed enqueue or conditional mark rolls back both operations,
 /// preserving eligibility for a later startup/watchdog sweep.
+///
+/// The dead-letter row is Telegram-adapter storage, so the chat id is resolved
+/// from the owner surface here, at that boundary. A non-Telegram owner surface
+/// has no Telegram address to enqueue, so the call fails closed rather than
+/// fabricating one.
 pub fn surface_stranded_worker(
     store: &Store,
-    chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     text_ref: &str,
     grant_id: Ulid,
     reason: &str,
 ) -> Result<(), StoreError> {
-    if chat_id == 0 {
-        return Err(StoreError::OwnerNotificationFailed(
-            "stranded worker notification requires a resolvable owner chat".to_string(),
-        ));
-    }
+    let chat_id = crate::telegram::telegram_chat_id(owner_surface).map_err(|err| {
+        StoreError::OwnerNotificationFailed(format!(
+            "stranded worker notification requires a resolvable owner chat: {err}"
+        ))
+    })?;
     let mut conn = store.conn.lock();
     let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
     Store::append_audit_conn(

@@ -68,14 +68,18 @@ fn deny_default_never_dispatches_and_is_terminal() {
     let grant_id = Ulid::new();
     let bound_chat_id = 7;
     let payload_ref = payload();
-    let fingerprint =
-        standing_rule_fingerprint(&rule.action_id, grant_id, bound_chat_id, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(bound_chat_id),
+        &payload_ref,
+    );
 
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            bound_chat_id,
+            &crate::test_support::telegram_surface(bound_chat_id),
             payload_ref,
             &fingerprint,
             None,
@@ -134,12 +138,17 @@ fn fired_allow_token_is_digest_bound_and_one_use() {
     let grant_id = Ulid::new();
     let chat = 9;
     let payload_ref = payload();
-    let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(chat),
+        &payload_ref,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref.clone(),
             &fingerprint,
             None,
@@ -161,7 +170,7 @@ fn fired_allow_token_is_digest_bound_and_one_use() {
             &pending.pending_id,
             &rule.action_id,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             &payload_ref,
             now + std::time::Duration::from_secs(61),
         )
@@ -202,7 +211,7 @@ fn fired_allow_token_is_digest_bound_and_one_use() {
                 &pending.pending_id,
                 &rule.action_id,
                 grant_id,
-                chat,
+                &crate::test_support::telegram_surface(chat),
                 &payload_ref,
                 now + std::time::Duration::from_secs(62),
             )
@@ -239,12 +248,17 @@ fn fired_allow_token_rejects_different_fingerprint() {
     let grant_id = Ulid::new();
     let chat = 10;
     let original_payload = payload();
-    let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &original_payload);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(chat),
+        &original_payload,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             original_payload,
             &fingerprint,
             None,
@@ -270,7 +284,7 @@ fn fired_allow_token_rejects_different_fingerprint() {
                 &pending.pending_id,
                 &rule.action_id,
                 grant_id,
-                chat,
+                &crate::test_support::telegram_surface(chat),
                 &different_payload,
                 now + std::time::Duration::from_secs(61),
             )
@@ -307,12 +321,17 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
     let grant_id = Ulid::new();
     let chat = 11;
     let payload_ref = payload();
-    let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(chat),
+        &payload_ref,
+    );
     let first = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref.clone(),
             &fingerprint,
             None,
@@ -326,7 +345,7 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref,
             &fingerprint,
             None,
@@ -350,7 +369,7 @@ fn scheduling_is_idempotent_across_terminal_resolution() {
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             None,
             &fingerprint,
             None,
@@ -393,13 +412,17 @@ fn owner_resolution_before_fire_controls_claim() {
 
     let allow_grant = Ulid::new();
     let allow_payload = payload();
-    let allow_fingerprint =
-        standing_rule_fingerprint(&rule.action_id, allow_grant, 21, &allow_payload);
+    let allow_fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        allow_grant,
+        &crate::test_support::telegram_surface(21),
+        &allow_payload,
+    );
     let allow_timer = store
         .schedule_standing_rule_dark_window(
             &rule,
             allow_grant,
-            21,
+            &crate::test_support::telegram_surface(21),
             allow_payload,
             &allow_fingerprint,
             None,
@@ -423,13 +446,17 @@ fn owner_resolution_before_fire_controls_claim() {
 
     let deny_grant = Ulid::new();
     let deny_payload = payload();
-    let deny_fingerprint =
-        standing_rule_fingerprint(&rule.action_id, deny_grant, 22, &deny_payload);
+    let deny_fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        deny_grant,
+        &crate::test_support::telegram_surface(22),
+        &deny_payload,
+    );
     let deny_timer = store
         .schedule_standing_rule_dark_window(
             &rule,
             deny_grant,
-            22,
+            &crate::test_support::telegram_surface(22),
             deny_payload,
             &deny_fingerprint,
             None,
@@ -478,12 +505,17 @@ fn allowed_pending_is_recoverable_until_consumed() {
     let grant_id = Ulid::new();
     let chat = 31;
     let payload_ref = payload();
-    let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(chat),
+        &payload_ref,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref.clone(),
             &fingerprint,
             None,
@@ -508,7 +540,7 @@ fn allowed_pending_is_recoverable_until_consumed() {
             &pending.pending_id,
             &rule.action_id,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             &payload_ref,
             now + std::time::Duration::from_secs(61),
         )
@@ -552,12 +584,17 @@ fn claimed_fired_pending_is_surfaced_once_not_redispatched() {
     let grant_id = Ulid::new();
     let chat = 41;
     let payload_ref = payload();
-    let fingerprint = standing_rule_fingerprint(&rule.action_id, grant_id, chat, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule.action_id,
+        grant_id,
+        &crate::test_support::telegram_surface(chat),
+        &payload_ref,
+    );
     let timer_id = store
         .schedule_standing_rule_dark_window(
             &rule,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref.clone(),
             &fingerprint,
             None,
@@ -579,7 +616,7 @@ fn claimed_fired_pending_is_surfaced_once_not_redispatched() {
             &pending.pending_id,
             &rule.action_id,
             grant_id,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             &payload_ref,
             now + std::time::Duration::from_secs(61),
         )
@@ -754,12 +791,17 @@ fn reactivated_version_gets_distinct_pending_timer() {
     let grant1 = Ulid::new();
     let chat = 91;
     let payload_ref = payload();
-    let fingerprint = standing_rule_fingerprint(&rule_v1.action_id, grant1, chat, &payload_ref);
+    let fingerprint = standing_rule_fingerprint(
+        &rule_v1.action_id,
+        grant1,
+        &crate::test_support::telegram_surface(chat),
+        &payload_ref,
+    );
     let timer1 = store
         .schedule_standing_rule_dark_window(
             &rule_v1,
             grant1,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref.clone(),
             &fingerprint,
             None,
@@ -782,7 +824,7 @@ fn reactivated_version_gets_distinct_pending_timer() {
         .schedule_standing_rule_dark_window(
             &rule_v2,
             grant1,
-            chat,
+            &crate::test_support::telegram_surface(chat),
             payload_ref,
             &fingerprint,
             None,

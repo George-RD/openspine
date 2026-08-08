@@ -85,7 +85,7 @@ async fn nomination_requires_explicit_depersonalized_assertion() {
         .await
         .unwrap()
         .expect("owner grant composed");
-    let err = dispatch_artifact_nominate(&state, &grant, OWNER_CHAT_ID, Some(&json!({"kind":"route","artifact_id":"nominate-route","version":1,"depersonalized":false}))).await.unwrap_err();
+    let err = dispatch_artifact_nominate(&state, &grant, &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID), Some(&json!({"kind":"route","artifact_id":"nominate-route","version":1,"depersonalized":false}))).await.unwrap_err();
     assert!(
         matches!(err, DispatchError::BadRequest(message) if message.contains("depersonalized"))
     );
@@ -106,7 +106,7 @@ async fn nomination_rejects_persona_kind_without_compatible_learned_artifact() {
     let err = dispatch_artifact_nominate(
         &state,
         &grant,
-        OWNER_CHAT_ID,
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
         Some(&json!({
             "kind": "persona",
             "artifact_id": "seed",
@@ -154,7 +154,7 @@ async fn nomination_owner_tap_persists_nominated_status_and_audit() {
         .await
         .unwrap()
         .expect("owner grant composed");
-    let result = dispatch_artifact_nominate(&state, &grant, OWNER_CHAT_ID, Some(&json!({"kind":"route","artifact_id":"nominate-route","version":1,"depersonalized":true}))).await.unwrap();
+    let result = dispatch_artifact_nominate(&state, &grant, &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID), Some(&json!({"kind":"route","artifact_id":"nominate-route","version":1,"depersonalized":true}))).await.unwrap();
     let request_id: Ulid = result["action_request_id"]
         .as_str()
         .unwrap()

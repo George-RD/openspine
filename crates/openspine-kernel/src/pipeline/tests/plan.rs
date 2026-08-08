@@ -60,7 +60,7 @@ async fn proposed_plan_fixture() -> (AppState, MockServer, ActionRequest) {
         &state,
         &grant,
         &ActionId::new("plan.propose"),
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         &plan,
     )
     .await
@@ -85,7 +85,7 @@ async fn plan_propose_approve_rederives_gate_and_resolves() {
     assert_eq!(state.store.count_action_requests().unwrap(), 1);
     crate::pipeline::plan_approval::handle_plan_approval_callback(
         &state,
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         "callback-id",
         request.id,
     )
@@ -115,7 +115,7 @@ async fn tampered_plan_artifact_is_refused_at_approval_callback() {
         .unwrap();
     crate::pipeline::plan_approval::handle_plan_approval_callback(
         &state,
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         "callback-id",
         request.id,
     )
@@ -153,7 +153,11 @@ async fn plan_proposal_budget_exhaustion_persists_no_request() {
     let pending = state.artifacts.put(b"pending").unwrap();
     state
         .store
-        .insert_task_grant(&grant, &pending, 555)
+        .insert_task_grant(
+            &grant,
+            &pending,
+            &crate::test_support::owner_surface_for(&state, 555),
+        )
         .unwrap();
     let plan = openspine_schemas::plan::Plan {
         schema_version: 1,
@@ -167,7 +171,7 @@ async fn plan_proposal_budget_exhaustion_persists_no_request() {
         &state,
         &grant,
         &ActionId::new("plan.propose"),
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         &plan,
     )
     .await;
@@ -224,7 +228,7 @@ async fn plan_preview_records_telegram_failure_counter_on_send_error() {
         &state,
         &grant,
         &ActionId::new("plan.propose"),
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         &plan,
     )
     .await;

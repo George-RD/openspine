@@ -3,6 +3,7 @@ use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::digest::{canonical_json, digest_of};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde_json::{json, Value};
 use ulid::Ulid;
 
@@ -17,7 +18,7 @@ pub(crate) async fn dispatch_plan_preview(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
-    bound_chat_id: i64,
+    owner_surface: &OwnerSurfaceRef,
     plan: &openspine_schemas::plan::Plan,
 ) -> Result<Value, DispatchError> {
     let target_digest = digest_of(&json!({"kind": "plan"}));
@@ -53,7 +54,7 @@ pub(crate) async fn dispatch_plan_preview(
             state
                 .connectors
                 .telegram()
-                .send_reply(bound_chat_id, &truncate_with_notice(&full)),
+                .send_reply(owner_surface, &truncate_with_notice(&full)),
         )
         .await?;
         return Ok(json!({"sent": true, "approval_offered": false}));
@@ -122,7 +123,7 @@ pub(crate) async fn dispatch_plan_preview(
         state
             .connectors
             .telegram()
-            .send_reply_with_plan_approval_button(bound_chat_id, &full, request.id),
+            .send_reply_with_plan_approval_button(owner_surface, &full, request.id),
     )
     .await?;
     Ok(json!({"sent": true, "approval_offered": true}))

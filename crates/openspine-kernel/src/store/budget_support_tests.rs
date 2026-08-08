@@ -46,7 +46,11 @@ fn try_count_model_call_allows_exactly_one_concurrent_winner_at_max_one() {
             schema_version: 1,
         };
         store
-            .insert_task_grant(&grant, &pending_message_ref, 555)
+            .insert_task_grant(
+                &grant,
+                &pending_message_ref,
+                &crate::test_support::telegram_surface(555),
+            )
             .unwrap();
 
         let handles: Vec<_> = (0..THREADS)

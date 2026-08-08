@@ -127,7 +127,10 @@ async fn production_intake_rotate_connector_call_integration() {
     state
         .connectors
         .telegram()
-        .send_reply(555, "connector-call-message")
+        .send_reply(
+            &crate::test_support::owner_surface_for(&state, 555),
+            "connector-call-message",
+        )
         .await
         .unwrap();
 

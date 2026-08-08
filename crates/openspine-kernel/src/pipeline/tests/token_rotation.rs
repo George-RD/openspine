@@ -62,7 +62,7 @@ async fn same_bot_token_rotation_preserves_namespaced_offset() {
     let proof = VerifiedOwnerContext::test_new();
     assert!(arm(
         &state,
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         state.owner_principal_id,
         &proof,
         SecretMode::Rotate,
@@ -127,7 +127,7 @@ async fn different_bot_token_rotation_starts_fresh_namespace() {
     let proof = VerifiedOwnerContext::test_new();
     assert!(arm(
         &state,
-        555,
+        &crate::test_support::owner_surface_for(&state, 555),
         state.owner_principal_id,
         &proof,
         SecretMode::Rotate,

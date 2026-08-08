@@ -165,7 +165,7 @@ pub async fn run_headless_hook(
     //    Route → Compose → Grant → Run). The headless lane builds the envelope
     //    itself, so it calls `run_pipeline_with_envelope` directly.
     let inputs = EventInputs {
-        chat_id: state.owner_user_id,
+        owner_surface: state.telegram_owner_surface(),
         text: String::new(),
         thread_id: None,
         owner_verified: None,
@@ -204,7 +204,7 @@ pub async fn run_headless_hook(
         state,
         &grant,
         action.clone(),
-        state.owner_user_id,
+        &state.telegram_owner_surface(),
         None,
     )
     .await
@@ -228,7 +228,8 @@ pub async fn run_headless_hook(
                 // Counterparty-facing actions already route through the
                 // normal escalation path in the mediation boundary.
                 let message = format!("Headless hook {action} escalated: {other:?}");
-                super::notify_owner_required(state, state.owner_user_id, &message).await?;
+                super::notify_owner_required(state, &state.telegram_owner_surface(), &message)
+                    .await?;
             } else {
                 // Persist a digest-bound request before surfacing the owner
                 // button. The post-approval registry recognizes the explicit
@@ -259,7 +260,11 @@ pub async fn run_headless_hook(
                 state
                     .connectors
                     .telegram()
-                    .send_reply_with_approval_button(state.owner_user_id, &message, request_id)
+                    .send_reply_with_approval_button(
+                        &state.telegram_owner_surface(),
+                        &message,
+                        request_id,
+                    )
                     .await?;
             }
             let detail = format!("headless hook {action} escalated: {other:?}");
