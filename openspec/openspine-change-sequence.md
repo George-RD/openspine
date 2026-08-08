@@ -138,6 +138,16 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   denial; verdicts bind their epochs and stale at read time, re-checked at
   activation; owner copy is rendered from stored verdicts rather than authored.
   Brief stays in place — #130 references it)
+- `add-channel-neutral-responsibility-review` (D-166 — the canonical
+  `OwnerReviewRequest` is persisted whole as one content-addressed,
+  digest-bound record; Telegram and the local terminal render that same object
+  and submit principal-bound intents against the same binding digest; approval
+  atomically activates and binds the derived standing rule; Narrow creates a
+  strict immutable replacement; pause/resume/revoke are replay-safe lifecycle
+  controls on the bound rule; and the `OwnerSurfaceRef` cutover removes
+  `bound_chat_id` from every generic kernel seam, leaving a chat id only inside
+  the Telegram adapter. Brief stays in place — later `Requires:` lines
+  reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
