@@ -4430,8 +4430,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/design.md": {
-    "mtime": 1786203332.4286425,
-    "ast_hash": "d269412d3dcd75148cb3c25dd54d87c4",
+    "mtime": 1786209349.977967,
+    "ast_hash": "8b7047ea77184fd3a79afb35185d75ae",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/proposal.md": {
@@ -4465,8 +4465,8 @@
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/tasks.md": {
-    "mtime": 1786208663.147493,
-    "ast_hash": "f2a6b4ea897348589d13c037d537f0fc",
+    "mtime": 1786209326.3600566,
+    "ast_hash": "743a50c23107468c1a480e0bbcfa2a93",
     "semantic_hash": ""
   }
 }
