@@ -500,7 +500,7 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1786703498.0688636,
+    "mtime": 1786703646.2254202,
     "ast_hash": "da6bd82b6936b6608e0e9eca6a3865df",
     "semantic_hash": ""
   },
@@ -1865,7 +1865,7 @@
     "semantic_hash": ""
   },
   "docs/day-2-operations.md": {
-    "mtime": 1786703512.9269004,
+    "mtime": 1786703646.22574,
     "ast_hash": "eecab6233165d2a7aeaa9051ff0c8244",
     "semantic_hash": ""
   },
@@ -4502,6 +4502,36 @@
   "openspec/changes/archive/2026-08-14-ship-recurring-gmail-draft-proof/tasks.md": {
     "mtime": 1786703337.6997502,
     "ast_hash": "124e1ca7200b83937ba11f4678e7c443",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/design.md": {
+    "mtime": 1786703860.8600395,
+    "ast_hash": "29c14172b3edcab09486b1ccba09f2fd",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/proposal.md": {
+    "mtime": 1786703830.7763364,
+    "ast_hash": "35d05f5fb3307814fe201d0ee61f1416",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/specs/gate-action-api/spec.md": {
+    "mtime": 1786703791.9938824,
+    "ast_hash": "e1cf19da48fb527e872de10cef17f7dd",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/specs/responsibility-contract/spec.md": {
+    "mtime": 1786703772.6554785,
+    "ast_hash": "b277718f18feaad474f90a1f16ae09a3",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/specs/standing-rules/spec.md": {
+    "mtime": 1786703791.9941044,
+    "ast_hash": "b6217ea2b0ffa5f47f60cb7198b0cfe8",
+    "semantic_hash": ""
+  },
+  "openspec/changes/prove-progressive-delegation-portability/tasks.md": {
+    "mtime": 1786703897.1760201,
+    "ast_hash": "fa7f265428700c15c7efff998e296807",
     "semantic_hash": ""
   }
 }
