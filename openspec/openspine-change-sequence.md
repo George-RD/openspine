@@ -148,6 +148,16 @@ boundaries, and completion criteria. On any conflict, the canon sources win.
   `bound_chat_id` from every generic kernel seam, leaving a chat id only inside
   the Telegram adapter. Brief stays in place — later `Requires:` lines
   reference it)
+- `ship-recurring-gmail-draft-proof` (D-167..D-172 — the first complete
+  vertical delegation proof: counterparty erasure became a store-level
+  admission predicate consulted inside the reservation transaction and swept
+  across stored rules; repeated-approval evidence became typed and
+  decision-event-deduplicated rather than a raw row count; a miner proposal now
+  reaches owner review only through the shared evaluation core carrying an
+  immutable binding re-verified inside the activation transaction, which mints
+  a fresh owner grant instead of reusing the miner's; lifecycle refusals
+  surface as refusals; and `email.send` joined the catalog's non-delegable
+  data. Brief stays in place — #131 and #132 reference it)
 
 ## Agent-OS change sequence (2026-07-07, AD canon)
 
