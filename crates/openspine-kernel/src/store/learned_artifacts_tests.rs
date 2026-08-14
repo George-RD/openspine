@@ -419,6 +419,7 @@ fn activation_cannot_replace_erased_identity_with_other_scope() {
             live_implementation_version: None,
             live_policy_version: None,
             standing_rule: None,
+            owner_review_approval: None,
         })
         .unwrap_err();
     assert!(

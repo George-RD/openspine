@@ -14,7 +14,7 @@ use super::connector_breaker::call_with_connector;
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
 use openspine_schemas::artifact::Lifecycle;
-use openspine_schemas::digest::digest_of;
+use openspine_schemas::digest::{digest_of, Digest};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::lineage::ArtifactLineage;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
@@ -39,6 +39,21 @@ struct ArtifactProposePayload {
     yaml: String,
 }
 
+/// The durable identities produced by one exact `artifact.propose`
+/// evaluation/promotion. Miner-originated owner reviews bind this receipt
+/// rather than re-deriving proposal or verdict identity from caller data.
+pub(crate) struct ArtifactProposalReceipt {
+    pub(crate) proposal_id: Ulid,
+    pub(crate) artifact_kind: String,
+    pub(crate) artifact_id: String,
+    pub(crate) artifact_version: u32,
+    pub(crate) artifact_digest: Digest,
+    pub(crate) action_request_id: Ulid,
+    pub(crate) replay_verdict_id: Ulid,
+    pub(crate) judge_verdict_id: Ulid,
+    pub(crate) epochs: crate::store::eval_verdict_store::VerdictEpochs,
+}
+
 pub(crate) async fn dispatch_artifact_propose(
     state: &AppState,
     grant: &TaskGrant,
@@ -46,6 +61,22 @@ pub(crate) async fn dispatch_artifact_propose(
     owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
 ) -> Result<Value, DispatchError> {
+    let receipt =
+        dispatch_artifact_propose_core(state, grant, action, owner_surface, payload, true).await?;
+    Ok(json!({
+        "proposed": true,
+        "action_request_id": receipt.action_request_id.to_string(),
+    }))
+}
+
+pub(crate) async fn dispatch_artifact_propose_core(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: &ActionId,
+    owner_surface: &OwnerSurfaceRef,
+    payload: Option<&Value>,
+    notify_owner: bool,
+) -> Result<ArtifactProposalReceipt, DispatchError> {
     // 1. Payload contract.
     let payload = payload.ok_or_else(|| {
         DispatchError::BadRequest("artifact.propose requires a payload".to_string())
@@ -304,6 +335,11 @@ pub(crate) async fn dispatch_artifact_propose(
         )
     }
     .map_err(|err| DispatchError::BadRequest(err.to_string()))?;
+    if eval.replay.verdict() != "pass" || eval.judge.verdict() != "pass" {
+        return Err(DispatchError::BadRequest(
+            "artifact evaluation did not pass replay and judge checks".to_string(),
+        ));
+    }
 
     // 5. Budget (D-046): a shell-initiated artifact put.
     if !state
@@ -365,7 +401,8 @@ pub(crate) async fn dispatch_artifact_propose(
     //    validated → review_required. Only after this succeeds is the
     //    digest-bound `artifact.activate` request persisted, so a failed
     //    promotion leaves no orphan action_request the owner could tap.
-    state
+    let epochs = eval.epochs.clone();
+    let (replay_verdict_id, judge_verdict_id) = state
         .store
         .promote_authority_bearing_proposal(proposal_id, eval.replay, eval.judge, eval.epochs)
         .map_err(|err| DispatchError::Resource(err.into()))?;
@@ -391,30 +428,39 @@ pub(crate) async fn dispatch_artifact_propose(
         .store
         .insert_action_request(&request)
         .map_err(|err| DispatchError::Resource(err.into()))?;
-    let summary = format!(
-        "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
-        eval.summary,
-        digest = yaml_ref.digest
-    );
-    crate::spend::guard_connector_for(state, grant)
-        .await
-        .map_err(DispatchError::Resource)?;
-    // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
-    // site; the helper records breaker health and the D-069 counter.
-    call_with_connector(
-        state,
-        "telegram",
-        action,
-        grant,
-        state.connectors.telegram().send_reply_with_approval_button(
-            owner_surface,
-            &summary,
-            action_request_id,
-        ),
-    )
-    .await?;
-    Ok(json!({
-        "proposed": true,
-        "action_request_id": action_request_id.to_string(),
-    }))
+    if notify_owner {
+        let summary = format!(
+            "Artifact proposal\nKind: {kind}\nId: {artifact_id} v{version}\nDigest: {digest}\n\n{}\n\nApprove to activate.",
+            eval.summary,
+            digest = yaml_ref.digest
+        );
+        crate::spend::guard_connector_for(state, grant)
+            .await
+            .map_err(DispatchError::Resource)?;
+        // AD-103/AD-141: admit + bound-timeout the Telegram send at the call
+        // site; the helper records breaker health and the D-069 counter.
+        call_with_connector(
+            state,
+            "telegram",
+            action,
+            grant,
+            state.connectors.telegram().send_reply_with_approval_button(
+                owner_surface,
+                &summary,
+                action_request_id,
+            ),
+        )
+        .await?;
+    }
+    Ok(ArtifactProposalReceipt {
+        proposal_id,
+        artifact_kind: kind,
+        artifact_id,
+        artifact_version: version,
+        artifact_digest: yaml_ref.digest,
+        action_request_id,
+        replay_verdict_id,
+        judge_verdict_id,
+        epochs,
+    })
 }

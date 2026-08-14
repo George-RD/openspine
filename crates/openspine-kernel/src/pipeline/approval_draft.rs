@@ -160,8 +160,33 @@ pub(crate) async fn create_approved_draft(
         .await;
         return Ok(EffectOutcome::RefusedPreEffect);
     }
+    let request_fingerprint = crate::store::draft_request_fingerprint(
+        request.action.as_str(),
+        &thread_id,
+        &current_target_digest,
+        &payload_ref.digest,
+    );
+    if state.store.has_pending_draft_write(&request_fingerprint)? {
+        state.store.append_audit(
+            "draft.pending_write_fenced",
+            Some(&request.action),
+            None,
+            Some("an unresolved provider write already exists for this request"),
+            Some(grant.id),
+            &[],
+            std::slice::from_ref(payload_ref),
+        )?;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
+        )
+        .await;
+        return Ok(EffectOutcome::RefusedPreEffect);
+    }
 
     crate::spend::guard_connector_for(state, grant).await?;
+
     // Take the breaker/rate-limit permit BEFORE writing the pending-write
     // fence. A rejected admission has polled no *write* future, so no draft
     // was ever sent: it must not leave (or resolve) durable pending evidence,
@@ -198,17 +223,38 @@ pub(crate) async fn create_approved_draft(
     // touching Gmail. Timeout/no-response remains pending; no automatic resend
     // is safe because Gmail create_draft has no idempotency key.
     //
-    // If this insert fails, `?` returns while `permit` is still armed, and
-    // `ConnectorProbePermit::Drop` counts an abandoned HalfOpen probe as a
-    // connector failure (re-opening the breaker). That is deliberate: the Drop
-    // contract exists so an abandoned probe never strands the breaker in
-    // HalfOpen, and the only alternatives — recording success for a probe that
-    // never ran, or taking the permit after the fence — are respectively a lie
-    // and the ordering bug this arrangement fixes.
+    // The claim repeats the earlier fast-path read atomically with insertion.
+    // Two concurrent callbacks can both observe the fast path as open, but
+    // only one can win this `BEGIN IMMEDIATE` claim before touching Gmail.
     let pending_id = Ulid::new();
-    state
-        .store
-        .insert_pending_draft_write(pending_id, grant.id, request.id, &thread_id)?;
+    let claimed = state.store.claim_pending_draft_write(
+        pending_id,
+        grant.id,
+        request.id,
+        &thread_id,
+        &request_fingerprint,
+    )?;
+    if !claimed {
+        // Dropping an unused permit is intentional: a half-open probe must
+        // not remain armed when no provider future was polled.
+        drop(permit);
+        state.store.append_audit(
+            "draft.pending_write_fenced",
+            Some(&request.action),
+            None,
+            Some("an unresolved provider write already exists for this request"),
+            Some(grant.id),
+            &[],
+            std::slice::from_ref(payload_ref),
+        )?;
+        notify_owner_best_effort(
+            state,
+            owner_surface,
+            "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
+        )
+        .await;
+        return Ok(EffectOutcome::RefusedPreEffect);
+    }
     let draft_result = crate::api::connector_breaker::call_with_admitted_connector_write(
         state,
         "gmail",

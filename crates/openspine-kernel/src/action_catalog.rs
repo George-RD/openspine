@@ -95,6 +95,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         .with_non_delegable([
             id("openspine.overlay.export"),
             id("openspine.overlay.restore"),
+            id("email.send"),
         ])
         // Only a catalogued READ action with no kernel-side implementation
         // and no dedicated production route may return the stub; every write,

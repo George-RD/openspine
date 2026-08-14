@@ -2,7 +2,7 @@
 //! from `standing_rules_tests.rs` for the 500-line gate.
 
 use super::standing_rules_tests::manifest;
-use super::Store;
+use super::{PauseStandingRuleOutcome, Store};
 use jiff::Timestamp;
 use openspine_schemas::standing_rule::BudgetWindow;
 
@@ -59,16 +59,22 @@ fn pause_removes_rule_from_live_consultation_and_resume_restores_it() {
         .standing_rule_is_current("rule-pause-resume", 1)
         .unwrap());
     // Pause removes it from live consultation.
-    assert!(store
-        .pause_standing_rule("rule-pause-resume", Timestamp::now())
-        .unwrap());
+    assert!(matches!(
+        store
+            .pause_standing_rule("rule-pause-resume", Timestamp::now())
+            .unwrap(),
+        PauseStandingRuleOutcome::Paused
+    ));
     assert!(!store
         .standing_rule_is_current("rule-pause-resume", 1)
         .unwrap());
     // Pausing again is a safe no-op.
-    assert!(!store
-        .pause_standing_rule("rule-pause-resume", Timestamp::now())
-        .unwrap());
+    assert!(matches!(
+        store
+            .pause_standing_rule("rule-pause-resume", Timestamp::now())
+            .unwrap(),
+        PauseStandingRuleOutcome::AlreadyPaused
+    ));
     // Resume restores it.
     assert!(store.resume_standing_rule("rule-pause-resume", 1).unwrap());
     assert!(store

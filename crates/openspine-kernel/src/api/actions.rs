@@ -18,6 +18,7 @@ use openspine_schemas::briefcase::CounterpartyRef;
 use openspine_schemas::digest::canonical_json;
 use openspine_schemas::disclosure_policy::PreparedQueryRef;
 use openspine_schemas::escalation::{surface_denial, EscalationEvent};
+use openspine_schemas::event::TargetRef;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde::{Deserialize, Serialize};
@@ -79,6 +80,18 @@ pub(super) struct ActionResponseBody {
     standing_rule_budget: Option<StandingRuleBudgetInfo>,
 }
 
+/// Responsibility receipt for an effective scoped Allow. This is an
+/// admission receipt only: it names the reviewed authority and headroom, not
+/// a provider effect outcome.
+#[derive(Debug, Serialize)]
+pub struct ResponsibilityReceipt {
+    pub(crate) rule_id: String,
+    pub(crate) rule_version: u32,
+    pub(crate) target: Vec<TargetRef>,
+    pub(crate) quota_remaining: u32,
+    pub(crate) rate_remaining: u32,
+}
+
 /// Remaining standing-rule budget returned in the gate response so agents
 /// self-adjust without extra round-trips (AD-013 calibration / AD-106).
 #[derive(Debug, Serialize)]
@@ -90,8 +103,9 @@ pub struct StandingRuleBudgetInfo {
     /// pre-agreed default. Surfaced so the agent can report the pending
     /// default rather than retrying a saturated window.
     dark_window_scheduled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) responsibility: Option<ResponsibilityReceipt>,
 }
-
 pub(super) async fn post_actions(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -526,6 +540,41 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     // the shared executor with the kernel-resolved, digest-bound request
     // rather than through the generic shell dispatch path.
     let mut scoped_admitted: Option<Box<super::scoped_admission::ScopedAdmissionContext>> = None;
+    let fired_counterparty_erased = if fired_pending.is_some() {
+        let briefcase = state
+            .store
+            .find_briefcase(grant.id)
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        let erased = match briefcase
+            .as_ref()
+            .map(|briefcase| &briefcase.task_shape.counterparty)
+        {
+            Some(CounterpartyRef::Bound { identity_id, .. }) => state
+                .store
+                .is_counterparty_erased(*identity_id)
+                .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?,
+            _ => false,
+        };
+        if erased {
+            state
+                .store
+                .append_audit(
+                    "action.scope_context_unresolved",
+                    Some(&action),
+                    None,
+                    Some(
+                        "counterparty was erased at fired-pending mediation; ordinary owner review required",
+                    ),
+                    Some(grant.id),
+                    &[],
+                    &[],
+                )
+                .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        }
+        erased
+    } else {
+        false
+    };
     if let Some(token) = fired_pending {
         // Fired dark-window default (owner silence): re-dispatch this action
         // with a digest-bound, one-use token. Consume it *before* the effect
@@ -533,7 +582,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
         // effective Allow is audited only after the token is admitted, and the
         // reservation is finalized on success or cancelled on failure
         // (P1-5/P1-6/P1-11).
-        if matches!(decision, GateDecision::ApprovalRequired { .. }) {
+        if !fired_counterparty_erased && matches!(decision, GateDecision::ApprovalRequired { .. }) {
             if let Ok(Some((rule_id, version, reservation_id))) =
                 state.store.consume_standing_rule_fired_pending(
                     token,
@@ -577,6 +626,17 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             payload_ref.as_slice(),
             now,
         )?;
+        let responsibility =
+            admitted
+                .reservation
+                .as_ref()
+                .map(|(rule_id, version, _)| ResponsibilityReceipt {
+                    rule_id: rule_id.clone(),
+                    rule_version: *version,
+                    target: resolved.context.target_refs().to_vec(),
+                    quota_remaining: admitted.quota_remaining,
+                    rate_remaining: admitted.rate_remaining,
+                });
         consult_reservation = admitted.reservation;
         if admitted.allow {
             decision = GateDecision::Allow;
@@ -587,6 +647,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                 // selection completes before scheduling would be reached, and
                 // `email.create_draft` prohibits dark windows by policy.
                 dark_window_scheduled: false,
+                responsibility,
             });
             scoped_admitted = Some(resolved);
         }
@@ -651,6 +712,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
                     quota_remaining: q,
                     rate_remaining: r,
                     dark_window_scheduled: consult.dark_window_scheduled,
+                    responsibility: None,
                 });
             }
             if consult.dark_window_scheduled {

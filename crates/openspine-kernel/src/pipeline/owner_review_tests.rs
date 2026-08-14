@@ -21,7 +21,9 @@ use openspine_schemas::standing_rule::{BudgetWindow, DarkWindowConfig, StandingR
 use ulid::Ulid;
 
 use crate::gmail::GmailConnector;
-use crate::pipeline::owner_review::resume_standing_rule_revalidated;
+use crate::pipeline::owner_review::{
+    resume_standing_rule_revalidated, ResumeOutcome, ResumeRefusal,
+};
 use crate::test_support::fixtures::{test_state, test_state_with_gmail};
 
 fn digest(c: char) -> Digest {
@@ -150,6 +152,7 @@ fn owner_review_inner(
                 ResponsibilityLifecycleControl::Expire,
                 ResponsibilityLifecycleControl::Revoke,
             ]),
+            evaluation_binding: None,
         },
         policy,
     )
@@ -224,7 +227,7 @@ fn resume_of_an_already_active_exact_version_is_a_safe_noop() {
     // The exact version is already active: treat a duplicate/concurrent
     // resume as handled without emitting a refusal disposition.
     let resumed = resume_standing_rule_revalidated(&state, "resume-not-paused", 1, now).unwrap();
-    assert!(!resumed);
+    assert_eq!(resumed, ResumeOutcome::AlreadyActive);
     assert_eq!(
         state
             .store
@@ -251,7 +254,7 @@ fn resume_refuses_an_expired_rule() {
     // Advance past expiry.
     let later = Timestamp::from_second(2_000_100).unwrap();
     let resumed = resume_standing_rule_revalidated(&state, "resume-expired", 1, later).unwrap();
-    assert!(!resumed);
+    assert_eq!(resumed, ResumeOutcome::Refused(ResumeRefusal::Expired));
     assert_eq!(
         state
             .store
@@ -277,7 +280,7 @@ fn resume_refuses_a_superseded_rule() {
     state.store.activate_standing_rule(&v2, None, now).unwrap();
     // Resume of v1 must refuse (it is no longer paused at v1).
     let resumed = resume_standing_rule_revalidated(&state, "resume-superseded", 1, now).unwrap();
-    assert!(!resumed);
+    assert_eq!(resumed, ResumeOutcome::Refused(ResumeRefusal::Superseded));
     assert_eq!(
         state
             .store
@@ -310,7 +313,7 @@ fn resume_refuses_a_rule_with_no_reviewed_scope() {
         .pause_standing_rule("resume-no-scope", Timestamp::now())
         .unwrap();
     let resumed = resume_standing_rule_revalidated(&state, "resume-no-scope", 1, now).unwrap();
-    assert!(!resumed);
+    assert_eq!(resumed, ResumeOutcome::Refused(ResumeRefusal::InvalidScope));
     assert_eq!(
         state
             .store
@@ -342,7 +345,7 @@ fn resume_refuses_when_connector_is_unavailable() {
         state.connectors.record_connector_outcome("gmail", false);
     }
     let resumed = resume_standing_rule_revalidated(&state, "resume-unavailable", 1, now).unwrap();
-    assert!(!resumed);
+    assert_eq!(resumed, ResumeOutcome::Refused(ResumeRefusal::Unavailable));
     assert_eq!(
         state
             .store
@@ -370,7 +373,7 @@ fn resume_reactivates_a_still_current_rule() {
         .standing_rule_is_current("resume-ok", 1)
         .unwrap());
     let resumed = resume_standing_rule_revalidated(&state, "resume-ok", 1, now).unwrap();
-    assert!(resumed);
+    assert!(matches!(resumed, ResumeOutcome::Resumed));
     assert!(state
         .store
         .standing_rule_is_current("resume-ok", 1)
@@ -424,9 +427,7 @@ fn resume_refuses_a_rule_whose_compatibility_epoch_drifted() {
         .unwrap();
 
     let resumed = resume_standing_rule_revalidated(&state, "resume-drifted", 1, now).unwrap();
-    if resumed {
-        panic!("a drifted epoch must not resume");
-    }
+    assert_eq!(resumed, ResumeOutcome::Refused(ResumeRefusal::ScopeDrift));
     assert_eq!(
         state
             .store

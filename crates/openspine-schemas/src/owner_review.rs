@@ -225,14 +225,50 @@ impl DecisionIntent {
         if self.is_read_only() {
             return true;
         }
-        if let Some(decision) = self.as_decision() {
-            return available_decisions.contains(&decision);
+        match self {
+            DecisionIntent::Approve
+            | DecisionIntent::Reject
+            | DecisionIntent::Narrow
+            | DecisionIntent::Edit => self
+                .as_decision()
+                .is_some_and(|decision| available_decisions.contains(&decision)),
+            DecisionIntent::Pause
+            | DecisionIntent::Resume
+            | DecisionIntent::Expire
+            | DecisionIntent::Revoke => self
+                .as_control()
+                .is_some_and(|control| lifecycle_controls.contains(&control)),
+            DecisionIntent::Inspect => true,
         }
-        if let Some(control) = self.as_control() {
-            return lifecycle_controls.contains(&control);
-        }
-        false
     }
+}
+/// Evaluation identity captured when a miner-originated proposal passes the
+/// shared artifact-propose replay/risk-judge gate. The binding is intentionally
+/// protocol-neutral: it names the exact proposed artifact, approval request,
+/// both persisted verdict rows, and the epochs those verdicts observed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnerReviewEvaluationEpochs {
+    pub proposal_digest: Option<Digest>,
+    pub compatibility_digest: Option<Digest>,
+    pub reviewed_scope_digest: Option<Digest>,
+    pub evidence_set_digest: Option<Digest>,
+    pub descriptor_version: Option<u32>,
+    pub implementation_version: Option<u32>,
+    pub policy_version: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OwnerReviewEvaluationBinding {
+    pub artifact_kind: String,
+    pub artifact_id: String,
+    pub artifact_version: u32,
+    pub proposal_digest: Digest,
+    pub action_request_id: Ulid,
+    pub replay_verdict_id: Ulid,
+    pub judge_verdict_id: Ulid,
+    pub epochs: OwnerReviewEvaluationEpochs,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -253,6 +289,7 @@ pub struct OwnerReviewRequestInput {
     pub compatibility_digest: Digest,
     pub available_decisions: BTreeSet<OwnerReviewDecision>,
     pub lifecycle_controls: BTreeSet<ResponsibilityLifecycleControl>,
+    pub evaluation_binding: Option<OwnerReviewEvaluationBinding>,
 }
 
 /// Canonical semantic review object rendered by Telegram, terminal, web, or
@@ -276,6 +313,8 @@ pub struct OwnerReviewRequest {
     pub compatibility_digest: Digest,
     pub available_decisions: BTreeSet<OwnerReviewDecision>,
     pub lifecycle_controls: BTreeSet<ResponsibilityLifecycleControl>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluation_binding: Option<OwnerReviewEvaluationBinding>,
     binding_digest: Digest,
 }
 
@@ -382,6 +421,7 @@ impl OwnerReviewRequest {
             compatibility_digest: input.compatibility_digest,
             available_decisions: input.available_decisions,
             lifecycle_controls: input.lifecycle_controls,
+            evaluation_binding: input.evaluation_binding,
             binding_digest: digest_of(&serde_json::Value::Null),
         };
         request.binding_digest = request.calculate_binding_digest();
@@ -407,6 +447,21 @@ impl OwnerReviewRequest {
             .expect("owner review serializes as an object")
             .remove("binding_digest");
         digest_of(&value)
+    }
+}
+
+impl OwnerReviewRequest {
+    /// Rebind a derived review to the exact artifact-propose evaluation
+    /// receipt produced for it, recalculating the immutable owner binding.
+    pub fn with_evaluation_binding(
+        mut self,
+        evaluation_binding: OwnerReviewEvaluationBinding,
+    ) -> Self {
+        self.evaluation_binding = Some(evaluation_binding);
+        self.binding_digest = digest_of(&serde_json::Value::Null);
+        self.binding_digest = self.calculate_binding_digest();
+        debug_assert!(self.binding_is_valid());
+        self
     }
 }
 

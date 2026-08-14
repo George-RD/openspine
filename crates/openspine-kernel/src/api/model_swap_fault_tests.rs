@@ -16,7 +16,7 @@ use crate::telegram::TelegramConnector;
 use crate::test_support::fixtures::{owner_update, seed_owner_history, test_state_with_telegram};
 
 #[tokio::test]
-async fn injected_activation_tx_failure_keeps_approved_old_state() {
+async fn injected_activation_tx_failure_keeps_review_required_old_state() {
     let telegram_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/bottest-token/SendMessage"))
@@ -87,12 +87,14 @@ async fn injected_activation_tx_failure_keeps_approved_old_state() {
         "injected activation failure must surface"
     );
 
+    // The activation commit owns the review-required -> approved transition;
+    // an injected transaction failure rolls it back with the learned row.
     let row = state
         .store
         .find_proposed_artifact_by_action_request(request_id)
         .unwrap()
         .unwrap();
-    assert_eq!(row.state, Lifecycle::Approved);
+    assert_eq!(row.state, Lifecycle::ReviewRequired);
     crate::model_swap_recovery::reconcile_model_swap_overlay(
         &state.store,
         &state.artifacts,

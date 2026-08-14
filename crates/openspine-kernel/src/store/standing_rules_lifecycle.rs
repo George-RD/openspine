@@ -50,7 +50,11 @@ impl Store {
     /// it. Open exceptions are staled in the same transaction, exactly as
     /// revoke does (#135); resume re-earns authority through revalidation
     /// rather than by inheriting a pending default the owner paused.
-    pub fn pause_standing_rule(&self, rule_id: &str, now: Timestamp) -> Result<bool, StoreError> {
+    pub(crate) fn pause_standing_rule(
+        &self,
+        rule_id: &str,
+        now: Timestamp,
+    ) -> Result<super::PauseStandingRuleOutcome, StoreError> {
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let changed = tx.execute(
@@ -75,9 +79,35 @@ impl Store {
                 &[],
                 &[],
             )?;
+            tx.commit()?;
+            return Ok(super::PauseStandingRuleOutcome::Paused);
         }
+
+        let status: Option<String> = tx
+            .query_row(
+                "SELECT status FROM standing_rules WHERE rule_id = ?1 \
+                 ORDER BY version DESC LIMIT 1",
+                params![rule_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let outcome = if status.as_deref() == Some("paused") {
+            super::PauseStandingRuleOutcome::AlreadyPaused
+        } else {
+            Self::append_audit_conn(
+                &tx,
+                "standing_rule.pause_refused",
+                None,
+                None,
+                Some(status.as_deref().unwrap_or("missing")),
+                None,
+                &[],
+                &[],
+            )?;
+            super::PauseStandingRuleOutcome::Refused
+        };
         tx.commit()?;
-        Ok(changed == 1)
+        Ok(outcome)
     }
 
     /// Resume an exactly versioned paused rule after caller-side revalidation.

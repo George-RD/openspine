@@ -44,6 +44,9 @@ mod owner_review_commands;
 pub(crate) mod owner_review_decision;
 #[cfg(test)]
 mod owner_review_decision_outcome_tests;
+#[cfg(test)]
+#[path = "owner_review_lifecycle_adapter_tests.rs"]
+mod owner_review_lifecycle_adapter_tests;
 pub(crate) mod owner_review_surface;
 #[cfg(test)]
 mod owner_review_surface_tests;
@@ -547,7 +550,9 @@ pub async fn handle_owner_update(
         &owner_surface,
         &text,
         Timestamp::now(),
-    ) {
+    )
+    .await
+    {
         Ok(Some(reply)) => {
             notify_owner_best_effort(state, &owner_surface, &reply).await;
             return Ok(None);
@@ -1010,7 +1015,9 @@ pub async fn handle_terminal_message(
         &owner_surface,
         &text,
         Timestamp::now(),
-    ) {
+    )
+    .await
+    {
         Ok(Some(reply)) => {
             if let Some(tx) = &state.terminal_reply_tx {
                 let _ = tx.send(reply);

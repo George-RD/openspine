@@ -1,6 +1,116 @@
 use super::*;
 
 #[test]
+fn startup_terminal_erasure_revokes_scoped_rule_before_reuse() {
+    use openspine_schemas::digest::Digest;
+    use rusqlite::params;
+    use serde_json::json;
+
+    let (_root, data) = temp_data_root();
+    let db_path = data.join("kernel.db");
+    let _ = fs::remove_file(&db_path);
+    let store = Store::open(&db_path).unwrap();
+    let artifacts =
+        crate::artifact_store::ArtifactStore::open(data.join("artifacts"), *KEY).unwrap();
+    let ops = acquire(&data, KEY).unwrap();
+    ops.initialize_terminal_ledger().unwrap();
+
+    let counterparty = Ulid::from(11_u128);
+    let mut manifest = crate::store::standing_rules_tests::manifest(
+        "rule-startup-erasure",
+        "email.create_draft",
+        7 * 24 * 3600,
+        openspine_schemas::standing_rule::BudgetWindow {
+            max: 5,
+            window_secs: 7 * 24 * 3600,
+        },
+        openspine_schemas::standing_rule::BudgetWindow {
+            max: 3,
+            window_secs: 3600,
+        },
+        None,
+    );
+    let zero_digest = Digest::parse(format!("sha256:{}", "0".repeat(64))).unwrap();
+    let mut manifest_json = serde_json::to_value(&manifest).unwrap();
+    manifest_json["reviewed_scope"] = json!({
+        "scope": {
+            "schema_version": 1,
+            "scope_version": 1,
+            "action_id": "email.create_draft",
+            "descriptor_version": 1,
+            "dimensions": {
+                "counterparty": {
+                    "kind": "counterparty",
+                    "value": counterparty.to_string()
+                }
+            },
+            "context_class_digest": zero_digest.to_string()
+        },
+        "reviewed_scope_digest": zero_digest.to_string(),
+        "compatibility_digest": zero_digest.to_string()
+    });
+    manifest = serde_json::from_value(manifest_json.clone()).unwrap();
+
+    let activated_at: i64 = Timestamp::now()
+        .as_nanosecond()
+        .try_into()
+        .expect("test timestamp fits i64");
+    {
+        let conn = store.conn.lock();
+        conn.execute(
+            "INSERT INTO standing_rules (
+                rule_id, artifact_id, version, action_id, rule_json,
+                quota_max, quota_window_secs, rate_max, rate_window_secs,
+                expires_after_secs, dark_window_timeout_secs, dark_window_default,
+                status, activated_at, last_used_at, revoked_at, needs_review_since
+             ) VALUES (?1, ?1, 1, 'email.create_draft', ?2, 5, ?3, 3, 3600,
+                       ?4, NULL, NULL, 'active', ?5, NULL, NULL, NULL)",
+            params![
+                manifest.id,
+                serde_json::to_string(&manifest).unwrap(),
+                7 * 24 * 3600,
+                7 * 24 * 3600,
+                activated_at
+            ],
+        )
+        .unwrap();
+    }
+    let boot_ms = Timestamp::now().as_millisecond();
+    store.commit_boot_clock(boot_ms).unwrap();
+    ops.record_terminal_erasure(&counterparty.to_string())
+        .unwrap();
+    drop(artifacts);
+    drop(store);
+
+    let reopened = Store::open(&db_path).unwrap();
+    let reopened_artifacts =
+        crate::artifact_store::ArtifactStore::open(data.join("artifacts"), *KEY).unwrap();
+    validate_startup_and_reconcile_overlay_terminal_erasures(
+        &reopened,
+        &reopened_artifacts,
+        &ops,
+        &data,
+        Timestamp::now().as_millisecond(),
+    )
+    .unwrap();
+
+    let status: String = reopened
+        .conn
+        .lock()
+        .query_row(
+            "SELECT status FROM standing_rules WHERE rule_id = ?1",
+            params![manifest.id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        status, "revoked",
+        "startup replay must sweep the erased counterparty out of scoped rules"
+    );
+    assert!(reopened.is_counterparty_erased(counterparty).unwrap());
+}
+
+#[test]
 fn boot_clock_regression_prevents_erasure_reconciliation_and_audit() {
     let (_root, data) = temp_data_root();
     let db_path = data.join("kernel.db");

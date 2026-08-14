@@ -32,6 +32,7 @@ impl ReflectionProposal {
                 ReflectionProposalBody::StandingRuleCandidate {
                     candidate,
                     action_id,
+                    reviewed_scope_binding,
                 },
             ) => {
                 let manifest = StandingRuleManifest {
@@ -53,7 +54,7 @@ impl ReflectionProposal {
                     },
                     expires_after_secs: 90 * 24 * 3600,
                     dark_window: None,
-                    reviewed_scope: None,
+                    reviewed_scope: Some(reviewed_scope_binding.clone()),
                 };
                 let yaml =
                     serde_yaml::to_string(&manifest).map_err(|_| MinerError::PayloadSerialize)?;

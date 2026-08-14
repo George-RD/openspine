@@ -159,6 +159,12 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-164 | Evaluation verdicts record the epochs they were computed under and their currency is decided at read time by comparing stored epochs against live values, re-checked at activation; no sweeper rewrites a stored verdict | Accepted |
 | D-165 | Owner-facing evaluation copy is rendered from the stored verdicts and their executed-case ledger, never authored as free text, and every evaluator is named by what it did | Accepted |
 | D-166 | Owner reviews are immutable digest-bound records; authenticated surfaces submit intents only, approval atomically activates the derived standing rule, lifecycle controls target that bound rule, and generic kernel seams carry a typed `OwnerSurfaceRef` instead of a channel's chat id | Accepted |
+| D-167 | Counterparty erasure is a store-level admission predicate: the committed `erased_counterparties` marker is consulted before admission and again inside the same `BEGIN IMMEDIATE` as scoped selection, reservation, and fired-token claim, and the erasure transaction sweeps generic reviewed-scope `Counterparty` values across every persisted standing rule | Accepted |
+| D-168 | Repeated-approval evidence is the typed `DelegationEvidence::repeated_approvals`, grouped by complete context-class digest and deduplicated on `decision_event_id`, never a raw audit-row count | Accepted |
+| D-169 | A miner-originated owner review carries an immutable evaluation binding re-verified inside the activation transaction; a preflight-only check is rejected as a TOCTOU | Accepted |
+| D-170 | Owner approval mints a fresh owner-scoped activation grant instead of reusing the proposer's attenuated grant | Accepted |
+| D-171 | Lifecycle refusals surface as typed refusals carrying the refusal reason, never as successful or replayed decisions | Accepted |
+| D-172 | A new guard ships only with a filled three-column reachability census; a guard no production-entering test reaches is recorded UNPROVEN rather than claimed as covered | Accepted |
 
 ---
 
@@ -3958,6 +3964,159 @@ A future owner surface has an authenticated message identity that can carry the 
 
 ---
 
+# D-167 — Counterparty erasure is a store-level admission predicate swept over stored rules
+
+## Decision
+
+The committed `erased_counterparties` marker is the single authoritative erasure predicate for reusable delegation, and it is consulted at four sites. The two pre-transaction sites call `Store::is_counterparty_erased` (`crates/openspine-kernel/src/store/learned_artifacts.rs:885`): immediately after the unresolved-counterparty rejection in `resolve_scoped_admission` (`crates/openspine-kernel/src/api/scoped_admission.rs:222`) and at the fired-pending mediation entry in `post_actions` (`crates/openspine-kernel/src/api/actions.rs:554`). The two in-transaction sites inline the identical `SELECT EXISTS` against the open transaction — `crates/openspine-kernel/src/store/standing_rules_scoped.rs:137-144` before scoped rule selection and budget reservation, and `crates/openspine-kernel/src/store/standing_rules_fired_token.rs:82-96` before a fired-token claim — because `is_counterparty_erased` takes `self.conn.lock()` and therefore cannot be called while a transaction is open. A fifth site is prohibited unless it uses the same predicate.
+
+The erasure transaction additionally sweeps generic reviewed-scope `Counterparty` values across every persisted standing rule, including owner-review-created rows that carry no `learned_artifacts` provenance.
+
+The matcher never inspects the filesystem, the key ring, or an external ledger to decide erasure.
+
+## Rationale
+
+Erasure must remove authority, not merely stop granting new authority, so the check has to sit where authority is spent rather than where rules are authored. A pre-transaction read alone loses the race in which a marker commits between the admission check and the reservation, so the same predicate is re-read under the write transaction that reserves budget.
+
+A digest comparison cannot substitute for the predicate: erasing a counterparty leaves the reviewed scope digest unchanged, so a drift check reports no drift on an erased identity. Sweeping only rows carrying `learned_artifacts` provenance would have left owner-review-created rules — the ones a real owner actually approved — holding scoped authority over an erased counterparty.
+
+## Consequences
+
+- Erasure is enforced on the admission path, so an erased counterparty falls back to ordinary owner approval rather than silently matching a stored rule.
+- The check costs one indexed store read per scoped admission and one more inside the reservation transaction; that cost is accepted for a fail-closed authority predicate.
+- The sweep covers the whole standing-rule table, so it is provenance-independent and cannot be defeated by how a rule was created.
+- The generic sweep is wired and unconditionally invoked at startup and is reachable via an imported continuity ledger; local origination of a terminal-erasure id is absent today and is recorded as the residual reachability condition rather than claimed as covered.
+
+## Would change if
+
+Erasure markers become externally authoritative in a form the store cannot read transactionally, in which case the predicate would need a kernel-cached projection with its own staleness contract.
+
+---
+
+# D-168 — Repeated-approval evidence is typed and derived, never a raw row count
+
+## Decision
+
+Mining consumes `DelegationEvidence::repeated_approvals`, built from kernel-counted owner approvals. Approvals are grouped by the complete context-class digest, deduplicated on `decision_event_id` through a `BTreeSet` — at the miner's grouping site and independently inside the `repeated_approvals` constructor, which rejects a duplicate decision event outright — and the request shape is keyed by `ResolvedActionContext::task_shape_digest()`.
+
+The previous raw audit-row count (`reflection_miner_runtime/scheduled.rs`'s `counts` map keyed on `(artifact_id, action_id)`) is removed, not left beside the typed evidence. Context-class grouping is what the replacement adds; the removed predicate never had it.
+
+## Rationale
+
+A row count answers "how many audit rows look similar", which is not the question authority depends on. A replayed callback, a duplicated audit write, or two approvals under different reviewed scopes could each inflate a count into a pattern claim the owner never made. Typing the evidence forces every contributing approval to name its decision event, its owner principal, and the request, target, and payload digests it was bound to, so the pattern claim is derived from decisions rather than from rows.
+
+Keeping the old count beside the typed evidence would have preserved the weaker predicate as a live fallback; deleting it makes the typed path the only path.
+
+## Consequences
+
+- Evidence is self-validating: `DelegationEvidence` re-derives its canonical form, so a tampered or hand-built evidence blob fails its own consistency check.
+- Duplicate decision events are a hard error rather than a silently larger count.
+- Approvals whose stored reviewed-scope artifact does not re-derive to the recorded reviewed-scope, compatibility, and context-class digests are skipped rather than guessed at, so historical rows without resolved context metadata contribute nothing.
+- Grouping is by complete context-class digest, so approvals under different reviewed contexts can never pool into one pattern claim.
+
+## Would change if
+
+Owner approvals gain a durable identity stronger than `decision_event_id` that already implies the context class, at which point the grouping key could move to that identity.
+
+---
+
+# D-169 — A miner-originated owner review carries an immutable evaluation binding verified inside the activation transaction
+
+## Decision
+
+The reflection miner reaches owner review only through the shared `artifact.propose` evaluation core, and only on a passing evaluation receipt. The resulting `OwnerReviewRequest` carries an `evaluation_binding` naming the evaluated artifact kind, id, and version.
+
+Approval re-verifies that binding through `verify_miner_evaluation_binding` (`crates/openspine-kernel/src/pipeline/owner_review_decision.rs:571`, called at `:461`), and the binding travels into the activation commit as `OwnerReviewApprovalCommit::evaluation_binding`, where `verify_evaluated_activation_in_tx` and `reject_stale_eval_verdicts_conn` run against the `BEGIN IMMEDIATE` transaction that performs the activation (`crates/openspine-kernel/src/store/activation.rs:199-235`). A preflight-only check is explicitly rejected.
+
+## Rationale
+
+A check performed before the activation transaction is a TOCTOU: verdict rows, proposal lifecycle state, and live catalog/policy epochs can all change between the check and the write. `reject_stale_eval_verdicts` treats an empty verdict set as current, so presence and exact identity must be established strictly upstream of it and the in-transaction re-check must compare stored rows against the review's binding rather than against the review's own bytes.
+
+Routing the miner through the shared evaluation core rather than a miner-specific path keeps one evaluation contract for every proposer, so the miner cannot acquire a weaker gate by construction.
+
+## Consequences
+
+- An absent, mismatched, non-`review_required`, or stale verdict refuses without persisting a review and without activating anything.
+- The refusal audit commits even when activation does not, so a stale-verdict refusal is durably visible.
+- `Narrow` carries the same verified evaluation into the strict replacement proposal; it never approves the broader record.
+- Reviews without an evaluation binding remain ordinary owner reviews and take the unevaluated path.
+
+## Would change if
+
+Evaluation verdicts become immutable content-addressed artifacts whose identity is bound into the review digest itself, at which point the in-transaction row comparison could reduce to a digest check.
+
+---
+
+# D-170 — Owner approval mints a fresh activation grant rather than reusing the proposer's
+
+## Decision
+
+`mint_owner_activation_grant` (`crates/openspine-kernel/src/pipeline/owner_review_decision.rs:751`) composes a new grant for the owner principal and the activation action with purpose `owner_approved_artifact_activation`. Activation gates on that grant (`crates/openspine-kernel/src/pipeline/artifact_activation.rs:75`), and a non-`Allow` decision fails the activation rather than proceeding.
+
+## Rationale
+
+Reusing the miner's `task_grant_id` would perform an owner-authorized activation under the miner's attenuated authority envelope. The miner is deliberately a contained proposer with zero activation authority (D-152); inheriting its grant would either fail closed for the wrong reason or, worse, carry the miner's caveats into an act of owner authority. The owner's decision needs the owner's grant.
+
+## Consequences
+
+- Activation is gated and audited as an owner action, with the owner principal as the grantee.
+- There is no empty-chain fallback to the source grant: if the fresh grant cannot be composed or does not gate to `Allow`, activation fails.
+- The miner's grant is still used for what the miner did — proposal dispatch, spend accounting, and the narrowed-replacement proposal — so attenuation is preserved where it belongs.
+
+## Would change if
+
+Grants gain owner-scoped re-derivation from a proposer grant that provably drops every proposer caveat, making a fresh composition redundant rather than merely explicit.
+
+---
+
+# D-171 — Lifecycle refusals surface as refusals, never as successful or replayed decisions
+
+## Decision
+
+`ResumeOutcome::Refused` and `PauseStandingRuleOutcome::Refused` map to `OwnerReviewDecisionError::LifecycleRefused(String)` (`crates/openspine-kernel/src/pipeline/owner_review_decision.rs:57`), carrying the refusal reason to the owner surface. Idempotent no-op transitions remain legitimate replays and stay distinct from refusals.
+
+## Rationale
+
+Reporting a refused resume as success is an owner-facing truthfulness defect, not a cosmetic one: the owner would believe delegated authority is live when it is paused, and would not retry. Collapsing a refusal into the replay shape hides the same fact behind "nothing to do". The refusal reason is the only thing that tells the owner whether the blocker is scope drift, expiry, supersession, or an unavailable connector.
+
+## Consequences
+
+- A refused resume leaves the paused rule unchanged, emits no successful committed receipt, and writes a durable refusal event.
+- A refused pause reports the typed `needs_review`/non-active cause; `AlreadyPaused` stays a replay.
+- Both mappings are mutation-verified through the owner terminal route, so a regression to the replay shape fails a test rather than shipping a false receipt.
+
+## Would change if
+
+The owner surface gains a structured lifecycle-state view that makes the post-transition state unambiguous without reading the receipt text, at which point the reason string could become a typed code.
+
+---
+
+# D-172 — A new guard ships only with a filled three-column reachability census
+
+## Decision
+
+Every new guard records three columns before its task may be ticked: the line that enforces the invariant, a non-test production caller, and a test that enters at or above that caller. Production callers exclude `*_tests.rs`, `/tests/`, and `_tests` paths.
+
+An empty caller column means dead code. A guard whose only killing test calls it directly is recorded as UNPROVEN rather than claimed as covered.
+
+## Rationale
+
+A retroactive census over #128–#130 found five guards that were correct in isolation but that no production-entering test reached: the fired-entry marker check and the fired-token transactional recheck (both inert while dark-window minting is disabled and the eligibility allowlist is empty by construction under D-162), the Telegram approval-callback pending-write fence, the generic standing-rule erasure sweep's local-origination path, and the legacy owner-review digest compatibility mutation. A direct-wrapper test over any of them would have produced a green tick with no evidence that production can reach the guard at all.
+
+Recording an unreachable guard as UNPROVEN keeps the gap visible in the artifact an owner reads, which is strictly better than a passing test that proves only that the function exists.
+
+## Consequences
+
+- Census rows are part of `tasks.md` and are filled before guard tasks are ticked, so the census is reviewed with the change rather than after it.
+- Latent-by-construction guards are landed and reported as latent rather than patched with a synthetic caller; this follows the D-162 precedent for inert paths.
+- Mutation identities and results are recorded alongside the census, so a test that survives the mutation it claims to kill is caught in review.
+
+## Would change if
+
+Coverage tooling can prove production reachability of a guard line mechanically, at which point the third column becomes a generated artifact instead of a hand-filled one.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -4014,4 +4173,5 @@ A future owner surface has an authenticated message identity that can carry the 
 | 2026-08-07 | Added D-159–D-162 (outstanding dark-window exceptions bounded per reviewed rule version and counted inside the scheduling transaction; the cap and the fired-token binding keyed separately; fired exceptions accounted as exceptions rather than quota and excluded from the lapse clock; and dark-window `Allow` eligibility made an explicit empty allowlist enforced at activation and swept over stored rules), settled while implementing `bound-dark-window-exceptions` (#135). |
 | 2026-08-07 | Added D-163, D-164, D-165 for make-reusable-authority-evaluation-proposal-specific (#133): proposal-bound executed-case replay, verdict epoch binding with read-time staleness, and owner copy rendered from stored verdicts. |
 | 2026-08-07 | Added D-166 (immutable content-addressed owner reviews; authenticated channel adapters submit digest-bound intents only; approval atomically activates and binds the derived standing rule; Narrow creates a strict immutable replacement; replay-safe lifecycle controls act on the rule; the `OwnerSurfaceRef` cutover removes `bound_chat_id` from every generic kernel seam), settled while implementing `add-channel-neutral-responsibility-review` (#129). |
+| 2026-08-14 | Added D-167–D-172 (counterparty erasure as a store-level admission predicate consulted inside the reservation transaction and swept across all persisted standing rules; typed decision-event-deduplicated repeated-approval evidence replacing the raw audit-row count; miner reviews carrying an immutable evaluation binding re-verified inside the activation transaction; owner approval minting a fresh activation grant instead of reusing the proposer's; lifecycle refusals surfacing as typed refusals; and the three-column reachability census as a precondition for shipping a guard), settled while implementing `ship-recurring-gmail-draft-proof` (#130). |
 

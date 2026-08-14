@@ -2,11 +2,12 @@
 //! (#128). Every test drives a real `email.create_draft` request through the
 //! production mediation path and asserts the durable reservation, fence, and
 //! audit consequences of each outcome.
-
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
+use openspine_schemas::digest::canonical_json;
 use rusqlite::params;
 use serde_json::json;
+use ulid::Ulid;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -86,6 +87,64 @@ async fn delivery_unknown_retains_reservation_and_leaves_fence_open() {
         last_used.is_some(),
         "a retained reservation still records the rule as used"
     );
+}
+/// Acceptance: an existing delivery-unknown row is an identity-specific
+/// retry fence. The second request returns to owner approval before scoped
+/// consultation, so it neither reserves budget nor calls Gmail.
+#[tokio::test]
+async fn pending_delivery_unknown_fences_scoped_retry_before_reservation() {
+    let env = draft_env(&["thread-1"]).await;
+    mount_drafts(&env.api_server, 200, json!({"id": "must-not-write"})).await;
+    let grant = mint_draft_grant(&env.state, "thread-1");
+    let context = resolved_context(&env.state, &grant).await;
+    env.state
+        .store
+        .activate_standing_rule(
+            &scoped_manifest("rule-fenced-retry", &context),
+            None,
+            Timestamp::now(),
+        )
+        .unwrap();
+
+    let payload_ref = env
+        .state
+        .artifacts
+        .put(canonical_json(&draft_payload()).as_bytes())
+        .unwrap();
+    let target_ref = context
+        .target_refs()
+        .first()
+        .and_then(|target| target.id.clone())
+        .expect("resolved target carries the thread id");
+    let target_digest = context.target_digest().expect("resolved target digest");
+    let fingerprint = crate::store::draft_request_fingerprint(
+        "email.create_draft",
+        &target_ref,
+        target_digest,
+        &payload_ref.digest,
+    );
+    env.state
+        .store
+        .insert_pending_draft_write(
+            Ulid::new(),
+            grant.id,
+            Ulid::new(),
+            &target_ref,
+            &fingerprint,
+        )
+        .unwrap();
+
+    let (decision, budget) = dispatch(&env.state, &grant).await;
+
+    assert!(
+        matches!(decision, GateDecision::ApprovalRequired { .. }),
+        "a pending write must return to owner approval"
+    );
+    assert!(budget.is_none(), "fenced retries expose no scoped headroom");
+    assert_eq!(drafts_written(&env.api_server).await, 0);
+    assert_eq!(usage_count(&env.state, "rule-fenced-retry", "reserved"), 0);
+    assert_eq!(env.state.store.count_pending_draft_writes().unwrap(), 1);
+    assert!(audit_count(&env.state, "draft.pending_reconciliation_required") >= 1);
 }
 
 /// Acceptance: a confirmed post-attempt failure cancels the reservation and
@@ -256,6 +315,79 @@ async fn unresolvable_context_fails_closed_and_consults_no_rule() {
     assert_eq!(usage_count(&env.state, "rule-live", "reserved"), 0);
     assert_eq!(usage_count(&env.state, "rule-live", "committed"), 0);
     assert!(audit_count(&env.state, "action.scope_context_unresolved") >= 1);
+}
+
+/// The `CounterpartyRef::Unresolved` guard (`scoped_admission.rs:208-218`) with
+/// an actually-`Unresolved` briefcase, entered through the kernel action API.
+/// `unresolvable_context_fails_closed_and_consults_no_rule` deletes the
+/// briefcase and therefore stops one arm earlier, at "grant has no briefcase",
+/// so it is not evidence for this guard.
+#[tokio::test]
+async fn unresolved_counterparty_falls_back_via_action_api() {
+    let env = draft_env(&["thread-1"]).await;
+    mount_drafts(&env.api_server, 200, json!({"id": "draft-1"})).await;
+    let grant = mint_draft_grant(&env.state, "thread-1");
+    let context = resolved_context(&env.state, &grant).await;
+    env.state
+        .store
+        .activate_standing_rule(
+            &scoped_manifest("rule-live", &context),
+            None,
+            Timestamp::now(),
+        )
+        .unwrap();
+    // Keep the briefcase, but unbind its counterparty: the identity binding is
+    // gone while every other resolved dimension still matches the live rule.
+    {
+        let conn = env.state.store.conn.lock();
+        let stored: String = conn
+            .query_row(
+                "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
+                params![grant.id.to_string()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let mut briefcase: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        briefcase["task_shape"]["counterparty"] = json!({
+            "kind": "unresolved",
+            "channel": "email",
+            "identifier": "stranger@example.com",
+        });
+        conn.execute(
+            "UPDATE briefcases SET briefcase_json = ?1 WHERE task_grant_id = ?2",
+            params![briefcase.to_string(), grant.id.to_string()],
+        )
+        .unwrap();
+    }
+
+    let (decision, _) = dispatch(&env.state, &grant).await;
+
+    assert!(matches!(decision, GateDecision::ApprovalRequired { .. }));
+    assert_eq!(drafts_written(&env.api_server).await, 0);
+    assert_eq!(usage_count(&env.state, "rule-live", "reserved"), 0);
+    assert_eq!(usage_count(&env.state, "rule-live", "committed"), 0);
+    // Bind on this guard's own reason, not merely on "something fell back":
+    // deleting the guard still yields ApprovalRequired (the scope no longer
+    // matches), so a reason-free assertion would not kill it.
+    let reasons: Vec<String> = {
+        let conn = env.state.store.conn.lock();
+        let mut stmt = conn
+            .prepare(
+                "SELECT event_json FROM audit_log
+                  WHERE kind = 'action.scope_context_unresolved'",
+            )
+            .unwrap();
+        stmt.query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    };
+    assert!(
+        reasons.iter().any(|event| event.contains(
+            "briefcase counterparty is unresolved; reusable delegation requires an identity-bound counterparty"
+        )),
+        "the Unresolved guard must be the arm that refuses: {reasons:?}"
+    );
 }
 
 /// MAJOR: the scoped lane's `NoExecutor` arm. A rule matched and reserved, then

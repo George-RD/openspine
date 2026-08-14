@@ -77,6 +77,39 @@ impl Store {
         let now_nanos = timestamp_to_epoch_nanos(now)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Re-read the durable erasure marker while this claim transaction is
+        // open. The briefcase JSON is only used to obtain the generic bound
+        // counterparty; the marker remains the sole authoritative decision.
+        let erased: i64 = tx.query_row(
+            "SELECT EXISTS(
+                 SELECT 1
+                   FROM briefcases b
+                   JOIN erased_counterparties e
+                     ON e.counterparty_id = json_extract(
+                            b.briefcase_json,
+                            '$.task_shape.counterparty.identity_id'
+                        )
+                  WHERE b.task_grant_id = ?1
+             )",
+            params![grant_id.to_string()],
+            |row| row.get(0),
+        )?;
+        if erased != 0 {
+            Self::append_audit_conn(
+                &tx,
+                "action.scope_context_unresolved",
+                Some(action),
+                None,
+                Some(
+                    "counterparty was erased before fired-token claim; ordinary owner review required",
+                ),
+                Some(grant_id),
+                &[],
+                &[],
+            )?;
+            tx.commit()?;
+            return Ok(None);
+        }
         type Row = (String, i64);
         let row: Option<Row> = tx
             .query_row(

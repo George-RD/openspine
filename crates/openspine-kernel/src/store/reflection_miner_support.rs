@@ -9,14 +9,72 @@
 //! is the trust boundary the gateway already enforced for this grant.
 
 use openspine_schemas::action::GateDecision;
+use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::AuditEvent;
+use openspine_schemas::digest::Digest;
 use openspine_schemas::event::DataClassification;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::reflection_miner::AuditTrailEntry;
+use openspine_schemas::resolved_context::ResolvedActionContext;
+use openspine_schemas::reviewed_scope::ReviewedActionScope;
 use rusqlite::params;
+use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
 use super::Store;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OwnerApprovalAuditMetadata {
+    pub(crate) schema_version: u32,
+    pub(crate) context_class_digest: Digest,
+    pub(crate) reviewed_scope_digest: Digest,
+    pub(crate) request_digest: Digest,
+    pub(crate) target_digest: Digest,
+    pub(crate) payload_digest: Digest,
+    pub(crate) compatibility_digest: Digest,
+    pub(crate) counterparty_scope_id: Ulid,
+    pub(crate) reviewed_scope_ref: ArtifactRef,
+}
+
+impl OwnerApprovalAuditMetadata {
+    pub(crate) fn from_context(
+        context: &ResolvedActionContext,
+        reviewed_scope_ref: ArtifactRef,
+    ) -> Option<Self> {
+        let scope = ReviewedActionScope::derive(context).ok()?;
+        Some(Self {
+            schema_version: 1,
+            context_class_digest: scope.context_class_digest().clone(),
+            reviewed_scope_digest: context.reviewed_scope_digest()?,
+            request_digest: context.task_shape_digest()?.clone(),
+            target_digest: context.target_digest()?.clone(),
+            payload_digest: context.payload_digest()?.clone(),
+            compatibility_digest: context.compatibility_digest().clone(),
+            counterparty_scope_id: context.counterparty_identity_id()?,
+            reviewed_scope_ref,
+        })
+    }
+    pub(crate) fn from_payload_json(payload_json: Option<&str>) -> Option<Self> {
+        let metadata: Self = serde_json::from_str(payload_json?).ok()?;
+        (metadata.schema_version == 1).then_some(metadata)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OwnerApprovalScopeArtifact {
+    pub(crate) scope: ReviewedActionScope,
+    pub(crate) compatibility_digest: Digest,
+}
+
+impl OwnerApprovalScopeArtifact {
+    pub(crate) fn from_context(context: &ResolvedActionContext) -> Option<Self> {
+        Some(Self {
+            scope: ReviewedActionScope::derive(context).ok()?,
+            compatibility_digest: context.compatibility_digest().clone(),
+        })
+    }
+}
 
 impl Store {
     /// Load allowed, provenance-bearing audit events for one owner principal

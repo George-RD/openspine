@@ -1,5 +1,5 @@
 use super::*;
-use wiremock::matchers::{body_json, header, method, path};
+use wiremock::matchers::{body_json, body_string, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Shared task token used across tests.
@@ -204,11 +204,9 @@ async fn propose_command_sends_correct_payload() {
 
     Mock::given(method("POST"))
         .and(path("/v1/actions"))
-        .and(body_json(serde_json::json!({
-            "action": "artifact.propose",
-            "payload": {"kind": "route", "yaml": "id: dark_mode_route\nversion: 1"},
-            "target": null
-        })))
+        .and(body_string(
+            r#"{"action":"artifact.propose","payload":{"kind":"route","yaml":"id: dark_mode_route\nversion: 1"},"target":null}"#,
+        ))
         .respond_with(allow_result(serde_json::json!({
             "proposed": true,
             "action_request_id": "01JZZZZZZZZZZZZZZZZZZZZZZZ"
