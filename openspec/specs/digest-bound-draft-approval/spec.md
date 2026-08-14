@@ -132,6 +132,8 @@ The shared kernel-owned Gmail draft executor MUST preserve every draft re-deriva
 
 Scope-matched standing-rule admission becomes a third caller of that same executor. It MUST supply the payload ref, target ref, and target digest from the kernel-resolved reviewed context rather than from any shell-supplied value, and the executor MUST remain unchanged: every re-derivation, the pending-write fence, and the ordering that takes the connector write permit BEFORE recording the fence all stay as they are. Unlike the two per-instance approval callers, scope-matched admission holds a reserved standing-rule budget across the effect, so it MUST additionally map the returned outcome onto that reservation: `Executed` finalizes it, `DeliveryUnknown` retains it with the reconciliation fence left open, and `RefusedPreEffect` or `FailedAfterAttempt` cancels it without consuming budget.
 
+Retry fencing for kernel-resolved Gmail draft requests is specified by the `standing-rules` requirement "Pending Gmail writes MUST fence retries before budget reservation"; this capability adds no second predicate.
+
 #### Scenario: Stored plan bytes mutate after question presentation
 
 Given a pending plan question whose request carries the original plan digest
@@ -266,6 +268,22 @@ Given scope-matched admission that reserved quota and rate before dispatch
 When the executor returns `EffectOutcome::RefusedPreEffect` or `EffectOutcome::FailedAfterAttempt`
 Then the reservation MUST be cancelled
 And no quota or rate budget MUST be consumed.
+
+#### Scenario: Delivery is unknown and retry is fenced
+
+Given an approved `email.create_draft` write has a pending row because delivery is unknown
+And the same kernel-resolved request is retried
+When the retry reaches the action API
+Then it MUST be blocked before provider execution and scoped budget reservation
+And the pending row MUST remain open for reconciliation
+And owner review MUST remain the next authority step.
+
+#### Scenario: Exact request after explicit resolution may proceed
+
+Given the pending row has been explicitly resolved after reconciliation
+And the new request's kernel-derived payload and target digests match
+When the retry reaches the action API
+Then it MAY proceed through the ordinary gate and shared executor.
 
 ### Requirement: Plan approval MUST bind the complete ordered step-list digest
 

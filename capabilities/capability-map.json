@@ -62,14 +62,9 @@
     {
       "id": "progressive-delegation",
       "generic": true,
-      "blocking_issues": [
-        {
-          "issue": 129,
-          "role": "execution/review foundations"
-        }
-      ],
+      "blocking_issues": [],
       "owner_outcome": "Let Lyra grow through real work by reviewing and delegating reusable, protocol-neutral responsibility for narrowly bounded recurring work.",
-      "state": "product_surface_missing",
+      "state": "proof_in_progress",
       "runtime_changes": [
         "implement-standing-rules",
         "implement-reflection-miner",
@@ -81,7 +76,8 @@
         "backfill-implemented-capability-specs",
         "mine-and-match-reusable-authority-by-scope",
         "make-reusable-authority-evaluation-proposal-specific",
-        "bound-dark-window-exceptions"
+        "bound-dark-window-exceptions",
+        "ship-recurring-gmail-draft-proof"
       ],
       "canonical_specs": [
         "openspec/specs/standing-rules/spec.md",
@@ -95,7 +91,7 @@
       ],
       "lyra_artifacts": [],
       "owner_path_tests": [],
-      "current_limit": "The runtime can now propose, evaluate against the exact proposal, budget, expire, scope-match exactly one reviewed rule, bound dark-window exceptions, revoke, and audit reusable authority, and it stales an evaluation verdict when any bound epoch moves. None of that is reachable by the owner: Lyra has no plain-language loop that turns repeated approved work into a reviewed responsibility, so every one of these guarantees is exercised only by tests and internal paths."
+      "current_limit": "The recurring-draft path now runs end to end in the runtime — propose, evaluate, review, activate, scope-match, create one real draft, and fall back on erasure, drift, budget, pause, expiry, or revocation. It is proven for one protocol only; portability across a second communication shape is unverified."
     },
     {
       "id": "task-and-reminder-commitments",
@@ -177,8 +173,8 @@
       "owner_outcome": "Let Lyra prepare recurring drafts for one known relationship without asking the same approval every time.",
       "reason": "This is the smallest useful progression because it reuses the working Gmail proof, adds no new connector, and demonstrates the product's defining promise: repeated approved work can become narrow, budgeted, expiring, and revocable responsibility without permitting email send.",
       "scope": "One configured mailbox, one counterparty key, draft creation only, a small weekly volume budget, and a fixed expiry; recipient changes and email sending remain approval-required or denied.",
-      "current_limit": "The owner loop that joins proposal, review, and scoped activation for recurring drafts does not exist yet.",
-      "state": "planned",
+      "current_limit": "Proven for Gmail draft creation only; the same contracts are unexercised against a second protocol.",
+      "state": "shipped",
       "tracking_issue": 130,
       "proof_sequence": [
         "The owner selects a Gmail thread and approves an exact draft through the existing flow.",
@@ -187,7 +183,23 @@
         "The next matching draft is created with a concise receipt instead of another approval prompt.",
         "A changed recipient, exhausted budget, drift trigger, pause, expiry, or revocation returns the action for review or denies it."
       ],
-      "owner_path_tests": [],
+      "owner_path_tests": [
+        {
+          "path": "crates/openspine-kernel/src/api/scoped_admission_tests.rs",
+          "test": "scoped_allow_returns_responsibility_receipt",
+          "kind": "positive_effect"
+        },
+        {
+          "path": "crates/openspine-kernel/src/api/scoped_admission_tests.rs",
+          "test": "erased_counterparty_scoped_admission_falls_back_to_owner_approval",
+          "kind": "fallback"
+        },
+        {
+          "path": "crates/openspine-kernel/src/api/scoped_admission_outcome_tests.rs",
+          "test": "pending_delivery_unknown_fences_scoped_retry_before_reservation",
+          "kind": "control"
+        }
+      ],
       "conformance_tests": []
     },
     {
