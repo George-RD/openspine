@@ -165,6 +165,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-170 | Owner approval mints a fresh owner-scoped activation grant instead of reusing the proposer's attenuated grant | Accepted |
 | D-171 | Lifecycle refusals surface as typed refusals carrying the refusal reason, never as successful or replayed decisions | Accepted |
 | D-172 | A new guard ships only with a filled three-column reachability census; a guard no production-entering test reaches is recorded UNPROVEN rather than claimed as covered | Accepted |
+| D-173 | NixOS module plus flake is the primary reference deployment; Compose is retained as the portability proof and as the substrate the containment claims inspect; the module is packaging and supervision, not a security boundary | Accepted |
 
 ---
 
@@ -4117,6 +4118,39 @@ Coverage tooling can prove production reachability of a guard line mechanically,
 
 ---
 
+# D-173 — NixOS is the primary reference deployment; Compose is the portability and containment proof
+
+## Decision
+
+The NixOS module (`nixos-module.nix`) plus the flake (`flake.nix`) is the primary self-hosting reference deployment. It is deployed and exercised end to end on an aarch64-linux host.
+
+`compose.yaml`, `Dockerfile.kernel`, and `Dockerfile.shell` are retained — not deprecated — for two distinct jobs: they are the portability proof that the runtime is not bound to one host distribution, and they are the substrate the containment claims inspect. `docs/threat-claims.md` CLAIM-06 rests explicitly on `compose.yaml`'s `openspine-internal` network being `internal: true`, a topology fact no `cargo test` can observe.
+
+This supersedes only D-031's "first reference deployment target" claim. D-020's deployment-agnostic core is unchanged: Railway, Docker, VPS, and NixOS remain deployment targets rather than architecture, and the kernel still knows nothing about which one it runs under.
+
+Stated explicitly, because the module invites the opposite reading: **the NixOS module is packaging and supervision, not a security boundary.** `nixos-module.nix:69` optionally adds the service user to the `docker` group when `services.openspine.docker.enable` is set, and membership of that group is a host-equivalent control surface. The socket-proxy hardening sketched in `compose.yaml:101-138` remains the unfinished containment work and is not delivered by moving to NixOS.
+
+## Rationale
+
+The repository contradicted itself: a working, deployed NixOS service shipped while D-031 still named Compose the first reference target and `compose.yaml` carried the containment story. Nothing recorded the change, so the next agent reading the canon would have deployed the wrong thing or deleted the right thing.
+
+Retiring Compose would have been the tidier-looking option and the wrong one. It would delete the only artifact that demonstrates portability and would strand CLAIM-06 with no substrate to point at, converting an evidenced claim into an assertion.
+
+Naming the module as non-security is load-bearing because a systemd unit with a dedicated user, a `0750` state directory, and `EnvironmentFile` secrets reads like a sandbox. It is not one: the containment guarantee is `gate()` plus the shell sandbox, not the service manager.
+
+## Consequences
+
+- `docs/day-2-operations.md` names the NixOS path as primary and Compose as the portability path. `nixos-rebuild` replaces the base; `/var/lib/openspine` — the module's `dataDir` (`nixos-module.nix:30-34`) — holds the overlay that survives it.
+- Enabling `services.openspine.docker.enable` is an explicit operator decision to widen the host control surface, and should be read that way in review.
+- The socket-proxy work stays open as containment debt against whichever deployment target is primary.
+- The settled improvement boundary this posture serves: OpenSpine may autonomously learn typed overlay data, compose trusted bricks, and author code, spec, and Nix changes **as proposals**. Authority-bearing overlay activation requires digest-bound owner approval. Kernel code, connectors, resolvers, executors, and host configuration require reviewed PRs and an explicit operator deployment. This is AD-070/AD-071 plus D-152 restated as deployment posture, not a new grant — no canon change — and AD-139's deferral of the runtime blue/green kernel trial stands. Owner-approved in-product self-deployment is not adopted; if it is ever wanted it is its own foundation-amendment change.
+
+## Would change if
+
+A managed hosted offering becomes the primary onboarding path (the condition D-031 already names), or the NixOS module grows a genuine isolation boundary — at which point the "packaging, not security" clause must be revisited rather than quietly outgrown.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -4174,4 +4208,5 @@ Coverage tooling can prove production reachability of a guard line mechanically,
 | 2026-08-07 | Added D-163, D-164, D-165 for make-reusable-authority-evaluation-proposal-specific (#133): proposal-bound executed-case replay, verdict epoch binding with read-time staleness, and owner copy rendered from stored verdicts. |
 | 2026-08-07 | Added D-166 (immutable content-addressed owner reviews; authenticated channel adapters submit digest-bound intents only; approval atomically activates and binds the derived standing rule; Narrow creates a strict immutable replacement; replay-safe lifecycle controls act on the rule; the `OwnerSurfaceRef` cutover removes `bound_chat_id` from every generic kernel seam), settled while implementing `add-channel-neutral-responsibility-review` (#129). |
 | 2026-08-14 | Added D-167–D-172 (counterparty erasure as a store-level admission predicate consulted inside the reservation transaction and swept across all persisted standing rules; typed decision-event-deduplicated repeated-approval evidence replacing the raw audit-row count; miner reviews carrying an immutable evaluation binding re-verified inside the activation transaction; owner approval minting a fresh activation grant instead of reusing the proposer's; lifecycle refusals surfacing as typed refusals; and the three-column reachability census as a precondition for shipping a guard), settled while implementing `ship-recurring-gmail-draft-proof` (#130). |
+| 2026-08-14 | Added D-173 (the NixOS module plus flake is the primary reference deployment; `compose.yaml` and the Dockerfiles are retained as the portability proof and as the substrate `docs/threat-claims.md` CLAIM-06 inspects; supersedes only D-031's "first reference target" claim, leaving D-020 intact; the NixOS module is packaging and supervision, not a security boundary, since optional `docker` group membership is a host-equivalent control surface and the socket-proxy hardening remains unfinished; records the proposal-only improvement boundary as posture), settled while reconciling the deployment story after the NixOS service landed in PR #139. |
 
