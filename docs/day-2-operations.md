@@ -2,6 +2,20 @@
 
 This document describes the upgrade, first-run, downgrade, backup/restore, and failure posture required by AD-139, AD-144, and AD-150.
 
+## Deployment targets (D-173)
+
+The **NixOS module plus flake is the primary reference deployment.** Upgrade an installed host with:
+
+```sh
+sudo nix flake update openspine --flake /etc/nixos && sudo nixos-rebuild switch --flake /etc/nixos#<host>
+```
+
+`nixos-rebuild switch` replaces the **base** — the kernel binary and everything shipped with it. It does not touch the **overlay**: learned artifacts, standing rules, preferences, and the kernel database live under the module's `dataDir`, `/var/lib/openspine` by default (`nixos-module.nix:30-34`), which survives every rebuild. An upgrade is therefore a base swap plus the ordinary schema-migration lane described below, never an overlay migration.
+
+**Docker Compose is the portability path**, retained deliberately rather than deprecated. `compose.yaml`, `Dockerfile.kernel`, and `Dockerfile.shell` demonstrate that the runtime is not bound to one host distribution, and they are the substrate the containment claims inspect: `docs/threat-claims.md` CLAIM-06 rests on `compose.yaml`'s `openspine-internal` network being `internal: true`.
+
+Neither target is a security boundary. The NixOS module is packaging and supervision only — `services.openspine.docker.enable` optionally adds the service user to the `docker` group (`nixos-module.nix:69`), which is a host-equivalent control surface — and the socket-proxy hardening sketched at `compose.yaml:101-138` is still unfinished. Containment is `gate()` plus the shell sandbox, not the service manager.
+
 ## First-run and restart sequence
 
 Run these steps in order; each boundary is retryable only as described:
