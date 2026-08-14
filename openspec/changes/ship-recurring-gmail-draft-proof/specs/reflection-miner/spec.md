@@ -12,6 +12,9 @@ Given two allowed audit entries for one approved artifact in the scoped slice
 When the miner emits an output
 Then the output MUST be a proposed standing-rule candidate
 And it MUST preserve the observed action ID without activating authority.
+
+Test: `repeated_approval_is_only_a_standing_rule_candidate`, `repeated_approval_requires_kernel_verifiable_evidence`
+
 #### Scenario: Duplicate decision rows do not satisfy the threshold
 
 - **WHEN** two audit rows carry the same decision-event ID

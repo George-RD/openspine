@@ -8,7 +8,7 @@ The shared kernel-owned Gmail draft executor MUST preserve every draft re-deriva
 
 Scope-matched standing-rule admission becomes a third caller of that same executor. It MUST supply the payload ref, target ref, and target digest from the kernel-resolved reviewed context rather than from any shell-supplied value, and the executor MUST remain unchanged: every re-derivation, the pending-write fence, and the ordering that takes the connector write permit BEFORE recording the fence all stay as they are. Unlike the two per-instance approval callers, scope-matched admission holds a reserved standing-rule budget across the effect, so it MUST additionally map the returned outcome onto that reservation: `Executed` finalizes it, `DeliveryUnknown` retains it with the reconciliation fence left open, and `RefusedPreEffect` or `FailedAfterAttempt` cancels it without consuming budget.
 
-Before a retry reaches scoped consultation/reservation or any Gmail provider write, the kernel MUST query the durable pending-draft fence using a stable protected-reference request fingerprint. A matching `DeliveryUnknown` row MUST block the retry, return the request to ordinary owner approval, perform no provider write, and reserve no standing-rule budget. Known success/failure resolution clears the row through explicit existing resolution; this requirement does not claim exactly-once provider delivery.
+Retry fencing for kernel-resolved Gmail draft requests is specified by the `standing-rules` requirement "Pending Gmail writes MUST fence retries before budget reservation"; this capability adds no second predicate.
 
 #### Scenario: Stored plan bytes mutate after question presentation
 

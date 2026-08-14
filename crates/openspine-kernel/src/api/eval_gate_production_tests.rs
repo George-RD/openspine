@@ -97,6 +97,78 @@ async fn propose_path_refuses_a_non_delegable_standing_rule_before_review_requir
     );
 }
 
+/// `email.send` is catalog-owned non-delegable data (#130). This drives the
+/// same production propose path and proves the catalog-backed judge returns the
+/// typed non-delegable refusal for it before any review surface exists. A
+/// catalog-cardinality assertion proves the datum, not this reader.
+#[tokio::test]
+async fn catalog_email_send_is_non_delegable() {
+    use super::artifact_propose::dispatch_artifact_propose;
+    use super::dispatch_tests::OWNER_CHAT_ID;
+    use crate::pipeline::handle_owner_update;
+    use crate::telegram::TelegramConnector;
+    use crate::test_support::fixtures::{
+        owner_update, seed_owner_history, test_state_with_telegram,
+    };
+
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "ok": true,
+                "result": {"message_id": 1, "chat": {"id": 42}, "date": 0}
+            })),
+        )
+        .mount(&server)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "t".to_string(),
+        server.uri().parse().unwrap(),
+    ));
+    let grant = handle_owner_update(&state, &owner_update("hello lyra"))
+        .await
+        .unwrap()
+        .expect("owner update must compose a grant");
+    seed_owner_history(&state, &grant);
+
+    let rule = probe_manifest("email.send");
+    let yaml = serde_yaml::to_string(&rule).unwrap();
+    let result = dispatch_artifact_propose(
+        &state,
+        &grant,
+        &ActionId::new("artifact.propose"),
+        &crate::test_support::owner_surface_for(&state, OWNER_CHAT_ID),
+        Some(&serde_json::json!({"kind": "standing_rule", "yaml": yaml})),
+    )
+    .await;
+
+    let err = result.expect_err("email.send must never reach the approval surface");
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("not declared reusable-delegatable") && rendered.contains("email.send"),
+        "the production path must surface the catalog non-delegable denial: {rendered}"
+    );
+
+    let states: Vec<String> = {
+        let conn = state.store.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT state FROM proposed_artifacts WHERE artifact_id = ?1")
+            .unwrap();
+        let rows = stmt
+            .query_map(rusqlite::params!["probe-rule"], |row| {
+                row.get::<_, String>(0)
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        rows
+    };
+    assert!(
+        !states.iter().any(|s| s == "review_required"),
+        "the proposal must never reach review_required: {states:?}"
+    );
+}
+
 /// Drives the REAL activation entry point `commit_artifact_activation`, so
 /// the currency re-check is proven to be wired into activation rather than
 /// merely callable on the store.

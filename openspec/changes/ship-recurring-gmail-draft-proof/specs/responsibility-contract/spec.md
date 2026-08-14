@@ -84,11 +84,6 @@ For `Resume` and `Pause`, the lifecycle adapter MUST distinguish `Resumed`/`Alre
 - **THEN** the kernel MUST refuse it as requiring a replacement review
 - **AND** the review state MUST be unchanged
 
-#### Scenario: A callback token that does not match the stored digest
-
-- **WHEN** a decision arrives carrying a digest token that is not a prefix of the stored review's binding digest
-- **THEN** the decision MUST be refused before any state transition
-
 #### Scenario: Resume refusal preserves the paused rule
 
 - **WHEN** an owner submits `Resume` for an expired, drifted, unavailable, superseded, or otherwise ineligible paused rule
@@ -132,7 +127,7 @@ A repeated-approval miner proposal MUST enter the existing `artifact.propose` ch
 - **THEN** the narrowed proposal MUST pass the same exact-proposal evaluation before a replacement review is persisted
 - **AND** a failed or stale evaluation MUST leave the original review pending and unchanged
 
-Test: `miner_proposal_missing_verdict_refuses_without_review_or_activation`, `miner_proposal_mismatched_verdict_refuses_without_review_or_activation`, `miner_proposal_non_review_required_refuses_without_review_or_activation`, `miner_proposal_stale_verdict_refuses_without_review_or_activation`, `miner_review_approval_rechecks_bound_verdict_rows_before_activation`
+Test: `miner_proposal_missing_verdict_refuses_without_review_or_activation`, `miner_proposal_mismatched_verdict_refuses_without_review_or_activation`, `miner_proposal_non_review_required_refuses_without_review_or_activation`, `miner_proposal_stale_verdict_refuses_without_review_or_activation`, `miner_review_approval_denied_verdict_refuses_without_activation`, `miner_approval_refuses_review_proposal_digest_mismatch`
 
 
 ### Requirement: Scoped effect admission MUST emit a responsibility receipt

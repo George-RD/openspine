@@ -500,8 +500,8 @@
     "semantic_hash": ""
   },
   ".raw/openspine-decision-log.md": {
-    "mtime": 1786702700.4867425,
-    "ast_hash": "d8296458bb29220ee44762d596e7fa91",
+    "mtime": 1786179151.0313606,
+    "ast_hash": "e13466297d21954f827d3afea90ab616",
     "semantic_hash": ""
   },
   ".raw/openspine-prd-v9.md": {
@@ -970,7 +970,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/action_catalog.rs": {
-    "mtime": 1786702506.1776142,
+    "mtime": 1786206696.5956576,
     "ast_hash": "fe3a81548a6ea62b8fe4ed4f2eff239e",
     "semantic_hash": ""
   },
@@ -3970,7 +3970,7 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/scoped_admission.rs": {
-    "mtime": 1786702462.255704,
+    "mtime": 1786207511.6719341,
     "ast_hash": "b3015c42aefd11727ef955ab5c945997",
     "semantic_hash": ""
   },
@@ -3980,8 +3980,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/scoped_admission_outcome_tests.rs": {
-    "mtime": 1786702439.5666552,
-    "ast_hash": "1187e0171dbf84f5bbb1c03795fb127d",
+    "mtime": 1786205930.2997303,
+    "ast_hash": "2878bfb0fc27d6a19fd1683474955186",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/scoped_admission_support.rs": {
@@ -4150,8 +4150,8 @@
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/eval_gate_production_tests.rs": {
-    "mtime": 1786702301.6788962,
-    "ast_hash": "87776e8844f45946bebc0411b82963df",
+    "mtime": 1786198042.786726,
+    "ast_hash": "93453f78b9882902fd8ce247ab51b338",
     "semantic_hash": ""
   },
   "crates/openspine-kernel/src/api/eval_gate_replay_tests.rs": {
@@ -4430,18 +4430,18 @@
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/design.md": {
-    "mtime": 1786702728.266759,
-    "ast_hash": "5e6f8db330bcfda0aabea0c9e81ad393",
+    "mtime": 1786209349.977967,
+    "ast_hash": "8b7047ea77184fd3a79afb35185d75ae",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/proposal.md": {
-    "mtime": 1786702700.4877064,
-    "ast_hash": "168b003d74483aaad4ecf87951ced49f",
+    "mtime": 1786187279.594732,
+    "ast_hash": "185ae33099554b2882576e9e7265a104",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/specs/digest-bound-draft-approval/spec.md": {
-    "mtime": 1786700642.213432,
-    "ast_hash": "dd3ea0aef549ad2fa8ab37a8ad25332f",
+    "mtime": 1786184793.108124,
+    "ast_hash": "f13b3c7bd8376b8e743ef18bdb93e60b",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/specs/gate-action-api/spec.md": {
@@ -4450,23 +4450,23 @@
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/specs/reflection-miner/spec.md": {
-    "mtime": 1786702660.1640263,
-    "ast_hash": "03b2ae6fb91cf342df654313d9c5eadd",
+    "mtime": 1786185728.9823244,
+    "ast_hash": "1b8eaa27331951ede66d9c7938e94c38",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/specs/responsibility-contract/spec.md": {
-    "mtime": 1786702670.2772915,
-    "ast_hash": "281ced1ba587bc0b70d7b07ab94e5682",
+    "mtime": 1786186320.049117,
+    "ast_hash": "e77952349e122864f129518e0d61d43f",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/specs/standing-rules/spec.md": {
-    "mtime": 1786702660.1635418,
-    "ast_hash": "8b5baaeb69a07f712302c5d716967e37",
+    "mtime": 1786184723.6908526,
+    "ast_hash": "453251593a75d8592a24ac27c9a72e14",
     "semantic_hash": ""
   },
   "openspec/changes/ship-recurring-gmail-draft-proof/tasks.md": {
-    "mtime": 1786702728.266401,
-    "ast_hash": "dbaef30bee33b3525be68affa5a1bc42",
+    "mtime": 1786209326.3600566,
+    "ast_hash": "743a50c23107468c1a480e0bbcfa2a93",
     "semantic_hash": ""
   }
 }
