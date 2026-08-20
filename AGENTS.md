@@ -1,7 +1,14 @@
 # openspine
 
 Rust workspace (`crates/`) for a self-hostable governed-agent runtime, plus an
-OpenSpec spec tree (`openspec/`) and an Astro docs site (`site/`).
+archived OpenSpec spec tree (`openspec/`) and an Astro docs site (`site/`).
+
+**Process canon — read first: [`DIRECTION.md`](DIRECTION.md).** New work uses
+the Pocock skills workflow (wayfinder → grilling/domain-modeling → to-spec →
+to-tickets → implement, all under `.agents/skills/`); the OpenSpec ceremony
+(propose / apply / archive) is **retired for new work** — do not open new
+changes under `openspec/changes/`. Domain vocabulary: [`CONTEXT.md`](CONTEXT.md)
+(five promises, six users, decision test) and [`STORIES.md`](STORIES.md).
 
 Crates are split by trust boundary, not by convenience: `openspine-schemas`
 (shared types) → `openspine-authority` (composition) → `openspine-gate`
@@ -10,9 +17,9 @@ sandboxed). Dependencies point one way down that list.
 
 ## Gate
 
-`scripts/check.sh` is the gate and mirrors `.github/workflows/ci.yml`. Pass a
-change id (`scripts/check.sh <change-id>`) to strict-validate one in-flight
-OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
+`scripts/check.sh` is the gate and mirrors `.github/workflows/ci.yml`. It still
+strict-validates the archived OpenSpec tree (historical record). Inner loop:
+`cargo test -p <crate>`.
 
 ## Gotchas
 
@@ -33,13 +40,14 @@ OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
 - **Every `test: <name>` row in `docs/threat-claims.md` must name a real test**
   (`scripts/check-claims.sh`). Writing a security claim without landing its test
   fails the gate.
-- **Archive changes with the CLI, never by moving directories.**
-  `npx --no-install openspec archive "<name>" --yes` applies the deltas into
-  `openspec/specs/` mechanically; a raw `mv` into `openspec/changes/archive/`
-  leaves the specs unapplied. `--yes` is permitted on `archive` only. If it
-  fails with `ADDED ... already exists`, the change re-`ADDED` a pre-seeded
-  requirement — change the delta header to `## MODIFIED Requirements` and
-  re-run; do not fall back to `--skip-specs`.
+- **Legacy OpenSpec changes archive with the CLI, never by moving directories**
+  (applies only to leftover/historical changes — new work never creates them;
+  see `DIRECTION.md`). `npx --no-install openspec archive "<name>" --yes`
+  applies the deltas into `openspec/specs/` mechanically; a raw `mv` into
+  `openspec/changes/archive/` leaves the specs unapplied. `--yes` is permitted
+  on `archive` only. If it fails with `ADDED ... already exists`, change the
+  delta header to `## MODIFIED Requirements` and re-run; do not fall back to
+  `--skip-specs`.
 - **`.omp/skills/openspec-*` and `.omp/commands/opsx-*` are generated but
   hand-patched** with that ceremony. `openspec init/update --tools oh-my-pi`
   silently reverts the patch; `scripts/check-omp-ceremony.sh` catches it.
@@ -53,11 +61,13 @@ OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
   `.raw/openspine-agentos-design-log.md` (AD-0XX, only *settled* entries bind a
   spec) and `.raw/openspine-decision-log.md` (D-0XX) are canon;
   `openspec/openspine-change-sequence.md` holds only decomposition and
-  dependency edges. On conflict, canon wins.
+  dependency edges. On conflict, canon wins. On *process*, `DIRECTION.md` is
+  newest and wins.
 
 ## Where to look
 
-- OpenSpec workflow detail (propose / apply / archive): `.omp/skills/openspec-*/SKILL.md`.
+- Process rulings and the delivery workflow: `DIRECTION.md`. Legacy OpenSpec
+  workflow detail (historical changes only): `.omp/skills/openspec-*/SKILL.md`.
 - Operator-facing docs: `docs/` (terminal chat, Gmail setup, day-2 ops, threat claims).
 - Product framing and the public site: `site/`.
 - Whole-codebase structural view: the **codegraph** MCP server, registered in
