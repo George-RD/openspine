@@ -45,11 +45,11 @@ Failure modes:
 - The approver of record holding a raw channel id.
 - A record only the system can read.
 
-## Outside framework (hypothetical)
+## Outside framework (hypothetical — DORMANT, ruled 2026-08-20)
 
-Effect governance via the session surface, without packages. If no decision
-cites this story, foreign-host mode is recorded dormant and nothing that only
-it needs is paid for.
+Effect governance via the session surface, without packages. The map #182
+closing census (#194) found no decision citing this story; foreign-host mode
+is dormant per DIRECTION.md and nothing that only it needs is paid for.
 
 ## Delegating owner (fenced — do not build)
 

@@ -60,5 +60,9 @@ Correctness fixes and the five promises (CONTEXT.md) need no story.
 - The Bell roadmap is canon-as-context: its priorities hold (Effect Truth
   first; the fit review gates tenancy implementation and P3); decisions may
   add shape to its tickets via comments and links.
-- If no map decision cites the Outside-framework story, foreign-host mode is
-  recorded dormant here and nothing that only it needs is paid for.
+- **Foreign-host mode: DORMANT** (ruled 2026-08-20, map #182 closing census —
+  ticket #194). No decision on the deepening map cited the Outside-framework
+  story: every landed design cites Lyra, Bell, the Unattended workhorse, or
+  the Auditor. Nothing whose only consumer is foreign-host mode may be built
+  or preserved; session-surface effect governance returns only via a redrawn
+  destination, as a fresh effort.

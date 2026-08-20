@@ -49,6 +49,13 @@ Citable by name; definitions and failure modes in [STORIES.md](STORIES.md).
 - **Delegating owner**: Lyra authors packages under kernel-enforced
   attenuation (fenced, do not build).
 
+## External-egress disclosure gate
+
+The deterministic runtime check consulted before any content leaves to a
+non-owner counterparty: provenance-classified content against relationship-
+scoped disclosure policy, uniform across connectors. (Generalized from the
+web-search-only disclosure branch; spec #204.)
+
 ## Decision test
 
 Land what serves two or more users; fold it where an existing ticket carries
