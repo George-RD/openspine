@@ -87,28 +87,3 @@ pub(crate) fn resolve_telegram_offset(state: &AppState) -> anyhow::Result<(Strin
 pub(crate) fn is_already_processed(update_id: i64, last_update_id: Option<i64>) -> bool {
     last_update_id.is_some_and(|last| update_id <= last)
 }
-
-#[cfg(test)]
-pub(crate) fn resolve_telegram_offset_for_test(
-    state: &AppState,
-) -> anyhow::Result<(String, Option<i64>)> {
-    resolve_telegram_offset(state)
-}
-
-#[cfg(test)]
-pub(crate) async fn dispatch_polled_updates_for_test(
-    state: &AppState,
-    updates: Vec<crate::telegram::TelegramUpdate>,
-    last_update_id: Option<i64>,
-) -> anyhow::Result<usize> {
-    let mut dispatched = 0usize;
-    for update in updates {
-        if is_already_processed(update.update_id, last_update_id) {
-            continue;
-        }
-        if super::handle_owner_update(state, &update).await.is_ok() {
-            dispatched += 1;
-        }
-    }
-    Ok(dispatched)
-}

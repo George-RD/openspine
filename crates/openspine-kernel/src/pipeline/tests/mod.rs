@@ -16,6 +16,7 @@ mod headless_draft_boundary;
 mod offset;
 mod owner_surface_binding;
 mod plan;
+mod polling;
 mod route_ambiguity;
 mod secret_intake_integration;
 mod skill_command_tests;

@@ -96,7 +96,7 @@ async fn same_bot_token_rotation_preserves_namespaced_offset() {
     )
     .await;
     // The consumed update (id 100) never reaches the pipeline/model.
-    crate::pipeline::poll_telegram_once_for_test(&state)
+    crate::pipeline::polling::poll_telegram_once(&state)
         .await
         .expect("poll must succeed");
     assert_poll_offset(&tg, Some(101)).await;
@@ -160,7 +160,7 @@ async fn different_bot_token_rotation_starts_fresh_namespace() {
     // (dispatched) rather than dropped; polling omits the offset query.
     mount_getupdates(&tg, new_token, &[(50, "hello lyra")]).await;
 
-    crate::pipeline::poll_telegram_once_for_test(&state)
+    crate::pipeline::polling::poll_telegram_once(&state)
         .await
         .expect("poll must succeed");
     assert_poll_offset(&tg, None).await;

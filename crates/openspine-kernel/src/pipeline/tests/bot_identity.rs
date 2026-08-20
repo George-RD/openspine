@@ -54,7 +54,7 @@ async fn startup_migrates_old_token_and_legacy_offset_before_first_poll() {
         .unwrap();
 
     // Production startup boundary: initialize runs before the first poll.
-    crate::pipeline::initialize_telegram_bot_id(&state)
+    crate::pipeline::offset::initialize_telegram_bot_id(&state)
         .await
         .expect("startup init must succeed");
 
@@ -76,7 +76,7 @@ async fn startup_migrates_old_token_and_legacy_offset_before_first_poll() {
         &[(100, "consumed-legacy-update"), (101, "hello lyra")],
     )
     .await;
-    crate::pipeline::poll_telegram_once_for_test(&state)
+    crate::pipeline::polling::poll_telegram_once(&state)
         .await
         .expect("first poll must succeed");
     assert_poll_offset(&tg, Some(101)).await;
@@ -106,7 +106,7 @@ async fn initialization_transaction_failure_rolls_back_then_retry_succeeds() {
     // Inject a one-shot initialization-transaction failure.
     state.store.arm_fault_init_tx_for_test();
 
-    let first = crate::pipeline::initialize_telegram_bot_id(&state).await;
+    let first = crate::pipeline::offset::initialize_telegram_bot_id(&state).await;
     assert!(first.is_err(), "initialization must fail on tx fault");
 
     // Both the bot_id write and the legacy migration rolled back: bot_id is
@@ -122,7 +122,7 @@ async fn initialization_transaction_failure_rolls_back_then_retry_succeeds() {
     );
 
     // Retry (fault consumed) succeeds and completes the migration.
-    crate::pipeline::initialize_telegram_bot_id(&state)
+    crate::pipeline::offset::initialize_telegram_bot_id(&state)
         .await
         .expect("retry must succeed");
     assert_eq!(
@@ -158,7 +158,7 @@ async fn startup_reconciles_vault_token_when_persisted_bot_id_differs() {
         .set_kv("last_telegram_update_id.888", "500")
         .unwrap();
 
-    crate::pipeline::initialize_telegram_bot_id(&state)
+    crate::pipeline::offset::initialize_telegram_bot_id(&state)
         .await
         .expect("startup reconciliation must succeed");
 
@@ -185,7 +185,7 @@ async fn startup_reconciles_vault_token_when_persisted_bot_id_differs() {
     // update is consumed (not dropped as already-processed), and it persists
     // under B's `.888` namespace — never under A's `.777`.
     mount_getupdates(&tg, b_token, &[(50, "hello lyra")]).await;
-    crate::pipeline::poll_telegram_once_for_test(&state)
+    crate::pipeline::polling::poll_telegram_once(&state)
         .await
         .expect("post-reconciliation poll must succeed");
     assert_poll_offset(&tg, None).await;
@@ -214,7 +214,7 @@ async fn startup_preserves_offset_when_vault_token_matches_persisted() {
         .set_kv("last_telegram_update_id.777", "100")
         .unwrap();
 
-    crate::pipeline::initialize_telegram_bot_id(&state)
+    crate::pipeline::offset::initialize_telegram_bot_id(&state)
         .await
         .expect("startup reconciliation must succeed");
 
