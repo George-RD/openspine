@@ -12,8 +12,9 @@ use ulid::Ulid;
 use crate::action::{ActionId, ActionImplementationId, DataDestination, ReviewedScopeDimension};
 use crate::briefcase::RelationshipTier;
 use crate::digest::{digest_of, Digest};
+use crate::disclosure_policy::DisclosureClass;
 use crate::egress::EgressClass;
-use crate::event::{AccountRole, DataClassification, TargetRef};
+use crate::event::{AccountRole, TargetRef};
 use crate::resolved_context::ResolvedActionContext;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -54,7 +55,7 @@ pub enum ReviewedScopeValue {
     PayloadDigest(Digest),
     EffectDestination(DataDestination),
     EgressClass(EgressClass),
-    DisclosureClass(DataClassification),
+    DisclosureClass(DisclosureClass),
     OutputChannels(BTreeSet<String>),
     Workflow(String),
     TaskShape(Digest),
