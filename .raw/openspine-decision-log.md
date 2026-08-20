@@ -4151,6 +4151,38 @@ A managed hosted offering becomes the primary onboarding path (the condition D-0
 
 ---
 
+# D-174 — Provenance labels bind to typed identity, consulted deterministically at context assembly and egress
+
+## Decision
+
+The load-bearing decision from spec #220 (wayfinder #193, map #182, Immune-system lane), recorded verbatim:
+
+> provenance and visibility labels bound to typed identity, consulted deterministically at context assembly and egress; kernel-minted, immutable, fail-closed, no LLM judgment
+
+Concretely: each classified briefcase item carries an immutable, kernel-minted **provenance label** that records the item's typed-identity **origin** alongside its existing `disclosure_class` sensitivity and its source lineage (producing event + producing exchange digest). Origin is a closed, typed `ProvenanceOrigin` — `Owner(PrincipalId)`, `Counterparty(IdentityRef)`, or `System` — never a string. The label is consulted deterministically at two points and nowhere else: at **context assembly** (kernel briefcase packing derives each item's origin from the resolved typed identity of its source), and at **external egress** (a new ordered stage, after the existing disclosure-coverage stage, blocks an outbound item whose origin is a counterparty other than the bound recipient — and is not owner, system, or public — unless a covering policy authorizes it). Authority to widen that closure travels only through the grant chain as an append-only, narrow-only caveat. An item whose origin cannot be resolved is treated as most-restrictive and fails closed. No LLM or agent judgment is ever involved in the origin decision.
+
+## Rationale
+
+Today a classified briefcase item records *what* sensitivity a datum is (`DisclosureClass`) but not *whose* data it is: the deterministic egress gate can distinguish a Private datum from a Public one, but cannot distinguish a Client's Private datum from a Vendor's. That missing typed-identity dimension is exactly the Immune-system gap for Bell — nothing deterministic stops another counterparty's, or the owner's internal, data from reaching a stranger's reply when both are the same sensitivity class — and for the Auditor, a disclosure decision cannot be reconstructed by *which identity's* data was evaluated.
+
+Binding provenance to typed identity closes that gap without inventing a new abstraction: it generalizes the already-proven `Provenance::ProducedBy` lineage shape (recorded, not inferred, per AD-140), widening its producing-identity binding from a bare scope `Ulid` to the closed typed `ProvenanceOrigin`. Deriving origin during kernel-owned briefcase packing keeps the confused-deputy defense intact — the label has no worker-reachable constructor, mirroring the kernel-only briefcase mutators (AD-032, AD-121), and a caller-supplied value can only widen scrutiny, never narrow it. Consulting it at compose time and at the effect boundary follows the established deterministic-consultation discipline (D-107): every consult compares typed fields or digests only, never model output.
+
+The origins reuse the typed-identity vocabulary rather than strings — the owner arm is #197's single owner `PrincipalId` (AD-146), the counterparty arm a sibling `IdentityRef(Ulid)` newtype under the same discipline — and the label records origin only, carrying zero authority fields, because **identity is not authority (D-006)**. The grant-side extension exactly mirrors the typed egress-class caveat (AD-060): a chain-appended, empty-list-narrows, fail-closed-on-unknown allowlist, so authority to widen the closure preserves the MAC-covered grant discipline (AD-148) and can only narrow across sub-grants, never widen by root-field mutation.
+
+## Consequences
+
+- The egress deterministic core gains one ordered stage after disclosure-coverage; `DisclosurePolicyKey`/`DisclosurePolicy` shape is unchanged, and the stage slots into the seam #204/#205 established. The dead `gate()` `EgressClassifier` (#183) stays deleted and is not resurrected.
+- Worker-requested and kernel-origin/proactive (Unattended workhorse) dispatches pass through the identical origin-closure check — no second ungated path.
+- The origin binding is immutable and **append-only** (AD-140 lineage discipline): a later authorization or reconfirmation never rewrites what a datum's origin was at production time, giving the Auditor a decision reconstructible by exactly which typed-identity origin, sensitivity, relationship, and egress class it was evaluated against.
+- The typed-identity origin binding is the mechanism a future principal-facing **visibility class** (customer-visible/staff/owner) will ride on; that axis is fenced post-fit-review (DIRECTION.md) and is out of scope here, but can be added without redesigning provenance.
+- This is a design decision recorded in canon; the implementing code lands in the to-tickets that follow #220, and is bound by this entry. The single authoritative sensitivity vocabulary (`DisclosureClass`, with `DataClassification`'s `Unknown` mapping to most-restrictive) and the caveat's v1 posture (designed and enforced, adopted by worker sub-grants; the single-owner owner grant minted without it) are settled in #220's implementation decisions.
+
+## Would change if
+
+A principal or agent judgment (rather than a kernel-derived typed-identity binding) were ever admitted into the origin decision, or the label acquired an authority field — either would break D-006 and the fail-closed, no-LLM-judgment invariant and force this decision to be reopened. A tenancy model that promotes the visibility class to a first-class stored axis would extend, not supersede, the typed-identity binding recorded here.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
