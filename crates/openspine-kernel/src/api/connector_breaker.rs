@@ -298,20 +298,26 @@ fn map_admission_error(
 
 /// Map a resolved (non-timeout) write outcome to a dispatch error.
 ///
-/// Candidate Gmail-write extension: a `gmail.create_draft` whose effect is not
-/// confirmed by the returned value must retain durable pending evidence unless
-/// the provider returns a *confirmed* response. A transport/no-response class
-/// may mean the write landed before the response was lost, so it surfaces as
-/// [`DispatchError::DeliveryUnknown`] rather than a confirmed failure. Only a
-/// response the provider explicitly reports as failed (e.g. a definite `api`
-/// error) resolves the pending row.
+/// A `gmail.create_draft` whose effect is not confirmed by the returned value
+/// must retain durable pending evidence unless the provider response proves
+/// non-occurrence. Transport/no-response, malformed success responses, HTTP
+/// 429, and HTTP 5xx may all mean the write landed before the response was
+/// lost or substituted, so they surface as [`DispatchError::DeliveryUnknown`].
+/// A definite client rejection (HTTP 4xx other than 429) is a confirmed
+/// failure and resolves the pending row.
 fn map_write_error(err: anyhow::Error) -> DispatchError {
     if let Some(gmail) = err.downcast_ref::<crate::gmail::GmailError>() {
-        if matches!(
-            gmail.class,
-            crate::gmail::GmailFailureClass::Transport
-                | crate::gmail::GmailFailureClass::MalformedResponse
-        ) {
+        let ambiguous_api_status = matches!(
+            (gmail.class, gmail.status),
+            (crate::gmail::GmailFailureClass::Api, Some(429 | 500..=599))
+        );
+        if ambiguous_api_status
+            || matches!(
+                gmail.class,
+                crate::gmail::GmailFailureClass::Transport
+                    | crate::gmail::GmailFailureClass::MalformedResponse
+            )
+        {
             return DispatchError::DeliveryUnknown(anyhow!(
                 "gmail write outcome is unconfirmed (delivery-unknown): {gmail}"
             ));
@@ -343,11 +349,48 @@ mod tests {
     }
 
     #[test]
-    fn confirmed_gmail_api_write_failure_is_connector_error() {
+    fn gmail_5xx_write_is_delivery_unknown() {
+        // #173: a 5xx from drafts.create does not prove the write failed — the
+        // draft may have landed before the intermediary errored — so it is
+        // delivery-unknown, not a confirmed failure.
+        for status in [500u16, 502, 503, 504] {
+            let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
+                status: Some(status),
+                class: crate::gmail::GmailFailureClass::Api,
+            }));
+            assert!(
+                matches!(err, DispatchError::DeliveryUnknown(_)),
+                "status {status} must be delivery-unknown, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn gmail_429_write_is_delivery_unknown() {
+        // #173: a 429 (rate limited) likewise does not prove non-occurrence.
         let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-            status: Some(500),
+            status: Some(429),
             class: crate::gmail::GmailFailureClass::Api,
         }));
-        assert!(matches!(err, DispatchError::Connector(_)));
+        assert!(
+            matches!(err, DispatchError::DeliveryUnknown(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn confirmed_gmail_4xx_write_failure_is_connector_error() {
+        // A definite client rejection (4xx other than 429) proves the write
+        // did not take hold and resolves the pending row.
+        for status in [400u16, 403, 422] {
+            let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
+                status: Some(status),
+                class: crate::gmail::GmailFailureClass::Api,
+            }));
+            assert!(
+                matches!(err, DispatchError::Connector(_)),
+                "status {status} must be a confirmed connector failure, got {err:?}"
+            );
+        }
     }
 }

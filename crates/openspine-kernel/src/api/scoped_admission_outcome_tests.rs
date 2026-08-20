@@ -152,7 +152,12 @@ async fn pending_delivery_unknown_fences_scoped_retry_before_reservation() {
 #[tokio::test]
 async fn failure_after_attempt_cancels_reservation() {
     let env = draft_env(&["thread-1"]).await;
-    mount_drafts(&env.api_server, 500, json!({"error": "boom"})).await;
+    mount_drafts(
+        &env.api_server,
+        400,
+        json!({"error": {"code": 400, "message": "invalid draft"}}),
+    )
+    .await;
     let grant = mint_draft_grant(&env.state, "thread-1");
     let context = resolved_context(&env.state, &grant).await;
     env.state

@@ -542,6 +542,9 @@ pub(crate) async fn dispatch_scoped_effect(
 #[path = "scoped_admission_drift_tests.rs"]
 mod drift_tests;
 #[cfg(test)]
+#[path = "scoped_admission_effect_truth_tests.rs"]
+mod effect_truth_tests;
+#[cfg(test)]
 #[path = "scoped_admission_outcome_tests.rs"]
 mod outcome_tests;
 #[cfg(test)]
