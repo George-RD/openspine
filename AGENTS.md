@@ -69,3 +69,17 @@ OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
   `~/.omo/codegraph/bin/codegraph index` once (~5s; the binary is not on `PATH`),
   after which the MCP file-watcher auto-syncs on edits. Re-run `index` after a
   branch switch or large rebase if results look stale.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`George-RD/openspine`), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage labels, used verbatim. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
