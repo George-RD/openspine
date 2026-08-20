@@ -54,14 +54,18 @@ OpenSpec change instead of all of them. Inner loop: `cargo test -p <crate>`.
   spec) and `.raw/openspine-decision-log.md` (D-0XX) are canon;
   `openspec/openspine-change-sequence.md` holds only decomposition and
   dependency edges. On conflict, canon wins.
-- **`graphify-out/` is generated** (207MB, 2.5k content-addressed cache blobs).
-  `.ignore` keeps it out of agent search; it is still tracked in git. If a
-  whole-codebase structural view helps, `graphify-out/GRAPH_REPORT.md` lists god
-  nodes and communities — it is 235KB, so read ranges, not the file. After
-  changing code, `graphify update .` refreshes it (AST-only, no API cost).
 
 ## Where to look
 
 - OpenSpec workflow detail (propose / apply / archive): `.omp/skills/openspec-*/SKILL.md`.
 - Operator-facing docs: `docs/` (terminal chat, Gmail setup, day-2 ops, threat claims).
 - Product framing and the public site: `site/`.
+- Whole-codebase structural view: the **codegraph** MCP server, registered in
+  `.omp/mcp.json` (`omo-codegraph`), so omp sessions here get `codegraph_explore`
+  / `codegraph_search` / `codegraph_callers` / `codegraph_node` as tools.
+  `explore` gives a symbol's blast radius, callers, and covering tests in one
+  shot — use it instead of reading source file-by-file. The index is a local
+  `.codegraph/codegraph.db` (~34MB, gitignored). It is NOT built on demand: run
+  `~/.omo/codegraph/bin/codegraph index` once (~5s; the binary is not on `PATH`),
+  after which the MCP file-watcher auto-syncs on edits. Re-run `index` after a
+  branch switch or large rebase if results look stale.
