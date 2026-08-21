@@ -45,6 +45,9 @@ mod standing_rule_mediation_tests;
 pub(crate) mod tests;
 
 #[cfg(test)]
+mod catalog_seam_tests;
+
+#[cfg(test)]
 pub(crate) mod dispatch_tests;
 #[cfg(test)]
 mod effect_executor_tests;

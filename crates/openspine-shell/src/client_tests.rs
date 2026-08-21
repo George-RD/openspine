@@ -249,3 +249,81 @@ async fn unauthorized_get_task_returns_err() {
         "error message should mention 403: {msg}"
     );
 }
+
+/// (IT3) `GET /v1/task` deserializes the capability-derived tool catalog: the
+/// `action_id`, `status`, and the reused `ToolDescriptor` fields all round-trip.
+#[tokio::test]
+async fn get_task_deserializes_catalog() {
+    let mut body = task_view_json();
+    body["catalog"] = json!({
+        "tools": [
+            {
+                "action_id": "openspine.status.read",
+                "status": "callable",
+                "descriptor": {
+                    "name": "read_status",
+                    "description": "Read the kernel's current status.",
+                    "parameters_schema": {"type": "object", "properties": {}},
+                    "approval_required": false,
+                    "selection_token_required": false
+                }
+            },
+            {
+                "action_id": "connector.enable",
+                "status": "requires_owner_approval",
+                "descriptor": {
+                    "name": "enable_connector",
+                    "description": "Enable a connector.",
+                    "parameters_schema": {"type": "object"},
+                    "approval_required": true,
+                    "selection_token_required": false
+                }
+            }
+        ]
+    });
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/task"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = KernelClient::new(server.uri(), "secret-token".to_string());
+    let view = client.get_task().await.expect("catalog must deserialize");
+    assert_eq!(view.catalog.tools.len(), 2);
+    assert_eq!(view.catalog.tools[0].action_id, "openspine.status.read");
+    assert_eq!(view.catalog.tools[0].status, "callable");
+    assert_eq!(view.catalog.tools[0].descriptor.name, "read_status");
+    assert!(!view.catalog.tools[0].descriptor.approval_required);
+    assert_eq!(view.catalog.tools[1].action_id, "connector.enable");
+    assert_eq!(view.catalog.tools[1].status, "requires_owner_approval");
+    assert!(view.catalog.tools[1].descriptor.approval_required);
+}
+
+/// (IT3) A response from an older kernel that omits `catalog` still
+/// deserializes: the field fails closed to an empty catalog, never an error
+/// and never treated as authority.
+#[tokio::test]
+async fn get_task_without_catalog_defaults_to_empty() {
+    let body = task_view_json();
+    assert!(
+        body.get("catalog").is_none(),
+        "fixture must omit catalog to exercise the backward-compat default"
+    );
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v1/task"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = KernelClient::new(server.uri(), "secret-token".to_string());
+    let view = client
+        .get_task()
+        .await
+        .expect("older kernel view must parse");
+    assert!(
+        view.catalog.tools.is_empty(),
+        "a missing catalog must fail closed to empty"
+    );
+}

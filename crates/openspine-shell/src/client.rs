@@ -5,7 +5,7 @@
 //! `POST /v1/actions`; the shell has no other network I/O.
 
 use anyhow::{bail, Context, Result};
-use openspine_schemas::action::GateDecision;
+use openspine_schemas::action::{GateDecision, ToolDescriptor};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -65,6 +65,39 @@ pub struct TaskView {
     /// predates this field doesn't break deserialization.
     #[serde(default)]
     pub selection_tokens: Vec<String>,
+    /// The capability-derived tool catalog (spec #209, IT3): the exact set of
+    /// model-consumable tools this grant carries. `#[serde(default)]` means an
+    /// older kernel that omits the field fails closed to an empty catalog — a
+    /// missing catalog is never treated as authority. The catalog is advisory;
+    /// `gate()` on the kernel remains the sole enforcement point.
+    #[serde(default)]
+    pub catalog: CatalogView,
+}
+
+/// One tool in the capability-derived catalog. Mirrors the kernel wire DTO
+/// field-for-field; `descriptor` reuses the shared, kernel-owned
+/// [`ToolDescriptor`] schema type so the wire shape has a single source of
+/// truth.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct CatalogTool {
+    /// The action id to POST to `/v1/actions` to invoke this tool.
+    pub action_id: String,
+    /// `"callable"` or `"requires_owner_approval"`.
+    pub status: String,
+    /// The model-facing descriptor (name, description, parameter JSON Schema,
+    /// presentation flags).
+    pub descriptor: ToolDescriptor,
+}
+
+/// The projected tool surface served on `GET /v1/task`. Deserialized so the
+/// worker can render granted tools for its provider (presentation is out of
+/// scope per spec D6). An empty `tools` list is a valid, fail-closed catalog.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CatalogView {
+    #[serde(default)]
+    pub tools: Vec<CatalogTool>,
 }
 
 /// Gate outcome of `POST /v1/actions`.
