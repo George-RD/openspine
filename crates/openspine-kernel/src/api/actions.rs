@@ -615,6 +615,17 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             }
         }
     } else if let Some(resolved) = scoped_resolved {
+        // Test-only deterministic seam (#177): the window between the
+        // pre-transaction resolution read (`resolve_scoped_admission`, above)
+        // and the reservation transaction opened inside `consult_scoped_rule`.
+        // A reachability test arms a one-shot hook here to commit a
+        // counterparty-erasure marker the in-transaction recheck in
+        // `consult_and_reserve_scoped_rule` must observe; read-and-cleared, so
+        // production builds carry neither the field nor this branch.
+        #[cfg(test)]
+        if let Some(hook) = state.pre_reserve_erasure_hook.lock().take() {
+            hook();
+        }
         // Scope-matched admission (#128). The selection, its audit, and its
         // headroom live in `scoped_admission` so this module does not grow a
         // second admission policy inline.

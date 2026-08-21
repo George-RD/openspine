@@ -559,6 +559,8 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         overlay_dir,
         conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
         overlay_operations: overlay_operations.clone(),
+        #[cfg(test)]
+        pre_reserve_erasure_hook: parking_lot::Mutex::new(None),
     });
     let listener = bind_clock_and_finalize_overlay(
         &cfg.kernel.bind_addr,

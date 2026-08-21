@@ -6,6 +6,7 @@ mod approval_replay_tests;
 mod bot_identity;
 mod bot_identity_support;
 mod callback_ack;
+mod callback_delivery_unknown_fence;
 mod concurrency;
 mod digest;
 mod draft;

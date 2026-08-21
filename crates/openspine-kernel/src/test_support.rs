@@ -152,6 +152,8 @@ pub(crate) mod fixtures {
             },
             conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
             overlay_operations,
+            #[cfg(test)]
+            pre_reserve_erasure_hook: parking_lot::Mutex::new(None),
         }
     }
 
