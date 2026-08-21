@@ -166,6 +166,19 @@ pub(crate) enum Commands {
         #[arg(long)]
         check: bool,
     },
+    /// Bootstrap a new install in one command: write the configuration and
+    /// seed keys, bind the trusted owner principal, and print the trust
+    /// ceremony. The single-command first-run path.
+    Init {
+        /// Owner Telegram user id — the single trusted-principal channel
+        /// binding. Required on a fresh install. Message @userinfobot to find
+        /// yours.
+        #[arg(long)]
+        owner: Option<i64>,
+        /// Owner display name (defaults to $USER).
+        #[arg(long)]
+        name: Option<String>,
+    },
     /// Open a direct local terminal conversation with Lyra
     Chat {
         /// Send one message, print the reply, and exit (for smoke tests/scripts)
@@ -236,6 +249,10 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         } else {
             std::process::ExitCode::FAILURE
         });
+    }
+    if let Some(Commands::Init { owner, name }) = &cli.command {
+        cli::init::run_init(&cli.config, *owner, name.as_deref()).await?;
+        return Ok(std::process::ExitCode::SUCCESS);
     }
     if let Some(Commands::Provider {
         command: ProviderCommands::Login { provider, force },

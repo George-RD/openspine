@@ -26,6 +26,15 @@ pub const DEFAULT_API_KEY_ENV: &str = "OPENSPINE_LOCAL_API_KEY";
 pub struct StarterConfig {
     pub data_dir: PathBuf,
     pub display_name: String,
+    /// The owner's Telegram user id — the single trusted-principal channel
+    /// binding written to `owner.telegram_user_id`. The interactive wizard
+    /// leaves the placeholder `1`, which is bound as the authoritative owner
+    /// principal on the *first* kernel boot (`bootstrap_owner_principal`).
+    /// That bootstrap is fail-closed: once bound, changing the id in the
+    /// config makes the kernel refuse to start. To bind a real id, set it
+    /// before the first run — `openspine init --owner <id>` captures it up
+    /// front.
+    pub telegram_user_id: i64,
     pub provider_id: String,
     pub base_url: String,
     pub model: String,
@@ -45,6 +54,7 @@ impl StarterConfig {
             .unwrap_or_else(|| PathBuf::from("."));
         Self {
             data_dir: dir.join("data"),
+            telegram_user_id: 1,
             display_name: std::env::var("USER")
                 .or_else(|_| std::env::var("USERNAME"))
                 .unwrap_or_else(|_| "owner".to_string()),
@@ -73,7 +83,7 @@ impl StarterConfig {
                 docker_network: None,
             },
             owner: OwnerConfig {
-                telegram_user_id: 1,
+                telegram_user_id: self.telegram_user_id,
                 display_name: self.display_name.clone(),
             },
             providers: vec![ProviderConfig {
@@ -103,7 +113,7 @@ impl StarterConfig {
 
     pub fn render(&self) -> Result<String, serde_yaml::Error> {
         Ok(format!(
-            "# Written by `openspine setup`.\n\
+            "# Written by `openspine init`.\n\
              # Secrets stay in {} beside this file, at mode 0600.\n\
              # `sandbox.driver: process` runs task workers with your own\n\
              # privileges; use the Docker deployment for contained workers.\n\
