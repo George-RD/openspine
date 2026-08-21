@@ -368,6 +368,42 @@ fn principal_id_user_preserves_mac_preimage_and_wire_bytes() {
     assert_eq!(wire["user"], serde_json::json!(owner.to_string()));
 }
 
+#[test]
+fn principal_id_tamper_invalidates_child_chain_mac() {
+    // AD-148 (kernel-owned MAC-covered fields) under the #200 PrincipalId
+    // retype: the typed `user` lives in the root authority — the chain base
+    // commitment — so mutating it must break a *sealed child hop's* MAC too,
+    // not merely the root's. This proves grant-chain integrity extends over
+    // the retyped identity field across every hop, so a descendant can never
+    // be re-pointed at a different principal without resealing the whole chain.
+    let parent = sample_root();
+    let child_id = Ulid::new();
+    let child_step = ChainStep {
+        grant_id: child_id,
+        parent_grant_id: Some(parent.id),
+        mode: GrantMode::Live,
+        selection_tokens: vec![],
+        added_caveats: vec![Caveat::ActionAllowlist {
+            actions: vec![ActionId::new("openspine.status.read")],
+        }],
+    };
+    let child_mac = seal_child_from_parent_tip(&parent.caveat_mac, &child_step).unwrap();
+    let mut child = parent.clone();
+    child.id = child_id;
+    child.parent_grant_id = Some(parent.id);
+    child.selection_tokens = vec![];
+    child.chain.push(child_step);
+    child.caveat_mac = child_mac;
+    assert!(verify_mac(TEST_GRANT_HMAC_KEY, &child));
+
+    let mut retargeted = child.clone();
+    retargeted.user = PrincipalId::from(Ulid::new());
+    assert!(
+        !verify_mac(TEST_GRANT_HMAC_KEY, &retargeted),
+        "changing the typed principal id must invalidate a sealed child chain (AD-148)"
+    );
+}
+
 fn sample_owner_origin() -> crate::provenance::ProvenanceOrigin {
     crate::provenance::ProvenanceOrigin::Owner {
         principal: crate::ids::PrincipalId::from(Ulid::new()),

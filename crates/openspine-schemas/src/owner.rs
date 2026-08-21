@@ -91,4 +91,54 @@ mod tests {
         // The field is private; the accessor is the sole read path (D-002).
         assert_eq!(fixture().telegram_binding(), 42);
     }
+
+    /// D-006 (identity is not authority): the owner aggregate is the single
+    /// typed identity key the kernel composes a grant FOR — it carries
+    /// identity/channel-binding fields only, never a live-authority field.
+    /// Pin the exact serialized key set and assert no authority key appears.
+    #[test]
+    fn owner_principal_carries_no_authority_field() {
+        let value = serde_json::to_value(fixture()).unwrap();
+        let keys: std::collections::BTreeSet<&str> = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            keys,
+            std::collections::BTreeSet::from(["principal_id", "identity_id", "telegram_binding"]),
+            "OwnerPrincipal must serialize identity/binding fields only (D-006)"
+        );
+        for authority_key in [
+            "capability_pack_id",
+            "allowed_actions",
+            "approval_required_actions",
+            "denied_actions",
+            "allowed_egress_classes",
+            "output_channels",
+            "caveat_mac",
+            "task_token",
+        ] {
+            assert!(
+                !keys.contains(authority_key),
+                "OwnerPrincipal must not carry authority field {authority_key} (D-006)"
+            );
+        }
+    }
+
+    /// D-006: `deny_unknown_fields` structurally rejects an injected authority
+    /// field, so the owner identity can never smuggle a live grant key.
+    #[test]
+    fn owner_principal_deserialization_rejects_an_injected_authority_field() {
+        let mut value = serde_json::to_value(fixture()).unwrap();
+        value.as_object_mut().unwrap().insert(
+            "capability_pack_id".to_string(),
+            serde_json::json!("owner_control_basic_pack"),
+        );
+        assert!(
+            serde_json::from_value::<OwnerPrincipal>(value).is_err(),
+            "deny_unknown_fields must reject an authority-shaped key (D-006)"
+        );
+    }
 }

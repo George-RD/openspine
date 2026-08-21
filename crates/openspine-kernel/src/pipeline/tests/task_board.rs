@@ -348,6 +348,7 @@ async fn timer_rejects_non_owner_task_principal() {
     assert!(matches!(outcome, TimerDispatchOutcome::AckSkip));
     assert_eq!(state.store.count_task_grants().unwrap(), 0);
 }
+
 #[tokio::test]
 async fn deadline_timer_reaches_routed_granted_and_worker_gate() {
     fires_task_timer_and_reaches_worker_gate(TaskTimerKind::Deadline).await;
@@ -484,3 +485,6 @@ async fn recovery_refuses_receiptless_handed_off_redispatch() {
         1
     );
 }
+
+#[path = "task_board_identity_tests.rs"]
+mod identity_e2e;

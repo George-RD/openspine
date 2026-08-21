@@ -105,6 +105,82 @@ async fn plan_propose_approve_rederives_gate_and_resolves() {
     );
 }
 
+/// #202 E2E (spec #197 testing decision 7): the typed owner principal flows
+/// unchanged from a *pipeline-composed* task grant, through `gate()`, into the
+/// approval record and the audit actor — all tied to that one composed grant
+/// id. Unlike `approval_actor_tests`, the grant here is genuinely composed by
+/// `handle_owner_update` (inside `proposed_plan_fixture`), not a hand-built
+/// fixture: this proves the composition seam wires owner -> grant.user ->
+/// approved_by/actor for the same grant. (The Task-timer grant carries no wired
+/// approval callback, so the owner-message plan-approval path is the real
+/// composed-grant approval seam; the Task-object -> composed grant.user half is
+/// covered by `task_board.rs`.)
+#[tokio::test]
+async fn typed_owner_principal_flows_from_composed_grant_through_gate_into_approval_and_audit() {
+    let (state, _telegram_server, request) = proposed_plan_fixture().await;
+    let owner = openspine_schemas::ids::PrincipalId::from(state.owner_principal_id);
+
+    // The composed grant behind the request is issued to the owner principal
+    // (AD-146), and the request is bound to that grant id.
+    let (grant, _, _) = state
+        .store
+        .find_task_grant_by_id(request.task_grant_id)
+        .unwrap()
+        .expect("composed grant persisted");
+    assert_eq!(
+        grant.user, owner,
+        "composed grant carries the owner PrincipalId (AD-146)"
+    );
+    assert_eq!(request.task_grant_id, grant.id);
+
+    crate::pipeline::plan_approval::handle_plan_approval_callback(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "callback-id",
+        request.id,
+    )
+    .await
+    .unwrap();
+
+    // ApprovalRecord: approver is the typed principal, tied to the request that
+    // is bound to the composed grant (D-004, single-owner AD-146).
+    let approval = state
+        .store
+        .find_approval_for_request(request.id)
+        .unwrap()
+        .expect("approval recorded");
+    assert_eq!(
+        approval.approved_by, owner,
+        "approved_by is the verified owner principal (D-004)"
+    );
+    assert_eq!(
+        approval.approved_by, grant.user,
+        "the approver of record is the composed grant's principal (single owner)"
+    );
+    assert_eq!(approval.action_request_id, request.id);
+
+    // Audit: the owner-authored approval event carries the actor AND is tied to
+    // the composed grant id (D-003).
+    let recorded = state
+        .store
+        .all_audit_event_jsons()
+        .unwrap()
+        .into_iter()
+        .filter_map(|json| serde_json::from_str::<openspine_schemas::audit::AuditEvent>(&json).ok())
+        .find(|event| event.kind.as_str() == "plan.approval_recorded")
+        .expect("plan.approval_recorded audit event exists");
+    assert_eq!(
+        recorded.actor,
+        Some(owner),
+        "audit actor is the verified owner principal (D-003)"
+    );
+    assert_eq!(
+        recorded.task_grant_id,
+        Some(grant.id),
+        "the approval audit event is tied to the composed grant id"
+    );
+}
+
 #[tokio::test]
 async fn tampered_plan_artifact_is_refused_at_approval_callback() {
     let (state, _telegram_server, request) = proposed_plan_fixture().await;
