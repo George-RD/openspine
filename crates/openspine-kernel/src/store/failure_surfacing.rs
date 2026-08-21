@@ -4,8 +4,21 @@ use super::failure_surfacing_types::{
 use super::{sql_timestamp, Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
+
+/// Rebuild the channel-neutral owner binding of a persisted dead-letter row
+/// (#217, spec #208 D-006). A row whose `owner_surface_json` is missing or
+/// unparseable is refused rather than delivered — the store never fabricates an
+/// address (the `hydrate_task_grant` / `standing_rules_pending::parse_owner_surface`
+/// fail-closed precedent).
+fn parse_owner_surface(owner_surface_json: Option<String>) -> Result<OwnerSurfaceRef, StoreError> {
+    let json = owner_surface_json.ok_or_else(|| {
+        StoreError::BadOwnerSurface("notify_dead_letters.owner_surface_json".into())
+    })?;
+    serde_json::from_str(&json).map_err(|err| StoreError::BadOwnerSurface(err.to_string()))
+}
 
 impl Store {
     // ---- owner-notification dead-letter queue (AD-138) -------------------
@@ -16,12 +29,19 @@ impl Store {
     #[cfg(test)]
     pub fn record_notify_failure(
         &self,
-        chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         text: &str,
         task_grant_id: Ulid,
         reason: &str,
     ) -> Result<Ulid, StoreError> {
-        self.record_notify_failure_with_digest(chat_id, text, task_grant_id, reason, &[], None)
+        self.record_notify_failure_with_digest(
+            owner_surface,
+            text,
+            task_grant_id,
+            reason,
+            &[],
+            None,
+        )
     }
 
     /// Atomically record a failed send. `text_ref` is the digest of the
@@ -32,7 +52,7 @@ impl Store {
     /// columns NULL for a generic owner notification.
     pub fn record_notify_failure_with_digest(
         &self,
-        chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         text_ref: &str,
         task_grant_id: Ulid,
         reason: &str,
@@ -60,15 +80,16 @@ impl Store {
             .join(",");
         let (semantic_kind, detail_ref, page_index, page_count, availability_outcome) =
             detail_insert_columns(detail);
+        let owner_surface_json = serde_json::to_string(owner_surface)?;
         tx.execute(
             "INSERT INTO notify_dead_letters \
-             (id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state, \
+             (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state, \
               semantic_kind, detail_ref, page_index, page_count, availability_outcome) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending', ?8, ?9, ?10, ?11, ?12)",
             params![
                 id.to_string(),
                 sql_timestamp(now),
-                chat_id,
+                owner_surface_json,
                 text_ref,
                 task_grant_id.to_string(),
                 ids,
@@ -156,7 +177,7 @@ impl Store {
         let row: Option<(
             String,
             String,
-            i64,
+            Option<String>,
             String,
             String,
             String,
@@ -169,7 +190,7 @@ impl Store {
             Option<String>,
         )> = tx
             .query_row(
-                "SELECT id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, \
+                "SELECT id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, \
                         semantic_kind, detail_ref, page_index, page_count, availability_outcome \
                  FROM notify_dead_letters \
                  WHERE ((state = 'pending' AND next_attempt_at <= ?1) \
@@ -198,7 +219,7 @@ impl Store {
         let Some((
             id,
             enqueued_at,
-            chat_id,
+            owner_surface_json,
             text_ref,
             task_grant,
             digest_ids,
@@ -213,6 +234,7 @@ impl Store {
         else {
             return Ok(None);
         };
+        let owner_surface = parse_owner_surface(owner_surface_json)?;
         let new_attempts = attempts + 1;
         let lease_until = now + std::time::Duration::from_secs(300);
         let claim_token = Ulid::new().to_string();
@@ -260,7 +282,7 @@ impl Store {
             enqueued_at: enqueued_at.parse().map_err(|_| {
                 StoreError::BadDigest(format!("dead_letter.enqueued_at {enqueued_at}"))
             })?,
-            chat_id,
+            owner_surface,
             text_ref,
             task_grant_id,
             digest_item_ids,
@@ -382,7 +404,7 @@ impl Store {
     pub fn pending_dead_letters(&self) -> Result<Vec<NotifyDeadLetter>, StoreError> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, enqueued_at, chat_id, text_ref, task_grant_id, attempts, next_attempt_at, state, \
+            "SELECT id, enqueued_at, owner_surface_json, text_ref, task_grant_id, attempts, next_attempt_at, state, \
                     semantic_kind, detail_ref, page_index, page_count, availability_outcome \
              FROM notify_dead_letters WHERE state != 'resolved' ORDER BY enqueued_at",
         )?;
@@ -390,7 +412,7 @@ impl Store {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
+                row.get::<_, Option<String>>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
                 row.get::<_, i64>(5)?,
@@ -409,7 +431,7 @@ impl Store {
                 |(
                     id,
                     enqueued_at,
-                    chat_id,
+                    owner_surface_json,
                     text_ref,
                     task_grant_id,
                     attempts,
@@ -428,7 +450,7 @@ impl Store {
                         enqueued_at: enqueued_at.parse().map_err(|_| {
                             StoreError::BadDigest(format!("dead_letter.enqueued_at {enqueued_at}"))
                         })?,
-                        chat_id,
+                        owner_surface: parse_owner_surface(owner_surface_json)?,
                         text_ref,
                         task_grant_id: Ulid::from_string(&task_grant_id).map_err(|_| {
                             StoreError::BadDigest(format!(
@@ -453,39 +475,5 @@ impl Store {
                 },
             )
             .collect()
-    }
-
-    // ---- per-connector success/failure counters (AD-138) -----------------
-
-    /// Increment `connector`'s `outcome` counter ("success" or "failure").
-    /// The same counters AD-103's breaker and AD-013's calibration signal
-    /// will read (AD-138) — this change only owns the write side.
-    pub fn increment_connector_outcome(
-        &self,
-        connector: &str,
-        outcome: &str,
-    ) -> Result<(), StoreError> {
-        let conn = self.conn.lock();
-        conn.execute(
-            "INSERT INTO connector_counters (connector, outcome, count) VALUES (?1, ?2, 1) \
-             ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
-            params![connector, outcome],
-        )?;
-        Ok(())
-    }
-
-    /// Current count for one `(connector, outcome)` pair; `0` if never
-    /// recorded.
-    #[cfg(test)]
-    pub fn connector_counter(&self, connector: &str, outcome: &str) -> Result<i64, StoreError> {
-        let conn = self.conn.lock();
-        let count: Option<i64> = conn
-            .query_row(
-                "SELECT count FROM connector_counters WHERE connector = ?1 AND outcome = ?2",
-                params![connector, outcome],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(count.unwrap_or(0))
     }
 }

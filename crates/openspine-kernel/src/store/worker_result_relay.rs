@@ -3,6 +3,7 @@
 use super::event_bus::PersistedConsumerState;
 use super::{Store, StoreError};
 use jiff::Timestamp;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use ulid::Ulid;
 
@@ -171,17 +172,18 @@ impl Store {
         global_seq: u64,
         attempt: u32,
         task_grant_id: Option<Ulid>,
-        chat_id: i64,
+        owner_surface: &OwnerSurfaceRef,
         text_ref: &str,
         state: &PersistedConsumerState,
     ) -> Result<bool, StoreError> {
-        if attempt >= MAX_ATTEMPTS && (chat_id == 0 || text_ref.is_empty()) {
+        if attempt >= MAX_ATTEMPTS && text_ref.is_empty() {
             return Err(StoreError::OwnerNotificationFailed(
                 "dead-letter requires a resolvable owner notification artifact".to_string(),
             ));
         }
         let seq = i64::try_from(global_seq).map_err(|_| StoreError::NumericRange)?;
         let now = super::sql_timestamp(Timestamp::now());
+        let owner_surface_json = serde_json::to_string(owner_surface)?;
         let mut conn = self.conn.lock();
         let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if attempt < MAX_ATTEMPTS {
@@ -234,16 +236,16 @@ impl Store {
         // Enqueue the owner notification in the SAME transaction as the
         // dead-letter commit, so a crash after dead-letter but before
         // notification cannot skip the event permanently on restart.
-        if chat_id != 0 && !text_ref.is_empty() {
+        if !text_ref.is_empty() {
             let ids = String::new();
             tx.execute(
                 "INSERT INTO notify_dead_letters \
-                 (id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
+                 (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending')",
                 params![
                     Ulid::new().to_string(),
                     now,
-                    chat_id,
+                    owner_surface_json,
                     text_ref,
                     task_grant_id.map(|id| id.to_string()),
                     ids,

@@ -630,7 +630,7 @@ async fn notify_send_failure_records_attempt_failure_and_dead_letter() {
     let failed_grant = Ulid::from_string(failed_event["task_grant_id"].as_str().unwrap()).unwrap();
     let dead_letters = state.store.pending_dead_letters().unwrap();
     assert_eq!(dead_letters.len(), 1);
-    assert_eq!(dead_letters[0].chat_id, 555);
+    assert_eq!(dead_letters[0].owner_surface.surface_id(), Some("555"));
     assert_ne!(dead_letters[0].task_grant_id, Ulid::nil());
     assert_eq!(dead_letters[0].task_grant_id, failed_grant);
     assert!(!dead_letters[0].text_ref.is_empty());

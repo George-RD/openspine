@@ -51,7 +51,12 @@ fn notification_failure_is_truthful_and_retryable() {
     let store = Store::open_in_memory().expect("test store");
     let grant = ulid::Ulid::new();
     store
-        .record_notify_failure(555, "failure", grant, "wiremock failure")
+        .record_notify_failure(
+            &crate::test_support::telegram_surface(555),
+            "failure",
+            grant,
+            "wiremock failure",
+        )
         .expect("record failure");
     assert_eq!(
         store
@@ -94,7 +99,12 @@ fn a_whole_second_retry_deadline_is_claimable_one_nanosecond_later() {
     let store = Store::open_in_memory().expect("test store");
     let grant = ulid::Ulid::new();
     let id = store
-        .record_notify_failure(555, "failure", grant, "wiremock failure")
+        .record_notify_failure(
+            &crate::test_support::telegram_surface(555),
+            "failure",
+            grant,
+            "wiremock failure",
+        )
         .expect("record failure");
     let first = store
         .claim_due_dead_letter(jiff::Timestamp::now())
@@ -151,7 +161,12 @@ fn generic_dead_letter_has_null_semantic_metadata_and_only_owner_notified() {
     let grant = ulid::Ulid::new();
     // Generic owner notification: no detail context.
     store
-        .record_notify_failure(555, "failure", grant, "wiremock failure")
+        .record_notify_failure(
+            &crate::test_support::telegram_surface(555),
+            "failure",
+            grant,
+            "wiremock failure",
+        )
         .expect("record failure");
     let dl = store.pending_dead_letters().expect("dead letters");
     assert_eq!(dl.len(), 1);
@@ -207,7 +222,14 @@ fn detail_dead_letter_completion_is_fenced_against_duplicate_receipt() {
         unavailable_reason: None,
     };
     store
-        .record_notify_failure_with_digest(555, "ref", grant, "wiremock", &[], Some(&detail))
+        .record_notify_failure_with_digest(
+            &crate::test_support::telegram_surface(555),
+            "ref",
+            grant,
+            "wiremock",
+            &[],
+            Some(&detail),
+        )
         .expect("record");
     let claimed = store
         .claim_due_dead_letter(jiff::Timestamp::now() + std::time::Duration::from_secs(1))
@@ -251,7 +273,14 @@ fn unavailable_detail_retry_emits_unavailable_receipt_with_page_metadata() {
         unavailable_reason: Some("legacy".to_string()),
     };
     store
-        .record_notify_failure_with_digest(555, "ref", grant, "wiremock", &[], Some(&detail))
+        .record_notify_failure_with_digest(
+            &crate::test_support::telegram_surface(555),
+            "ref",
+            grant,
+            "wiremock",
+            &[],
+            Some(&detail),
+        )
         .expect("record");
     let claimed = store
         .claim_due_dead_letter(jiff::Timestamp::now() + jiff::SignedDuration::from_secs(10))
@@ -288,8 +317,10 @@ fn legacy_dead_letter_rows_migrate_and_read_as_generic() {
     let dir = std::env::temp_dir();
     let path = dir.join(format!("ospine-legacy-{}.db", ulid::Ulid::new()));
     let _ = std::fs::remove_file(&path);
+    let owner_id = ulid::Ulid::new().to_string();
     // Simulate a pre-migration database: `notify_dead_letters` without the
-    // semantic-metadata columns.
+    // semantic-metadata or owner-surface columns, plus the single owner
+    // principal the v10 backfill binds the legacy chat id to.
     {
         let conn = rusqlite::Connection::open(&path).unwrap();
         conn.execute_batch(
@@ -305,7 +336,19 @@ fn legacy_dead_letter_rows_migrate_and_read_as_generic() {
                claimed_until TEXT,
                claim_token TEXT,
                state TEXT NOT NULL DEFAULT 'pending'
+             );
+             CREATE TABLE principals (
+               id TEXT PRIMARY KEY,
+               identity_id TEXT NOT NULL,
+               is_owner INTEGER NOT NULL,
+               principal_json TEXT NOT NULL
              );",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO principals (id, identity_id, is_owner, principal_json) \
+             VALUES (?1, ?2, 1, '{}')",
+            rusqlite::params![owner_id, ulid::Ulid::new().to_string()],
         )
         .unwrap();
         let id = ulid::Ulid::new().to_string();
@@ -318,10 +361,16 @@ fn legacy_dead_letter_rows_migrate_and_read_as_generic() {
         )
         .unwrap();
     }
-    // Current `Store::open` runs the migration, adding the new columns.
+    // Current `Store::open` runs the migration, backfilling owner_surface_json
+    // from chat_id + the owner principal and dropping the integer column.
     let store = Store::open(&path).expect("open legacy db");
     let dl = store.pending_dead_letters().expect("read legacy rows");
     assert_eq!(dl.len(), 1, "legacy row must survive migration");
+    assert_eq!(
+        dl[0].owner_surface.surface_id(),
+        Some("555"),
+        "legacy chat id promotes to a channel-neutral verified_telegram surface"
+    );
     assert_eq!(
         dl[0].semantic_kind, None,
         "legacy row has NULL semantic metadata"

@@ -327,7 +327,7 @@ pub(crate) async fn worker_result_consumer_iteration(state: &AppState) -> anyhow
                     global_seq,
                     attempt,
                     task_grant_id,
-                    chat_id,
+                    &relay_surface,
                     &text_ref,
                     &marker_state,
                 )?;

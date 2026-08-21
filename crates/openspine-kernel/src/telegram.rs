@@ -31,15 +31,13 @@ mod credential;
 /// This is the **mint** half of the surface boundary and it performs no
 /// verification of its own — it cannot, since it has no access to the owner
 /// configuration or the update that proved the chat. It is therefore
-/// `pub(crate)` and adapter-only, with exactly three authorized call sites,
+/// `pub(crate)` and adapter-only, with exactly two authorized call sites,
 /// each of which already holds a Telegram-verified chat id:
 ///
 /// 1. `pipeline::handle_owner_update`, immediately after [`verify_update`] has
 ///    proven the update came from the configured owner in a private chat.
 /// 2. `AppState::telegram_owner_surface`, which mints from the configured
 ///    owner chat for kernel-origin notifications that have no inbound update.
-/// 3. `failure_surfacing::retry_worker`, re-addressing a dead-letter row the
-///    Telegram notifier itself wrote from an already-verified surface.
 ///
 /// The **resolve** half, [`telegram_chat_id`], fails closed for any surface
 /// that is not a Telegram chat. Together they mean generic kernel code can

@@ -662,18 +662,24 @@ fn stranded_worker_surface_uses_parent_bound_chat_atomically() {
         "stranded worker regression",
     )
     .unwrap();
-    let (stored_chat, claimed): (i64, Option<String>) = store
+    let (surface_json, claimed): (Option<String>, Option<String>) = store
         .conn
         .lock()
         .query_row(
-            "SELECT chat_id, recovery_claimed_at FROM notify_dead_letters n \
+            "SELECT n.owner_surface_json, w.recovery_claimed_at FROM notify_dead_letters n \
              JOIN worker_dispatch w ON w.grant_id = n.task_grant_id \
              WHERE n.task_grant_id = ?1",
             params![worker.id.to_string()],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .unwrap();
-    assert_eq!(stored_chat, 777);
+    let surface: openspine_schemas::owner_surface::OwnerSurfaceRef =
+        serde_json::from_str(&surface_json.expect("owner_surface_json persisted")).unwrap();
+    assert_eq!(
+        surface.surface_id(),
+        Some("777"),
+        "the stored surface addresses the parent-bound chat"
+    );
     assert!(claimed.is_some(), "notification and marker commit together");
 }
 
@@ -745,45 +751,39 @@ fn pending_worker_dispatches_respects_fixed_cutoff() {
     assert_eq!(pending[0].0, worker.id);
 }
 
-/// Regression (advisory): a non-Telegram owner surface has no Telegram chat to
-/// enqueue, so surfacing must fail closed — without touching the dispatch row
-/// or enqueuing a notification — rather than fabricating a chat id for it.
+/// Regression (#217, spec #208 D-006): the store is channel-neutral at
+/// enqueue. A terminal owner surface persists successfully as
+/// `owner_surface_json` and claims the dispatch, proving the store no longer
+/// requires a Telegram surface. An unaddressable surface is refused at
+/// delivery, not enqueue.
 #[test]
-fn surface_stranded_worker_rejects_non_telegram_surface() {
+fn surface_stranded_worker_persists_non_telegram_surface() {
     let store = Store::open_in_memory().unwrap();
-    let worker = commission(&store, &sample_grant("zero-chat-parent"));
-    let err = surface_stranded_worker(
-        &store,
-        &openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
-            ulid::Ulid::new(),
-        ),
-        "ref",
-        worker.id,
-        "no owner chat",
+    let parent = sample_grant("terminal-surface-parent");
+    let terminal = openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
+        ulid::Ulid::new(),
     );
-    assert!(err.is_err(), "non-Telegram surfacing is rejected");
-    let claimed: Option<String> = store
+    store
+        .insert_task_grant(&parent, &ref_of('c'), &terminal)
+        .unwrap();
+    let worker = commission(&store, &parent);
+    surface_stranded_worker(&store, &terminal, "ref", worker.id, "terminal owner")
+        .expect("terminal surface persists");
+    let (surface_json, claimed): (Option<String>, Option<String>) = store
         .conn
         .lock()
         .query_row(
-            "SELECT recovery_claimed_at FROM worker_dispatch WHERE grant_id = ?1",
+            "SELECT n.owner_surface_json, w.recovery_claimed_at FROM notify_dead_letters n \
+             JOIN worker_dispatch w ON w.grant_id = n.task_grant_id \
+             WHERE n.task_grant_id = ?1",
             params![worker.id.to_string()],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .unwrap();
-    assert!(
-        claimed.is_none(),
-        "non-Telegram surfacing leaves row unclaimed"
-    );
-    let notifies: i64 = store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM notify_dead_letters", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(
-        notifies, 0,
-        "non-Telegram surfacing enqueues no notification"
-    );
+    let surface: openspine_schemas::owner_surface::OwnerSurfaceRef =
+        serde_json::from_str(&surface_json.expect("terminal surface persisted")).unwrap();
+    assert_eq!(surface, terminal, "the terminal surface persists verbatim");
+    assert!(claimed.is_some(), "terminal surfacing claims the dispatch");
 }
 
 /// Regression (advisory): an enqueue failure must roll back the whole surface

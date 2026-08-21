@@ -189,12 +189,12 @@ pub(crate) async fn notify_owner_with_digest(
             // at this adapter boundary. A non-Telegram surface has no
             // Telegram address to retry, so there is nothing to enqueue and
             // we fail closed to SendFailed.
-            let Some(chat_id) = crate::telegram::telegram_chat_id(surface).ok() else {
+            let Some(_chat_id) = crate::telegram::telegram_chat_id(surface).ok() else {
                 tracing::warn!(surface = ?surface.kind(), "notification send failed on a non-Telegram surface; no dead-letter to enqueue");
                 return NotifyOutcome::SendFailed;
             };
             if let Err(record_err) = state.store.record_notify_failure_with_digest(
-                chat_id,
+                surface,
                 &text_ref,
                 outcome.audit.task_grant_id,
                 &format!("{err:?}"),

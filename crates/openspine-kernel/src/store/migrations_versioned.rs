@@ -76,6 +76,15 @@ pub(super) const VERSIONED_MIGRATIONS: &[VersionedMigration] = &[
         version: 9,
         up: super::migration_owner_review::OWNER_SURFACE_UP,
     },
+    // Entry v10 cuts the last `store -> telegram` reach (#217, spec #208 D-006):
+    // it rebuilds `notify_dead_letters`, backfilling the channel-neutral
+    // `owner_surface_json` from the legacy Telegram `chat_id` plus the single
+    // owner principal, then dropping the integer column. After it, no kernel
+    // seam persists a naked chat id.
+    VersionedMigration {
+        version: 10,
+        up: super::migration_dead_letter_surface::DEAD_LETTER_OWNER_SURFACE_UP,
+    },
 ];
 
 /// Rewrite `col` from jiff's variable-width RFC 3339 to the fixed nine-digit
@@ -171,4 +180,10 @@ pub(super) const VERSIONED_DOWNS: &[(i64, &str)] = &[
     // v9 restores the legacy `bound_chat_id` column on both tables; rows keep
     // their channel-neutral `owner_surface_json` alongside it.
     (9, super::migration_owner_review::OWNER_SURFACE_DOWN),
+    // v10 restores the legacy `chat_id` column on `notify_dead_letters`; rows
+    // keep their channel-neutral `owner_surface_json` alongside it.
+    (
+        10,
+        super::migration_dead_letter_surface::DEAD_LETTER_OWNER_SURFACE_DOWN,
+    ),
 ];
