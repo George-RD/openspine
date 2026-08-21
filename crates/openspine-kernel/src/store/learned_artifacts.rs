@@ -775,7 +775,16 @@ impl Store {
                 // marker. Parsing the stored manifest keeps the sweep
                 // protocol-neutral: no connector-specific scope field is
                 // interpreted here.
+                // A single unparseable manifest must not abort the whole
+                // crypto-erase sweep (#176): a corrupt row (e.g. a
+                // deny_unknown_fields schema rollback) would otherwise
+                // `?`-abort this BEGIN IMMEDIATE, leaving the erased-scope
+                // marker uninserted and — on the startup reconciliation path —
+                // blocking boot. Isolate the bad row: skip it here, surface it
+                // via a durable audit row below, and keep sweeping so every
+                // other counterparty's rules still erase.
                 let mut scoped_rule_ids: Vec<(String, u32)> = Vec::new();
+                let mut malformed_rule_ids: Vec<String> = Vec::new();
                 {
                     let mut stmt = tx.prepare(
                         "SELECT rule_id, rule_json
@@ -787,7 +796,14 @@ impl Store {
                     })?;
                     for row in rows {
                         let (rule_id, rule_json) = row?;
-                        let manifest: StandingRuleManifest = serde_json::from_str(&rule_json)?;
+                        let manifest: StandingRuleManifest = match serde_json::from_str(&rule_json)
+                        {
+                            Ok(manifest) => manifest,
+                            Err(_) => {
+                                malformed_rule_ids.push(rule_id);
+                                continue;
+                            }
+                        };
                         let matches_erased = manifest
                             .reviewed_scope
                             .as_ref()
@@ -822,6 +838,25 @@ impl Store {
                           WHERE rule_id = ?1
                             AND status IN ('active', 'paused', 'needs_review')",
                         params![rule_id, revoked_at],
+                    )?;
+                }
+                // Surface every skipped unparseable row durably, so a corrupt
+                // manifest is isolated and recorded rather than silently
+                // dropped or allowed to abort the sweep (#176).
+                for rule_id in &malformed_rule_ids {
+                    Self::append_audit_conn(
+                        &tx,
+                        "standing_rule.malformed_row_skipped",
+                        None,
+                        None,
+                        Some(&format!(
+                            "standing rule {rule_id} has an unparseable rule_json manifest; \
+                             skipped during counterparty {counterparty_id} crypto-erase sweep \
+                             instead of aborting it (see #176)"
+                        )),
+                        None,
+                        &[],
+                        &[],
                     )?;
                 }
 
