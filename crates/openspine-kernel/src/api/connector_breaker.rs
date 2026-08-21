@@ -264,6 +264,10 @@ pub(crate) async fn dispatch_allowed_action(
     DispatchedEffect {
         disposition: generic_effect_disposition(&result),
         result,
+        // The generic path's handlers do not self-record their failures, so the
+        // mediation error handler owns the `action.dispatch_failed` audit and
+        // the `batch_failure` call for every error class here.
+        executor_recorded: false,
     }
 }
 

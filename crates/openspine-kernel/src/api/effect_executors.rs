@@ -66,6 +66,40 @@ pub(crate) enum EffectDisposition {
     ConfirmedFailure,
 }
 
+/// An executor failure raised AFTER the executor already committed its typed
+/// effect record — the [`EffectDisposition`] was settled and its audit event
+/// appended — and only a secondary, fail-closed durable write (the owner-digest
+/// batch surfacing) then failed. It carries the already-settled `disposition`
+/// so the dispatcher preserves record-once provenance (#244): the error still
+/// surfaces (the owner-digest write is fail-closed and redrivable, never
+/// silently swallowed), but the mediation error handler must NOT re-append
+/// `action.dispatch_failed` or re-`batch_failure` on top of the record the
+/// executor already owns. An executor that bailed BEFORE recording anything
+/// returns a plain error instead, which the dispatcher treats as un-recorded.
+#[derive(Debug)]
+pub(crate) struct RecordedEffectError {
+    /// The disposition the executor settled before the secondary write failed.
+    pub(crate) disposition: EffectDisposition,
+    /// The underlying fail-closed error (e.g. the owner-digest store write).
+    pub(crate) source: anyhow::Error,
+}
+
+impl std::fmt::Display for RecordedEffectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "effect already recorded as {:?}, but a follow-up fail-closed durable write failed: {}",
+            self.disposition, self.source
+        )
+    }
+}
+
+impl std::error::Error for RecordedEffectError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.source.as_ref())
+    }
+}
+
 /// Kernel-owned effect executors keyed by their catalog `executor_id`.
 pub(crate) struct EffectExecutorRegistry {
     map: HashMap<&'static str, EffectExecutor>,

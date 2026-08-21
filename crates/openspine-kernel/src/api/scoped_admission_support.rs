@@ -337,6 +337,10 @@ pub(super) fn audit_count(state: &AppState, event: &str) -> i64 {
         .unwrap()
 }
 
+pub(super) fn digest_count(state: &AppState) -> usize {
+    state.store.owner_digest_items().unwrap().len()
+}
+
 pub(super) async fn dispatch(state: &AppState, grant: &TaskGrant) -> (GateDecision, Option<u32>) {
     let result = mediate_and_dispatch_action(
         state,

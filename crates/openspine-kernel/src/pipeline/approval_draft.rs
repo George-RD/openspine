@@ -1,6 +1,6 @@
 use crate::api::actions::DispatchError;
 use crate::api::connector_breaker::call_with_connector;
-use crate::api::effect_executors::EffectDisposition;
+use crate::api::effect_executors::{EffectDisposition, RecordedEffectError};
 use crate::artifact_store::ArtifactStoreError;
 use openspine_schemas::action::ActionRequest;
 use openspine_schemas::artifact::ArtifactRef;
@@ -12,6 +12,36 @@ use ulid::Ulid;
 use super::{notify_owner_best_effort, AppState};
 use crate::store::{AuditDescriptor, BeginEffect, PendingWriteFence};
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
+
+/// Record the owner-digest surfacing for a failure the executor has ALREADY
+/// committed (its typed audit/settle succeeded), then return the settled
+/// `disposition`. The owner-digest write is deliberately fail-closed
+/// (`failure_surfacing::batch_failure`): on error it is NOT swallowed — a
+/// dropped digest would leave no row and no redrive — but it must not be
+/// propagated as a bare `Err`, because `dispatch_scoped_effect` would then map
+/// it to `executor_recorded: false` and the mediation handler would re-append
+/// `action.dispatch_failed` and re-batch, double-counting one failure (#244).
+/// Instead it is surfaced as a [`RecordedEffectError`] carrying the settled
+/// disposition, so the failure stays visible and redrivable while the mediation
+/// handler skips the duplicate audit/batch. The invariant this preserves:
+/// `create_approved_draft` returns a bare `Err` only from PRE-record failures;
+/// any error after a committed failure audit is a `RecordedEffectError`.
+fn batch_then_record(
+    state: &AppState,
+    disposition: EffectDisposition,
+    class: crate::failure_surfacing::FailureClass,
+    summary: &str,
+    detail: &str,
+) -> anyhow::Result<EffectDisposition> {
+    match crate::failure_surfacing::batch_failure(state, class, summary, detail) {
+        Ok(()) => Ok(disposition),
+        Err(err) => Err(RecordedEffectError {
+            disposition,
+            source: err.into(),
+        }
+        .into()),
+    }
+}
 
 /// Actually create the Gmail draft after `gate()` confirms a matching,
 /// unexpired approval. Re-derives the recipient from a live Gmail fetch and
@@ -78,13 +108,13 @@ pub(crate) async fn create_approved_draft(
             &[],
             &[],
         )?;
-        crate::failure_surfacing::batch_failure(
+        return batch_then_record(
             state,
+            EffectDisposition::NotAttempted,
             crate::failure_surfacing::FailureClass::Connector,
             "gmail connector unavailable during approval",
             "gmail connector unavailable during approval",
-        )?;
-        return Ok(EffectDisposition::NotAttempted);
+        );
     };
 
     crate::spend::guard_connector_for(state, grant).await?;
@@ -111,13 +141,13 @@ pub(crate) async fn create_approved_draft(
                 &[],
                 &[],
             )?;
-            crate::failure_surfacing::batch_failure(
+            return batch_then_record(
                 state,
+                EffectDisposition::NotAttempted,
                 crate::failure_surfacing::FailureClass::Connector,
                 "gmail thread fetch failed during approval",
                 &format!("{err:?}"),
-            )?;
-            return Ok(EffectDisposition::NotAttempted);
+            );
         }
     };
     let Some(target) = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
@@ -220,13 +250,13 @@ pub(crate) async fn create_approved_draft(
                 &[],
                 std::slice::from_ref(payload_ref),
             )?;
-            crate::failure_surfacing::batch_failure(
+            return batch_then_record(
                 state,
+                EffectDisposition::NotAttempted,
                 crate::failure_surfacing::FailureClass::Connector,
                 "gmail create draft admission rejected during approval",
                 &format!("{err:?}"),
-            )?;
-            return Ok(EffectDisposition::NotAttempted);
+            );
         }
     };
     // Candidate Gmail-write extension: persist durable pending evidence before
@@ -336,13 +366,13 @@ pub(crate) async fn create_approved_draft(
             state
                 .store
                 .settle_effect(fence, EffectDisposition::ConfirmedFailure, audit)?;
-            crate::failure_surfacing::batch_failure(
+            batch_then_record(
                 state,
+                EffectDisposition::ConfirmedFailure,
                 crate::failure_surfacing::FailureClass::Connector,
                 "gmail create draft failed during approval",
                 &format!("{err:?}"),
-            )?;
-            Ok(EffectDisposition::ConfirmedFailure)
+            )
         }
     }
 }

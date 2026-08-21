@@ -188,6 +188,25 @@ async fn failure_after_attempt_cancels_reservation() {
         0,
         "a confirmed failure resolves the fence"
     );
+    // #244: the scoped executor owns the record for its `ConfirmedFailure`, so
+    // the failure is recorded exactly once — one `draft.creation_failed` audit
+    // row and one owner-digest row — and the mediation handler no longer
+    // re-files it under the generic `action.dispatch_failed` vocabulary.
+    assert_eq!(
+        audit_count(&env.state, "draft.creation_failed"),
+        1,
+        "the executor self-audits the failure exactly once"
+    );
+    assert_eq!(
+        audit_count(&env.state, "action.dispatch_failed"),
+        0,
+        "the mediation handler must not re-audit an executor-owned failure"
+    );
+    assert_eq!(
+        digest_count(&env.state),
+        1,
+        "a failed scoped draft surfaces exactly one owner-digest row"
+    );
 }
 
 /// Acceptance: a pre-effect refusal inside the executor cancels the
@@ -281,6 +300,25 @@ async fn pre_effect_refusal_cancels_reservation_without_writing() {
         state.store.count_pending_draft_writes().unwrap(),
         0,
         "a refusal records no pending-write fence"
+    );
+    // #244: a target-mutation refusal is a pre-effect `NotAttempted`. The
+    // executor audits it under its own vocabulary exactly once; the mediation
+    // handler must not re-file it as a generic `action.dispatch_failed`, and it
+    // must not surface as a Connector-class owner-digest failure at all.
+    assert_eq!(
+        audit_count(&state, "draft.target_mutated_since_approval"),
+        1,
+        "the executor audits the pre-effect refusal exactly once"
+    );
+    assert_eq!(
+        audit_count(&state, "action.dispatch_failed"),
+        0,
+        "a pre-effect refusal is not re-filed as a generic dispatch failure"
+    );
+    assert_eq!(
+        digest_count(&state),
+        0,
+        "a pre-effect refusal is not batched as a Connector-class digest failure"
     );
 }
 
