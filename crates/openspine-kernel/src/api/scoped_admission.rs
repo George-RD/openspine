@@ -526,36 +526,45 @@ pub(crate) async fn dispatch_scoped_effect(
         return DispatchedEffect {
             disposition: EffectDisposition::NotAttempted,
             result: Err(DispatchError::NoExecutor(admission.request.action.clone())),
+            // Registry miss: no executor ran, so nothing recorded this effect.
+            executor_recorded: false,
         };
     };
     match executor(state, grant, &admission.request, owner_surface).await {
         Ok(EffectDisposition::ConfirmedSuccess) => DispatchedEffect {
             disposition: EffectDisposition::ConfirmedSuccess,
             result: Ok(json!({"created": true})),
+            executor_recorded: true,
         },
         Ok(EffectDisposition::DeliveryUnknown) => DispatchedEffect {
             disposition: EffectDisposition::DeliveryUnknown,
             result: Err(DispatchError::DeliveryUnknown(anyhow!(
                 "gmail draft write outcome is unknown; the reconciliation fence stays open"
             ))),
+            executor_recorded: true,
         },
         Ok(EffectDisposition::NotAttempted) => DispatchedEffect {
             disposition: EffectDisposition::NotAttempted,
             result: Err(DispatchError::Connector(anyhow!(
                 "scope-matched draft creation was refused before any provider write"
             ))),
+            executor_recorded: true,
         },
         Ok(EffectDisposition::ConfirmedFailure) => DispatchedEffect {
             disposition: EffectDisposition::ConfirmedFailure,
             result: Err(DispatchError::Connector(anyhow!(
                 "scope-matched draft creation failed after an attempted write"
             ))),
+            executor_recorded: true,
         },
         // An executor error's effect ordering is unknown; fail closed by
         // retaining (DeliveryUnknown) while auditing it truthfully as Resource.
         Err(err) => DispatchedEffect {
             disposition: EffectDisposition::DeliveryUnknown,
             result: Err(DispatchError::Resource(err)),
+            // The executor bailed before writing any audit record (it never
+            // reached its self-audit arms), so the mediation handler records it.
+            executor_recorded: false,
         },
     }
 }
@@ -569,6 +578,9 @@ mod effect_truth_tests;
 #[cfg(test)]
 #[path = "scoped_admission_outcome_tests.rs"]
 mod outcome_tests;
+#[cfg(test)]
+#[path = "scoped_admission_parity_tests.rs"]
+mod parity_tests;
 #[cfg(test)]
 #[path = "scoped_admission_recheck_tests.rs"]
 mod recheck_tests;

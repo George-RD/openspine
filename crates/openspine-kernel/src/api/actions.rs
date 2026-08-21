@@ -1404,6 +1404,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
         fired_pending,
         now,
     );
+    let executor_recorded = dispatched.executor_recorded;
     match dispatched.result {
         Ok(result) => Ok((GateDecision::Allow, None, Some(result), standing_budget)),
         Err(err) => {
@@ -1414,6 +1415,17 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             // above (the breaker rejection is `NotAttempted`, so the
             // reservation was released).
             if matches!(err, DispatchError::ConnectorUnavailable(_)) {
+                return Err(err);
+            }
+            // #244: when the dispatch executor already owns this effect's
+            // record (it self-appended its typed audit event and, for a
+            // failure, self-batched it into the owner digest), the mediation
+            // handler must not re-append `action.dispatch_failed` or re-call
+            // `batch_failure`. Doing so double-counts one scoped effect and
+            // files a pre-effect `NotAttempted` refusal under the wrong,
+            // Connector-class vocabulary. Settlement already ran above off the
+            // typed disposition, so the reservation is resolved regardless.
+            if executor_recorded {
                 return Err(err);
             }
             let digest_class = match &err {
@@ -1477,6 +1489,14 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
 pub(crate) struct DispatchedEffect {
     pub(crate) disposition: EffectDisposition,
     pub(crate) result: Result<Value, DispatchError>,
+    /// The dispatch path's executor already appended its own audit event and,
+    /// for a failure, already self-batched it into the owner digest. When set,
+    /// the mediation error handler MUST NOT re-append `action.dispatch_failed`
+    /// or re-call `batch_failure` — doing so double-counts one effect. The
+    /// scoped executor owns the record for every disposition it returns; the
+    /// generic path and the un-recorded scoped arms (registry miss, executor
+    /// error) leave this false so the handler records them once.
+    pub(crate) executor_recorded: bool,
 }
 
 #[derive(Debug)]
