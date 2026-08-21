@@ -7,7 +7,7 @@ async fn captured_value_stays_out_of_audit_metadata() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh",
@@ -96,7 +96,7 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.client_secret",
@@ -129,7 +129,7 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token",
@@ -190,7 +190,7 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token",
@@ -210,7 +210,7 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.client_secret",
@@ -247,7 +247,7 @@ async fn audit_failure_rolls_back_live_credential() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Rotate,
         "test.slot",
@@ -303,7 +303,7 @@ async fn audit_failure_rolls_back_paired_promotion() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.client_secret",
@@ -335,7 +335,7 @@ async fn audit_failure_rolls_back_paired_promotion() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token",

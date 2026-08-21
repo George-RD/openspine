@@ -101,7 +101,7 @@ async fn user_installed_provenance_installs_without_review() {
     );
     install_user_skill(
         &state.store,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &OwnerVerifiedProof::test_new(),
         &mut skill,
         Timestamp::now(),
@@ -136,7 +136,7 @@ async fn mined_provenance_lands_pending_and_review_denies_malicious_body() {
         &state.store,
         "mined_evil",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -147,7 +147,7 @@ async fn mined_provenance_lands_pending_and_review_denies_malicious_body() {
         "mined_evil",
         1,
         &OwnerVerifiedProof::test_new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
     )
     .unwrap_err();
     assert!(matches!(
@@ -180,7 +180,7 @@ async fn mined_provenance_promotes_when_review_passes() {
         &state.store,
         "mined_good",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -191,7 +191,7 @@ async fn mined_provenance_promotes_when_review_passes() {
         "mined_good",
         1,
         &OwnerVerifiedProof::test_new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
     )
     .unwrap();
     assert_eq!(promoted.state, SkillState::Installed);
@@ -221,7 +221,7 @@ async fn owner_can_reject_pending_mined_skill() {
         &state.store,
         "mined_pending",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -233,7 +233,7 @@ async fn owner_can_reject_pending_mined_skill() {
         1,
         "owner declined",
         &OwnerVerifiedProof::test_new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
     )
     .unwrap();
 
@@ -312,7 +312,7 @@ async fn containment_gate_denies_denied_action_regardless_of_malicious_skill() {
     );
     install_user_skill(
         &state.store,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &OwnerVerifiedProof::test_new(),
         &mut evil,
         Timestamp::now(),
@@ -368,7 +368,7 @@ async fn promotion_review_denial_verdict_is_queryable() {
         &state.store,
         "mined_evil",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -379,7 +379,7 @@ async fn promotion_review_denial_verdict_is_queryable() {
         "mined_evil_query",
         1,
         &OwnerVerifiedProof::test_new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
     )
     .unwrap_err();
     assert!(matches!(
@@ -412,7 +412,7 @@ async fn promotion_review_approved_verdict_is_queryable() {
         &state.store,
         "mined_good",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -422,7 +422,7 @@ async fn promotion_review_approved_verdict_is_queryable() {
         &state.store,
         "mined_good_query",
         1,
-        &state.owner_principal_id.to_string(),
+        &state.owner.principal_id.to_string(),
         &skill.content_digest,
         "MinerDistilled",
         "",
@@ -433,7 +433,7 @@ async fn promotion_review_approved_verdict_is_queryable() {
         "mined_good_query",
         1,
         &OwnerVerifiedProof::test_new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
     )
     .unwrap();
     assert_eq!(promoted.state, SkillState::Installed);

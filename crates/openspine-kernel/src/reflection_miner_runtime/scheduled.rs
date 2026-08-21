@@ -43,9 +43,7 @@ pub(crate) fn find_active_grant_by_route(
         if grant.is_expired(now) {
             continue;
         }
-        if grant.user != openspine_schemas::ids::PrincipalId::from(state.owner_principal_id)
-            || !grant.verify_mac(&key)
-        {
+        if grant.user != state.owner.principal_id || !grant.verify_mac(&key) {
             return Err(MinerRuntimeError::UnauthenticatedGrant);
         }
         let digest = openspine_schemas::digest::Digest::parse(digest)
@@ -106,8 +104,8 @@ fn compose_scheduled_grant(
     };
     let identity = IdentityResolution {
         event_id: event.id,
-        matched_identity_id: Some(state.owner_identity_id),
-        principal_id: Some(state.owner_principal_id),
+        matched_identity_id: Some(state.owner.identity_id),
+        principal_id: Some(state.owner.principal_id.as_ulid()),
         confidence: 1.0,
         matched_identifier_type: MatchedIdentifierType::Device,
         channel_trust: ChannelTrust::OwnerDevice,
@@ -191,7 +189,7 @@ fn compose_scheduled_grant(
         workflow: &workflow,
         pack: &pack,
         session: &session,
-        principal_id: state.owner_principal_id,
+        principal_id: state.owner.principal_id.as_ulid(),
         purpose,
     };
     let mut grant = match compose_authority(&input, &state.action_catalog, now) {
@@ -214,7 +212,7 @@ fn derive_repeated_approval_observation(
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
     let scope = format!("reflection:{miner_grant_id}");
     let entries = state.store.load_owner_miner_audit_slice(
-        state.owner_principal_id.into(),
+        state.owner.principal_id,
         &key,
         &scope,
         ceiling,
@@ -285,7 +283,7 @@ fn derive_repeated_approval_observation(
         }
         group.1.push(OwnerApprovalEvidence {
             decision_event_id: event.id,
-            owner_principal_id: state.owner_principal_id,
+            owner_principal_id: state.owner.principal_id.as_ulid(),
             request_digest: metadata.request_digest,
             target_digest: metadata.target_digest,
             payload_digest: metadata.payload_digest,

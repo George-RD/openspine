@@ -118,7 +118,7 @@ async fn plan_propose_approve_rederives_gate_and_resolves() {
 #[tokio::test]
 async fn typed_owner_principal_flows_from_composed_grant_through_gate_into_approval_and_audit() {
     let (state, _telegram_server, request) = proposed_plan_fixture().await;
-    let owner = openspine_schemas::ids::PrincipalId::from(state.owner_principal_id);
+    let owner = state.owner.principal_id;
 
     // The composed grant behind the request is issued to the owner principal
     // (AD-146), and the request is bound to that grant id.

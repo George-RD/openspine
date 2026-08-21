@@ -367,8 +367,8 @@ async fn run_approved_draft_case(
     state.store.insert_action_request(&request).unwrap();
 
     let mut update = owner_update("");
-    update.chat_id = state.owner_user_id;
-    update.sender_user_id = Some(state.owner_user_id);
+    update.chat_id = state.owner.telegram_binding();
+    update.sender_user_id = Some(state.owner.telegram_binding());
     update.text = None;
     update.callback_query = Some(CallbackQueryUpdate {
         id: "draft-approval-callback".to_string(),

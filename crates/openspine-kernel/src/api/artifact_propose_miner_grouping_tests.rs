@@ -232,7 +232,7 @@ async fn scheduled_reflection_miner_duplicate_decision_event_is_not_repeated() {
         .state
         .store
         .load_owner_miner_audit_slice(
-            harness.state.owner_principal_id.into(),
+            harness.state.owner.principal_id,
             &crate::grant_hmac_key().unwrap(),
             &format!("reflection:{}", miner_grant.id),
             openspine_schemas::event::DataClassification::Private,
@@ -399,7 +399,7 @@ async fn miner_approval_refuses_review_proposal_digest_mismatch() {
     crate::pipeline::owner_review_surface::persist_owner_review(
         &harness.state,
         &review,
-        harness.state.owner_principal_id,
+        harness.state.owner.principal_id.as_ulid(),
         Timestamp::now() + jiff::SignedDuration::from_secs(review.limits.expires_after_secs),
         Timestamp::now(),
         None,

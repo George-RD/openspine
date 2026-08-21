@@ -64,7 +64,7 @@ async fn same_bot_token_rotation_preserves_namespaced_offset() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 555),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Rotate,
         BOT_TOKEN_SLOT,
@@ -129,7 +129,7 @@ async fn different_bot_token_rotation_starts_fresh_namespace() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 555),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Rotate,
         BOT_TOKEN_SLOT,

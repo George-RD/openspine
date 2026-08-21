@@ -132,15 +132,15 @@ pub(crate) async fn run_pipeline_with_envelope(
     trace.push(PipelineStage::Identify);
     let resolver = crate::identity::IdentityResolver::new(
         &state.store,
-        state.owner_principal_id,
-        state.owner_identity_id,
+        state.owner.principal_id.as_ulid(),
+        state.owner.identity_id,
     );
     let local_cli_owner = envelope.source == Source::Cli
         && envelope.event_type == EventType::CliOwnerMessage
         && envelope.verified_source
         && envelope.verification_method == VerificationMethod::LocalCliAuth
         && envelope.trust_context.channel_trust == ChannelTrust::OwnerDevice
-        && inputs.principal_override == Some(state.owner_principal_id);
+        && inputs.principal_override == Some(state.owner.principal_id.as_ulid());
     let (mut identity, relationship) = if local_cli_owner {
         resolver.resolve_local_owner(envelope.id, spec.channel_trust)
     } else {

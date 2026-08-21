@@ -416,7 +416,7 @@ async fn worker_result_relay_unresolvable_owner_stays_retryable() {
             "UPDATE task_grants SET owner_surface_json = ?1",
             params![serde_json::to_string(
                 &openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
-                    state.owner_principal_id
+                    state.owner.principal_id.as_ulid()
                 )
             )
             .unwrap()],

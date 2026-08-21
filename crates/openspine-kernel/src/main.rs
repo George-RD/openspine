@@ -309,9 +309,12 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     )?;
     // Bootstrap only after audit verification so a broken chain leaves the
     // database and audit trail untouched.
-    let owner_principal = store
-        .bootstrap_owner_principal(cfg.owner.telegram_user_id, &cfg.owner.display_name)
-        .context("bootstrapping owner principal failed")?;
+    let owner_principal = crate::identity::bootstrap_owner_principal(
+        &store,
+        cfg.owner.telegram_user_id,
+        &cfg.owner.display_name,
+    )
+    .context("bootstrapping owner principal failed")?;
     let overlay_dir = data_root.join("artifacts.d");
     model_swap_recovery::reconcile_model_swap_overlay(&store, &artifacts, &overlay_dir)?;
     // Pre-populate the Donna×Leo personality seed as learnable overlay
@@ -536,12 +539,10 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             config::webhook_hmac_secret()?,
             Duration::from_secs(300),
         ),
-        owner_user_id: cfg.owner.telegram_user_id,
+        owner: owner_principal,
         provider_config_digests,
-        owner_principal_id: owner_principal.id,
         base_artifact_ids,
         base_compatibility_epoch,
-        owner_identity_id: owner_principal.identity_id,
         kernel_endpoint: cfg
             .kernel
             .advertise_endpoint

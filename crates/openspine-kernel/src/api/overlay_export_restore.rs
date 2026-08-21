@@ -42,7 +42,7 @@ fn require_root_owner_grant(
     grant: &TaskGrant,
     action: &ActionId,
 ) -> Result<(), DispatchError> {
-    if grant.user != openspine_schemas::ids::PrincipalId::from(state.owner_principal_id) {
+    if grant.user != state.owner.principal_id {
         return Err(DispatchError::BadRequest(
             "overlay export/restore requires the configured owner principal".to_string(),
         ));
@@ -237,13 +237,7 @@ mod tests {
     async fn root_owner_export_stages_restart_required() {
         let state = test_state();
         let action = ActionId::new(EXPORT_ACTION);
-        let grant = mint_grant(
-            &state,
-            state.owner_principal_id.into(),
-            EXPORT_ACTION,
-            None,
-            false,
-        );
+        let grant = mint_grant(&state, state.owner.principal_id, EXPORT_ACTION, None, false);
         let payload = json!({"bundle_name": "backup-1"});
         let result = handle_overlay_export(
             &state,
@@ -265,18 +259,12 @@ mod tests {
         let action = ActionId::new(RESTORE_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.into(),
+            state.owner.principal_id,
             RESTORE_ACTION,
             None,
             false,
         );
-        let export_grant = mint_grant(
-            &state,
-            state.owner_principal_id.into(),
-            EXPORT_ACTION,
-            None,
-            false,
-        );
+        let export_grant = mint_grant(&state, state.owner.principal_id, EXPORT_ACTION, None, false);
         let export_payload = json!({"bundle_name": "backup-1"});
         handle_overlay_export(
             &state,
@@ -340,7 +328,7 @@ mod tests {
         let parent = Ulid::new();
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.into(),
+            state.owner.principal_id,
             EXPORT_ACTION,
             Some(parent),
             true,
@@ -364,7 +352,7 @@ mod tests {
         let action = ActionId::new(EXPORT_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.into(),
+            state.owner.principal_id,
             EXPORT_ACTION,
             Some(Ulid::new()),
             true,
@@ -390,7 +378,7 @@ mod tests {
         let action = ActionId::new(RESTORE_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.into(),
+            state.owner.principal_id,
             RESTORE_ACTION,
             None,
             false,
@@ -441,13 +429,7 @@ mod tests {
     async fn malformed_and_unknown_payload_fields_fail() {
         let state = test_state();
         let action = ActionId::new(EXPORT_ACTION);
-        let grant = mint_grant(
-            &state,
-            state.owner_principal_id.into(),
-            EXPORT_ACTION,
-            None,
-            false,
-        );
+        let grant = mint_grant(&state, state.owner.principal_id, EXPORT_ACTION, None, false);
         for payload in [
             None,
             Some(json!({})),

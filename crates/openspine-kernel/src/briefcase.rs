@@ -225,7 +225,7 @@ pub async fn pack_for_pipeline(
 ) -> Result<Briefcase, BriefcaseKernelError> {
     let counterparty = match lane {
         openspine_schemas::event::Lane::OwnerControl => CounterpartyRef::Bound {
-            identity_id: state.owner_identity_id,
+            identity_id: state.owner.identity_id,
             relationship: openspine_schemas::identity::RelationshipKind::Owner,
         },
         // AD-134 headless hook lane: the counterparty is the hook id
@@ -253,7 +253,7 @@ pub async fn pack_for_pipeline(
                     let relationship = identity
                         .relationships
                         .iter()
-                        .find(|r| r.target_id == state.owner_identity_id)
+                        .find(|r| r.target_id == state.owner.identity_id)
                         .map(|r| r.kind)
                         .unwrap_or(RelationshipKind::Unknown);
                     CounterpartyRef::Bound {

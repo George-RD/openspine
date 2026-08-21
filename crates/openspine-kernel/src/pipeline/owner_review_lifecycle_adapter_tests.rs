@@ -26,7 +26,7 @@ fn persist(state: &AppState, review: &openspine_schemas::owner_review::OwnerRevi
     persist_owner_review(
         state,
         review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -50,7 +50,7 @@ async fn terminal_review_resume_refusal_is_truthful() {
     state.terminal_reply_tx = Some(reply_tx);
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Resume refusal review".into(),
     );
     persist(&state, &review);
@@ -115,7 +115,7 @@ async fn terminal_review_pause_refusal_is_truthful() {
     let (state, mut reply_rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Pause refusal review".into(),
     );
     persist(&state, &review);

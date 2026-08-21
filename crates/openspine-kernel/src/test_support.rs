@@ -83,7 +83,8 @@ pub(crate) mod fixtures {
         let overlay_dir = canonical.join("artifacts.d");
         std::fs::create_dir_all(&overlay_dir).unwrap();
         let secrets = std::sync::Arc::new(SecretStore::open(credentials_dir, key).unwrap());
-        let owner_principal = store.bootstrap_owner_principal(42, "George").unwrap();
+        let owner_principal =
+            crate::identity::bootstrap_owner_principal(&store, 42, "George").unwrap();
         let test_provider_config = ProviderConfig {
             id: "test-provider".to_string(),
             kind: ProviderKind::Anthropic,
@@ -112,9 +113,7 @@ pub(crate) mod fixtures {
             ),
             action_handlers: ActionHandlerRegistry::default_registrations(),
             effect_executors: EffectExecutorRegistry::default_registrations(),
-            owner_user_id: 42,
-            owner_principal_id: owner_principal.id,
-            owner_identity_id: owner_principal.identity_id,
+            owner: owner_principal,
             kernel_endpoint: "http://127.0.0.1:0".to_string(),
             unsafe_allow_uncontained_private_data: false,
             provider_pool: std::collections::HashMap::from([(
@@ -226,7 +225,7 @@ pub(crate) fn owner_surface_for(
     state: &crate::pipeline::AppState,
     chat_id: i64,
 ) -> openspine_schemas::owner_surface::OwnerSurfaceRef {
-    crate::telegram::telegram_owner_surface(state.owner_principal_id, chat_id)
+    crate::telegram::telegram_owner_surface(state.owner.principal_id.as_ulid(), chat_id)
 }
 
 /// Standalone Telegram owner surface for store-level fixtures that have no

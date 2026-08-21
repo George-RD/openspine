@@ -249,7 +249,6 @@ pub fn handle_owner_bind(
 /// the same value the store hashed into the owner identity's Telegram
 /// identifier, so it is the authoritative channel binding to carry on the
 /// aggregate (D-002).
-#[allow(dead_code)] // typed-identity foundation (spec #197 phase 1); production wiring lands with #200
 pub fn bootstrap_owner_principal(
     store: &Store,
     telegram_user_id: i64,
@@ -268,6 +267,21 @@ mod tests {
     use super::*;
     use openspine_schemas::event::ChannelTrust;
     use openspine_schemas::identity::RelationshipKind;
+
+    /// The typed production constructor (spec #197) wraps the store-minted
+    /// principal into the `OwnerPrincipal` aggregate `AppState.owner` carries:
+    /// its `principal_id`/`identity_id` mirror the store row and the Telegram
+    /// binding is exactly the id passed in, reachable only via the accessor.
+    #[test]
+    fn typed_bootstrap_wraps_store_principal_into_aggregate() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = bootstrap_owner_principal(&store, 42, "George").unwrap();
+        let store_principal = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        assert_eq!(owner.principal_id, PrincipalId::from(store_principal.id));
+        assert_eq!(owner.identity_id, store_principal.identity_id);
+        assert_eq!(owner.telegram_binding(), 42);
+    }
 
     #[test]
     fn local_cli_path_resolves_owner_device_and_principal() {

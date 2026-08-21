@@ -27,7 +27,7 @@ fn mint_topup_grant(state: &AppState, allow_topup: bool) -> TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: state.owner_principal_id.into(),
+        user: state.owner.principal_id,
         purpose: "briefcase_topup_test".to_string(),
         issued_by: "kernel".to_string(),
         issued_at: now,

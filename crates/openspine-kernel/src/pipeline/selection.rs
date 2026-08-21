@@ -25,7 +25,7 @@ pub(super) fn build_selection_token(
     thread_id: &str,
     now: Timestamp,
 ) -> SelectionToken {
-    let user: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
+    let user: openspine_schemas::ids::PrincipalId = state.owner.principal_id;
     SelectionToken {
         id: Ulid::new(),
         schema_version: 1,

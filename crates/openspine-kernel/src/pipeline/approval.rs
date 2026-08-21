@@ -99,9 +99,10 @@ pub(super) async fn handle_draft_approval_callback(
             .as_ref()
             .is_none_or(|(grant, _, _)| grant.is_expired(Timestamp::now()));
         if refresh {
-            if let Some(grant) =
-                super::mint_reconfirm_grant(request.task_grant_id, state.owner_principal_id)
-            {
+            if let Some(grant) = super::mint_reconfirm_grant(
+                request.task_grant_id,
+                state.owner.principal_id.as_ulid(),
+            ) {
                 if existing.is_some() {
                     state.store.refresh_task_grant(&grant)?;
                 } else {

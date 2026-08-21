@@ -19,7 +19,7 @@ fn task(state: &crate::pipeline::AppState, timer_kind: TaskTimerKind) -> Task {
     Task {
         schema_version: 1,
         id,
-        owner_principal_id: state.owner_principal_id,
+        owner_principal_id: state.owner.principal_id.as_ulid(),
         status: TaskStatus::Open,
         owning_worker: Some(
             openspine_schemas::task::WorkerId::new("main_assistant_agent").unwrap(),
@@ -408,7 +408,7 @@ async fn recovery_refuses_receiptless_handed_off_redispatch() {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: openspine_schemas::artifact::Lifecycle::Active,
-        user: state.owner_principal_id.into(),
+        user: state.owner.principal_id,
         purpose: "timer-task".to_string(),
         issued_by: "timer".to_string(),
         issued_at: Timestamp::now(),

@@ -776,7 +776,7 @@ fn mint_owner_activation_grant(
         id,
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: state.owner_principal_id.into(),
+        user: state.owner.principal_id,
         purpose: "owner_approved_artifact_activation".to_string(),
         issued_by: "kernel".to_string(),
         issued_at: now,
