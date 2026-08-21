@@ -1593,6 +1593,7 @@ dependencies = [
  "jiff",
  "openspine-schemas",
  "rand 0.10.2",
+ "serde_json",
  "thiserror",
  "ulid",
 ]

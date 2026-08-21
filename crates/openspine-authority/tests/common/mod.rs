@@ -493,3 +493,7 @@ pub fn test_catalog() -> ActionCatalog {
 
     ActionCatalog::new(ids)
 }
+
+mod projection;
+#[allow(unused_imports)]
+pub use projection::{projection_catalog, projection_grant, tool_descriptor};

@@ -7,6 +7,7 @@
 mod compose;
 mod equivalence;
 mod persona_binding;
+mod project_catalog;
 mod route;
 pub mod worker_grant;
 pub use persona_binding::resolve_persona;
@@ -17,5 +18,6 @@ pub use equivalence::{
     AuthorityClassScope, AuthorityEquivalenceClasses, ClassResolution, EquivalenceError,
     ResolvedAuthorityClass,
 };
+pub use project_catalog::{project_catalog, CatalogEntry, CatalogEntryStatus, CatalogView};
 pub use route::resolve_route;
 pub use worker_grant::{mint_worker_grant, MintError};
