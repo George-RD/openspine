@@ -23,7 +23,7 @@ pub(crate) fn approval_fixture_grant() -> TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".to_string(),
+        user: Ulid::new().into(),
         purpose: "test".to_string(),
         issued_by: "kernel".to_string(),
         issued_at,

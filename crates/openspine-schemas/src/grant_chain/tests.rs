@@ -1,5 +1,6 @@
 use super::*;
 use crate::artifact::Lifecycle;
+use crate::ids::PrincipalId;
 use jiff::Timestamp;
 
 fn sample_root() -> TaskGrant {
@@ -10,7 +11,7 @@ fn sample_root() -> TaskGrant {
         id,
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".to_string(),
+        user: Ulid::new().into(),
         purpose: "test".to_string(),
         issued_by: "kernel".to_string(),
         issued_at,
@@ -294,7 +295,7 @@ fn identity_field_tamper_invalidates_mac() {
     let grant = sample_root();
     assert!(verify_mac(TEST_GRANT_HMAC_KEY, &grant));
     for mutate in [
-        |g: &mut TaskGrant| g.user = "attacker".into(),
+        |g: &mut TaskGrant| g.user = Ulid::new().into(),
         |g: &mut TaskGrant| g.purpose = "widened".into(),
         |g: &mut TaskGrant| g.agent_id = "evil_agent".into(),
         |g: &mut TaskGrant| g.route_id = "evil_route".into(),
@@ -333,4 +334,36 @@ fn effective_egress_class_intersects_every_caveat() {
         &grant,
         &crate::egress::EgressClass::Search
     ));
+}
+
+#[test]
+fn principal_id_user_preserves_mac_preimage_and_wire_bytes() {
+    // D-005: retyping `user` from String to PrincipalId must not change the
+    // MAC preimage or the JSON wire shape. PrincipalId is serde-transparent,
+    // so a grant whose `user` holds a stringified Ulid seals, verifies, and
+    // serializes byte-identically to the pre-retype String shape.
+    let owner = Ulid::from_string("01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap();
+    let mut grant = sample_root();
+    grant.user = PrincipalId::from(owner);
+    seal_root(&mut grant, TEST_GRANT_HMAC_KEY);
+
+    // The MAC preimage embeds `user` as the bare Ulid string — no type tag,
+    // no wrapper object — exactly as a `user: String` field holding that Ulid
+    // would have. If PrincipalId ever stopped serializing transparently this
+    // substring (and every existing sealed grant's MAC) would break.
+    let canonical = String::from_utf8(RootAuthority::from_grant(&grant).canonical_bytes())
+        .expect("canonical root is UTF-8 JSON");
+    assert!(
+        canonical.contains(&format!("\"user\":\"{owner}\"")),
+        "PrincipalId user must serialize into the MAC preimage as the plain Ulid string, got {canonical}"
+    );
+
+    // Round trip: the freshly sealed grant verifies against its own key.
+    assert!(verify_mac(TEST_GRANT_HMAC_KEY, &grant));
+
+    // Wire shape: serialized `user` is the plain Ulid string, unchanged from
+    // the String era, so persisted grants and downstream consumers see the
+    // identical bytes.
+    let wire = serde_json::to_value(&grant).expect("grant serializes");
+    assert_eq!(wire["user"], serde_json::json!(owner.to_string()));
 }

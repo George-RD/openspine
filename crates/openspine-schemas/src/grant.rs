@@ -9,7 +9,7 @@ use crate::action::ActionId;
 use crate::artifact::Lifecycle;
 use crate::egress::EgressClass;
 use crate::grant_chain::{self, Caveat, ChainStep};
-use crate::ids::ArtifactId;
+use crate::ids::{ArtifactId, PrincipalId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,7 +35,7 @@ pub struct TaskGrant {
     pub id: Ulid,
     pub schema_version: u32,
     pub lifecycle_state: Lifecycle,
-    pub user: String,
+    pub user: PrincipalId,
     pub purpose: String,
     pub issued_by: String,
     pub issued_at: jiff::Timestamp,
@@ -134,7 +134,7 @@ mod tests {
             id,
             schema_version: 1,
             lifecycle_state: Lifecycle::Active,
-            user: "owner".into(),
+            user: Ulid::new().into(),
             purpose: "test".into(),
             issued_by: "kernel".into(),
             issued_at: now,

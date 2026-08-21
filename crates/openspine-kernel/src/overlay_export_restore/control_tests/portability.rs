@@ -64,7 +64,7 @@ fn portable_restore_accepts_fresh_destination_owner_id_and_preserves_request() {
     let source_req = crate::overlay_export_restore::bundle::BundleRequestMetadata {
         request_id: export_op.request_id().to_owned(),
         action_id: EXPORT_ACTION.into(),
-        owner_principal_id: "alice_owner".into(),
+        owner_principal_id: alice_grant.user.to_string(),
         grant_id: alice_grant.id.to_string(),
         requested_at: export_op.requested_at().to_owned(),
     };
@@ -117,13 +117,13 @@ fn portable_restore_accepts_fresh_destination_owner_id_and_preserves_request() {
         )
         .unwrap();
 
-    assert_eq!(restore_op.owner_principal_id(), "bob_destination_owner");
+    assert_eq!(restore_op.owner_principal_id(), bob_grant.user.to_string());
     let saved_source_req = restore_op.source_bundle_request().unwrap();
     assert_eq!(
         saved_source_req,
         &OperationAuthorization {
             action_id: EXPORT_ACTION.into(),
-            owner_principal_id: "alice_owner".into(),
+            owner_principal_id: alice_grant.user.to_string(),
             grant_id: alice_grant.id.to_string(),
             request_id: export_op.request_id().to_owned(),
             requested_at: export_op.requested_at().to_owned(),

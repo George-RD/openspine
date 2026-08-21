@@ -409,7 +409,7 @@ async fn recovery_refuses_receiptless_handed_off_redispatch() {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: openspine_schemas::artifact::Lifecycle::Active,
-        user: state.owner_principal_id.to_string(),
+        user: state.owner_principal_id.into(),
         purpose: "timer-task".to_string(),
         issued_by: "timer".to_string(),
         issued_at: Timestamp::now(),

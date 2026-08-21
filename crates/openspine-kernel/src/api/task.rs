@@ -123,7 +123,7 @@ mod tests {
             id: Ulid::new(),
             schema_version: 1,
             lifecycle_state: Lifecycle::Active,
-            user: "owner".to_string(),
+            user: Ulid::new().into(),
             purpose: "w".to_string(),
             issued_by: "kernel".to_string(),
             issued_at: now,

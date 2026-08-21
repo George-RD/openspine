@@ -43,7 +43,7 @@ pub(crate) async fn notify_owner_with_digest(
         return NotifyOutcome::SurfaceUnsupported;
     }
     let now = Timestamp::now();
-    let Some(notify_grant) = kernel_notify_grant() else {
+    let Some(notify_grant) = kernel_notify_grant(state.owner_principal_id) else {
         record_notify_skipped(state, "notify grant unavailable (HMAC key unset)");
         tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
         return NotifyOutcome::GateUnavailable;
@@ -326,14 +326,14 @@ pub(crate) async fn notify_owner_best_effort(
 /// `ActionOrigin::Kernel` auto-allows only the trusted-origin set. Returns
 /// `None` when the HMAC key is unavailable — callers must skip the effect
 /// (fail-closed), not present an unsealed grant to `gate()`.
-fn kernel_notify_grant() -> Option<TaskGrant> {
+fn kernel_notify_grant(owner_principal_id: Ulid) -> Option<TaskGrant> {
     let key = crate::grant_hmac_key()?;
     let now = Timestamp::now();
     let mut grant = TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "kernel".to_string(),
+        user: owner_principal_id.into(),
         purpose: "owner-notify".to_string(),
         issued_by: "kernel".to_string(),
         issued_at: now,

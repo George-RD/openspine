@@ -157,7 +157,7 @@ impl OverlayControl {
             BundleName::parse(bundle_name)?,
             OperationAuthorization {
                 action_id: action.to_string(),
-                owner_principal_id: grant.user.clone(),
+                owner_principal_id: grant.user.to_string(),
                 grant_id: grant.id.to_string(),
                 request_id: Ulid::new().to_string(),
                 requested_at: now.to_string(),

@@ -168,7 +168,7 @@ pub(crate) async fn run_reflection_miner(
         .find_task_grant_by_id(submitting_grant_id)?
         .ok_or(MinerRuntimeError::GrantNotFound)?;
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
-    let owner_principal = state.owner_principal_id.to_string();
+    let owner_principal: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
     if !miner_grant.verify_mac(&key)
         || !submitting_grant.verify_mac(&key)
         || miner_grant.user != owner_principal
@@ -189,7 +189,7 @@ pub(crate) async fn run_reflection_miner(
     let mut entries =
         state
             .store
-            .load_owner_miner_audit_slice(&owner_principal, &key, &scope, ceiling)?;
+            .load_owner_miner_audit_slice(owner_principal, &key, &scope, ceiling)?;
 
     // Corrections and stated preferences may originate from non-Allow audit
     // rows, so admit their anchor only when it belongs to the authenticated

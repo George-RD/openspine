@@ -23,7 +23,7 @@ fn grant(user: &str) -> TaskGrant {
         id,
         schema_version: 1,
         lifecycle_state: openspine_schemas::artifact::Lifecycle::Active,
-        user: user.to_owned(),
+        user: crate::test_support::principal(user),
         purpose: "overlay-control-test".into(),
         issued_by: "kernel".into(),
         issued_at: now,

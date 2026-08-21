@@ -256,7 +256,10 @@ pub(crate) use message_notify::NotifyOutcome;
 /// Short-lived owner-bound synthetic grant minted at the moment an owner taps
 /// an `artifact.reconfirm` button (AD-070). The durable review object is the
 /// pending learned-artifact row + ActionRequest; authority begins only here.
-pub(super) fn mint_reconfirm_grant(task_grant_id: Ulid) -> Option<TaskGrant> {
+pub(super) fn mint_reconfirm_grant(
+    task_grant_id: Ulid,
+    owner_principal_id: Ulid,
+) -> Option<TaskGrant> {
     use openspine_schemas::action::ActionId;
     use openspine_schemas::grant::GrantMode;
     let key = crate::grant_hmac_key()?;
@@ -266,7 +269,7 @@ pub(super) fn mint_reconfirm_grant(task_grant_id: Ulid) -> Option<TaskGrant> {
         id: task_grant_id,
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "kernel".to_string(),
+        user: owner_principal_id.into(),
         purpose: "overlay-reconfirm".to_string(),
         issued_by: "kernel".to_string(),
         issued_at: now,

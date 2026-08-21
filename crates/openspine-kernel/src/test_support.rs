@@ -236,6 +236,18 @@ pub(crate) fn telegram_surface(chat_id: i64) -> openspine_schemas::owner_surface
     crate::telegram::telegram_owner_surface(ulid::Ulid::from_parts(0, 1), chat_id)
 }
 
+/// Deterministic principal id for overlay-control tests that assert on owner
+/// identity. Distinct labels map to distinct principals and an identical label
+/// always maps to the same principal, preserving the pre-`PrincipalId`
+/// string-equality semantics of these tests (e.g. "owner" vs "other_user").
+pub(crate) fn principal(label: &str) -> openspine_schemas::ids::PrincipalId {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::digest(label.as_bytes());
+    let mut bytes = [0u8; 16];
+    bytes.copy_from_slice(&digest[..16]);
+    openspine_schemas::ids::PrincipalId::from(ulid::Ulid::from_bytes(bytes))
+}
+
 /// The Telegram owner surface fixture grants bind to (chat 555, the id every
 /// fixture `owner_update` arrives on). One shared helper so a channel-neutral
 /// binding does not bloat every call site.

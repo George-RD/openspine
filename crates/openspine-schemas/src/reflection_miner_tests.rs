@@ -63,7 +63,7 @@ fn grant() -> TaskGrant {
         id,
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".into(),
+        user: Ulid::new().into(),
         purpose: "scheduled reflection miner".into(),
         issued_by: "kernel".into(),
         issued_at: now,
