@@ -31,6 +31,8 @@ use openspine_schemas::briefcase::{BriefcaseSection, SectionKind, VisibilityClas
 use openspine_schemas::disclosure_policy::DisclosureClass;
 use openspine_schemas::egress::EgressClass;
 use openspine_schemas::identity::RelationshipKind;
+use openspine_schemas::ids::PrincipalId;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use serde_json::json;
 use std::time::Duration;
 use wiremock::matchers::{method, path};
@@ -63,7 +65,13 @@ fn private_section() -> BriefcaseSection {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
-        origin: None,
+        // Owner-sourced preference: a resolvable typed-identity origin so
+        // provenance derivation succeeds and the block comes from the uncovered
+        // (Client, Private) coverage stage under test — not the #225
+        // unresolved-origin fail-closed path.
+        origin: Some(ProvenanceOrigin::Owner {
+            principal: PrincipalId::from(ulid::Ulid::new()),
+        }),
         payload: json!("condition X"),
     }
 }

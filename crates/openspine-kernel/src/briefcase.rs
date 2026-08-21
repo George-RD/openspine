@@ -62,6 +62,12 @@ pub fn pack_for_task(
         &grant.workflow_id,
         tier,
     );
+    // Owner origin (spec #220 / D-174): the grant, preferences, and skills are
+    // the owner's own authority and learned pool. `grant.user` is the resolved
+    // owner `PrincipalId` (single owner v1, AD-146) — a worker sub-grant is a
+    // clone of the owner's grant with the same `user`, so this stays the owner
+    // even when packing a worker's briefcase. The counterparty origin is
+    // derived inside `pack` from the resolved `counterparty` shape.
     Ok(pack(
         TaskShape {
             route_id: grant.route_id.clone(),
@@ -73,6 +79,7 @@ pub fn pack_for_task(
             preferences,
             skills,
             counterparty_slice,
+            owner: grant.user,
         },
         tier,
         class,

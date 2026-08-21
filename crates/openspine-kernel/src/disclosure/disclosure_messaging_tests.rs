@@ -7,6 +7,8 @@ use crate::api::tests::{post_action, start_server};
 use crate::telegram::TelegramConnector;
 use crate::test_support::fixtures::test_state_with_telegram;
 use openspine_schemas::briefcase::{BriefcaseSection, SectionKind, VisibilityClass};
+use openspine_schemas::ids::PrincipalId;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use serde_json::{json, Value};
 use std::time::Duration;
 use wiremock::matchers::{method, path};
@@ -34,7 +36,9 @@ async fn messaging_preparation_drives_core_without_query_generalization() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
-        origin: None,
+        origin: Some(ProvenanceOrigin::Owner {
+            principal: PrincipalId::from(Ulid::new()),
+        }),
         payload: json!("condition X"),
     }];
     // Non-query preparation: the message body carries the sensitive term
@@ -104,7 +108,13 @@ fn private_section() -> BriefcaseSection {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
-        origin: None,
+        // Owner-sourced preference with a resolvable typed-identity origin, so
+        // provenance derivation succeeds and the disclosure outcome is driven
+        // by policy coverage (spec #206/#207), not the #225 unresolved-origin
+        // fail-closed path.
+        origin: Some(ProvenanceOrigin::Owner {
+            principal: PrincipalId::from(Ulid::new()),
+        }),
         payload: json!("condition X"),
     }
 }

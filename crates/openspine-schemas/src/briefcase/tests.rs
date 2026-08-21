@@ -21,6 +21,13 @@ pub(super) fn shape(counterparty_id: Ulid) -> TaskShape {
     }
 }
 
+/// A fixed owner principal for pack tests. Deterministic (a constant ULID) so
+/// two packs of the same shape/sources stay byte-identical for the
+/// determinism assertions.
+pub(super) fn owner() -> crate::ids::PrincipalId {
+    crate::ids::PrincipalId::from(Ulid::from_parts(1, 1))
+}
+
 pub(super) fn sources() -> PackSources {
     PackSources {
         grant_view: json!({"allowed_actions": ["openspine.status.read"]}),
@@ -35,6 +42,7 @@ pub(super) fn sources() -> PackSources {
             minimum_depth: 1,
         }],
         counterparty_slice: json!({"display_name": "Owner"}),
+        owner: owner(),
     }
 }
 
@@ -78,6 +86,37 @@ fn different_source_snapshot_breaks_byte_identity() {
     );
     assert_ne!(a.canonical_bytes(), b.canonical_bytes());
     assert_ne!(a.source_snapshot_id, b.source_snapshot_id);
+}
+
+#[test]
+fn different_owner_breaks_byte_identity_via_the_snapshot() {
+    // Origins now vary with the owner (spec #220 / D-174), so the owner MUST
+    // be part of the content-addressed snapshot or the byte-identity invariant
+    // (`source_snapshot_id == sources.snapshot_id()`, honest iff every input is
+    // digested) would be a lie. Two packs identical but for the owner must
+    // therefore differ in BOTH the snapshot id and the bytes.
+    let id = Ulid::new();
+    let mut a_sources = sources();
+    let mut b_sources = sources();
+    a_sources.owner = crate::ids::PrincipalId::from(Ulid::from_parts(2, 2));
+    b_sources.owner = crate::ids::PrincipalId::from(Ulid::from_parts(3, 3));
+    let a = pack(
+        shape(id),
+        &a_sources,
+        RelationshipTier::Owner,
+        TaskClass::Conversation,
+    );
+    let b = pack(
+        shape(id),
+        &b_sources,
+        RelationshipTier::Owner,
+        TaskClass::Conversation,
+    );
+    assert_ne!(
+        a.source_snapshot_id, b.source_snapshot_id,
+        "the owner is part of the content-addressed snapshot"
+    );
+    assert_ne!(a.canonical_bytes(), b.canonical_bytes());
 }
 
 #[test]
@@ -193,6 +232,7 @@ fn same_pool_stranger_and_owner_pack_preference_and_skill_depth() {
             },
         ],
         counterparty_slice: json!({"display_name": "counterparty"}),
+        owner: owner(),
     };
     let stranger = pack(
         shape(Ulid::new()),
@@ -216,6 +256,73 @@ fn same_pool_stranger_and_owner_pack_preference_and_skill_depth() {
         .sections
         .iter()
         .any(|section| section.key == "skill:calendar"));
+}
+
+// ---- origin derivation (spec #220 / D-174) -----------------------------
+
+#[test]
+fn pack_stamps_owner_origin_on_owner_sections_and_counterparty_on_slice() {
+    use crate::ids::IdentityRef;
+    use crate::provenance::ProvenanceOrigin;
+    let cp_id = Ulid::new();
+    let packed = pack(
+        shape(cp_id),
+        &sources(),
+        RelationshipTier::Owner,
+        TaskClass::Effectful,
+    );
+    let owner_origin = ProvenanceOrigin::Owner { principal: owner() };
+    for key in ["grant", "preference:tone", "skill:email_drafting"] {
+        let section = packed
+            .sections
+            .iter()
+            .find(|s| s.key == key)
+            .unwrap_or_else(|| panic!("missing section {key}"));
+        assert_eq!(
+            section.origin,
+            Some(owner_origin.clone()),
+            "owner-sourced section {key} must carry the owner origin"
+        );
+    }
+    let slice = packed
+        .sections
+        .iter()
+        .find(|s| s.key == "counterparty_slice")
+        .unwrap();
+    assert_eq!(
+        slice.origin,
+        Some(ProvenanceOrigin::Counterparty {
+            identity: IdentityRef::from(cp_id)
+        }),
+        "the counterparty slice must carry the resolved counterparty origin"
+    );
+}
+
+#[test]
+fn pack_leaves_unresolved_counterparty_slice_without_an_origin() {
+    let unresolved_shape = TaskShape {
+        route_id: "owner_telegram_route".to_string(),
+        workflow_id: "owner_control_workflow".to_string(),
+        counterparty: CounterpartyRef::Unresolved {
+            channel: "email".to_string(),
+            identifier: "email:deadbeef".to_string(),
+        },
+    };
+    let packed = pack(
+        unresolved_shape,
+        &sources(),
+        RelationshipTier::Stranger,
+        TaskClass::Conversation,
+    );
+    let slice = packed
+        .sections
+        .iter()
+        .find(|s| s.key == "counterparty_slice")
+        .unwrap();
+    assert_eq!(
+        slice.origin, None,
+        "an unresolved counterparty has no resolvable origin (fails closed at egress)"
+    );
 }
 
 // ---- visibility-class enforcement --------------------------------------

@@ -3,7 +3,19 @@ use super::*;
 use crate::api::dispatch_tests::mint_grant_with_selection_token;
 use crate::test_support::fixtures::{test_state, test_state_with_telegram};
 use openspine_schemas::briefcase::{BriefcaseSection, SectionKind, VisibilityClass};
+use openspine_schemas::ids::PrincipalId;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use serde_json::json;
+
+/// A resolved owner origin for worker-visible section fixtures (spec #220 /
+/// D-174). These tests exercise class-enforcement and redaction, not origin
+/// semantics, but a worker-visible policy-requiring section now REQUIRES a
+/// resolvable origin or `provenance_from_sections` fails closed.
+fn owner_origin() -> Option<ProvenanceOrigin> {
+    Some(ProvenanceOrigin::Owner {
+        principal: PrincipalId::from(Ulid::new()),
+    })
+}
 
 /// Blocker 2 regression: sensitive strings nested below objects and arrays are
 /// redacted before the prepared query can reach a connector.
@@ -17,7 +29,7 @@ async fn nested_json_sensitive_term_extraction_redacts_all_strings() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
-        origin: None,
+        origin: owner_origin(),
         payload: json!({"profile": {"condition": "nested condition X"}, "aliases": ["condition X"]}),
     }];
     let reference = prepare_disclosure_query(
@@ -51,7 +63,7 @@ fn caller_omitted_class_is_still_enforced() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Internal),
-            origin: None,
+            origin: owner_origin(),
             payload: json!("internal summary"),
         },
         BriefcaseSection {
@@ -60,7 +72,7 @@ fn caller_omitted_class_is_still_enforced() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Sensitive),
-            origin: None,
+            origin: owner_origin(),
             payload: json!("condition X"),
         },
     ];
@@ -141,6 +153,66 @@ fn unclassified_worker_visible_section_fails_closed() {
         .is_empty());
 }
 
+/// Spec #220 / D-174: `provenance_from_sections` carries each worker-visible
+/// section's kernel-derived typed-identity origin into the classified item, so
+/// a later egress check can tell one identity's datum from another's. Owner
+/// and bound-counterparty origins both survive; only the origin the kernel
+/// stamped is trusted.
+#[test]
+fn provenance_carries_owner_and_counterparty_origins() {
+    let owner = PrincipalId::from(Ulid::new());
+    let counterparty = openspine_schemas::ids::IdentityRef::from(Ulid::new());
+    let sections = vec![
+        BriefcaseSection {
+            key: "preference:tone".to_string(),
+            kind: SectionKind::Preference,
+            visibility: VisibilityClass::WorkerScratch,
+            depth: 1,
+            disclosure_class: Some(DisclosureClass::Private),
+            origin: Some(ProvenanceOrigin::Owner { principal: owner }),
+            payload: json!("owner preference"),
+        },
+        BriefcaseSection {
+            key: "counterparty_slice".to_string(),
+            kind: SectionKind::CounterpartySlice,
+            visibility: VisibilityClass::WorkerScratch,
+            depth: 1,
+            disclosure_class: Some(DisclosureClass::Internal),
+            origin: Some(ProvenanceOrigin::Counterparty {
+                identity: counterparty,
+            }),
+            payload: json!("counterparty slice"),
+        },
+    ];
+    let provenance = provenance_from_sections(&sections).unwrap();
+    let origins: Vec<_> = provenance.items.iter().map(|i| i.origin.clone()).collect();
+    assert!(origins.contains(&Some(ProvenanceOrigin::Owner { principal: owner })));
+    assert!(origins.contains(&Some(ProvenanceOrigin::Counterparty {
+        identity: counterparty
+    })));
+}
+
+/// Spec #220 / D-174 fail-closed: a worker-visible policy-requiring section
+/// whose origin could not be resolved (e.g. an unresolved-counterparty slice)
+/// refuses provenance derivation entirely — an absent origin is most-
+/// restrictive, never silently dropped or treated as safe.
+#[test]
+fn worker_visible_section_without_origin_fails_closed() {
+    let unresolved = vec![BriefcaseSection {
+        key: "counterparty_slice".to_string(),
+        kind: SectionKind::CounterpartySlice,
+        visibility: VisibilityClass::WorkerScratch,
+        depth: 1,
+        disclosure_class: Some(DisclosureClass::Internal),
+        origin: None,
+        payload: json!("unresolved counterparty"),
+    }];
+    assert!(matches!(
+        provenance_from_sections(&unresolved),
+        Err(DisclosureError::UnclassifiedSection(key)) if key == "counterparty_slice"
+    ));
+}
+
 /// Anchor 2 regression: a blocked disclosure cancels every envelope
 /// reservation it took — the covered class's budget is fully restored, so a
 /// block cannot leak reserved quota (the StoreError mid-loop path shares the
@@ -168,7 +240,7 @@ async fn blocked_disclosure_releases_reserved_envelope_budget() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Internal),
-            origin: None,
+            origin: owner_origin(),
             payload: json!("internal summary"),
         },
         BriefcaseSection {
@@ -177,7 +249,7 @@ async fn blocked_disclosure_releases_reserved_envelope_budget() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Sensitive),
-            origin: None,
+            origin: owner_origin(),
             payload: json!("condition X"),
         },
     ];
