@@ -68,10 +68,6 @@ mod timer_dispatch;
 mod worker_failed_consumer;
 mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;
-#[cfg(test)]
-pub(crate) use offset::{
-    dispatch_polled_updates_for_test, initialize_telegram_bot_id, resolve_telegram_offset_for_test,
-};
 pub(crate) use offset::{is_already_processed, resolve_telegram_offset};
 pub(crate) use standing_rule_timer::run_standing_rule_dark_window_consumer;
 pub(crate) use timer_dispatch::run_task_deadline_consumer;
@@ -285,9 +281,6 @@ pub(super) fn mint_reconfirm_grant(task_grant_id: Ulid) -> Option<TaskGrant> {
     grant.seal_root(&key);
     Some(grant)
 }
-
-#[cfg(test)]
-pub(crate) use polling::poll_telegram_once_for_test;
 
 /// Run one verified-or-not Telegram update through the full pipeline.
 /// Returns `Ok(None)` for every outcome the pipeline itself decides on
