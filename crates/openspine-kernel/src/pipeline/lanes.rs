@@ -33,7 +33,7 @@ pub struct EventInputs {
     pub owner_surface: OwnerSurfaceRef,
     pub text: String,
     pub thread_id: Option<String>,
-    pub owner_verified: Option<crate::telegram::VerifiedOwnerContext>,
+    pub owner_verified: Option<crate::identity::OwnerVerifiedProof>,
     pub principal_override: Option<Ulid>,
     pub event_type_override: Option<EventType>,
     #[allow(dead_code)]

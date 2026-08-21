@@ -4,7 +4,7 @@
 //! invariant at the database layer using a partial unique index.
 
 use super::{AuditDescriptor, Store, StoreError};
-use crate::telegram::VerifiedOwnerContext;
+use crate::identity::OwnerVerifiedProof;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::identity::{
     EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity,
@@ -206,7 +206,7 @@ impl Store {
     pub fn owner_assert_identity_binding(
         &self,
         owner_principal_id: Ulid,
-        _proof: &VerifiedOwnerContext,
+        _proof: &OwnerVerifiedProof,
         identity: &Identity,
     ) -> Result<(), StoreError> {
         // Enforce owner-principal context boundary

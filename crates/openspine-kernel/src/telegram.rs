@@ -10,6 +10,7 @@
 //! unit-testable without constructing teloxide's full wire types or
 //! standing up a live bot.
 
+use crate::identity::OwnerVerifiedProof;
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
@@ -130,19 +131,6 @@ fn project_update(update: &teloxide::types::Update) -> TelegramUpdate {
     }
 }
 
-/// A token proving owner verification. Can only be constructed inside `telegram.rs`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct VerifiedOwnerContext {
-    _private: (),
-}
-
-#[cfg(test)]
-impl VerifiedOwnerContext {
-    pub(crate) fn test_new() -> Self {
-        Self { _private: () }
-    }
-}
-
 /// Outcome of verifying one update against the configured owner id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerifiedUpdate {
@@ -150,7 +138,7 @@ pub enum VerifiedUpdate {
     OwnerMessage {
         chat_id: i64,
         text: String,
-        context: VerifiedOwnerContext,
+        context: OwnerVerifiedProof,
     },
     /// A tap on an inline keyboard button from the configured owner, in
     /// their private chat (D-039) — same verification guarantee as
@@ -159,7 +147,7 @@ pub enum VerifiedUpdate {
         chat_id: i64,
         callback_query_id: String,
         data: String,
-        context: VerifiedOwnerContext,
+        context: OwnerVerifiedProof,
     },
     /// Anything else — non-owner sender, no sender, a non-text/callback
     /// update, or (even from the owner) a non-private chat. Audited and
@@ -186,7 +174,7 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
                 chat_id: update.chat_id,
                 callback_query_id: cb.id.clone(),
                 data: data.clone(),
-                context: VerifiedOwnerContext { _private: () },
+                context: OwnerVerifiedProof::mint(),
             },
             (Some(_), Some(_)) => VerifiedUpdate::Ignored {
                 reason: "unknown_telegram_user",
@@ -208,7 +196,7 @@ pub fn verify_update(update: &TelegramUpdate, owner_user_id: i64) -> VerifiedUpd
         (Some(uid), Some(text)) if uid == owner_user_id => VerifiedUpdate::OwnerMessage {
             chat_id: update.chat_id,
             text: text.clone(),
-            context: VerifiedOwnerContext { _private: () },
+            context: OwnerVerifiedProof::mint(),
         },
         (Some(_), Some(_)) => VerifiedUpdate::Ignored {
             reason: "unknown_telegram_user",

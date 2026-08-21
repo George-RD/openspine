@@ -4,6 +4,7 @@ use openspine_schemas::action::ActionId;
 use openspine_schemas::skill::{Skill, SkillProvenance, SkillState, SkillVisibility};
 
 use crate::api::actions::{mediate_and_dispatch_action, FailureSurface};
+use crate::identity::OwnerVerifiedProof;
 use crate::pipeline::handle_owner_update;
 use crate::skill::ceremony::{
     install_skill, install_user_skill, promote_mined_skill, reject_mined_skill,
@@ -12,7 +13,6 @@ use crate::skill::review::{run_promotion_review, PromotionDenial};
 use crate::skill::selection::select_skills_for_task;
 use crate::store::skill_store::get_skill;
 use crate::store::Store;
-use crate::telegram::VerifiedOwnerContext;
 
 #[allow(clippy::too_many_arguments)]
 fn record_preview(
@@ -103,7 +103,7 @@ async fn user_installed_provenance_installs_without_review() {
     install_user_skill(
         &state.store,
         state.owner_principal_id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         &mut skill,
         Timestamp::now(),
     )
@@ -147,7 +147,7 @@ async fn mined_provenance_lands_pending_and_review_denies_malicious_body() {
         &state.store,
         "mined_evil",
         1,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         state.owner_principal_id,
     )
     .unwrap_err();
@@ -191,7 +191,7 @@ async fn mined_provenance_promotes_when_review_passes() {
         &state.store,
         "mined_good",
         1,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         state.owner_principal_id,
     )
     .unwrap();
@@ -233,7 +233,7 @@ async fn owner_can_reject_pending_mined_skill() {
         "mined_pending",
         1,
         "owner declined",
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         state.owner_principal_id,
     )
     .unwrap();
@@ -314,7 +314,7 @@ async fn containment_gate_denies_denied_action_regardless_of_malicious_skill() {
     install_user_skill(
         &state.store,
         state.owner_principal_id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         &mut evil,
         Timestamp::now(),
     )
@@ -379,7 +379,7 @@ async fn promotion_review_denial_verdict_is_queryable() {
         &state.store,
         "mined_evil_query",
         1,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         state.owner_principal_id,
     )
     .unwrap_err();
@@ -433,7 +433,7 @@ async fn promotion_review_approved_verdict_is_queryable() {
         &state.store,
         "mined_good_query",
         1,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         state.owner_principal_id,
     )
     .unwrap();

@@ -107,7 +107,7 @@ fn owner_grant(
     action: &ActionId,
     now: Timestamp,
     owner_principal_id: Ulid,
-    _proof: &crate::telegram::VerifiedOwnerContext,
+    _proof: &crate::identity::OwnerVerifiedProof,
 ) -> Option<TaskGrant> {
     let key = crate::grant_hmac_key()?;
     let mut grant = TaskGrant {
@@ -154,7 +154,7 @@ pub fn arm(
     state: &AppState,
     owner_surface: &OwnerSurfaceRef,
     owner_principal_id: Ulid,
-    proof: &crate::telegram::VerifiedOwnerContext,
+    proof: &crate::identity::OwnerVerifiedProof,
     mode: SecretMode,
     slot: &str,
 ) -> anyhow::Result<bool> {

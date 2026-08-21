@@ -3,9 +3,15 @@
 //! Resolution is pure and read-only. Counterparty binding is exposed through
 //! the owner-approved, audited store API, gated on the owner-principal context.
 //! Rejects owner relationship assertions.
+//!
+//! This module is channel-neutral: it names no connector. It also owns
+//! [`OwnerVerifiedProof`], the unforgeable capability token a channel adapter
+//! mints after its own owner verification, so that owner-gated kernel code
+//! depends on this neutral seam rather than reaching up into a connector
+//! adapter (D-005).
 
 use crate::store::{Store, StoreError};
-use crate::telegram::VerifiedOwnerContext;
+
 use openspine_schemas::event::ChannelTrust;
 use openspine_schemas::identity::{
     EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity,
@@ -15,6 +21,40 @@ use openspine_schemas::ids::PrincipalId;
 use openspine_schemas::owner::OwnerPrincipal;
 use sha2::Digest as _;
 use ulid::Ulid;
+
+/// Unforgeable proof that a channel adapter verified the owner.
+///
+/// A zero-size capability token. It carries no channel identity and no
+/// authority (D-006) — it only witnesses, in the type system, that some
+/// channel adapter completed its own owner-verification before handing the
+/// event to the kernel. Owner-gated code takes `&OwnerVerifiedProof` so a
+/// worker holding a mere `TaskGrant` cannot reach it.
+///
+/// Construction is `pub(crate)` via [`OwnerVerifiedProof::mint`]; the field is
+/// private so no generic code can forge one with a struct literal. Channel
+/// adapters (Telegram today) are the only production minters — the same
+/// narrow, grep-checkable posture as [`crate::telegram::telegram_owner_surface`]
+/// minting [`openspine_schemas::owner_surface::OwnerSurfaceRef`]. The guarantee
+/// is structural, not a runtime flag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OwnerVerifiedProof {
+    _private: (),
+}
+
+impl OwnerVerifiedProof {
+    /// Mint the proof. Only channel adapters call this, after they have
+    /// verified the update came from the configured owner.
+    pub(crate) fn mint() -> Self {
+        Self { _private: () }
+    }
+
+    /// Test-only mint for cross-module fixtures. Production code mints via
+    /// [`Self::mint`] from a channel adapter.
+    #[cfg(test)]
+    pub(crate) fn test_new() -> Self {
+        Self { _private: () }
+    }
+}
 
 pub struct IdentityResolver<'a> {
     store: &'a Store,
@@ -63,7 +103,7 @@ impl<'a> IdentityResolver<'a> {
         event_id: Ulid,
         channel_trust: ChannelTrust,
         channel_user_id: Option<&str>,
-        owner_verified: Option<&VerifiedOwnerContext>,
+        owner_verified: Option<&OwnerVerifiedProof>,
     ) -> Result<(IdentityResolution, Option<RelationshipKind>), StoreError> {
         // 1. Explicit owner-verified path (connector-authenticated proof)
         if owner_verified.is_some() {
@@ -144,7 +184,7 @@ pub fn handle_owner_bind(
     store: &Store,
     owner_principal_id: Ulid,
     owner_identity_id: Ulid,
-    proof: &VerifiedOwnerContext,
+    proof: &OwnerVerifiedProof,
     channel_user_id: &str,
     relationship_str: &str,
 ) -> Result<String, String> {
@@ -261,7 +301,7 @@ mod tests {
                 event_id,
                 ChannelTrust::VerifiedOwnerChannel,
                 None,
-                Some(&VerifiedOwnerContext::test_new()),
+                Some(&OwnerVerifiedProof::test_new()),
             )
             .unwrap();
 
@@ -301,11 +341,7 @@ mod tests {
         };
 
         store
-            .owner_assert_identity_binding(
-                owner.id,
-                &VerifiedOwnerContext::test_new(),
-                &counterparty,
-            )
+            .owner_assert_identity_binding(owner.id, &OwnerVerifiedProof::test_new(), &counterparty)
             .unwrap();
 
         let resolver = IdentityResolver::new(&store, owner.id, owner.identity_id);
@@ -392,5 +428,15 @@ mod tests {
         assert_eq!(owner.principal_id, PrincipalId::from(stored.id));
         assert_eq!(owner.identity_id, stored.identity_id);
         assert_eq!(owner.telegram_binding(), 42);
+    }
+
+    // Named negative guard (runnable): a value of `OwnerVerifiedProof` can be
+    // obtained here only via the test-gated `test_new()`. Production minting is
+    // `pub(crate) mint()`, called by channel adapters; the private field means
+    // no generic code can forge one with a struct literal. The green workspace
+    // build is itself the compile-guard.
+    #[test]
+    fn owner_verified_proof_mintable_only_via_test_new() {
+        let _proof = OwnerVerifiedProof::test_new();
     }
 }

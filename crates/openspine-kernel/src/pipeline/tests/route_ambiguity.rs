@@ -18,7 +18,7 @@ fn owner_inputs(state: &AppState) -> EventInputs {
         owner_surface: crate::test_support::owner_surface_for(state, 555),
         text: "hello lyra".to_string(),
         thread_id: None,
-        owner_verified: Some(crate::telegram::VerifiedOwnerContext::test_new()),
+        owner_verified: Some(crate::identity::OwnerVerifiedProof::test_new()),
         principal_override: None,
         event_type_override: None,
         timer_event_id: None,
