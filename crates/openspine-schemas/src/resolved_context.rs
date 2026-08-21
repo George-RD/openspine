@@ -15,8 +15,9 @@ use crate::action::{
 };
 use crate::briefcase::{CounterpartyRef, RelationshipTier};
 use crate::digest::{digest_of, Digest};
+use crate::disclosure_policy::DisclosureClass;
 use crate::egress::EgressClass;
-use crate::event::{AccountRole, DataClassification, TargetRef, TargetRefKind};
+use crate::event::{AccountRole, TargetRef, TargetRefKind};
 
 /// Kernel inputs that remain after action and implementation declarations are selected.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,7 +62,7 @@ pub struct ResolvedActionContext {
     payload_digest: Option<Digest>,
     effect_destination: DataDestination,
     egress_class: Option<EgressClass>,
-    disclosure_class: Option<DataClassification>,
+    disclosure_class: Option<DisclosureClass>,
     output_channels: BTreeSet<String>,
     workflow_id: Option<String>,
     task_shape_digest: Option<Digest>,
@@ -319,7 +320,7 @@ impl ResolvedActionContext {
         self.egress_class
     }
 
-    pub fn disclosure_class(&self) -> Option<DataClassification> {
+    pub fn disclosure_class(&self) -> Option<DisclosureClass> {
         self.disclosure_class
     }
 
