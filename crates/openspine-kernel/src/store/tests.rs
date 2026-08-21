@@ -391,6 +391,59 @@ fn kv_state_round_trips_and_upserts() {
 }
 
 #[test]
+fn with_immediate_tx_commits_on_ok() {
+    let store = Store::open_in_memory().unwrap();
+    store
+        .with_immediate_tx(|tx| {
+            tx.execute(
+                "INSERT INTO kv_state (key, value) VALUES (?1, ?2)",
+                params!["combinator_key", "committed"],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        store.get_kv("combinator_key").unwrap(),
+        Some("committed".to_string())
+    );
+}
+
+#[test]
+fn with_immediate_tx_rolls_back_on_err() {
+    let store = Store::open_in_memory().unwrap();
+    // The closure writes a row then fails; the whole transaction must roll
+    // back, leaving no partial state behind (D-050 atomicity).
+    let result: Result<(), StoreError> = store.with_immediate_tx(|tx| {
+        tx.execute(
+            "INSERT INTO kv_state (key, value) VALUES (?1, ?2)",
+            params!["combinator_key", "rolled_back"],
+        )?;
+        Err(StoreError::BadDigest("forced rollback".into()))
+    });
+    assert!(matches!(result, Err(StoreError::BadDigest(_))));
+    assert!(store.get_kv("combinator_key").unwrap().is_none());
+}
+
+#[test]
+fn with_deferred_read_observes_committed_rows() {
+    let store = Store::open_in_memory().unwrap();
+    store.set_kv("combinator_key", "readable").unwrap();
+    let value = store
+        .with_deferred_read(|tx| {
+            let value: Option<String> = tx
+                .query_row(
+                    "SELECT value FROM kv_state WHERE key = ?1",
+                    params!["combinator_key"],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            Ok(value)
+        })
+        .unwrap();
+    assert_eq!(value, Some("readable".to_string()));
+}
+
+#[test]
 fn action_request_round_trips_by_id() {
     let store = Store::open_in_memory().unwrap();
     let request = sample_action_request();

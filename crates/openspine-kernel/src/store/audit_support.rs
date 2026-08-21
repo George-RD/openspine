@@ -70,53 +70,53 @@ impl Store {
         &self,
         aggregate: &str,
     ) -> Result<Vec<AuditEvent>, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
-        let mut stmt = tx.prepare(
-            "SELECT prev_hash, hash, meta_json, aggregate_id, aggregate_seq FROM audit_log ORDER BY seq ASC",
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-                row.get::<_, String>(3)?,
-                row.get::<_, i64>(4)?,
-            ))
-        })?;
-        let mut expected_prev = genesis_digest().as_str().to_string();
-        let mut hasher = Sha256::new();
-        for row in rows {
-            let (prev_hash, hash, meta_json, aggregate_id, aggregate_seq) = row?;
-            if prev_hash != expected_prev {
-                return Err(StoreError::LedgerCorrupted);
+        self.with_deferred_read(|tx| {
+            let mut stmt = tx.prepare(
+                "SELECT prev_hash, hash, meta_json, aggregate_id, aggregate_seq FROM audit_log ORDER BY seq ASC",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            })?;
+            let mut expected_prev = genesis_digest().as_str().to_string();
+            let mut hasher = Sha256::new();
+            for row in rows {
+                let (prev_hash, hash, meta_json, aggregate_id, aggregate_seq) = row?;
+                if prev_hash != expected_prev {
+                    return Err(StoreError::LedgerCorrupted);
+                }
+                hasher.update(prev_hash.as_bytes());
+                hasher.update(meta_json.as_bytes());
+                let result = hasher.finalize_reset();
+                if !digest_matches_hash(&hash, &result.into()) {
+                    return Err(StoreError::LedgerCorrupted);
+                }
+                let meta: serde_json::Value =
+                    serde_json::from_str(&meta_json).map_err(|_| StoreError::LedgerCorrupted)?;
+                let meta_aggregate = meta
+                    .get("aggregate_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("system");
+                let meta_seq = meta
+                    .get("aggregate_seq")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                if meta_aggregate != aggregate_id || meta_seq != aggregate_seq {
+                    return Err(StoreError::LedgerCorrupted);
+                }
+                expected_prev = hash;
             }
-            hasher.update(prev_hash.as_bytes());
-            hasher.update(meta_json.as_bytes());
-            let result = hasher.finalize_reset();
-            if !digest_matches_hash(&hash, &result.into()) {
-                return Err(StoreError::LedgerCorrupted);
-            }
-            let meta: serde_json::Value =
-                serde_json::from_str(&meta_json).map_err(|_| StoreError::LedgerCorrupted)?;
-            let meta_aggregate = meta
-                .get("aggregate_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("system");
-            let meta_seq = meta
-                .get("aggregate_seq")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            if meta_aggregate != aggregate_id || meta_seq != aggregate_seq {
-                return Err(StoreError::LedgerCorrupted);
-            }
-            expected_prev = hash;
-        }
-        drop(stmt);
-        let entries =
-            Store::replay_audit_conn(&tx, &EventSubscriptionFilter::aggregate(aggregate), 0)?;
-        let events: Vec<AuditEvent> = entries.into_iter().map(|e| e.event).collect();
-        Ok(events)
+            drop(stmt);
+            let entries =
+                Store::replay_audit_conn(tx, &EventSubscriptionFilter::aggregate(aggregate), 0)?;
+            let events: Vec<AuditEvent> = entries.into_iter().map(|e| e.event).collect();
+            Ok(events)
+        })
     }
 
     #[allow(dead_code)]
