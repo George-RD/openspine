@@ -36,7 +36,7 @@ use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use ulid::Ulid;
 
 pub(crate) const OWNER_APPROVAL_GATE_REASON: &str = "owner-approved request re-gated";
@@ -355,6 +355,45 @@ impl Store {
             fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
             fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
         })
+    }
+
+    /// Run `f` inside a single `BEGIN IMMEDIATE` write transaction, committing
+    /// on `Ok` and rolling back (via `Transaction`'s `Drop`) on `Err`.
+    ///
+    /// This is the one place the D-050 write-serialization discipline lives
+    /// (cf. D-167 in-transaction recheck, D-169 no preflight-only TOCTOU):
+    /// `Immediate` takes the database write lock up front, so two racing
+    /// writers serialize instead of both passing a check-then-write. Routing a
+    /// write site through here removes its hand-restated `BEGIN IMMEDIATE`
+    /// (spec #208 D-001, expand step).
+    pub(crate) fn with_immediate_tx<T>(
+        &self,
+        f: impl FnOnce(&Transaction) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        // parking_lot::Mutex cannot be poisoned, so there is no lock result to
+        // unwrap; rusqlite errors convert into StoreError::Sqlite via `?`.
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let value = f(&tx)?;
+        tx.commit()?;
+        Ok(value)
+    }
+
+    /// Run `f` inside a `Deferred` read-only transaction and drop the
+    /// transaction without committing, on both `Ok` and `Err`.
+    ///
+    /// Held under the connection lock so a multi-statement read observes one
+    /// snapshot with no interleaved append (D-012 replay integrity). Kept
+    /// explicitly separate from [`Store::with_immediate_tx`] so a read path can
+    /// never restate the write-serialization discipline (spec #208 D-001). The
+    /// read writes nothing, so there is nothing to commit.
+    pub(crate) fn with_deferred_read<T>(
+        &self,
+        f: impl FnOnce(&Transaction) -> Result<T, StoreError>,
+    ) -> Result<T, StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
+        f(&tx)
     }
     #[cfg(test)]
     pub(crate) fn fail_next_activation_tx_for_test(&self) {

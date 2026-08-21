@@ -18,7 +18,7 @@
 
 use super::{Store, StoreError};
 use openspine_schemas::digest::{digest_of, Digest};
-use rusqlite::{params, TransactionBehavior};
+use rusqlite::params;
 use serde_json::json;
 
 /// Stable identity for one protected Gmail draft request. The fingerprint
@@ -76,35 +76,33 @@ impl Store {
         thread_id: &str,
         request_fingerprint: &str,
     ) -> Result<bool, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let pending: i64 = tx.query_row(
-            "SELECT EXISTS(
-                SELECT 1 FROM pending_draft_writes
-                WHERE request_fingerprint = ?1 AND state = 'pending'
-            )",
-            params![request_fingerprint],
-            |row| row.get(0),
-        )?;
-        if pending != 0 {
-            tx.commit()?;
-            return Ok(false);
-        }
-        tx.execute(
-            "INSERT INTO pending_draft_writes
-             (id, grant_id, action_request_id, thread_id, request_fingerprint, created_at, state)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending')",
-            params![
-                id.to_string(),
-                grant_id.to_string(),
-                action_request_id.to_string(),
-                thread_id,
-                request_fingerprint,
-                jiff::Timestamp::now().to_string(),
-            ],
-        )?;
-        tx.commit()?;
-        Ok(true)
+        self.with_immediate_tx(|tx| {
+            let pending: i64 = tx.query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM pending_draft_writes
+                    WHERE request_fingerprint = ?1 AND state = 'pending'
+                )",
+                params![request_fingerprint],
+                |row| row.get(0),
+            )?;
+            if pending != 0 {
+                return Ok(false);
+            }
+            tx.execute(
+                "INSERT INTO pending_draft_writes
+                 (id, grant_id, action_request_id, thread_id, request_fingerprint, created_at, state)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending')",
+                params![
+                    id.to_string(),
+                    grant_id.to_string(),
+                    action_request_id.to_string(),
+                    thread_id,
+                    request_fingerprint,
+                    jiff::Timestamp::now().to_string(),
+                ],
+            )?;
+            Ok(true)
+        })
     }
 
     /// Whether an unresolved provider write already exists for this exact
@@ -220,38 +218,55 @@ mod tests {
     }
     #[test]
     fn concurrent_pending_claims_have_one_winner() {
+        // Two independent connections against one file race to claim the same
+        // fingerprint. `with_immediate_tx`'s BEGIN IMMEDIATE must serialize
+        // them so exactly one INSERT lands (D-050 write-serialization / TOCTOU
+        // closure, cf. D-167/D-169). The loser blocks on the write lock, then
+        // finds the pending row inside its own transaction and returns
+        // Ok(false) rather than a second INSERT.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("kernel.db");
-        let store = std::sync::Arc::new(Store::open(&path).unwrap());
+        let first = Store::open(&path).unwrap();
+        let second = Store::open(&path).unwrap();
+        first
+            .conn
+            .lock()
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        second
+            .conn
+            .lock()
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
         let digest = Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap();
         let fingerprint =
             draft_request_fingerprint("email.create_draft", "thread-1", &digest, &digest);
         let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
-        let handles: Vec<_> = (0..2)
-            .map(|_| {
-                let store = std::sync::Arc::clone(&store);
-                let barrier = std::sync::Arc::clone(&barrier);
-                let fingerprint = fingerprint.clone();
-                std::thread::spawn(move || {
-                    barrier.wait();
-                    store
-                        .claim_pending_draft_write(
-                            ulid::Ulid::new(),
-                            ulid::Ulid::new(),
-                            ulid::Ulid::new(),
-                            "thread-1",
-                            &fingerprint,
-                        )
-                        .unwrap()
-                })
+        let run = |store: Store| {
+            let barrier = std::sync::Arc::clone(&barrier);
+            let fingerprint = fingerprint.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                store.claim_pending_draft_write(
+                    ulid::Ulid::new(),
+                    ulid::Ulid::new(),
+                    ulid::Ulid::new(),
+                    "thread-1",
+                    &fingerprint,
+                )
             })
-            .collect();
-        let winners = handles
-            .into_iter()
-            .map(|handle| handle.join().unwrap())
-            .filter(|claimed| *claimed)
-            .count();
+        };
+        let first_handle = run(first);
+        let second_handle = run(second);
+        let first_result = first_handle.join().unwrap();
+        let second_result = second_handle.join().unwrap();
+        // Neither writer errored; the loser blocked and then observed the row.
+        assert!(first_result.is_ok(), "first: {first_result:?}");
+        assert!(second_result.is_ok(), "second: {second_result:?}");
+        let winners = usize::from(matches!(first_result, Ok(true)))
+            + usize::from(matches!(second_result, Ok(true)));
         assert_eq!(winners, 1);
-        assert_eq!(store.count_pending_draft_writes().unwrap(), 1);
+        let observer = Store::open(&path).unwrap();
+        assert_eq!(observer.count_pending_draft_writes().unwrap(), 1);
     }
 }
