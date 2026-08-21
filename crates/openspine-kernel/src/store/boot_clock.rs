@@ -8,7 +8,7 @@
 //! regressed clock. Split out of `store/mod.rs` for the 500-line gate.
 
 use super::{Store, StoreError};
-use rusqlite::{OptionalExtension, Transaction, TransactionBehavior};
+use rusqlite::{OptionalExtension, Transaction};
 
 /// Tolerance for minor NTP slew / monotonic-vs-wall jitter. A regression
 /// larger than this window is treated as a real clock step backwards.
@@ -80,21 +80,18 @@ impl Store {
     /// `BEGIN IMMEDIATE` transaction. The read, classification, and
     /// max-preserving upsert share one serialized snapshot.
     pub fn check_boot_clock(&self, now_ms: i64) -> Result<BootClockCheck, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let check = Self::classify_boot_clock_tx(&tx, now_ms)?;
-        Self::commit_boot_clock_tx(&tx, &check)?;
-        tx.commit()?;
-        Ok(check)
+        self.with_immediate_tx(|tx| {
+            let check = Self::classify_boot_clock_tx(tx, now_ms)?;
+            Self::commit_boot_clock_tx(tx, &check)?;
+            Ok(check)
+        })
     }
 
     /// Validate a candidate boot timestamp without persisting it. Startup
     /// uses this before fallible initialization so a failed attempt cannot
     /// poison retries with a future high-water.
     pub fn validate_boot_clock(&self, now_ms: i64) -> Result<BootClockCheck, StoreError> {
-        let conn = self.conn.lock();
-        let tx = conn.unchecked_transaction()?;
-        Self::classify_boot_clock_tx(&tx, now_ms)
+        self.with_deferred_read(|tx| Self::classify_boot_clock_tx(tx, now_ms))
     }
 
     /// Re-read and persist a validated boot timestamp once startup is ready.

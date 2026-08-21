@@ -110,8 +110,7 @@ async fn erased_counterparty_between_read_and_reservation_refuses_stale_reservat
     );
     // Bind on the recheck's own audit reason so a plain no-match fallback (or
     // the pre-transaction guard) cannot masquerade as this guard firing.
-    let reasons: Vec<String> = {
-        let conn = env.state.store.conn.lock();
+    let reasons: Vec<String> = env.state.store.with_conn_for_test(|conn| {
         let mut stmt = conn
             .prepare(
                 "SELECT event_json FROM audit_log \
@@ -122,7 +121,7 @@ async fn erased_counterparty_between_read_and_reservation_refuses_stale_reservat
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
-    };
+    });
     assert!(
         reasons
             .iter()
@@ -132,17 +131,14 @@ async fn erased_counterparty_between_read_and_reservation_refuses_stale_reservat
     // The rule was never revoked, so had the recheck not fired it would have
     // been eligible to reserve. This distinguishes the recheck from erasure's
     // own rule-revocation path.
-    let rule_status: String = env
-        .state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    let rule_status: String = env.state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT status FROM standing_rules WHERE rule_id = 'rule-recheck'",
             [],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert_eq!(
         rule_status, "active",
         "the seam leaves the rule active; only the recheck refuses"

@@ -11,7 +11,6 @@ use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::standing_rule::DarkWindowDefault;
 use rusqlite::params;
-use rusqlite::TransactionBehavior;
 use ulid::Ulid;
 
 use super::standing_rules::timestamp_to_epoch_nanos;
@@ -203,32 +202,32 @@ impl Store {
         pending_id: &str,
         now: Timestamp,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let changed = tx.execute(
-            "UPDATE standing_rule_pending_actions \
-             SET owner_attention_since = ?2 \
-             WHERE pending_id = ?1 AND owner_attention_since IS NULL \
-               AND dispatch_state = 'claimed'",
-            params![pending_id, timestamp_to_epoch_nanos(now)?],
-        )?;
-        if changed == 1 {
-            Self::append_audit_conn(
-                &tx,
-                "standing_rule.dark_window_effect_unconfirmed",
-                None,
-                None,
-                Some(&format!(
-                    "fired dark-window default claimed but effect unconfirmed; pending {pending_id} \
-                     requires owner attention (never auto-rerun)"
-                )),
-                None,
-                &[],
-                &[],
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE standing_rule_pending_actions \
+                 SET owner_attention_since = ?2 \
+                 WHERE pending_id = ?1 AND owner_attention_since IS NULL \
+                   AND dispatch_state = 'claimed'",
+                params![pending_id, now_nanos],
             )?;
-        }
-        tx.commit()?;
-        Ok(())
+            if changed == 1 {
+                Self::append_audit_conn(
+                    tx,
+                    "standing_rule.dark_window_effect_unconfirmed",
+                    None,
+                    None,
+                    Some(&format!(
+                        "fired dark-window default claimed but effect unconfirmed; pending {pending_id} \
+                         requires owner attention (never auto-rerun)"
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
+            Ok(())
+        })
     }
 
     /// Durably record that a fired default's effect was attempted, called only
@@ -243,33 +242,32 @@ impl Store {
         pending_id: &str,
         receipt_digest: &str,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let changed = tx.execute(
-            "UPDATE standing_rule_pending_actions \
-             SET dispatch_state = 'dispatched', dispatch_receipt_digest = ?2 \
-             WHERE pending_id = ?1 AND dispatch_state = 'claimed'",
-            params![pending_id, receipt_digest],
-        )?;
-        if changed != 1 {
-            return Err(StoreError::FailureRouting(format!(
-                "fired pending {pending_id} was not in 'claimed' state; effect attempt not recorded"
-            )));
-        }
-        Self::append_audit_conn(
-            &tx,
-            "standing_rule.dark_window_effect_attempted",
-            None,
-            None,
-            Some(&format!(
-                "fired dark-window effect durably attempted; pending {pending_id}"
-            )),
-            None,
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE standing_rule_pending_actions \
+                 SET dispatch_state = 'dispatched', dispatch_receipt_digest = ?2 \
+                 WHERE pending_id = ?1 AND dispatch_state = 'claimed'",
+                params![pending_id, receipt_digest],
+            )?;
+            if changed != 1 {
+                return Err(StoreError::FailureRouting(format!(
+                    "fired pending {pending_id} was not in 'claimed' state; effect attempt not recorded"
+                )));
+            }
+            Self::append_audit_conn(
+                tx,
+                "standing_rule.dark_window_effect_attempted",
+                None,
+                None,
+                Some(&format!(
+                    "fired dark-window effect durably attempted; pending {pending_id}"
+                )),
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(())
+        })
     }
 
     /// Re-arm a fired default after a pre-effect failure. The token was

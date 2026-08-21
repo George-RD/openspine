@@ -49,19 +49,18 @@ fn record_preview(
     prior_diff: &str,
     current_diff: &str,
 ) {
-    let conn = store.conn.lock();
-    crate::store::skill_preview_records::record_skill_preview(
-        &conn,
-        skill_id,
-        version,
-        owner_principal,
-        digest,
-        provenance_summary,
-        prior_diff,
-        current_diff,
-        "rendered preview summary",
-    )
-    .unwrap();
+    store
+        .record_skill_preview(
+            skill_id,
+            version,
+            owner_principal,
+            digest,
+            provenance_summary,
+            prior_diff,
+            current_diff,
+            "rendered preview summary",
+        )
+        .unwrap();
 }
 
 #[test]

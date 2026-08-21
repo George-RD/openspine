@@ -24,39 +24,36 @@ use wiremock::matchers::method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn reserved_usage_count(store: &Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'reserved'",
             params![rule_id],
             |r| r.get(0),
         )
         .unwrap()
+    })
 }
 
 fn committed_usage_count(store: &Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'committed'",
             params![rule_id],
             |r| r.get(0),
         )
         .unwrap()
+    })
 }
 
 fn pending_token_consumed_at(store: &Store, pending_id: &str) -> Option<i64> {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT token_consumed_at FROM standing_rule_pending_actions WHERE pending_id = ?1",
             params![pending_id],
             |r| r.get(0),
         )
         .unwrap()
+    })
 }
 
 #[tokio::test]
@@ -417,15 +414,14 @@ async fn standing_rule_delivery_unknown_retains_live_reservation() {
     .await;
     assert!(matches!(fired, Err(DispatchError::DeliveryUnknown(_))));
     assert!(pending_token_consumed_at(&store, &pending.pending_id).is_some());
-    let dispatch_state: String = store
-        .conn
-        .lock()
-        .query_row(
+    let dispatch_state: String = store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT dispatch_state FROM standing_rule_pending_actions WHERE pending_id = ?1",
             params![pending.pending_id],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert_eq!(dispatch_state, "dispatched");
 
     // A separate, provably pre-effect BadRequest still releases its unit.

@@ -139,83 +139,82 @@ impl Store {
     ) -> Result<openspine_schemas::audit::AuditEvent, StoreError> {
         ulid::Ulid::from_string(timer_id)
             .map_err(|_| StoreError::InvalidTaskTimerSchedule("timer_id must be a ULID".into()))?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let json_str: String = tx.query_row(
-            "SELECT task_json FROM task_board WHERE id = ?1",
-            params![task_id],
-            |r| r.get(0),
-        )?;
-        let mut task: Task = serde_json::from_str(&json_str)?;
-        if matches!(task.status, TaskStatus::Done | TaskStatus::Cancelled) {
-            return Err(StoreError::InvalidTaskTimerSchedule(format!(
-                "task {} is in terminal status {:?}",
-                task.id, task.status
-            )));
-        }
-        let kind_str = match kind {
-            TaskTimerKind::Deadline => {
-                if task.due_at != Some(fires_at) {
-                    return Err(StoreError::InvalidTaskTimerSchedule(format!(
-                        "fires_at {:?} does not match task due_at {:?}",
-                        fires_at, task.due_at
-                    )));
-                }
-                task.due_timer_id = Some(timer_id.to_string());
-                tx.execute(
-                    "UPDATE task_board SET due_timer_id = ?1, task_json = ?2 WHERE id = ?3",
-                    params![timer_id, serde_json::to_string(&task)?, task_id],
-                )?;
-                "deadline"
+        self.with_immediate_tx(|tx| {
+            let json_str: String = tx.query_row(
+                "SELECT task_json FROM task_board WHERE id = ?1",
+                params![task_id],
+                |r| r.get(0),
+            )?;
+            let mut task: Task = serde_json::from_str(&json_str)?;
+            if matches!(task.status, TaskStatus::Done | TaskStatus::Cancelled) {
+                return Err(StoreError::InvalidTaskTimerSchedule(format!(
+                    "task {} is in terminal status {:?}",
+                    task.id, task.status
+                )));
             }
-            TaskTimerKind::Reminder => {
-                if task.reminder_at != Some(fires_at) {
-                    return Err(StoreError::InvalidTaskTimerSchedule(format!(
-                        "fires_at {:?} does not match task reminder_at {:?}",
-                        fires_at, task.reminder_at
-                    )));
+            let kind_str = match kind {
+                TaskTimerKind::Deadline => {
+                    if task.due_at != Some(fires_at) {
+                        return Err(StoreError::InvalidTaskTimerSchedule(format!(
+                            "fires_at {:?} does not match task due_at {:?}",
+                            fires_at, task.due_at
+                        )));
+                    }
+                    task.due_timer_id = Some(timer_id.to_string());
+                    tx.execute(
+                        "UPDATE task_board SET due_timer_id = ?1, task_json = ?2 WHERE id = ?3",
+                        params![timer_id, serde_json::to_string(&task)?, task_id],
+                    )?;
+                    "deadline"
                 }
-                task.reminder_timer_id = Some(timer_id.to_string());
-                tx.execute(
-                    "UPDATE task_board SET reminder_timer_id = ?1, task_json = ?2 WHERE id = ?3",
-                    params![timer_id, serde_json::to_string(&task)?, task_id],
-                )?;
-                "reminder"
-            }
-        };
-        tx.execute(
-            "INSERT INTO task_timer_links (timer_id, task_id, kind) VALUES (?1, ?2, ?3)",
-            params![timer_id, task_id, kind_str],
-        )?;
-        let run_id = format!(
-            "task:{task_id}:{}",
-            serde_json::to_value(kind).unwrap().as_str().unwrap()
-        );
-        let payload = serde_json::json!({
-            "timer_id": timer_id,
-            "task_id": task_id,
-            "kind": kind,
-            "fires_at": fires_at.to_string(),
-        });
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            "workflow.timer_scheduled",
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(&run_id),
-            Some(&serde_json::to_string(&payload)?),
-        )?;
-        tx.execute(
-            "INSERT INTO workflow_timers (timer_id, run_id, fires_at, status, fired_event_id)
-             VALUES (?1, ?2, ?3, 'pending', NULL)",
-            params![timer_id, run_id, timestamp_to_epoch_nanos(fires_at)?],
-        )?;
-        tx.commit()?;
-        Ok(event)
+                TaskTimerKind::Reminder => {
+                    if task.reminder_at != Some(fires_at) {
+                        return Err(StoreError::InvalidTaskTimerSchedule(format!(
+                            "fires_at {:?} does not match task reminder_at {:?}",
+                            fires_at, task.reminder_at
+                        )));
+                    }
+                    task.reminder_timer_id = Some(timer_id.to_string());
+                    tx.execute(
+                        "UPDATE task_board SET reminder_timer_id = ?1, task_json = ?2 WHERE id = ?3",
+                        params![timer_id, serde_json::to_string(&task)?, task_id],
+                    )?;
+                    "reminder"
+                }
+            };
+            tx.execute(
+                "INSERT INTO task_timer_links (timer_id, task_id, kind) VALUES (?1, ?2, ?3)",
+                params![timer_id, task_id, kind_str],
+            )?;
+            let run_id = format!(
+                "task:{task_id}:{}",
+                serde_json::to_value(kind).unwrap().as_str().unwrap()
+            );
+            let payload = serde_json::json!({
+                "timer_id": timer_id,
+                "task_id": task_id,
+                "kind": kind,
+                "fires_at": fires_at.to_string(),
+            });
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                "workflow.timer_scheduled",
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(&run_id),
+                Some(&serde_json::to_string(&payload)?),
+            )?;
+            tx.execute(
+                "INSERT INTO workflow_timers (timer_id, run_id, fires_at, status, fired_event_id)
+                 VALUES (?1, ?2, ?3, 'pending', NULL)",
+                params![timer_id, run_id, timestamp_to_epoch_nanos(fires_at)?],
+            )?;
+            Ok(event)
+        })
     }
     #[allow(dead_code)]
     pub fn insert_task(&self, task: &Task) -> Result<(), StoreError> {
@@ -444,41 +443,40 @@ impl Store {
         Ok(combined)
     }
     pub fn mark_task_blocked(&self, id: Ulid) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let json: Option<String> = tx
-            .query_row(
-                "SELECT task_json FROM task_board WHERE id = ?1",
-                params![id.to_string()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let json = json.ok_or_else(|| StoreError::TaskNotFound(id))?;
-        let mut task: Task = serde_json::from_str(&json)?;
-        if task.status == TaskStatus::Blocked {
-            return Ok(());
-        }
-        task.status = TaskStatus::Blocked;
-        let status_str = serde_json::to_value(task.status)?
-            .as_str()
-            .unwrap()
-            .to_string();
-        tx.execute(
-            "UPDATE task_board SET status = ?1, task_json = ?2 WHERE id = ?3",
-            params![status_str, serde_json::to_string(&task)?, id.to_string()],
-        )?;
-        Store::append_audit_conn(
-            &tx,
-            "task.blocked",
-            None,
-            None,
-            Some(&format!("unmet dependency at timer fire: {id}")),
-            None,
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            let json: Option<String> = tx
+                .query_row(
+                    "SELECT task_json FROM task_board WHERE id = ?1",
+                    params![id.to_string()],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            let json = json.ok_or_else(|| StoreError::TaskNotFound(id))?;
+            let mut task: Task = serde_json::from_str(&json)?;
+            if task.status == TaskStatus::Blocked {
+                return Ok(());
+            }
+            task.status = TaskStatus::Blocked;
+            let status_str = serde_json::to_value(task.status)?
+                .as_str()
+                .unwrap()
+                .to_string();
+            tx.execute(
+                "UPDATE task_board SET status = ?1, task_json = ?2 WHERE id = ?3",
+                params![status_str, serde_json::to_string(&task)?, id.to_string()],
+            )?;
+            Store::append_audit_conn(
+                tx,
+                "task.blocked",
+                None,
+                None,
+                Some(&format!("unmet dependency at timer fire: {id}")),
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(())
+        })
     }
 }
 fn map_slice_row(r: (String, String, Option<i64>, String)) -> Result<TaskSlice, StoreError> {

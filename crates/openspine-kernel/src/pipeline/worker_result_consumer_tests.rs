@@ -169,30 +169,28 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
 }
 
 fn worker_result_event_id_and_seq(state: &AppState) -> (String, i64) {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT id, seq FROM audit_log WHERE kind = 'worker.result' LIMIT 1",
             [],
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
         )
         .unwrap()
+    })
 }
 
 fn checkpoint_last_acked(state: &AppState) -> Option<i64> {
     state
         .store
-        .conn
-        .lock()
-        .query_row(
-            "SELECT last_acked_global_seq FROM consumer_checkpoints WHERE consumer_id = 'worker_result_consumer'",
-            [],
-            |r| r.get(0),
-        )
-        .optional()
-        .unwrap()
+        .with_conn_for_test(|conn| {
+            conn.query_row(
+                "SELECT last_acked_global_seq FROM consumer_checkpoints WHERE consumer_id = 'worker_result_consumer'",
+                [],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap()
+        })
 }
 
 #[tokio::test]
@@ -237,13 +235,13 @@ async fn checkpoint_load_error_fails_closed_without_replay() {
     let state = test_state_with_telegram(connector);
     state
         .store
-        .conn
-        .lock()
-        .execute(
-            "INSERT INTO consumer_checkpoints (consumer_id, last_acked_global_seq, checkpoint_json) VALUES (?1, 7, ?2)",
-            params![CONSUMER_ID, "{not-json"],
-        )
-        .unwrap();
+        .with_conn_for_test(|conn| {
+            conn.execute(
+                "INSERT INTO consumer_checkpoints (consumer_id, last_acked_global_seq, checkpoint_json) VALUES (?1, 7, ?2)",
+                params![CONSUMER_ID, "{not-json"],
+            )
+            .unwrap();
+        });
     let err = worker_result_consumer_iteration(&state).await.unwrap_err();
     assert!(err.to_string().contains("checkpoint load failed"));
 }
@@ -276,16 +274,15 @@ async fn worker_result_relay_is_idempotent_on_replay() {
     // consumer checkpoint still behind (e.g. a second reader / replay).
     state
         .store
-        .conn
-        .lock()
-        .execute(
-            "INSERT OR REPLACE INTO worker_result_relays
+        .with_conn_for_test(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO worker_result_relays
              (event_id, global_seq, task_grant_id, state, attempts, last_error, created_at, updated_at)
              VALUES (?1, ?2, NULL, 'delivered', 1, NULL, ?3, ?3)",
-            params![event_id, global_seq, Timestamp::now().to_string()],
-        )
-        .unwrap();
-
+                params![event_id, global_seq, Timestamp::now().to_string()],
+            )
+            .unwrap();
+        });
     worker_result_consumer_iteration(&state)
         .await
         .expect("consumer iteration must not error on an already-delivered marker");
@@ -350,16 +347,14 @@ async fn worker_result_relay_retries_then_dead_letters() {
         "checkpoint advances only after the dead-letter commit"
     );
     // Owner notification was enqueued via the failure_surfacing dead-letter path.
-    let notify_dead: i64 = state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    let notify_dead: i64 = state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(*) FROM notify_dead_letters WHERE state != 'resolved'",
             [],
             |r| r.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert!(
         notify_dead >= 1,
         "dead-letter owner notification enqueued: {notify_dead}"
@@ -416,11 +411,8 @@ async fn worker_result_relay_unresolvable_owner_stays_retryable() {
     commission_and_record(&state).await;
     // Rebind the parent grant to the local terminal surface, which Telegram
     // cannot address, so the relay's owner target is unresolvable.
-    state
-        .store
-        .conn
-        .lock()
-        .execute(
+    state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE task_grants SET owner_surface_json = ?1",
             params![serde_json::to_string(
                 &openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
@@ -430,6 +422,7 @@ async fn worker_result_relay_unresolvable_owner_stays_retryable() {
             .unwrap()],
         )
         .unwrap();
+    });
     let (_event_id, _global_seq) = worker_result_event_id_and_seq(&state);
 
     // Drive five attempts (the normal dead-letter threshold). With an

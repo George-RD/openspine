@@ -4,7 +4,7 @@
 //! 500-line gate.
 
 use jiff::Timestamp;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension};
 
 use super::standing_rules::timestamp_to_epoch_nanos;
 use super::{Store, StoreError};
@@ -42,30 +42,30 @@ impl Store {
         now: Timestamp,
     ) -> Result<bool, StoreError> {
         let resolution = if allow { "allowed" } else { "denied" };
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        // Only set if still unresolved (first write wins).
-        let changed = tx.execute(
-            "UPDATE standing_rule_pending_actions \
-             SET resolved_at = ?2, resolution = ?3 \
-             WHERE pending_id = ?1 AND resolved_at IS NULL",
-            params![pending_id, timestamp_to_epoch_nanos(now)?, resolution],
-        )?;
-        if changed >= 1 {
-            Self::append_audit_conn(
-                &tx,
-                "standing_rule.pending_resolved",
-                None,
-                None,
-                Some(&format!(
-                    "pending {pending_id} resolved by owner: {resolution}"
-                )),
-                None,
-                &[],
-                &[],
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        self.with_immediate_tx(|tx| {
+            // Only set if still unresolved (first write wins).
+            let changed = tx.execute(
+                "UPDATE standing_rule_pending_actions \
+                 SET resolved_at = ?2, resolution = ?3 \
+                 WHERE pending_id = ?1 AND resolved_at IS NULL",
+                params![pending_id, now_nanos, resolution],
             )?;
-        }
-        tx.commit()?;
-        Ok(changed >= 1)
+            if changed >= 1 {
+                Self::append_audit_conn(
+                    tx,
+                    "standing_rule.pending_resolved",
+                    None,
+                    None,
+                    Some(&format!(
+                        "pending {pending_id} resolved by owner: {resolution}"
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
+            Ok(changed >= 1)
+        })
     }
 }

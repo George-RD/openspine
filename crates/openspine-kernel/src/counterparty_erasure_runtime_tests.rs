@@ -104,15 +104,14 @@ fn activated_standing_rule_becomes_unusable_after_source_scope_erasure() {
             .is_none(),
         "revoked runtime standing_rules row is invisible to active lookup"
     );
-    let status: String = store
-        .conn
-        .lock()
-        .query_row(
+    let status: String = store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT status FROM standing_rules WHERE artifact_id = ?1 AND version = 1",
             rusqlite::params!["rule-erased"],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert_eq!(status, "revoked");
 
     // Unrelated scope keeps its activated rule.

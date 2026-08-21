@@ -91,14 +91,12 @@ fn audit_action_count(state: &AppState, action_name: &str) -> usize {
 }
 
 fn dispatch_state(state: &AppState) -> String {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT state FROM worker_dispatch LIMIT 1", [], |row| {
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT state FROM worker_dispatch LIMIT 1", [], |row| {
             row.get(0)
         })
         .unwrap()
+    })
 }
 
 fn parent_grant_for_commission() -> TaskGrant {
@@ -260,12 +258,10 @@ async fn commissioned_worker_reports_and_master_relays_through_real_shell() {
         rejection["error"], "worker cannot report results",
         "commission must reject a worker that cannot report"
     );
-    let dispatch_count: i64 = state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM worker_dispatch", [], |row| row.get(0))
-        .unwrap();
+    let dispatch_count: i64 = state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM worker_dispatch", [], |row| row.get(0))
+            .unwrap()
+    });
     assert_eq!(dispatch_count, 0);
 
     let resp = post_action(addr, &parent.task_token, "worker.commission", Some(spec)).await;
@@ -274,14 +270,12 @@ async fn commissioned_worker_reports_and_master_relays_through_real_shell() {
     assert!(response_body["result"]["worker_grant_id"].is_string());
     // The persisted grant JSON intentionally redacts the bearer token; use
     // the D-083 dispatch token_ref to exercise the authenticated GET path.
-    let token_ref_json: String = state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT token_ref FROM worker_dispatch LIMIT 1", [], |row| {
+    let token_ref_json: String = state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT token_ref FROM worker_dispatch LIMIT 1", [], |row| {
             row.get(0)
         })
-        .unwrap();
+        .unwrap()
+    });
     let token_ref: openspine_schemas::artifact::ArtifactRef =
         serde_json::from_str(&token_ref_json).unwrap();
     let worker_token = String::from_utf8(state.artifacts.get(&token_ref).unwrap()).unwrap();
@@ -387,12 +381,10 @@ async fn root_pipeline_shell_does_not_report_worker_result() {
         1
     );
     assert_eq!(audit_action_count(&state, "worker.report_result"), 0);
-    let dispatch_rows: i64 = state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM worker_dispatch", [], |row| row.get(0))
-        .unwrap();
+    let dispatch_rows: i64 = state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM worker_dispatch", [], |row| row.get(0))
+            .unwrap()
+    });
     assert_eq!(
         dispatch_rows, 0,
         "root pipeline must not create worker dispatch"

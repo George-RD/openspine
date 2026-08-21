@@ -53,125 +53,110 @@ impl Store {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|err| StoreError::LearnedArtifact(format!("accepted_via json: {err}")))?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let consumed = tx.execute(
-            "UPDATE action_requests SET used = 1 WHERE id = ?1 AND used = 0",
-            params![request_id.to_string()],
-        )?;
-        if consumed == 0 {
-            tx.rollback()?;
-            return Ok(false);
-        }
-        // Erased is terminal for the identity itself. A replacement that only
-        // changes source_scope must still fail closed rather than revive the row.
-        let existing_status: Option<String> = tx
-            .query_row(
-                "SELECT compatibility FROM learned_artifacts
-                  WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
-                params![kind, artifact_id, version as i64],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(StoreError::from)?;
-        if existing_status.as_deref() == Some("erased") {
-            tx.rollback()?;
-            return Err(StoreError::LearnedArtifact(
-                "cannot replace an erased learned artifact identity".into(),
-            ));
-        }
-        let learned_rows = tx.execute(
-            "UPDATE learned_artifacts SET compatibility = 'owner_accepted', provenance = ?1,
-             accepted_via = ?2, accepted_base_epoch = ?3,
-             accepted_dependency_fingerprint = ?7, pending_reconfirmation_id = NULL
-             WHERE kind = ?4 AND artifact_id = ?5 AND version = ?6
-               AND compatibility != 'erased'",
-            params![
-                provenance_json,
-                accepted_via_json,
-                base_epoch,
-                kind,
-                artifact_id,
-                version as i64,
-                accepted_dependency_fingerprint,
-            ],
-        )?;
-        if learned_rows != 1 {
-            tx.rollback()?;
-            return Err(StoreError::LearnedArtifact(
-                "learned artifact provenance row not found".into(),
-            ));
-        }
-        let proposal_rows = if let Some(proposal) = new_proposal {
-            let lineage_json = serde_json::to_string(&proposal.lineage)
-                .map_err(|err| StoreError::LearnedArtifact(format!("lineage json: {err}")))?;
-            tx.execute(
-                "INSERT INTO proposed_artifacts \
-                 (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
-                  action_request_id, proposed_at, lineage_json) \
-                 VALUES (?1, ?2, ?3, ?4, 'proposed', ?5, ?6, ?7, ?8, ?9)",
+        self.with_immediate_tx(|tx| {
+            let consumed = tx.execute(
+                "UPDATE action_requests SET used = 1 WHERE id = ?1 AND used = 0",
+                params![request_id.to_string()],
+            )?;
+            if consumed == 0 {
+                return Ok(false);
+            }
+            // Erased is terminal for the identity itself. A replacement that only
+            // changes source_scope must still fail closed rather than revive the row.
+            let existing_status: Option<String> = tx
+                .query_row(
+                    "SELECT compatibility FROM learned_artifacts
+                      WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                    params![kind, artifact_id, version as i64],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(StoreError::from)?;
+            if existing_status.as_deref() == Some("erased") {
+                return Err(StoreError::LearnedArtifact(
+                    "cannot replace an erased learned artifact identity".into(),
+                ));
+            }
+            let learned_rows = tx.execute(
+                "UPDATE learned_artifacts SET compatibility = 'owner_accepted', provenance = ?1,
+                 accepted_via = ?2, accepted_base_epoch = ?3,
+                 accepted_dependency_fingerprint = ?7, pending_reconfirmation_id = NULL
+                 WHERE kind = ?4 AND artifact_id = ?5 AND version = ?6
+                   AND compatibility != 'erased'",
                 params![
-                    proposal.id.to_string(),
-                    proposal.kind,
-                    proposal.artifact_id,
-                    proposal.version as i64,
-                    proposal.yaml_digest,
-                    proposal.task_grant_id.to_string(),
-                    proposal.action_request_id.map(|u| u.to_string()),
-                    proposal.proposed_at.to_string(),
-                    lineage_json,
+                    provenance_json,
+                    accepted_via_json,
+                    base_epoch,
+                    kind,
+                    artifact_id,
+                    version as i64,
+                    accepted_dependency_fingerprint,
                 ],
             )?;
-            Store::append_audit_conn(
-                &tx,
-                "artifact.proposed",
-                None,
-                None,
-                None,
-                grant_id,
-                &[],
-                &[],
-            )?;
-            for (from, to) in [
-                ("proposed", "validated"),
-                ("validated", "review_required"),
-                ("review_required", "approved"),
-                ("approved", "active"),
-            ] {
-                let rows = tx.execute(
-                    "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
-                    params![to, proposal.id.to_string(), from],
-                )?;
-                if rows != 1 {
-                    return Err(StoreError::LearnedArtifact(format!(
-                        "legacy proposal {} lifecycle transition {} -> {} affected {} rows",
-                        proposal.id, from, to, rows
-                    )));
-                }
+            if learned_rows != 1 {
+                return Err(StoreError::LearnedArtifact(
+                    "learned artifact provenance row not found".into(),
+                ));
             }
-            1
-        } else if let Some(proposal_id) = proposal_id {
-            tx.execute(
-                "UPDATE proposed_artifacts SET state = 'active' WHERE id = ?1 AND state = 'approved'",
-                params![proposal_id.to_string()],
-            )?
-        } else {
-            0
-        };
-        Store::append_audit_conn(
-            &tx,
-            "artifact.reconfirmed",
-            None,
-            None,
-            None,
-            grant_id,
-            &[],
-            review_ref.as_slice(),
-        )?;
-        if proposal_rows == 1 {
+            let proposal_rows = if let Some(proposal) = new_proposal {
+                let lineage_json = serde_json::to_string(&proposal.lineage)
+                    .map_err(|err| StoreError::LearnedArtifact(format!("lineage json: {err}")))?;
+                tx.execute(
+                    "INSERT INTO proposed_artifacts \
+                     (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
+                      action_request_id, proposed_at, lineage_json) \
+                     VALUES (?1, ?2, ?3, ?4, 'proposed', ?5, ?6, ?7, ?8, ?9)",
+                    params![
+                        proposal.id.to_string(),
+                        proposal.kind,
+                        proposal.artifact_id,
+                        proposal.version as i64,
+                        proposal.yaml_digest,
+                        proposal.task_grant_id.to_string(),
+                        proposal.action_request_id.map(|u| u.to_string()),
+                        proposal.proposed_at.to_string(),
+                        lineage_json,
+                    ],
+                )?;
+                Store::append_audit_conn(
+                    tx,
+                    "artifact.proposed",
+                    None,
+                    None,
+                    None,
+                    grant_id,
+                    &[],
+                    &[],
+                )?;
+                for (from, to) in [
+                    ("proposed", "validated"),
+                    ("validated", "review_required"),
+                    ("review_required", "approved"),
+                    ("approved", "active"),
+                ] {
+                    let rows = tx.execute(
+                        "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
+                        params![to, proposal.id.to_string(), from],
+                    )?;
+                    if rows != 1 {
+                        return Err(StoreError::LearnedArtifact(format!(
+                            "legacy proposal {} lifecycle transition {} -> {} affected {} rows",
+                            proposal.id, from, to, rows
+                        )));
+                    }
+                }
+                1
+            } else if let Some(proposal_id) = proposal_id {
+                tx.execute(
+                    "UPDATE proposed_artifacts SET state = 'active' WHERE id = ?1 AND state = 'approved'",
+                    params![proposal_id.to_string()],
+                )?
+            } else {
+                0
+            };
             Store::append_audit_conn(
-                &tx,
-                "artifact.activated",
+                tx,
+                "artifact.reconfirmed",
                 None,
                 None,
                 None,
@@ -179,50 +164,61 @@ impl Store {
                 &[],
                 review_ref.as_slice(),
             )?;
-        }
-        if !dangling_refs.is_empty() {
-            let reason = format!(
-                "owner accepted reviewed dangling refs: {}",
-                dangling_refs.join(",")
-            );
-            Store::append_audit_conn(
-                &tx,
-                "artifact.reconfirm_owner_accepted_dangling",
-                None,
-                None,
-                Some(&reason),
-                grant_id,
-                &[],
-                review_ref.as_slice(),
-            )?;
-        }
-        if let Some(old) = superseded_old_version {
-            let reason = format!(
-                "{}:{} v{} superseded by v{}",
-                kind, artifact_id, old, version
-            );
-            Store::append_audit_conn(
-                &tx,
-                "artifact.superseded",
-                None,
-                None,
-                Some(&reason),
-                grant_id,
-                &[],
-                &[],
-            )?;
-        }
-        if self
-            .fail_next_owner_reconfirmation
-            .load(std::sync::atomic::Ordering::SeqCst)
-        {
-            self.fail_next_owner_reconfirmation
-                .store(false, std::sync::atomic::Ordering::SeqCst);
-            return Err(StoreError::LearnedArtifact(
-                "injected owner reconfirmation transaction failure".into(),
-            ));
-        }
-        tx.commit()?;
-        Ok(true)
+            if proposal_rows == 1 {
+                Store::append_audit_conn(
+                    tx,
+                    "artifact.activated",
+                    None,
+                    None,
+                    None,
+                    grant_id,
+                    &[],
+                    review_ref.as_slice(),
+                )?;
+            }
+            if !dangling_refs.is_empty() {
+                let reason = format!(
+                    "owner accepted reviewed dangling refs: {}",
+                    dangling_refs.join(",")
+                );
+                Store::append_audit_conn(
+                    tx,
+                    "artifact.reconfirm_owner_accepted_dangling",
+                    None,
+                    None,
+                    Some(&reason),
+                    grant_id,
+                    &[],
+                    review_ref.as_slice(),
+                )?;
+            }
+            if let Some(old) = superseded_old_version {
+                let reason = format!(
+                    "{}:{} v{} superseded by v{}",
+                    kind, artifact_id, old, version
+                );
+                Store::append_audit_conn(
+                    tx,
+                    "artifact.superseded",
+                    None,
+                    None,
+                    Some(&reason),
+                    grant_id,
+                    &[],
+                    &[],
+                )?;
+            }
+            if self
+                .fail_next_owner_reconfirmation
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                self.fail_next_owner_reconfirmation
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+                return Err(StoreError::LearnedArtifact(
+                    "injected owner reconfirmation transaction failure".into(),
+                ));
+            }
+            Ok(true)
+        })
     }
 }

@@ -25,38 +25,32 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 const ACTION: &str = "telegram.reply:owner_channel";
 
 fn open_pending_count(state: &AppState) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(*) FROM standing_rule_pending_actions WHERE resolved_at IS NULL",
             [],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 fn timer_count(state: &AppState) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM workflow_timers", [], |row| row.get(0))
-        .unwrap()
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM workflow_timers", [], |row| row.get(0))
+            .unwrap()
+    })
 }
 
 fn audit_count(state: &AppState, kind: &str) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(*) FROM audit_log WHERE kind = ?1",
             params![kind],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 /// Acceptance: many distinct over-budget requests through the production

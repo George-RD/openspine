@@ -20,7 +20,7 @@ use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::standing_rule::{DarkWindowDefault, StandingRuleManifest};
-use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
+use rusqlite::{params, OptionalExtension, Transaction};
 use ulid::Ulid;
 
 use super::standing_rules_activation_guard::{
@@ -91,11 +91,10 @@ impl Store {
         now: Timestamp,
     ) -> Result<(), StoreError> {
         self.reject_incomplete_scope_binding(manifest)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        Self::activate_standing_rule_in_tx(&tx, manifest, grant_id, now)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            Self::activate_standing_rule_in_tx(tx, manifest, grant_id, now)?;
+            Ok(())
+        })
     }
 
     /// Refuse an activation whose reviewed-scope binding is incomplete for its
@@ -288,9 +287,9 @@ impl Store {
         action_id: &ActionId,
         now: Timestamp,
     ) -> Result<Option<StandingRule>, StoreError> {
-        let mut conn = self.conn.lock();
-        let row: Option<RuleRow> = conn
-            .query_row(
+        let row: Option<RuleRow> = {
+            let conn = self.conn.lock();
+            conn.query_row(
                 &format!(
                     "SELECT {RULE_ROW_COLUMNS} FROM standing_rules \
                      WHERE action_id = ?1 AND status = 'active' \
@@ -299,7 +298,8 @@ impl Store {
                 params![action_id.to_string()],
                 rule_row_from_row,
             )
-            .optional()?;
+            .optional()?
+        };
         let Some(row) = row else {
             return Ok(None);
         };
@@ -315,19 +315,20 @@ impl Store {
             // #135: the lapse and the staling of its open exceptions land in
             // one transaction, so a lapsed rule can never leave a fireable
             // exception behind.
-            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-                &tx,
-                &rule.rule_id,
-                Some(rule.version),
-                now_nanos,
-            )?;
-            tx.execute(
-                "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
-                 WHERE rule_id = ?1 AND status = 'active'",
-                params![rule.rule_id, now_nanos],
-            )?;
-            tx.commit()?;
+            self.with_immediate_tx(|tx| {
+                super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                    tx,
+                    &rule.rule_id,
+                    Some(rule.version),
+                    now_nanos,
+                )?;
+                tx.execute(
+                    "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
+                     WHERE rule_id = ?1 AND status = 'active'",
+                    params![rule.rule_id, now_nanos],
+                )?;
+                Ok(())
+            })?;
             return Ok(None);
         }
         Ok(Some(rule))

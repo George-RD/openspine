@@ -915,19 +915,16 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
                         )
                         .await;
                         if outcome == crate::pipeline::message_notify::NotifyOutcome::Sent {
-                            if let Err(e) =
-                                crate::store::skill_preview_records::record_skill_preview(
-                                    &state.store.conn.lock(),
-                                    id,
-                                    ver,
-                                    &state.owner_principal_id.to_string(),
-                                    &skill.content_digest,
-                                    &provenance_summary,
-                                    &prior,
-                                    &current_diff,
-                                    &preview_text,
-                                )
-                            {
+                            if let Err(e) = state.store.record_skill_preview(
+                                id,
+                                ver,
+                                &state.owner_principal_id.to_string(),
+                                &skill.content_digest,
+                                &provenance_summary,
+                                &prior,
+                                &current_diff,
+                                &preview_text,
+                            ) {
                                 format!("Skill preview failed: {e}")
                             } else {
                                 // Preview already sent via notify_owner_with_digest;

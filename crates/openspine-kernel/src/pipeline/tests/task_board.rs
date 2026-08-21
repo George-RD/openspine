@@ -215,11 +215,8 @@ async fn linked_fired_event_after_task_cancelled_ack_skips_without_grant() {
         .unwrap();
     let mut cancelled = state.store.get_task(row.id).unwrap().unwrap();
     cancelled.status = TaskStatus::Cancelled;
-    state
-        .store
-        .conn
-        .lock()
-        .execute(
+    state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE task_board SET status = 'cancelled', task_json = ?1 WHERE id = ?2",
             rusqlite::params![
                 serde_json::to_string(&cancelled).unwrap(),
@@ -227,6 +224,7 @@ async fn linked_fired_event_after_task_cancelled_ack_skips_without_grant() {
             ],
         )
         .unwrap();
+    });
     let outcome = dispatch_task_timer_event(&state, &fired[0]).await.unwrap();
     assert!(matches!(outcome, TimerDispatchOutcome::AckSkip));
     assert_eq!(state.store.count_task_grants().unwrap(), 0);

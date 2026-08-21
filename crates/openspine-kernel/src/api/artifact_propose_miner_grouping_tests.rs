@@ -128,93 +128,94 @@ async fn scheduled_reflection_miner_request_shape_mismatch_is_rejected() {
 /// its private in-memory audit table without that constraint to model a
 /// duplicated audit read.
 fn append_duplicate_audit_row(state: &crate::pipeline::AppState, event: &AuditEvent) {
-    let conn = state.store.conn.lock();
-    conn.execute_batch(
-        "DROP INDEX IF EXISTS idx_audit_id;
-         DROP INDEX IF EXISTS idx_audit_aggregate;
-         DROP INDEX IF EXISTS idx_audit_aggregate_seq_unique;
-         ALTER TABLE audit_log RENAME TO audit_log_original;
-         CREATE TABLE audit_log (
-             seq INTEGER PRIMARY KEY AUTOINCREMENT,
-             id TEXT NOT NULL,
-             ts TEXT NOT NULL,
-             kind TEXT NOT NULL,
-             prev_hash TEXT NOT NULL,
-             hash TEXT NOT NULL,
-             meta_json TEXT NOT NULL,
-             event_json TEXT NOT NULL,
-             aggregate_id TEXT NOT NULL DEFAULT 'system',
-             aggregate_seq INTEGER NOT NULL DEFAULT 0
-         );
-         INSERT INTO audit_log
-             (seq, id, ts, kind, prev_hash, hash, meta_json, event_json,
-              aggregate_id, aggregate_seq)
-         SELECT seq, id, ts, kind, prev_hash, hash, meta_json, event_json,
-                aggregate_id, aggregate_seq
-         FROM audit_log_original
-         ORDER BY seq;
-         DROP TABLE audit_log_original;",
-    )
-    .unwrap();
-    let prev_hash_text: String = conn
-        .query_row(
-            "SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1",
-            [],
-            |row| row.get(0),
+    state.store.with_conn_for_test(|conn| {
+        conn.execute_batch(
+            "DROP INDEX IF EXISTS idx_audit_id;
+             DROP INDEX IF EXISTS idx_audit_aggregate;
+             DROP INDEX IF EXISTS idx_audit_aggregate_seq_unique;
+             ALTER TABLE audit_log RENAME TO audit_log_original;
+             CREATE TABLE audit_log (
+                 seq INTEGER PRIMARY KEY AUTOINCREMENT,
+                 id TEXT NOT NULL,
+                 ts TEXT NOT NULL,
+                 kind TEXT NOT NULL,
+                 prev_hash TEXT NOT NULL,
+                 hash TEXT NOT NULL,
+                 meta_json TEXT NOT NULL,
+                 event_json TEXT NOT NULL,
+                 aggregate_id TEXT NOT NULL DEFAULT 'system',
+                 aggregate_seq INTEGER NOT NULL DEFAULT 0
+             );
+             INSERT INTO audit_log
+                 (seq, id, ts, kind, prev_hash, hash, meta_json, event_json,
+                  aggregate_id, aggregate_seq)
+             SELECT seq, id, ts, kind, prev_hash, hash, meta_json, event_json,
+                    aggregate_id, aggregate_seq
+             FROM audit_log_original
+             ORDER BY seq;
+             DROP TABLE audit_log_original;",
         )
         .unwrap();
-    let prev_hash = Digest::parse(prev_hash_text).unwrap();
-    let aggregate_seq: u64 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(aggregate_seq), 0) + 1 FROM audit_log WHERE aggregate_id = ?1",
-            params![event.aggregate_id.as_str()],
-            |row| row.get::<_, i64>(0),
+        let prev_hash_text: String = conn
+            .query_row(
+                "SELECT hash FROM audit_log ORDER BY seq DESC LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let prev_hash = Digest::parse(prev_hash_text).unwrap();
+        let aggregate_seq: u64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(aggregate_seq), 0) + 1 FROM audit_log WHERE aggregate_id = ?1",
+                params![event.aggregate_id.as_str()],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let ts = Timestamp::now();
+        let metadata = json!({
+            "id": event.id.to_string(),
+            "ts": ts.to_string(),
+            "kind": event.kind.as_str(),
+            "action": event.action,
+            "decision": event.decision,
+            "reason": event.reason,
+            "task_grant_id": event.task_grant_id.map(|id| id.to_string()),
+            "target_refs": event.target_refs,
+            "payload_refs": event.payload_refs,
+            "aggregate_id": event.aggregate_id,
+            "aggregate_seq": aggregate_seq,
+            "payload_json": event.payload_json,
+        });
+        let canonical = canonical_json(&metadata);
+        let mut hasher = Sha256::new();
+        hasher.update(prev_hash.as_str().as_bytes());
+        hasher.update(canonical.as_bytes());
+        let hash = digest_from_hash(hasher.finalize().into());
+        let mut duplicate = event.clone();
+        duplicate.ts = ts;
+        duplicate.aggregate_seq = aggregate_seq;
+        duplicate.prev_hash = prev_hash.clone();
+        duplicate.hash = hash.clone();
+        conn.execute(
+            "INSERT INTO audit_log \
+             (id, ts, kind, prev_hash, hash, meta_json, event_json, aggregate_id, aggregate_seq) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                duplicate.id.to_string(),
+                duplicate.ts.to_string(),
+                duplicate.kind.as_str(),
+                duplicate.prev_hash.as_str(),
+                duplicate.hash.as_str(),
+                canonical,
+                serde_json::to_string(&duplicate).unwrap(),
+                duplicate.aggregate_id,
+                i64::try_from(duplicate.aggregate_seq).unwrap(),
+            ],
         )
-        .unwrap()
-        .try_into()
         .unwrap();
-    let ts = Timestamp::now();
-    let metadata = json!({
-        "id": event.id.to_string(),
-        "ts": ts.to_string(),
-        "kind": event.kind.as_str(),
-        "action": event.action,
-        "decision": event.decision,
-        "reason": event.reason,
-        "task_grant_id": event.task_grant_id.map(|id| id.to_string()),
-        "target_refs": event.target_refs,
-        "payload_refs": event.payload_refs,
-        "aggregate_id": event.aggregate_id,
-        "aggregate_seq": aggregate_seq,
-        "payload_json": event.payload_json,
     });
-    let canonical = canonical_json(&metadata);
-    let mut hasher = Sha256::new();
-    hasher.update(prev_hash.as_str().as_bytes());
-    hasher.update(canonical.as_bytes());
-    let hash = digest_from_hash(hasher.finalize().into());
-    let mut duplicate = event.clone();
-    duplicate.ts = ts;
-    duplicate.aggregate_seq = aggregate_seq;
-    duplicate.prev_hash = prev_hash.clone();
-    duplicate.hash = hash.clone();
-    conn.execute(
-        "INSERT INTO audit_log \
-         (id, ts, kind, prev_hash, hash, meta_json, event_json, aggregate_id, aggregate_seq) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![
-            duplicate.id.to_string(),
-            duplicate.ts.to_string(),
-            duplicate.kind.as_str(),
-            duplicate.prev_hash.as_str(),
-            duplicate.hash.as_str(),
-            canonical,
-            serde_json::to_string(&duplicate).unwrap(),
-            duplicate.aggregate_id,
-            i64::try_from(duplicate.aggregate_seq).unwrap(),
-        ],
-    )
-    .unwrap();
 }
 #[tokio::test]
 async fn scheduled_reflection_miner_duplicate_decision_event_is_not_repeated() {
@@ -262,8 +263,7 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
     append_approval(&harness, &context, &target_ref, &scope_ref, '0');
     assert_eq!(reflection_miner_tick(&harness.state).await.unwrap(), 1);
 
-    let review_id: Ulid = {
-        let conn = harness.state.store.conn.lock();
+    let review_id: Ulid = harness.state.store.with_conn_for_test(|conn| {
         conn.query_row(
             "SELECT id FROM owner_reviews ORDER BY created_at DESC LIMIT 1",
             [],
@@ -272,7 +272,7 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
         .unwrap()
         .parse()
         .unwrap()
-    };
+    });
     let review_row = harness
         .state
         .store
@@ -319,15 +319,15 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
     ));
 
     let activation_event: AuditEvent = {
-        let conn = harness.state.store.conn.lock();
-        let event_json: String = conn
-            .query_row(
+        let event_json: String = harness.state.store.with_conn_for_test(|conn| {
+            conn.query_row(
                 "SELECT event_json FROM audit_log \
                  WHERE kind = 'artifact.activation_gated' ORDER BY seq DESC LIMIT 1",
                 [],
                 |row| row.get(0),
             )
-            .unwrap();
+            .unwrap()
+        });
         serde_json::from_str(&event_json).unwrap()
     };
     let activation_grant_id = activation_event
@@ -358,8 +358,7 @@ async fn miner_approval_refuses_review_proposal_digest_mismatch() {
     append_approval(&harness, &context, &target_ref, &scope_ref, '0');
     assert_eq!(reflection_miner_tick(&harness.state).await.unwrap(), 1);
 
-    let review_id: Ulid = {
-        let conn = harness.state.store.conn.lock();
+    let review_id: Ulid = harness.state.store.with_conn_for_test(|conn| {
         conn.query_row(
             "SELECT id FROM owner_reviews ORDER BY created_at DESC LIMIT 1",
             [],
@@ -368,7 +367,7 @@ async fn miner_approval_refuses_review_proposal_digest_mismatch() {
         .unwrap()
         .parse()
         .unwrap()
-    };
+    });
     let review_row = harness
         .state
         .store

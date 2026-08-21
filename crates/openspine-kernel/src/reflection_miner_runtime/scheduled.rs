@@ -36,26 +36,7 @@ pub(crate) fn find_active_grant_by_route(
     route: &str,
 ) -> Result<Option<(TaskGrant, ArtifactRef, OwnerSurfaceRef)>, MinerRuntimeError> {
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
-    let conn = state.store.conn.lock();
-    let rows: Vec<(String, String, Option<String>)> = (|| -> Result<_, StoreError> {
-        let mut statement = conn.prepare(
-            "SELECT grant_json, pending_message_digest, owner_surface_json
-             FROM task_grants
-             WHERE json_extract(grant_json, '$.route_id') = ?1
-             ORDER BY id DESC",
-        )?;
-        let rows = statement
-            .query_map([route], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(rows)
-    })()?;
-    drop(conn);
+    let rows = state.store.task_grant_rows_by_route(route)?;
     let now = Timestamp::now();
     for (grant_json, digest, surface_json) in rows {
         let grant: TaskGrant = serde_json::from_str(&grant_json).map_err(StoreError::from)?;

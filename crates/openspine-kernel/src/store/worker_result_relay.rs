@@ -4,7 +4,7 @@ use super::event_bus::PersistedConsumerState;
 use super::{Store, StoreError};
 use jiff::Timestamp;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 const MAX_ATTEMPTS: u32 = 5;
@@ -30,56 +30,55 @@ impl Store {
         task_grant_id: Option<Ulid>,
     ) -> Result<WorkerRelayClaim, StoreError> {
         let seq = i64::try_from(global_seq).map_err(|_| StoreError::NumericRange)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let row: Option<(String, i64)> = tx
-            .query_row(
-                "SELECT state, attempts FROM worker_result_relays WHERE event_id = ?1",
-                params![event_id.to_string()],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
-        let now = Timestamp::now().to_string();
-        let claim = match row {
-            None => {
-                tx.execute(
-                    "INSERT INTO worker_result_relays
-                     (event_id, global_seq, task_grant_id, state, attempts, last_error, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, 'attempting', 1, NULL, ?4, ?4)",
-                    params![
-                        event_id.to_string(),
-                        seq,
-                        task_grant_id.map(|id| id.to_string()),
-                        now,
-                    ],
-                )?;
-                WorkerRelayClaim::Send { attempt: 1 }
-            }
-            Some((state, _attempts))
-                if state == "delivered" || state == "skipped" || state == "dead_letter" =>
-            {
-                WorkerRelayClaim::Terminal
-            }
-            // A pre-existing `attempting`/`pending` marker (from a crashed
-            // prior run) is RETRYABLE: re-send with an incremented attempt.
-            // It is never treated as `Delivered` — a crash between claiming
-            // and provider acceptance must not skip an unconfirmed handoff
-            // (D-071 delivery-unknown; advisory: claim != delivered).
-            Some((_state, attempts)) => {
-                let next = attempts.saturating_add(1);
-                tx.execute(
-                    "UPDATE worker_result_relays
-                     SET state='attempting', attempts=?2, updated_at=?3
-                     WHERE event_id=?1",
-                    params![event_id.to_string(), next, now],
-                )?;
-                WorkerRelayClaim::Send {
-                    attempt: next as u32,
+        self.with_immediate_tx(|tx| {
+            let row: Option<(String, i64)> = tx
+                .query_row(
+                    "SELECT state, attempts FROM worker_result_relays WHERE event_id = ?1",
+                    params![event_id.to_string()],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            let now = Timestamp::now().to_string();
+            let claim = match row {
+                None => {
+                    tx.execute(
+                        "INSERT INTO worker_result_relays
+                         (event_id, global_seq, task_grant_id, state, attempts, last_error, created_at, updated_at)
+                         VALUES (?1, ?2, ?3, 'attempting', 1, NULL, ?4, ?4)",
+                        params![
+                            event_id.to_string(),
+                            seq,
+                            task_grant_id.map(|id| id.to_string()),
+                            now,
+                        ],
+                    )?;
+                    WorkerRelayClaim::Send { attempt: 1 }
                 }
-            }
-        };
-        tx.commit()?;
-        Ok(claim)
+                Some((state, _attempts))
+                    if state == "delivered" || state == "skipped" || state == "dead_letter" =>
+                {
+                    WorkerRelayClaim::Terminal
+                }
+                // A pre-existing `attempting`/`pending` marker (from a crashed
+                // prior run) is RETRYABLE: re-send with an incremented attempt.
+                // It is never treated as `Delivered` — a crash between claiming
+                // and provider acceptance must not skip an unconfirmed handoff
+                // (D-071 delivery-unknown; advisory: claim != delivered).
+                Some((_state, attempts)) => {
+                    let next = attempts.saturating_add(1);
+                    tx.execute(
+                        "UPDATE worker_result_relays
+                         SET state='attempting', attempts=?2, updated_at=?3
+                         WHERE event_id=?1",
+                        params![event_id.to_string(), next, now],
+                    )?;
+                    WorkerRelayClaim::Send {
+                        attempt: next as u32,
+                    }
+                }
+            };
+            Ok(claim)
+        })
     }
 
     /// Mark a confirmed relay delivered and advance its checkpoint in the
@@ -116,48 +115,47 @@ impl Store {
         let checkpoint_seq = i64::try_from(state.checkpoint.last_acked_global_seq)
             .map_err(|_| StoreError::NumericRange)?;
         let json = serde_json::to_string(state)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let existing: Option<(i64, String)> = tx
-            .query_row(
-                "SELECT last_acked_global_seq, checkpoint_json FROM consumer_checkpoints WHERE consumer_id = ?1",
-                params!["worker_result_consumer"],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
-        if let Some((old_seq, old_json)) = existing {
-            let old: PersistedConsumerState = serde_json::from_str(&old_json)?;
-            if old.filter != state.filter {
-                return Err(StoreError::CheckpointFilterMismatch(
-                    "worker_result_consumer".to_string(),
-                ));
-            }
-            if old_seq > checkpoint_seq {
-                return Err(StoreError::CheckpointRegression(
-                    "worker_result_consumer".to_string(),
-                ));
+        self.with_immediate_tx(|tx| {
+            let existing: Option<(i64, String)> = tx
+                .query_row(
+                    "SELECT last_acked_global_seq, checkpoint_json FROM consumer_checkpoints WHERE consumer_id = ?1",
+                    params!["worker_result_consumer"],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            if let Some((old_seq, old_json)) = existing {
+                let old: PersistedConsumerState = serde_json::from_str(&old_json)?;
+                if old.filter != state.filter {
+                    return Err(StoreError::CheckpointFilterMismatch(
+                        "worker_result_consumer".to_string(),
+                    ));
+                }
+                if old_seq > checkpoint_seq {
+                    return Err(StoreError::CheckpointRegression(
+                        "worker_result_consumer".to_string(),
+                    ));
+                }
+                tx.execute(
+                    "UPDATE consumer_checkpoints SET last_acked_global_seq=?1, checkpoint_json=?2
+                     WHERE consumer_id=?3 AND checkpoint_json=?4 AND last_acked_global_seq <= ?1",
+                    params![checkpoint_seq, json, "worker_result_consumer", old_json],
+                )?;
+            } else {
+                tx.execute(
+                    "INSERT INTO consumer_checkpoints
+                     (consumer_id, last_acked_global_seq, checkpoint_json) VALUES (?1, ?2, ?3)",
+                    params!["worker_result_consumer", checkpoint_seq, json],
+                )?;
             }
             tx.execute(
-                "UPDATE consumer_checkpoints SET last_acked_global_seq=?1, checkpoint_json=?2
-                 WHERE consumer_id=?3 AND checkpoint_json=?4 AND last_acked_global_seq <= ?1",
-                params![checkpoint_seq, json, "worker_result_consumer", old_json],
+                "INSERT INTO worker_result_relays
+                 (event_id, global_seq, task_grant_id, state, attempts, last_error, created_at, updated_at)
+                 VALUES (?1, ?2, NULL, ?3, 0, NULL, ?4, ?4)
+                 ON CONFLICT(event_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
+                params![event_id.to_string(), seq, relay_state, Timestamp::now().to_string()],
             )?;
-        } else {
-            tx.execute(
-                "INSERT INTO consumer_checkpoints
-                 (consumer_id, last_acked_global_seq, checkpoint_json) VALUES (?1, ?2, ?3)",
-                params!["worker_result_consumer", checkpoint_seq, json],
-            )?;
-        }
-        tx.execute(
-            "INSERT INTO worker_result_relays
-             (event_id, global_seq, task_grant_id, state, attempts, last_error, created_at, updated_at)
-             VALUES (?1, ?2, NULL, ?3, 0, NULL, ?4, ?4)
-             ON CONFLICT(event_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at",
-            params![event_id.to_string(), seq, relay_state, Timestamp::now().to_string()],
-        )?;
-        tx.commit()?;
-        Ok(())
+            Ok(())
+        })
     }
 
     /// Persist a transient failure. Attempts one through four remain pending;
@@ -184,124 +182,122 @@ impl Store {
         let seq = i64::try_from(global_seq).map_err(|_| StoreError::NumericRange)?;
         let now = super::sql_timestamp(Timestamp::now());
         let owner_surface_json = serde_json::to_string(owner_surface)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        if attempt < MAX_ATTEMPTS {
+        self.with_immediate_tx(|tx| {
+            if attempt < MAX_ATTEMPTS {
+                tx.execute(
+                    "UPDATE worker_result_relays SET state='pending', last_error=?2, updated_at=?3
+                     WHERE event_id=?1 AND state='attempting' AND attempts=?4",
+                    params![
+                        event_id.to_string(),
+                        "worker result relay failed",
+                        now,
+                        attempt as i64
+                    ],
+                )?;
+                Store::append_audit_conn(
+                    tx,
+                    "worker.result.relay_failed",
+                    None,
+                    None,
+                    Some("worker result relay failed (retry pending)"),
+                    task_grant_id,
+                    &[],
+                    &[],
+                )?;
+                return Ok(false);
+            }
             tx.execute(
-                "UPDATE worker_result_relays SET state='pending', last_error=?2, updated_at=?3
+                "UPDATE worker_result_relays SET state='dead_letter', last_error=?2, updated_at=?3
                  WHERE event_id=?1 AND state='attempting' AND attempts=?4",
                 params![
                     event_id.to_string(),
-                    "worker result relay failed",
+                    "worker result relay dead-lettered",
                     now,
                     attempt as i64
                 ],
             )?;
+            tx.execute(
+                "INSERT OR REPLACE INTO worker_result_dead_letters
+                 (event_id, global_seq, task_grant_id, attempts, reason, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    event_id.to_string(),
+                    seq,
+                    task_grant_id.map(|id| id.to_string()),
+                    attempt,
+                    "worker result relay exhausted retries",
+                    now
+                ],
+            )?;
+            // Enqueue the owner notification in the SAME transaction as the
+            // dead-letter commit, so a crash after dead-letter but before
+            // notification cannot skip the event permanently on restart.
+            if !text_ref.is_empty() {
+                let ids = String::new();
+                tx.execute(
+                    "INSERT INTO notify_dead_letters \
+                     (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending')",
+                    params![
+                        Ulid::new().to_string(),
+                        now,
+                        owner_surface_json,
+                        text_ref,
+                        task_grant_id.map(|id| id.to_string()),
+                        ids,
+                        now,
+                    ],
+                )?;
+            }
             Store::append_audit_conn(
-                &tx,
-                "worker.result.relay_failed",
+                tx,
+                "worker.result.relay_dead_letter",
                 None,
                 None,
-                Some("worker result relay failed (retry pending)"),
+                Some("worker result relay exhausted retries; dead-lettered"),
                 task_grant_id,
                 &[],
                 &[],
             )?;
-            tx.commit()?;
-            return Ok(false);
-        }
-        tx.execute(
-            "UPDATE worker_result_relays SET state='dead_letter', last_error=?2, updated_at=?3
-             WHERE event_id=?1 AND state='attempting' AND attempts=?4",
-            params![
-                event_id.to_string(),
-                "worker result relay dead-lettered",
-                now,
-                attempt as i64
-            ],
-        )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO worker_result_dead_letters
-             (event_id, global_seq, task_grant_id, attempts, reason, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                event_id.to_string(),
-                seq,
-                task_grant_id.map(|id| id.to_string()),
-                attempt,
-                "worker result relay exhausted retries",
-                now
-            ],
-        )?;
-        // Enqueue the owner notification in the SAME transaction as the
-        // dead-letter commit, so a crash after dead-letter but before
-        // notification cannot skip the event permanently on restart.
-        if !text_ref.is_empty() {
-            let ids = String::new();
-            tx.execute(
-                "INSERT INTO notify_dead_letters \
-                 (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending')",
-                params![
-                    Ulid::new().to_string(),
-                    now,
-                    owner_surface_json,
-                    text_ref,
-                    task_grant_id.map(|id| id.to_string()),
-                    ids,
-                    now,
-                ],
-            )?;
-        }
-        Store::append_audit_conn(
-            &tx,
-            "worker.result.relay_dead_letter",
-            None,
-            None,
-            Some("worker result relay exhausted retries; dead-lettered"),
-            task_grant_id,
-            &[],
-            &[],
-        )?;
-        let checkpoint_seq = i64::try_from(state.checkpoint.last_acked_global_seq)
-            .map_err(|_| StoreError::NumericRange)?;
-        let json = serde_json::to_string(state)?;
-        let existing: Option<(i64, String)> = tx
-            .query_row(
-                "SELECT last_acked_global_seq, checkpoint_json FROM consumer_checkpoints WHERE consumer_id='worker_result_consumer'",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?)),
-            )
-            .optional()?;
-        match existing {
-            Some((old_seq, old_json)) => {
-                let old: PersistedConsumerState = serde_json::from_str(&old_json)?;
-                if old.filter != state.filter {
-                    return Err(StoreError::CheckpointFilterMismatch(
-                        "worker_result_consumer".to_string(),
-                    ));
+            let checkpoint_seq = i64::try_from(state.checkpoint.last_acked_global_seq)
+                .map_err(|_| StoreError::NumericRange)?;
+            let json = serde_json::to_string(state)?;
+            let existing: Option<(i64, String)> = tx
+                .query_row(
+                    "SELECT last_acked_global_seq, checkpoint_json FROM consumer_checkpoints WHERE consumer_id='worker_result_consumer'",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .optional()?;
+            match existing {
+                Some((old_seq, old_json)) => {
+                    let old: PersistedConsumerState = serde_json::from_str(&old_json)?;
+                    if old.filter != state.filter {
+                        return Err(StoreError::CheckpointFilterMismatch(
+                            "worker_result_consumer".to_string(),
+                        ));
+                    }
+                    if old_seq > checkpoint_seq {
+                        return Err(StoreError::CheckpointRegression(
+                            "worker_result_consumer".to_string(),
+                        ));
+                    }
+                    tx.execute(
+                        "UPDATE consumer_checkpoints SET last_acked_global_seq=?1, checkpoint_json=?2
+                         WHERE consumer_id='worker_result_consumer' AND checkpoint_json=?3 AND last_acked_global_seq <= ?1",
+                        params![checkpoint_seq, json, old_json],
+                    )?;
                 }
-                if old_seq > checkpoint_seq {
-                    return Err(StoreError::CheckpointRegression(
-                        "worker_result_consumer".to_string(),
-                    ));
+                None => {
+                    tx.execute(
+                        "INSERT INTO consumer_checkpoints
+                         (consumer_id, last_acked_global_seq, checkpoint_json) VALUES ('worker_result_consumer', ?1, ?2)",
+                        params![checkpoint_seq, json],
+                    )?;
                 }
-                tx.execute(
-                    "UPDATE consumer_checkpoints SET last_acked_global_seq=?1, checkpoint_json=?2
-                     WHERE consumer_id='worker_result_consumer' AND checkpoint_json=?3 AND last_acked_global_seq <= ?1",
-                    params![checkpoint_seq, json, old_json],
-                )?;
             }
-            None => {
-                tx.execute(
-                    "INSERT INTO consumer_checkpoints
-                     (consumer_id, last_acked_global_seq, checkpoint_json) VALUES ('worker_result_consumer', ?1, ?2)",
-                    params![checkpoint_seq, json],
-                )?;
-            }
-        }
-        tx.commit()?;
-        Ok(true)
+            Ok(true)
+        })
     }
 
     #[cfg(test)]

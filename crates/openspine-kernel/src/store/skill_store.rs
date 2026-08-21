@@ -205,61 +205,60 @@ pub(crate) fn insert_skill(
     skill.state = initial_state;
     let now_nanos = now.as_nanosecond() as i64;
 
-    let mut conn = store.conn.lock();
-    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    if initial_state == SkillState::Installed {
-        guard_no_equal_or_higher_any_state(&tx, &skill.id, skill.version)?;
-        let retired = retire_older_installed_siblings(&tx, &skill.id, skill.version)?;
-        if retired > 0 {
-            Store::append_audit_conn(
-                &tx,
-                "skill.retired_prior_versions",
-                None,
-                None,
-                Some(&format!(
-                    "id={} retired_versions={} activated_version={} reason=superseded",
-                    skill.id, retired, skill.version
-                )),
-                None,
-                &[],
-                &[],
-            )?;
+    store.with_immediate_tx(|tx| {
+        if initial_state == SkillState::Installed {
+            guard_no_equal_or_higher_any_state(tx, &skill.id, skill.version)?;
+            let retired = retire_older_installed_siblings(tx, &skill.id, skill.version)?;
+            if retired > 0 {
+                Store::append_audit_conn(
+                    tx,
+                    "skill.retired_prior_versions",
+                    None,
+                    None,
+                    Some(&format!(
+                        "id={} retired_versions={} activated_version={} reason=superseded",
+                        skill.id, retired, skill.version
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
         }
-    }
-    tx.execute(
-        "INSERT INTO skills \
+        tx.execute(
+            "INSERT INTO skills \
          (id, version, provenance, state, title, body, task_shape_json, \
           visibility_json, content_digest, installed_at, schema_version) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        params![
-            &skill.id,
-            skill.version as i64,
-            serde_json::to_string(&skill.provenance)?,
-            serde_json::to_string(&skill.state)?,
-            &skill.title,
-            &skill.body,
-            serde_json::to_string(&skill.task_shape)?,
-            serde_json::to_string(&skill.visibility)?,
-            skill.content_digest.as_str(),
-            now_nanos,
-            skill.schema_version as i64,
-        ],
-    )?;
-    Store::append_audit_conn(
-        &tx,
-        "skill.installed",
-        None,
-        None,
-        Some(&format!(
-            "provenance={:?} state={:?} schema_version={} digest={}",
-            skill.provenance, skill.state, skill.schema_version, skill.content_digest
-        )),
-        None,
-        &[],
-        &[],
-    )?;
-    tx.commit()?;
-    Ok(())
+            params![
+                &skill.id,
+                skill.version as i64,
+                serde_json::to_string(&skill.provenance)?,
+                serde_json::to_string(&skill.state)?,
+                &skill.title,
+                &skill.body,
+                serde_json::to_string(&skill.task_shape)?,
+                serde_json::to_string(&skill.visibility)?,
+                skill.content_digest.as_str(),
+                now_nanos,
+                skill.schema_version as i64,
+            ],
+        )?;
+        Store::append_audit_conn(
+            tx,
+            "skill.installed",
+            None,
+            None,
+            Some(&format!(
+                "provenance={:?} state={:?} schema_version={} digest={}",
+                skill.provenance, skill.state, skill.schema_version, skill.content_digest
+            )),
+            None,
+            &[],
+            &[],
+        )?;
+        Ok(())
+    })
 }
 
 /// Transition a `PendingReview` miner-distilled skill to `Installed`,
@@ -273,100 +272,100 @@ pub(crate) fn promote_skill(
     owner_principal_id: Ulid,
     _ceremony_token: &CeremonyToken,
 ) -> Result<Skill, StoreError> {
-    let mut conn = store.conn.lock();
-    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    let existing: SkillRow = tx
-        .query_row(
-            "SELECT id, version, provenance, state, title, body, \
+    let existing = store.with_immediate_tx(|tx| {
+        let existing: SkillRow = tx
+            .query_row(
+                "SELECT id, version, provenance, state, title, body, \
              task_shape_json, visibility_json, content_digest, installed_at, \
              schema_version \
              FROM skills WHERE id = ?1 AND version = ?2",
-            params![token.skill_id(), token.version() as i64],
-            skill_read_queries::read_skill_row,
-        )
-        .optional()?
-        .ok_or_else(|| StoreError::SkillNotFound(token.skill_id().to_string()))?;
-    let existing = skill_read_queries::map_skill_row(existing)?;
-    if existing.state != SkillState::PendingReview {
-        return Err(StoreError::SkillLifecycle(format!(
-            "skill {} v{} is in state {:?}, not pending_review",
-            existing.id, existing.version, existing.state
-        )));
-    }
-    if *token.digest() != existing.content_digest {
-        return Err(StoreError::SkillDigestMismatch(format!(
-            "review token digest {} does not bind to stored skill digest {}",
-            token.digest(),
-            existing.content_digest
-        )));
-    }
-    guard_no_higher_installed(&tx, &existing.id, existing.version)?;
-    let retired = retire_older_installed_siblings(&tx, &existing.id, existing.version)?;
-    // Digest- AND owner-principal-bound preview consumption: atomic with the
-    // promotion so an approval can only land for the exact digest the owner
-    // previewed, bound to the same owner principal (AD-041/AD-110).
-    crate::store::skill_preview_records::consume_skill_preview_conn(
-        &tx,
-        &existing.id,
-        existing.version,
-        &owner_principal_id.to_string(),
-        &existing.content_digest,
-    )?;
-
-    tx.execute(
-        "UPDATE skills SET state = ?1 WHERE id = ?2 AND version = ?3",
-        params![
-            serde_json::to_string(&SkillState::Installed)?,
+                params![token.skill_id(), token.version() as i64],
+                skill_read_queries::read_skill_row,
+            )
+            .optional()?
+            .ok_or_else(|| StoreError::SkillNotFound(token.skill_id().to_string()))?;
+        let existing = skill_read_queries::map_skill_row(existing)?;
+        if existing.state != SkillState::PendingReview {
+            return Err(StoreError::SkillLifecycle(format!(
+                "skill {} v{} is in state {:?}, not pending_review",
+                existing.id, existing.version, existing.state
+            )));
+        }
+        if *token.digest() != existing.content_digest {
+            return Err(StoreError::SkillDigestMismatch(format!(
+                "review token digest {} does not bind to stored skill digest {}",
+                token.digest(),
+                existing.content_digest
+            )));
+        }
+        guard_no_higher_installed(tx, &existing.id, existing.version)?;
+        let retired = retire_older_installed_siblings(tx, &existing.id, existing.version)?;
+        // Digest- AND owner-principal-bound preview consumption: atomic with the
+        // promotion so an approval can only land for the exact digest the owner
+        // previewed, bound to the same owner principal (AD-041/AD-110).
+        crate::store::skill_preview_records::consume_skill_preview_conn(
+            tx,
             &existing.id,
-            existing.version as i64,
-        ],
-    )?;
-    let mut audit_detail = format!(
-        "digest={} evaluator=ad110_mined_promotion_review",
-        existing.content_digest
-    );
-    if retired > 0 {
-        audit_detail.push_str(&format!(" retired_prior_versions={retired}"));
-    }
-    Store::append_audit_conn(
-        &tx,
-        "skill.promoted",
-        None,
-        None,
-        Some(&audit_detail),
-        None,
-        &[],
-        &[],
-    )?;
+            existing.version,
+            &owner_principal_id.to_string(),
+            &existing.content_digest,
+        )?;
 
-    // Durable owner-tap decision row, atomic with the activation. The
-    // decision is "approve" — the OWNER's intent — regardless of the
-    // evaluator outcome (which is captured separately in the eval-verdict
-    // store); the result_state records the actual shelf outcome.
-    super::skill_promotion_decisions::persist_promotion_decision_conn(
-        &tx,
-        &existing.id,
-        existing.version,
-        "approve",
-        owner_principal_id,
-        &existing.content_digest,
-        SkillState::Installed,
-    )?;
+        tx.execute(
+            "UPDATE skills SET state = ?1 WHERE id = ?2 AND version = ?3",
+            params![
+                serde_json::to_string(&SkillState::Installed)?,
+                &existing.id,
+                existing.version as i64,
+            ],
+        )?;
+        let mut audit_detail = format!(
+            "digest={} evaluator=ad110_mined_promotion_review",
+            existing.content_digest
+        );
+        if retired > 0 {
+            audit_detail.push_str(&format!(" retired_prior_versions={retired}"));
+        }
+        Store::append_audit_conn(
+            tx,
+            "skill.promoted",
+            None,
+            None,
+            Some(&audit_detail),
+            None,
+            &[],
+            &[],
+        )?;
 
-    // Test-only fault: simulate the commit failing after the verdict has
-    // already been recorded (in the separate AD-110 transaction). The skill
-    // must stay `PendingReview` — verdict-before-effect, atomic.
-    #[cfg(test)]
-    if store
-        .fail_next_skill_promotion_tx
-        .swap(false, std::sync::atomic::Ordering::SeqCst)
-    {
-        return Err(StoreError::SkillLifecycle(
-            "injected promote transaction failure (test)".to_string(),
-        ));
-    }
+        // Durable owner-tap decision row, atomic with the activation. The
+        // decision is "approve" — the OWNER's intent — regardless of the
+        // evaluator outcome (which is captured separately in the eval-verdict
+        // store); the result_state records the actual shelf outcome.
+        super::skill_promotion_decisions::persist_promotion_decision_conn(
+            tx,
+            &existing.id,
+            existing.version,
+            "approve",
+            owner_principal_id,
+            &existing.content_digest,
+            SkillState::Installed,
+        )?;
 
-    tx.commit()?;
+        // Test-only fault: simulate the commit failing after the verdict has
+        // already been recorded (in the separate AD-110 transaction). The skill
+        // must stay `PendingReview` — verdict-before-effect, atomic.
+        #[cfg(test)]
+        if store
+            .fail_next_skill_promotion_tx
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            return Err(StoreError::SkillLifecycle(
+                "injected promote transaction failure (test)".to_string(),
+            ));
+        }
+
+        Ok(existing)
+    })?;
 
     let mut promoted = existing;
     promoted.state = SkillState::Installed;
@@ -388,64 +387,63 @@ pub(crate) fn reject_skill(
     decision: &str,
     _ceremony_token: &CeremonyToken,
 ) -> Result<(), StoreError> {
-    let mut conn = store.conn.lock();
-    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-    let affected = tx.execute(
-        "UPDATE skills SET state = ?1 \
+    store.with_immediate_tx(|tx| {
+        let affected = tx.execute(
+            "UPDATE skills SET state = ?1 \
          WHERE id = ?2 AND version = ?3 AND state = ?4",
-        params![
-            serde_json::to_string(&SkillState::Rejected)?,
+            params![
+                serde_json::to_string(&SkillState::Rejected)?,
+                skill_id,
+                version as i64,
+                serde_json::to_string(&SkillState::PendingReview)?,
+            ],
+        )?;
+        if affected == 0 {
+            return Err(StoreError::SkillLifecycle(format!(
+                "skill {skill_id} v{version} is not in pending_review"
+            )));
+        }
+        let digest_str: String = tx.query_row(
+            "SELECT content_digest FROM skills WHERE id = ?1 AND version = ?2",
+            params![skill_id, version as i64],
+            |r| r.get(0),
+        )?;
+        let digest = Digest::parse(&digest_str).map_err(|e| {
+            StoreError::BadDigest(format!(
+                "stored skill {skill_id} v{version} digest unparseable: {e}"
+            ))
+        })?;
+        // Owner-principal-bound preview consumption, atomic with the rejection
+        // (same digest + principal the owner previewed, never dangling).
+        crate::store::skill_preview_records::consume_skill_preview_conn(
+            tx,
             skill_id,
-            version as i64,
-            serde_json::to_string(&SkillState::PendingReview)?,
-        ],
-    )?;
-    if affected == 0 {
-        return Err(StoreError::SkillLifecycle(format!(
-            "skill {skill_id} v{version} is not in pending_review"
-        )));
-    }
-    let digest_str: String = tx.query_row(
-        "SELECT content_digest FROM skills WHERE id = ?1 AND version = ?2",
-        params![skill_id, version as i64],
-        |r| r.get(0),
-    )?;
-    let digest = Digest::parse(&digest_str).map_err(|e| {
-        StoreError::BadDigest(format!(
-            "stored skill {skill_id} v{version} digest unparseable: {e}"
-        ))
-    })?;
-    // Owner-principal-bound preview consumption, atomic with the rejection
-    // (same digest + principal the owner previewed, never dangling).
-    crate::store::skill_preview_records::consume_skill_preview_conn(
-        &tx,
-        skill_id,
-        version,
-        &owner_principal_id.to_string(),
-        &digest,
-    )?;
-    // Durable owner-tap decision row, atomic with the rejection.
-    super::skill_promotion_decisions::persist_promotion_decision_conn(
-        &tx,
-        skill_id,
-        version,
-        decision,
-        owner_principal_id,
-        &digest,
-        SkillState::Rejected,
-    )?;
-    Store::append_audit_conn(
-        &tx,
-        "skill.rejected",
-        None,
-        None,
-        Some(reason),
-        None,
-        &[],
-        &[],
-    )?;
-    tx.commit()?;
-    Ok(())
+            version,
+            &owner_principal_id.to_string(),
+            &digest,
+        )?;
+        // Durable owner-tap decision row, atomic with the rejection.
+        super::skill_promotion_decisions::persist_promotion_decision_conn(
+            tx,
+            skill_id,
+            version,
+            decision,
+            owner_principal_id,
+            &digest,
+            SkillState::Rejected,
+        )?;
+        Store::append_audit_conn(
+            tx,
+            "skill.rejected",
+            None,
+            None,
+            Some(reason),
+            None,
+            &[],
+            &[],
+        )?;
+        Ok(())
+    })
 }
 // Re-export the read-only helpers (kept in `skill_read_queries` to keep this
 // write-path module focused) so existing call sites in tests/ceremony keep

@@ -67,26 +67,25 @@ impl Store {
         cap: u64,
     ) -> Result<(bool, bool), StoreError> {
         let cap = cap_i64(cap)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let result = if cap <= 0 {
-            (false, mark_breach(&tx, day)?)
-        } else {
-            tx.execute(
-                "INSERT INTO daily_spend (day, model_calls, connector_calls)
-                 VALUES (?1, 1, 0)
-                 ON CONFLICT(day) DO UPDATE SET model_calls = model_calls + 1
-                 WHERE model_calls < ?2",
-                params![day, cap],
-            )?;
-            if tx.changes() == 1 {
-                (true, false)
+        self.with_immediate_tx(|tx| {
+            let result = if cap <= 0 {
+                (false, mark_breach(tx, day)?)
             } else {
-                (false, mark_breach(&tx, day)?)
-            }
-        };
-        tx.commit()?;
-        Ok(result)
+                tx.execute(
+                    "INSERT INTO daily_spend (day, model_calls, connector_calls)
+                     VALUES (?1, 1, 0)
+                     ON CONFLICT(day) DO UPDATE SET model_calls = model_calls + 1
+                     WHERE model_calls < ?2",
+                    params![day, cap],
+                )?;
+                if tx.changes() == 1 {
+                    (true, false)
+                } else {
+                    (false, mark_breach(tx, day)?)
+                }
+            };
+            Ok(result)
+        })
     }
     pub fn reserve_daily_connector_call(
         &self,
@@ -94,26 +93,25 @@ impl Store {
         cap: u64,
     ) -> Result<(bool, bool), StoreError> {
         let cap = cap_i64(cap)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let result = if cap <= 0 {
-            (false, mark_breach(&tx, day)?)
-        } else {
-            tx.execute(
-                "INSERT INTO daily_spend (day, model_calls, connector_calls)
-                 VALUES (?1, 0, 1)
-                 ON CONFLICT(day) DO UPDATE SET connector_calls = connector_calls + 1
-                 WHERE connector_calls < ?2",
-                params![day, cap],
-            )?;
-            if tx.changes() == 1 {
-                (true, false)
+        self.with_immediate_tx(|tx| {
+            let result = if cap <= 0 {
+                (false, mark_breach(tx, day)?)
             } else {
-                (false, mark_breach(&tx, day)?)
-            }
-        };
-        tx.commit()?;
-        Ok(result)
+                tx.execute(
+                    "INSERT INTO daily_spend (day, model_calls, connector_calls)
+                     VALUES (?1, 0, 1)
+                     ON CONFLICT(day) DO UPDATE SET connector_calls = connector_calls + 1
+                     WHERE connector_calls < ?2",
+                    params![day, cap],
+                )?;
+                if tx.changes() == 1 {
+                    (true, false)
+                } else {
+                    (false, mark_breach(tx, day)?)
+                }
+            };
+            Ok(result)
+        })
     }
 
     pub fn check_and_mark_daily_breach(
@@ -124,23 +122,22 @@ impl Store {
     ) -> Result<(bool, bool), StoreError> {
         let model_cap = cap_i64(model_cap)?;
         let connector_cap = cap_i64(connector_cap)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let counts: Option<(i64, i64)> = tx
-            .query_row(
-                "SELECT model_calls, connector_calls FROM daily_spend WHERE day = ?1",
-                params![day],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()?;
-        let (model, connector) = counts.unwrap_or((0, 0));
-        let result = if model >= model_cap || connector >= connector_cap {
-            (false, mark_breach(&tx, day)?)
-        } else {
-            (true, false)
-        };
-        tx.commit()?;
-        Ok(result)
+        self.with_immediate_tx(|tx| {
+            let counts: Option<(i64, i64)> = tx
+                .query_row(
+                    "SELECT model_calls, connector_calls FROM daily_spend WHERE day = ?1",
+                    params![day],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+            let (model, connector) = counts.unwrap_or((0, 0));
+            let result = if model >= model_cap || connector >= connector_cap {
+                (false, mark_breach(tx, day)?)
+            } else {
+                (true, false)
+            };
+            Ok(result)
+        })
     }
 
     /// Transition alert_state from pending (1) to in_flight (2). Returns true

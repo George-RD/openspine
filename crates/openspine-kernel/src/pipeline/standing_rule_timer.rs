@@ -396,16 +396,14 @@ mod tests {
             1
         );
         // Never auto-dispatched: still `claimed`.
-        let ds: String = state
-            .store
-            .conn
-            .lock()
-            .query_row(
+        let ds: String = state.store.with_conn_for_test(|conn| {
+            conn.query_row(
                 "SELECT dispatch_state FROM standing_rule_pending_actions WHERE pending_id = ?1",
                 params![pending.pending_id],
                 |r| r.get(0),
             )
-            .unwrap();
+            .unwrap()
+        });
         assert_eq!(ds, "claimed");
 
         // A `none` pending with a missing payload ref must make recovery return
@@ -445,15 +443,13 @@ mod tests {
             schema_version: 1,
         };
         let missing_json = serde_json::to_string(&missing).unwrap();
-        state
-            .store
-            .conn
-            .lock()
-            .execute(
+        state.store.with_conn_for_test(|conn| {
+            conn.execute(
                 "UPDATE standing_rule_pending_actions SET payload_ref_json = ?2 WHERE pending_id = ?1",
                 params![pending2.pending_id, missing_json],
             )
             .unwrap();
+        });
         let result = recover_unredriven_pending(&state).await;
         assert!(
             result.is_err(),
@@ -529,11 +525,8 @@ mod tests {
         grant.seal_root(b"openspine-test-grant-hmac-key-v1");
         let mut stored = grant.clone();
         stored.task_token.clear();
-        state
-            .store
-            .conn
-            .lock()
-            .execute(
+        state.store.with_conn_for_test(|conn| {
+            conn.execute(
                 "UPDATE task_grants SET grant_json = ?2 WHERE id = ?1",
                 params![
                     grant.id.to_string(),
@@ -541,6 +534,7 @@ mod tests {
                 ],
             )
             .unwrap();
+        });
         // The pending payload blob must exist in the artifact store so the
         // consumer can decode it for re-dispatch.
         let payload = json!({"text": "redelivered fired default"});
@@ -600,16 +594,14 @@ mod tests {
             "a replayed timer event must not double-dispatch the effect"
         );
         // Exactly one budget unit was consumed, never two.
-        let committed: i64 = state
-            .store
-            .conn
-            .lock()
-            .query_row(
+        let committed: i64 = state.store.with_conn_for_test(|conn| {
+            conn.query_row(
                 "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'committed'",
                 params![rule.rule_id],
                 |r| r.get(0),
             )
-            .unwrap();
+            .unwrap()
+        });
         assert_eq!(committed, 1, "the token was consumed exactly once");
     }
     #[tokio::test]
@@ -682,11 +674,8 @@ mod tests {
         grant.seal_root(b"openspine-test-grant-hmac-key-v1");
         let mut stored = grant.clone();
         stored.task_token.clear();
-        state
-            .store
-            .conn
-            .lock()
-            .execute(
+        state.store.with_conn_for_test(|conn| {
+            conn.execute(
                 "UPDATE task_grants SET grant_json = ?2 WHERE id = ?1",
                 params![
                     grant.id.to_string(),
@@ -694,6 +683,7 @@ mod tests {
                 ],
             )
             .unwrap();
+        });
         let payload = json!({"text": "retry fired default"});
         let payload_ref = Some(
             state

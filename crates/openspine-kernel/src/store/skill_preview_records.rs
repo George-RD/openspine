@@ -17,7 +17,7 @@ use rusqlite::params;
 use rusqlite::Transaction;
 use ulid::Ulid;
 
-use super::StoreError;
+use super::{Store, StoreError};
 
 pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
     conn.execute_batch(
@@ -85,7 +85,7 @@ fn migrate_bound_columns(conn: &rusqlite::Connection) -> Result<(), StoreError> 
 
 /// Record the bounded owner-facing preview summary and its digest binding.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn record_skill_preview(
+pub(super) fn record_skill_preview(
     conn: &rusqlite::Connection,
     skill_id: &str,
     version: u32,
@@ -150,4 +150,36 @@ pub(crate) fn consume_skill_preview_conn(
         )));
     }
     Ok(())
+}
+
+impl Store {
+    /// Persist the bounded owner-facing skill preview summary and its
+    /// digest+owner binding (AD-041/AD-110), locking the connection internally
+    /// so callers never reach the raw connection. A single-statement insert, so
+    /// no explicit transaction is needed.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn record_skill_preview(
+        &self,
+        skill_id: &str,
+        version: u32,
+        owner_principal: &str,
+        content_digest: &Digest,
+        provenance_summary: &str,
+        prior_diff_summary: &str,
+        current_diff_summary: &str,
+        rendered_summary: &str,
+    ) -> Result<(), StoreError> {
+        let conn = self.conn.lock();
+        record_skill_preview(
+            &conn,
+            skill_id,
+            version,
+            owner_principal,
+            content_digest,
+            provenance_summary,
+            prior_diff_summary,
+            current_diff_summary,
+            rendered_summary,
+        )
+    }
 }

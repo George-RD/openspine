@@ -28,7 +28,7 @@ use openspine_schemas::nerve::{
     InterjectionProvenance, ModelTier, NerveDeclaration, NerveError, NerveScope, NerveType,
     ScreenerTag, Severity,
 };
-use rusqlite::{params, TransactionBehavior};
+use rusqlite::params;
 use ulid::Ulid;
 
 /// Deterministic, documented heuristic markers for a first real AD-034
@@ -125,41 +125,40 @@ impl Store {
             })
             .collect();
 
-        let mut conn = self.conn.lock();
-        let tx = conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(|err| NerveError::Storage(err.to_string()))?;
-        if derived.is_empty() {
-            tx.execute("DELETE FROM nerve_advisee_limits", [])
-                .map_err(|err| NerveError::Storage(err.to_string()))?;
-        } else {
-            let placeholders = derived.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
-            let sql = format!(
-                "DELETE FROM nerve_advisee_limits WHERE advisee_id NOT IN ({placeholders})"
-            );
-            let ids: Vec<&str> = derived.iter().map(|(id, _, _)| id.as_str()).collect();
-            let bound: Vec<&dyn rusqlite::ToSql> =
-                ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
-            tx.execute(&sql, bound.as_slice())
-                .map_err(|err| NerveError::Storage(err.to_string()))?;
-        }
-        for (advisee_id, scope, tier) in &derived {
-            let scope_json =
-                serde_json::to_string(scope).map_err(|err| NerveError::Storage(err.to_string()))?;
-            let tier_json =
-                serde_json::to_string(tier).map_err(|err| NerveError::Storage(err.to_string()))?;
-            tx.execute(
-                "INSERT INTO nerve_advisee_limits (advisee_id, scope_json, max_tier)
+        self.with_immediate_tx_mapped(
+            |err| NerveError::Storage(err.to_string()),
+            |tx| {
+                if derived.is_empty() {
+                    tx.execute("DELETE FROM nerve_advisee_limits", [])
+                        .map_err(|err| NerveError::Storage(err.to_string()))?;
+                } else {
+                    let placeholders = derived.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+                    let sql = format!(
+                        "DELETE FROM nerve_advisee_limits WHERE advisee_id NOT IN ({placeholders})"
+                    );
+                    let ids: Vec<&str> = derived.iter().map(|(id, _, _)| id.as_str()).collect();
+                    let bound: Vec<&dyn rusqlite::ToSql> =
+                        ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+                    tx.execute(&sql, bound.as_slice())
+                        .map_err(|err| NerveError::Storage(err.to_string()))?;
+                }
+                for (advisee_id, scope, tier) in &derived {
+                    let scope_json = serde_json::to_string(scope)
+                        .map_err(|err| NerveError::Storage(err.to_string()))?;
+                    let tier_json = serde_json::to_string(tier)
+                        .map_err(|err| NerveError::Storage(err.to_string()))?;
+                    tx.execute(
+                        "INSERT INTO nerve_advisee_limits (advisee_id, scope_json, max_tier)
                  VALUES (?1, ?2, ?3)
                  ON CONFLICT(advisee_id) DO UPDATE SET scope_json = excluded.scope_json,
                                                        max_tier = excluded.max_tier",
-                params![advisee_id, scope_json, tier_json],
-            )
-            .map_err(|err| NerveError::Storage(err.to_string()))?;
-        }
-        tx.commit()
-            .map_err(|err| NerveError::Storage(err.to_string()))?;
-        Ok(())
+                        params![advisee_id, scope_json, tier_json],
+                    )
+                    .map_err(|err| NerveError::Storage(err.to_string()))?;
+                }
+                Ok(())
+            },
+        )
     }
 
     /// Emit a structured, scoped `manipulation_signal.detected` for a
@@ -176,24 +175,21 @@ impl Store {
         aggregate: &str,
     ) -> Result<AuditEvent, super::StoreError> {
         let payload = format!("{{\"marker\":\"{marker}\"}}");
-        let mut conn = self.conn.lock();
-        let tx = conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(super::StoreError::Sqlite)?;
-        let event = Store::append_audit_conn_with_options(
-            &tx,
-            SCREENER_SIGNAL_KIND,
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(aggregate),
-            Some(&payload),
-        )?;
-        tx.commit().map_err(super::StoreError::Sqlite)?;
-        Ok(event)
+        self.with_immediate_tx(|tx| {
+            let event = Store::append_audit_conn_with_options(
+                tx,
+                SCREENER_SIGNAL_KIND,
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(aggregate),
+                Some(&payload),
+            )?;
+            Ok(event)
+        })
     }
 
     /// Atomically append the `event.received` ledger row for an inbound
@@ -215,84 +211,81 @@ impl Store {
         raw_ref: &ArtifactRef,
         text: &str,
     ) -> Result<(AuditEvent, Option<AuditEvent>), super::StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(super::StoreError::Sqlite)?;
-        let received = Store::append_audit_conn_with_options(
-            &tx,
-            "event.received",
-            None,
-            None,
-            None,
-            None,
-            &[],
-            std::slice::from_ref(raw_ref),
-            None,
-            None,
-        )?;
-        let signal = if let Some(marker) = screen_text(text) {
-            let payload = format!("{{\"marker\":\"{marker}\"}}");
-            Some(Store::append_audit_conn_with_options(
-                &tx,
-                SCREENER_SIGNAL_KIND,
+        self.with_immediate_tx(|tx| {
+            let received = Store::append_audit_conn_with_options(
+                tx,
+                "event.received",
                 None,
                 None,
                 None,
                 None,
                 &[],
-                &[],
-                Some(SCREENER_AGGREGATE),
-                Some(&payload),
-            )?)
-        } else {
-            None
-        };
-        tx.commit().map_err(super::StoreError::Sqlite)?;
-        Ok((received, signal))
+                std::slice::from_ref(raw_ref),
+                None,
+                None,
+            )?;
+            let signal = if let Some(marker) = screen_text(text) {
+                let payload = format!("{{\"marker\":\"{marker}\"}}");
+                Some(Store::append_audit_conn_with_options(
+                    tx,
+                    SCREENER_SIGNAL_KIND,
+                    None,
+                    None,
+                    None,
+                    None,
+                    &[],
+                    &[],
+                    Some(SCREENER_AGGREGATE),
+                    Some(&payload),
+                )?)
+            } else {
+                None
+            };
+            Ok((received, signal))
+        })
     }
     pub(crate) fn revoke_nerve_registration(&self, nerve_id: Ulid) -> Result<(), NerveError> {
-        let mut conn = self.conn.lock();
-        let tx = conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)
-            .map_err(|err| NerveError::Storage(err.to_string()))?;
-        let id = nerve_id.to_string();
-        for table in ["nerve_interjection_budgets", "nerve_decay"] {
-            tx.execute(
-                &format!("DELETE FROM {table} WHERE nerve_id = ?1"),
-                params![id],
-            )
-            .map_err(|err| NerveError::Storage(err.to_string()))?;
-        }
-        tx.execute(
-            "DELETE FROM nerve_interjection_deliveries WHERE interjection_id IN
+        self.with_immediate_tx_mapped(
+            |err| NerveError::Storage(err.to_string()),
+            |tx| {
+                let id = nerve_id.to_string();
+                for table in ["nerve_interjection_budgets", "nerve_decay"] {
+                    tx.execute(
+                        &format!("DELETE FROM {table} WHERE nerve_id = ?1"),
+                        params![id],
+                    )
+                    .map_err(|err| NerveError::Storage(err.to_string()))?;
+                }
+                tx.execute(
+                    "DELETE FROM nerve_interjection_deliveries WHERE interjection_id IN
              (SELECT interjection_id FROM nerve_issuances WHERE nerve_id = ?1)",
-            params![id],
-        )
-        .map_err(|err| NerveError::Storage(err.to_string()))?;
-        tx.execute(
-            "DELETE FROM nerve_reactions WHERE interjection_id IN
+                    params![id],
+                )
+                .map_err(|err| NerveError::Storage(err.to_string()))?;
+                tx.execute(
+                    "DELETE FROM nerve_reactions WHERE interjection_id IN
              (SELECT interjection_id FROM nerve_issuances WHERE nerve_id = ?1)",
-            params![id],
+                    params![id],
+                )
+                .map_err(|err| NerveError::Storage(err.to_string()))?;
+                tx.execute(
+                    "DELETE FROM nerve_issuances WHERE nerve_id = ?1",
+                    params![id],
+                )
+                .map_err(|err| NerveError::Storage(err.to_string()))?;
+                tx.execute(
+                    "DELETE FROM consumer_checkpoints WHERE consumer_id = ?1",
+                    params![format!("nerve:{nerve_id}")],
+                )
+                .map_err(|err| NerveError::Storage(err.to_string()))?;
+                tx.execute(
+                    "DELETE FROM nerve_registrations WHERE nerve_id = ?1",
+                    params![id],
+                )
+                .map_err(|err| NerveError::Storage(err.to_string()))?;
+                Ok(())
+            },
         )
-        .map_err(|err| NerveError::Storage(err.to_string()))?;
-        tx.execute(
-            "DELETE FROM nerve_issuances WHERE nerve_id = ?1",
-            params![id],
-        )
-        .map_err(|err| NerveError::Storage(err.to_string()))?;
-        tx.execute(
-            "DELETE FROM consumer_checkpoints WHERE consumer_id = ?1",
-            params![format!("nerve:{nerve_id}")],
-        )
-        .map_err(|err| NerveError::Storage(err.to_string()))?;
-        tx.execute(
-            "DELETE FROM nerve_registrations WHERE nerve_id = ?1",
-            params![id],
-        )
-        .map_err(|err| NerveError::Storage(err.to_string()))?;
-        tx.commit()
-            .map_err(|err| NerveError::Storage(err.to_string()))
     }
 
     pub(crate) fn pending_nerve_deliveries(&self) -> Result<Vec<(String, String)>, NerveError> {

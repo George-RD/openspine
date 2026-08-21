@@ -298,43 +298,37 @@ pub(crate) fn scoped_manifest(
 }
 
 pub(crate) fn usage_count(state: &AppState, rule_id: &str, status: &str) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage \
              WHERE rule_id = ?1 AND status = ?2",
             params![rule_id, status],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 pub(super) fn scheduled_timer_count(state: &AppState) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(*) FROM standing_rule_pending_actions",
             [],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 pub(super) fn audit_count(state: &AppState, event: &str) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(*) FROM audit_log WHERE kind = ?1",
             params![event],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 pub(super) fn digest_count(state: &AppState) -> usize {
@@ -381,11 +375,8 @@ pub(super) fn mint_draft_grant_with_counterparty(
         sections: vec![],
         top_up_log: vec![],
     };
-    state
-        .store
-        .conn
-        .lock()
-        .execute(
+    state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE briefcases SET briefcase_json = ?2 WHERE task_grant_id = ?1",
             params![
                 grant.id.to_string(),
@@ -393,6 +384,7 @@ pub(super) fn mint_draft_grant_with_counterparty(
             ],
         )
         .unwrap();
+    });
     grant
 }
 
@@ -407,11 +399,8 @@ pub(super) fn insert_legacy_unbounded_rule(state: &AppState, manifest: &Standing
         .try_into()
         .map(|nanos: i64| nanos)
         .expect("timestamp fits i64 nanoseconds");
-    state
-        .store
-        .conn
-        .lock()
-        .execute(
+    state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "INSERT INTO standing_rules (
                 rule_id, artifact_id, version, action_id, rule_json,
                 quota_max, quota_window_secs, rate_max, rate_window_secs,
@@ -434,8 +423,8 @@ pub(super) fn insert_legacy_unbounded_rule(state: &AppState, manifest: &Standing
             ],
         )
         .unwrap();
+    });
 }
-
 /// A thread whose messages come from two distinct senders — the newest (and
 /// therefore the reply recipient) is `newest`, with `older` also a participant.
 pub(super) fn two_party_thread_body(newest: &str, older: &str) -> Value {

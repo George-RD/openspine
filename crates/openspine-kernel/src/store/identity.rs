@@ -151,6 +151,7 @@ impl Store {
                 ],
             )?;
 
+
             tx.execute(
                 "INSERT INTO principals (id, identity_id, is_owner, principal_json) VALUES (?1, ?2, ?3, ?4)",
                 params![

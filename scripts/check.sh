@@ -39,6 +39,9 @@ cargo test --workspace
 echo "== scripts/check-file-sizes.sh =="
 scripts/check-file-sizes.sh
 
+echo "== scripts/check-store-encapsulation.sh =="
+scripts/check-store-encapsulation.sh
+
 echo "== scripts/check-claims.sh =="
 scripts/check-claims.sh
 
