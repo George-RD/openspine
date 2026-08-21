@@ -10,6 +10,7 @@ use serde_json::json;
 use ulid::Ulid;
 
 use super::{notify_owner_best_effort, AppState};
+use crate::store::{AuditDescriptor, BeginEffect, PendingWriteFence};
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 
 /// Actually create the Gmail draft after `gate()` confirms a matching,
@@ -236,34 +237,44 @@ pub(crate) async fn create_approved_draft(
     // Two concurrent callbacks can both observe the fast path as open, but
     // only one can win this `BEGIN IMMEDIATE` claim before touching Gmail.
     let pending_id = Ulid::new();
-    let claimed = state.store.claim_pending_draft_write(
-        pending_id,
-        grant.id,
-        request.id,
-        &thread_id,
-        &request_fingerprint,
-    )?;
-    if !claimed {
-        // Dropping an unused permit is intentional: a half-open probe must
-        // not remain armed when no provider future was polled.
-        drop(permit);
-        state.store.append_audit(
-            "draft.pending_write_fenced",
-            Some(&request.action),
-            None,
-            Some("an unresolved provider write already exists for this request"),
-            Some(grant.id),
-            &[],
-            std::slice::from_ref(payload_ref),
-        )?;
-        notify_owner_best_effort(
-            state,
-            owner_surface,
-            "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
-        )
-        .await;
-        return Ok(EffectDisposition::NotAttempted);
-    }
+    let mut begin_audit = AuditDescriptor::new("draft.pending_write_opened")
+        .with_reason("pending-write fence claimed before the gmail draft write");
+    begin_audit.action = Some(request.action.clone());
+    begin_audit.task_grant_id = Some(grant.id);
+    begin_audit.payload_refs = vec![payload_ref.clone()];
+    let fence = match state.store.begin_effect(
+        PendingWriteFence {
+            id: pending_id,
+            grant_id: grant.id,
+            action_request_id: request.id,
+            thread_id: &thread_id,
+            request_fingerprint: &request_fingerprint,
+        },
+        begin_audit,
+    )? {
+        BeginEffect::Fenced(fence) => fence,
+        BeginEffect::AlreadyFenced => {
+            // Dropping an unused permit is intentional: a half-open probe must
+            // not remain armed when no provider future was polled.
+            drop(permit);
+            state.store.append_audit(
+                "draft.pending_write_fenced",
+                Some(&request.action),
+                None,
+                Some("an unresolved provider write already exists for this request"),
+                Some(grant.id),
+                &[],
+                std::slice::from_ref(payload_ref),
+            )?;
+            notify_owner_best_effort(
+                state,
+                owner_surface,
+                "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
+            )
+            .await;
+            return Ok(EffectDisposition::NotAttempted);
+        }
+    };
     let draft_result = crate::api::connector_breaker::call_with_admitted_connector_write(
         state,
         "gmail",
@@ -272,21 +283,21 @@ pub(crate) async fn create_approved_draft(
         gmail.create_draft(&thread_id, &target, subject, body),
     )
     .await;
+    // Map the connector outcome to an `EffectDisposition` and settle through the
+    // seam. This inline mapping is a minimal choice for the pilot SHAPE only;
+    // Effect Truth #198 owns the truthful connector-outcome classification.
     if let Err(DispatchError::DeliveryUnknown(err)) = &draft_result {
-        state.store.append_audit(
-            "draft.delivery_unknown",
-            Some(&request.action),
-            None,
-            Some(&err.to_string()),
-            Some(grant.id),
-            &[],
-            std::slice::from_ref(payload_ref),
-        )?;
+        let mut audit = AuditDescriptor::new("draft.delivery_unknown").with_reason(err.to_string());
+        audit.action = Some(request.action.clone());
+        audit.task_grant_id = Some(grant.id);
+        audit.payload_refs = vec![payload_ref.clone()];
+        state
+            .store
+            .settle_effect(fence, EffectDisposition::DeliveryUnknown, audit)?;
         return Ok(EffectDisposition::DeliveryUnknown);
     }
     match draft_result {
         Ok(draft_id) => {
-            state.store.resolve_pending_draft_write(pending_id)?;
             let draft_id_refs = match state.artifacts.put(draft_id.as_bytes()) {
                 Ok(r) => vec![r],
                 Err(err) => {
@@ -300,34 +311,31 @@ pub(crate) async fn create_approved_draft(
             };
             let mut payload_refs = vec![payload_ref.clone()];
             payload_refs.extend(draft_id_refs);
-            state.store.append_audit(
-                "draft.created",
-                Some(&request.action),
-                None,
-                None,
-                Some(grant.id),
-                &[target_ref],
-                &payload_refs,
-            )?;
+            let mut audit = AuditDescriptor::new("draft.created");
+            audit.action = Some(request.action.clone());
+            audit.task_grant_id = Some(grant.id);
+            audit.target_refs = vec![target_ref];
+            audit.payload_refs = payload_refs;
+            state
+                .store
+                .settle_effect(fence, EffectDisposition::ConfirmedSuccess, audit)?;
             notify_owner_best_effort(state, owner_surface, "Draft created in Gmail.").await;
             Ok(EffectDisposition::ConfirmedSuccess)
         }
         Err(DispatchError::DeliveryUnknown(_)) => unreachable!("handled above"),
         Err(err) => {
-            state.store.resolve_pending_draft_write(pending_id)?;
             let target_ref = ArtifactRef {
                 digest: current_target_digest.clone(),
                 schema_version: 1,
             };
-            state.store.append_audit(
-                "draft.creation_failed",
-                Some(&request.action),
-                None,
-                None,
-                Some(grant.id),
-                &[target_ref],
-                std::slice::from_ref(payload_ref),
-            )?;
+            let mut audit = AuditDescriptor::new("draft.creation_failed");
+            audit.action = Some(request.action.clone());
+            audit.task_grant_id = Some(grant.id);
+            audit.target_refs = vec![target_ref];
+            audit.payload_refs = vec![payload_ref.clone()];
+            state
+                .store
+                .settle_effect(fence, EffectDisposition::ConfirmedFailure, audit)?;
             crate::failure_surfacing::batch_failure(
                 state,
                 crate::failure_surfacing::FailureClass::Connector,
