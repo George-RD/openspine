@@ -407,3 +407,93 @@ fn scoped_consult_declaration_drift_stops_matching_before_budget() {
     );
     assert_eq!(reserved_usage_count(&store, "rule-a"), 0);
 }
+
+fn rule_status(store: &Store, rule_id: &str) -> String {
+    store
+        .conn
+        .lock()
+        .query_row(
+            "SELECT status FROM standing_rules WHERE rule_id = ?1",
+            rusqlite::params![rule_id],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
+/// #176 regression: one unparseable `rule_json` row must not abort the whole
+/// crypto-erase sweep. Poison a single live row, then assert every other
+/// matching counterparty rule is still revoked, the durable erased-scope marker
+/// still lands, and the malformed row is isolated (left intact) and surfaced via
+/// a durable audit row instead of `?`-aborting the transaction.
+#[test]
+fn erasure_sweep_isolates_unparseable_rule_json_and_still_erases() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open_in_memory().unwrap();
+    let artifacts =
+        crate::artifact_store::ArtifactStore::open(dir.path().join("artifacts"), [7u8; 32])
+            .unwrap();
+    let now = Timestamp::now();
+    let context = email_context();
+    // `email_context` binds this counterparty via its reviewed scope.
+    let counterparty = Ulid::from(11_u128);
+
+    // A well-formed standing rule scoped to the counterparty under erasure.
+    store
+        .activate_standing_rule(&scoped_manifest("rule-good", &context), None, now)
+        .unwrap();
+
+    // Poison: a second live row whose `rule_json` cannot deserialize into a
+    // `StandingRuleManifest`. Insert via SQL so activation validation is bypassed
+    // and the coexistence revoke never fires.
+    {
+        let conn = store.conn.lock();
+        conn.execute(
+            "INSERT INTO standing_rules (
+                rule_id, artifact_id, version, action_id, rule_json,
+                quota_max, quota_window_secs, rate_max, rate_window_secs,
+                expires_after_secs, dark_window_timeout_secs, dark_window_default,
+                status, activated_at, last_used_at, revoked_at, needs_review_since,
+                reviewed_scope_digest, compatibility_digest
+            ) VALUES (?1, ?1, 1, ?2, ?3, 5, 604800, 1, 3600, 604800, NULL, NULL,
+                      'active', ?4, NULL, NULL, NULL, NULL, NULL)",
+            rusqlite::params![
+                "rule-bad",
+                "email.create_draft",
+                "{ this is not valid manifest json",
+                Timestamp::now().as_nanosecond() as i64,
+            ],
+        )
+        .unwrap();
+    }
+
+    // The sweep must complete despite the poison row.
+    store
+        .mark_learned_artifacts_erased(counterparty, &artifacts)
+        .unwrap();
+
+    // Every other counterparty rule still erases.
+    assert_eq!(
+        rule_status(&store, "rule-good"),
+        "revoked",
+        "a poison row must not stop a matching rule from being revoked"
+    );
+    // The durable erased-scope marker still lands.
+    assert!(
+        store.is_counterparty_erased(counterparty).unwrap(),
+        "erased-scope marker must be inserted despite the poison row"
+    );
+    // The malformed row is isolated: skipped and left intact for operator triage.
+    assert_eq!(
+        rule_status(&store, "rule-bad"),
+        "active",
+        "the unparseable row is isolated, not mutated"
+    );
+    // ...and surfaced durably rather than silently dropped.
+    assert_eq!(
+        store
+            .count_audit_events_of_kind("standing_rule.malformed_row_skipped")
+            .unwrap(),
+        1,
+        "the skipped unparseable row must leave durable audit evidence"
+    );
+}
