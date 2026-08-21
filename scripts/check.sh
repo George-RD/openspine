@@ -42,6 +42,9 @@ scripts/check-file-sizes.sh
 echo "== scripts/check-store-encapsulation.sh =="
 scripts/check-store-encapsulation.sh
 
+echo "== scripts/check-owner-proof-mint.sh =="
+scripts/check-owner-proof-mint.sh
+
 echo "== scripts/check-claims.sh =="
 scripts/check-claims.sh
 
