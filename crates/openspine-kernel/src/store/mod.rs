@@ -773,6 +773,8 @@ impl Store {
 pub(crate) mod activation;
 mod audit_append;
 mod audit_support;
+mod audited_effect;
+pub use audited_effect::AuditDescriptor;
 pub(crate) mod boot_clock;
 pub(crate) use boot_clock::BootClockCheck;
 pub(crate) mod briefcase_support;
