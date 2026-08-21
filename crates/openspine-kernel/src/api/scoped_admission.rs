@@ -44,7 +44,7 @@ use ulid::Ulid;
 
 use super::actions::{DispatchError, DispatchedEffect};
 use super::connector_breaker::call_with_connector;
-use super::effect_executors::EffectDisposition;
+use super::effect_executors::{EffectDisposition, RecordedEffectError};
 use crate::pipeline::AppState;
 
 /// The kernel-resolved context for one action plus the digest-bound request
@@ -530,7 +530,22 @@ pub(crate) async fn dispatch_scoped_effect(
             executor_recorded: false,
         };
     };
-    match executor(state, grant, &admission.request, owner_surface).await {
+    dispatched_from_executor(executor(state, grant, &admission.request, owner_surface).await)
+}
+
+/// Map one executor outcome to its [`DispatchedEffect`]. Pure so the record-once
+/// provenance (#244) is unit-testable without store fault injection. Every
+/// `Ok(..)` disposition is executor-owned: the executor already appended its
+/// typed audit event (and, for a failure, self-batched the owner digest), so
+/// `executor_recorded` is set and the mediation handler must not re-record. An
+/// `Err` splits by provenance: a [`RecordedEffectError`] means the executor had
+/// already committed its record and only a follow-up fail-closed durable write
+/// failed — surface it (redrivable) but preserve `executor_recorded: true` and
+/// the settled disposition; any other error means the executor bailed BEFORE
+/// recording anything, so it is un-recorded (`executor_recorded: false`) and,
+/// with unknown effect ordering, fails closed as `DeliveryUnknown` (retain).
+fn dispatched_from_executor(outcome: anyhow::Result<EffectDisposition>) -> DispatchedEffect {
+    match outcome {
         Ok(EffectDisposition::ConfirmedSuccess) => DispatchedEffect {
             disposition: EffectDisposition::ConfirmedSuccess,
             result: Ok(json!({"created": true})),
@@ -557,14 +572,23 @@ pub(crate) async fn dispatch_scoped_effect(
             ))),
             executor_recorded: true,
         },
-        // An executor error's effect ordering is unknown; fail closed by
-        // retaining (DeliveryUnknown) while auditing it truthfully as Resource.
-        Err(err) => DispatchedEffect {
-            disposition: EffectDisposition::DeliveryUnknown,
-            result: Err(DispatchError::Resource(err)),
-            // The executor bailed before writing any audit record (it never
-            // reached its self-audit arms), so the mediation handler records it.
-            executor_recorded: false,
+        Err(err) => match err.downcast::<RecordedEffectError>() {
+            // The executor already committed its record; only a follow-up
+            // fail-closed durable write failed. Surface it for redrive, but the
+            // record is owned — the mediation handler must not duplicate it.
+            Ok(recorded) => DispatchedEffect {
+                disposition: recorded.disposition,
+                result: Err(DispatchError::Resource(recorded.source)),
+                executor_recorded: true,
+            },
+            // The executor bailed before writing any audit record; its effect
+            // ordering is unknown, so fail closed by retaining (DeliveryUnknown)
+            // while the mediation handler records it truthfully as Resource.
+            Err(err) => DispatchedEffect {
+                disposition: EffectDisposition::DeliveryUnknown,
+                result: Err(DispatchError::Resource(err)),
+                executor_recorded: false,
+            },
         },
     }
 }
