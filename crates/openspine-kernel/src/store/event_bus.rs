@@ -211,6 +211,7 @@ impl Store {
                 "aggregate_id",
                 "aggregate_seq",
                 "payload_json",
+                "actor",
             ] {
                 let normalized = match field {
                     "aggregate_id" => meta

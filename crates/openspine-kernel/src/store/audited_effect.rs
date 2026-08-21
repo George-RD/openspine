@@ -15,6 +15,7 @@
 use super::{Store, StoreError};
 use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
+use openspine_schemas::ids::PrincipalId;
 use ulid::Ulid;
 
 /// Owned audit-row inputs for [`Store::with_audited_effect`], mirroring the
@@ -36,6 +37,9 @@ pub struct AuditDescriptor {
     pub target_refs: Vec<ArtifactRef>,
     /// Artifact references carried as payload metadata.
     pub payload_refs: Vec<ArtifactRef>,
+    /// Optional typed principal that authored the effect (spec #197 D-003).
+    /// Folded into the audit pre-image via `append_audit_conn_with_actor`.
+    pub actor: Option<PrincipalId>,
 }
 
 impl AuditDescriptor {
@@ -52,12 +56,21 @@ impl AuditDescriptor {
             task_grant_id: None,
             target_refs: Vec::new(),
             payload_refs: Vec::new(),
+            actor: None,
         }
     }
 
     /// Attach a reason string, returning the descriptor for chaining.
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
         self.reason = Some(reason.into());
+        self
+    }
+
+    /// Attach the typed principal that authored this effect (spec #197 D-003),
+    /// moving owner facts out of the reason string into the typed audit actor
+    /// dimension. Folded into the audit pre-image so it cannot be rewritten.
+    pub fn with_actor(mut self, actor: PrincipalId) -> Self {
+        self.actor = Some(actor);
         self
     }
 }
@@ -85,7 +98,7 @@ impl Store {
     ) -> Result<T, StoreError> {
         self.with_immediate_tx(|tx| {
             let value = effect(tx)?;
-            Self::append_audit_conn(
+            Self::append_audit_conn_with_actor(
                 tx,
                 descriptor.kind.as_str(),
                 descriptor.action.as_ref(),
@@ -94,6 +107,9 @@ impl Store {
                 descriptor.task_grant_id,
                 &descriptor.target_refs,
                 &descriptor.payload_refs,
+                None,
+                None,
+                descriptor.actor.as_ref(),
             )?;
             Ok(value)
         })

@@ -239,4 +239,182 @@ mod tests {
             );
         }
     }
+
+    /// Return the `actor` field (as a JSON value) of the single audit event of
+    /// `kind`, panicking if there is not exactly one such event.
+    fn actor_of_kind(store: &Store, kind: &str) -> serde_json::Value {
+        let events = store.all_audit_event_jsons().unwrap();
+        let mut matching: Vec<serde_json::Value> = events
+            .iter()
+            .map(|j| serde_json::from_str::<serde_json::Value>(j).unwrap())
+            .filter(|v| v["kind"] == kind)
+            .collect();
+        assert_eq!(
+            matching.len(),
+            1,
+            "expected exactly one {kind} audit event, found {}",
+            matching.len()
+        );
+        matching.remove(0)["actor"].clone()
+    }
+
+    #[test]
+    fn bootstrap_emits_bootstrapped_kind_with_owner_actor() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        // Exactly one bootstrap-binding audit, carrying the new owner as actor.
+        assert_eq!(
+            store
+                .count_audit_events_of_kind("identity.bootstrapped")
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            actor_of_kind(&store, "identity.bootstrapped"),
+            serde_json::json!(owner.id.to_string())
+        );
+
+        // Idempotent re-bootstrap takes the fast path and emits no new row.
+        store.bootstrap_owner_principal(42, "George").unwrap();
+        assert_eq!(
+            store
+                .count_audit_events_of_kind("identity.bootstrapped")
+                .unwrap(),
+            1
+        );
+    }
+
+    #[test]
+    fn identity_bound_carries_actor_and_no_owner_fact_in_reason() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(b"999");
+        let val_hash = openspine_schemas::digest::digest_from_hash(hasher.finalize().into());
+        let counterparty = Identity {
+            id: Ulid::new(),
+            display_name: "Bound Counterparty".to_string(),
+            entity_type: EntityType::Person,
+            identifiers: vec![Identifier {
+                kind: IdentifierKind::TelegramUserId,
+                value_hash: val_hash,
+                verified: true,
+                verification_method: IdentifierVerificationMethod::UserConfirmed,
+            }],
+            relationships: vec![],
+            schema_version: 1,
+        };
+        store
+            .owner_assert_identity_binding(owner.id, &OwnerVerifiedProof::test_new(), &counterparty)
+            .unwrap();
+
+        // Owner fact is carried by the typed actor dimension, not the reason.
+        assert_eq!(
+            actor_of_kind(&store, "identity.bound"),
+            serde_json::json!(owner.id.to_string())
+        );
+        let bound = store
+            .all_audit_event_jsons()
+            .unwrap()
+            .into_iter()
+            .map(|j| serde_json::from_str::<serde_json::Value>(&j).unwrap())
+            .find(|v| v["kind"] == "identity.bound")
+            .unwrap();
+        let reason = bound["reason"].as_str().unwrap_or_default();
+        assert!(
+            !reason.contains("owner="),
+            "owner fact must not remain in the reason string: {reason}"
+        );
+        assert!(!reason.contains(&owner.id.to_string()));
+    }
+
+    #[test]
+    fn config_mismatch_emits_audit_with_actor_and_still_rejects() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        // A different configured owner id fails closed but records a durable row.
+        let res = store.bootstrap_owner_principal(99, "George");
+        assert!(matches!(res.unwrap_err(), StoreError::NotOwner(_)));
+
+        assert_eq!(
+            store
+                .count_audit_events_of_kind("identity.owner_config_mismatch")
+                .unwrap(),
+            1
+        );
+        // Actor is the stored owner principal, not the rejected config id.
+        assert_eq!(
+            actor_of_kind(&store, "identity.owner_config_mismatch"),
+            serde_json::json!(owner.id.to_string())
+        );
+    }
+
+    #[test]
+    fn resolution_paths_do_not_write_audit_rows() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        let before = store.all_audit_event_jsons().unwrap().len();
+        let _ = store.get_identity(owner.identity_id).unwrap();
+        let _ = store.principal_exists(owner.id).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(b"42");
+        let owner_hash = openspine_schemas::digest::digest_from_hash(hasher.finalize().into());
+        let _ = store
+            .resolve_identity_by_identifier_hash(&owner_hash, IdentifierKind::TelegramUserId)
+            .unwrap();
+        let after = store.all_audit_event_jsons().unwrap().len();
+
+        assert_eq!(before, after, "resolution must not write audit rows");
+    }
+
+    #[test]
+    fn no_raw_identifier_is_persisted_across_the_audit_dimension() {
+        let store = Store::open_in_memory().unwrap();
+        // Distinctive raw id, unlikely to collide with a ULID/timestamp.
+        let raw = 555_000_111_222_i64;
+        let raw_str = raw.to_string();
+        store.bootstrap_owner_principal(raw, "George").unwrap();
+        // Also exercise the mismatch path with another distinctive id.
+        let raw2 = 999_888_777_665_i64;
+        let raw2_str = raw2.to_string();
+        let _ = store.bootstrap_owner_principal(raw2, "George");
+
+        let conn = store.conn.lock();
+        let mut stmt = conn
+            .prepare("SELECT event_json, meta_json, COALESCE(kind, '') FROM audit_log")
+            .unwrap();
+        let rows: Vec<(String, String, String)> = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        for (event_json, meta_json, _kind) in &rows {
+            for raw in [&raw_str, &raw2_str] {
+                assert!(
+                    !event_json.contains(raw.as_str()),
+                    "raw identifier {raw} leaked into event_json"
+                );
+                assert!(
+                    !meta_json.contains(raw.as_str()),
+                    "raw identifier {raw} leaked into meta_json"
+                );
+            }
+        }
+        // identity_identifiers stores only value hashes, never the raw id.
+        let mut stmt = conn
+            .prepare("SELECT value_hash FROM identity_identifiers")
+            .unwrap();
+        let hashes: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        for h in &hashes {
+            assert!(!h.contains(&raw_str) && !h.contains(&raw2_str));
+        }
+    }
 }
