@@ -187,8 +187,9 @@ fn recorded_effect_error_maps_to_executor_owned_surfaced_failure() {
 /// fail closed as `DeliveryUnknown` because the effect ordering is unknown.
 #[test]
 fn plain_executor_error_stays_unrecorded_and_fails_closed() {
-    let dispatched =
-        dispatched_from_executor(Err(anyhow::anyhow!("artifact read failed before any audit")));
+    let dispatched = dispatched_from_executor(Err(anyhow::anyhow!(
+        "artifact read failed before any audit"
+    )));
     assert_eq!(dispatched.disposition, EffectDisposition::DeliveryUnknown);
     assert!(
         !dispatched.executor_recorded,
