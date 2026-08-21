@@ -787,6 +787,8 @@ mod budget_support_tests;
 mod day2_tests;
 mod digest_store;
 pub(crate) mod disclosure_policies;
+mod effect_settlement;
+pub(crate) use effect_settlement::{BeginEffect, PendingWriteFence};
 mod eval_verdict_currency;
 #[cfg(test)]
 mod eval_verdict_epoch_tests;

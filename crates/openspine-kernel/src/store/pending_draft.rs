@@ -65,9 +65,54 @@ impl Store {
         )?;
         Ok(())
     }
+    /// Check-and-insert the pending-write fence on an open transaction, so the
+    /// seam ([`Store::begin_effect`]) can pair the claim with its audit row in
+    /// one `Immediate` transaction. Returns `false` (no insert) when an
+    /// unresolved fence already exists for `request_fingerprint`. The caller
+    /// owns the enclosing `BEGIN IMMEDIATE`, which is what serializes concurrent
+    /// claims (D-050 TOCTOU closure).
+    pub(super) fn claim_pending_draft_write_conn(
+        tx: &rusqlite::Transaction,
+        id: ulid::Ulid,
+        grant_id: ulid::Ulid,
+        action_request_id: ulid::Ulid,
+        thread_id: &str,
+        request_fingerprint: &str,
+    ) -> Result<bool, StoreError> {
+        let pending: i64 = tx.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM pending_draft_writes
+                WHERE request_fingerprint = ?1 AND state = 'pending'
+            )",
+            params![request_fingerprint],
+            |row| row.get(0),
+        )?;
+        if pending != 0 {
+            return Ok(false);
+        }
+        tx.execute(
+            "INSERT INTO pending_draft_writes
+             (id, grant_id, action_request_id, thread_id, request_fingerprint, created_at, state)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending')",
+            params![
+                id.to_string(),
+                grant_id.to_string(),
+                action_request_id.to_string(),
+                thread_id,
+                request_fingerprint,
+                jiff::Timestamp::now().to_string(),
+            ],
+        )?;
+        Ok(true)
+    }
+
     /// Atomically claim the protected request for one provider write. The
     /// check and insert share one `BEGIN IMMEDIATE` transaction, so concurrent
-    /// callbacks with the same fingerprint cannot both reach Gmail.
+    /// callbacks with the same fingerprint cannot both reach Gmail. Production
+    /// claims run through [`Store::begin_effect`], which pairs the claim with
+    /// its audit row; this standalone wrapper exercises the claim serialization
+    /// in isolation.
+    #[cfg(test)]
     pub(crate) fn claim_pending_draft_write(
         &self,
         id: ulid::Ulid,
@@ -77,31 +122,14 @@ impl Store {
         request_fingerprint: &str,
     ) -> Result<bool, StoreError> {
         self.with_immediate_tx(|tx| {
-            let pending: i64 = tx.query_row(
-                "SELECT EXISTS(
-                    SELECT 1 FROM pending_draft_writes
-                    WHERE request_fingerprint = ?1 AND state = 'pending'
-                )",
-                params![request_fingerprint],
-                |row| row.get(0),
-            )?;
-            if pending != 0 {
-                return Ok(false);
-            }
-            tx.execute(
-                "INSERT INTO pending_draft_writes
-                 (id, grant_id, action_request_id, thread_id, request_fingerprint, created_at, state)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending')",
-                params![
-                    id.to_string(),
-                    grant_id.to_string(),
-                    action_request_id.to_string(),
-                    thread_id,
-                    request_fingerprint,
-                    jiff::Timestamp::now().to_string(),
-                ],
-            )?;
-            Ok(true)
+            Self::claim_pending_draft_write_conn(
+                tx,
+                id,
+                grant_id,
+                action_request_id,
+                thread_id,
+                request_fingerprint,
+            )
         })
     }
 
@@ -124,17 +152,28 @@ impl Store {
         Ok(pending != 0)
     }
 
-    /// Mark a row definitively done (confirmed success or confirmed failure).
-    /// Never called for a delivery-unknown timeout, which must leave the row
-    /// queryable as `pending` for manual reconciliation.
-    pub(crate) fn resolve_pending_draft_write(&self, id: ulid::Ulid) -> Result<(), StoreError> {
-        let conn = self.conn.lock();
-        conn.execute(
+    /// Mark a row `resolved` on an open transaction, so the seam
+    /// ([`Store::settle_effect`]) can pair the resolution with its audit row in
+    /// one `Immediate` transaction. Never called for a delivery-unknown
+    /// timeout, which must leave the row `pending` for manual reconciliation.
+    pub(super) fn resolve_pending_draft_write_conn(
+        tx: &rusqlite::Transaction,
+        id: ulid::Ulid,
+    ) -> Result<(), StoreError> {
+        tx.execute(
             "UPDATE pending_draft_writes SET state = 'resolved', resolved_at = ?2
              WHERE id = ?1",
             params![id.to_string(), jiff::Timestamp::now().to_string()],
         )?;
         Ok(())
+    }
+
+    /// Mark a row definitively done (confirmed success or confirmed failure).
+    /// Production resolutions run through [`Store::settle_effect`]; this
+    /// standalone wrapper resolves a row directly for regression tests.
+    #[cfg(test)]
+    pub(crate) fn resolve_pending_draft_write(&self, id: ulid::Ulid) -> Result<(), StoreError> {
+        self.with_immediate_tx(|tx| Self::resolve_pending_draft_write_conn(tx, id))
     }
 }
 
