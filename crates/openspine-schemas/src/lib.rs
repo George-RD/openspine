@@ -32,6 +32,7 @@ pub mod lineage;
 pub mod model;
 pub mod model_swap;
 pub mod nerve;
+pub mod owner;
 pub mod owner_review;
 pub mod owner_surface;
 pub mod pack;

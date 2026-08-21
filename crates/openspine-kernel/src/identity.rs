@@ -11,6 +11,8 @@ use openspine_schemas::identity::{
     EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity,
     IdentityResolution, MatchedIdentifierType, Relationship, RelationshipKind,
 };
+use openspine_schemas::ids::PrincipalId;
+use openspine_schemas::owner::OwnerPrincipal;
 use sha2::Digest as _;
 use ulid::Ulid;
 
@@ -197,6 +199,30 @@ pub fn handle_owner_bind(
     }
 }
 
+/// Bootstrap the single owner principal (AD-146) and return it as the typed
+/// [`OwnerPrincipal`] aggregate (spec #197).
+///
+/// A thin wrapper over [`Store::bootstrap_owner_principal`]: it reuses the
+/// tested, idempotent, fail-closed single-owner store machinery (never
+/// reimplementing the DB insert or config-match check) and wraps the returned
+/// [`Principal`] into the typed aggregate. The `telegram_user_id` passed in is
+/// the same value the store hashed into the owner identity's Telegram
+/// identifier, so it is the authoritative channel binding to carry on the
+/// aggregate (D-002).
+#[allow(dead_code)] // typed-identity foundation (spec #197 phase 1); production wiring lands with #200
+pub fn bootstrap_owner_principal(
+    store: &Store,
+    telegram_user_id: i64,
+    display_name: &str,
+) -> Result<OwnerPrincipal, StoreError> {
+    let principal = store.bootstrap_owner_principal(telegram_user_id, display_name)?;
+    Ok(OwnerPrincipal::new(
+        PrincipalId::from(principal.id),
+        principal.identity_id,
+        telegram_user_id,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,5 +355,42 @@ mod tests {
         // Count identities after - must be unchanged (no write)
         let count_after = store.count_identities().unwrap();
         assert_eq!(count_before, count_after);
+    }
+
+    #[test]
+    fn bootstrap_owner_principal_wrapper_is_idempotent() {
+        let store = Store::open_in_memory().unwrap();
+
+        let first = bootstrap_owner_principal(&store, 42, "George").unwrap();
+        let second = bootstrap_owner_principal(&store, 42, "George").unwrap();
+
+        assert_eq!(first, second);
+        // The store's single-owner invariant (AD-146) is enforced and tested
+        // at the store layer; here we confirm the persisted owner is the one
+        // the wrapper returned.
+        let stored = store.owner_principal().unwrap().unwrap();
+        assert_eq!(first.principal_id, PrincipalId::from(stored.id));
+    }
+
+    #[test]
+    fn bootstrap_owner_principal_wrapper_fails_closed_on_config_mismatch() {
+        let store = Store::open_in_memory().unwrap();
+
+        bootstrap_owner_principal(&store, 42, "George").unwrap();
+        let mismatch = bootstrap_owner_principal(&store, 99, "George");
+
+        assert!(matches!(mismatch, Err(StoreError::NotOwner(_))));
+    }
+
+    #[test]
+    fn bootstrap_owner_principal_wrapper_maps_fields_from_store() {
+        let store = Store::open_in_memory().unwrap();
+
+        let owner = bootstrap_owner_principal(&store, 42, "George").unwrap();
+        let stored = store.owner_principal().unwrap().unwrap();
+
+        assert_eq!(owner.principal_id, PrincipalId::from(stored.id));
+        assert_eq!(owner.identity_id, stored.identity_id);
+        assert_eq!(owner.telegram_binding(), 42);
     }
 }
