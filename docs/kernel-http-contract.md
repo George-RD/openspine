@@ -60,7 +60,33 @@ Response `200`:
   "limits": { "max_model_calls": 8, "max_artifacts": 20, "max_runtime_seconds": 120 },
   "expires_at": "2026-07-02T10:15:00Z",
   "pending_message": "hello",
-  "selection_tokens": []
+  "selection_tokens": [],
+  "catalog": {
+    "tools": [
+      {
+        "action_id": "openspine.status.read",
+        "status": "callable",
+        "descriptor": {
+          "name": "read_status",
+          "description": "Read the kernel's current status.",
+          "parameters_schema": { "type": "object", "properties": {} },
+          "approval_required": false,
+          "selection_token_required": false
+        }
+      },
+      {
+        "action_id": "connector.enable",
+        "status": "requires_owner_approval",
+        "descriptor": {
+          "name": "enable_connector",
+          "description": "Enable a connector.",
+          "parameters_schema": { "type": "object" },
+          "approval_required": true,
+          "selection_token_required": false
+        }
+      }
+    ]
+  }
 }
 ```
 
@@ -71,6 +97,22 @@ task's grant carries exactly the one token minted for it, e.g.
 `email.read_thread:selected_no_attachments`'s `selection_token_id` payload
 field. The shell never mints or alters a token itself (PRD §15) — it can
 only spend one already listed here.
+
+`catalog` (spec #209, IT3) is the capability-derived tool catalog: the exact
+set of model-consumable tools this grant carries, projected fresh per request
+from `(grant, action_catalog)` by `openspine_authority::project_catalog`. Each
+entry names the `action_id` to POST to `/v1/actions`, a `status` of
+`"callable"` (the grant's `allowed_actions`) or `"requires_owner_approval"`
+(its `approval_required_actions`, proposable but paused by the gate/approval
+flow), and a kernel-owned `descriptor` (LLM-facing `name`, `description`,
+parameter JSON Schema, and presentation flags). It lists **only** granted
+tools: a denied or ungranted action is structurally absent — never a name,
+description, or schema (invariant I2). The catalog is **advisory** — attenuation
+before inference, not authority: `gate()` remains the sole enforcement point,
+so a call to any absent action is still refused. An entry appears only for a
+granted action that also carries a catalog descriptor; a granted-but-undescribed
+action is omitted (a capability gap the gate still enforces). The shell must
+treat a **missing** `catalog` field as fail-closed to empty, never as authority.
 
 `403` on bad/expired token.
 

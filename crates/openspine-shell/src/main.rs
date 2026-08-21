@@ -192,6 +192,7 @@ mod tests {
             expires_at: "2099-01-01T00:00:00Z".to_string(),
             pending_message: "pending".to_string(),
             selection_tokens: Vec::new(),
+            catalog: client::CatalogView::default(),
         }
     }
 
