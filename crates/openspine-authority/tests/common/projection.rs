@@ -24,7 +24,7 @@ pub fn projection_grant(
         id,
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".to_string(),
+        user: Ulid::new().into(),
         purpose: "projection-test".to_string(),
         issued_by: "kernel".to_string(),
         issued_at,

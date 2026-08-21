@@ -165,6 +165,12 @@ pub fn mint_worker_grant(
     // separate caveat from output channels because the two policy axes are
     // intentionally independent at the gate.
     added_caveats.push(Caveat::EgressClassAllowlist { classes: vec![] });
+    // D-174 / spec #220: every worker sub-grant is provably closed for
+    // provenance origins. An empty ProvenanceLabelAllowlist narrows the
+    // effective origin set to empty regardless of what an ancestor carried,
+    // mirroring the empty EgressClassAllowlist above. The owner grant is
+    // minted without this caveat (dormant on the single-owner v1 owner grant).
+    added_caveats.push(Caveat::ProvenanceLabelAllowlist { origins: vec![] });
 
     let child_step = ChainStep {
         grant_id: child_id,
@@ -388,6 +394,32 @@ mod worker_grant_tests {
             ),
             "worker's empty egress caveat must narrow every parent egress class"
         );
+    }
+
+    /// D-174 / spec #220: a minted worker sub-grant is provably closed for
+    /// provenance origins — its empty `ProvenanceLabelAllowlist` caveat
+    /// narrows every origin to disallowed regardless of parent, and the
+    /// chain-appended caveat leaves the MAC valid (AD-148).
+    #[test]
+    fn worker_provenance_label_is_narrowed() {
+        let root = root_grant();
+        let worker = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
+            .expect("worker mints");
+        assert!(worker.verify_mac(TEST_KEY), "worker must verify offline");
+        for origin in [
+            openspine_schemas::provenance::ProvenanceOrigin::Owner {
+                principal: openspine_schemas::ids::PrincipalId::from(Ulid::new()),
+            },
+            openspine_schemas::provenance::ProvenanceOrigin::Counterparty {
+                identity: openspine_schemas::ids::IdentityRef::from(Ulid::new()),
+            },
+            openspine_schemas::provenance::ProvenanceOrigin::System {},
+        ] {
+            assert!(
+                !grant_chain::effectively_allows_provenance_label(&worker, &origin),
+                "worker's empty provenance caveat must narrow every origin"
+            );
+        }
     }
     /// Handoff caveat (Blocker 9-part): a worker minted from a root that
     /// carries a real output channel must still have *effectively empty*

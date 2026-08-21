@@ -164,6 +164,7 @@ fn chain_valid(grant: &TaskGrant, ctx: &dyn GateContext) -> bool {
             &[
                 openspine_schemas::grant_chain::SupportedCaveatKind::OutputChannelAllowlist,
                 openspine_schemas::grant_chain::SupportedCaveatKind::EgressClassAllowlist,
+                openspine_schemas::grant_chain::SupportedCaveatKind::ProvenanceLabelAllowlist,
             ],
         )
 }
