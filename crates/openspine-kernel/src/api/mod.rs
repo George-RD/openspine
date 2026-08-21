@@ -76,6 +76,8 @@ mod eval_gate_production_tests;
 mod eval_gate_replay_tests;
 
 #[cfg(test)]
+mod artifact_activation_fault_tests;
+#[cfg(test)]
 mod artifact_activation_tests;
 #[cfg(test)]
 mod model_swap_fault_tests;

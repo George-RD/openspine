@@ -205,6 +205,11 @@ pub(super) async fn activate_approved_artifact(
     } else {
         final_path.with_extension(format!("tmp.{}", row.id))
     };
+    // The overlay temp file is created and fsynced before the durable commit;
+    // every error between here and the publishing rename below would otherwise
+    // leak it into the overlay directory. The guard removes it on any early
+    // return or `?`; it is disarmed once the rename has consumed the file.
+    let mut tmp_guard = OverlayTempGuard::arm(tmp_path.clone());
     {
         let mut file = std::fs::File::create(&tmp_path)?;
         use std::io::Write as _;
@@ -278,7 +283,6 @@ pub(super) async fn activate_approved_artifact(
                 ),
             })?;
     if !committed {
-        let _ = std::fs::remove_file(&tmp_path);
         return Ok(());
     }
     // Durable commit succeeded (learned row + proposal Active transition +
@@ -286,6 +290,7 @@ pub(super) async fn activate_approved_artifact(
     // atomic rename, then the only in-memory mutation. No fallible I/O or
     // DB write follows, so a crash here is recovered by startup republish.
     std::fs::rename(&tmp_path, &final_path)?;
+    tmp_guard.disarm();
     if !dangling.is_empty() {
         let review_ref = state.artifacts.put(yaml_text.as_bytes())?;
         let request_id = ulid::Ulid::new();
@@ -382,4 +387,31 @@ pub(super) async fn activate_approved_artifact(
     )
     .await;
     Ok(())
+}
+
+/// Removes a staged overlay temp file unless disarmed. The overlay file is
+/// written and fsynced before the durable activation commit (AD-070 crash
+/// ordering), so any failure between staging and the publishing rename must
+/// clean it up rather than leak a `*.tmp.<ulid>` (or `*.pending`) file into
+/// the overlay directory. Disarm only after the rename has consumed the file.
+struct OverlayTempGuard {
+    path: Option<std::path::PathBuf>,
+}
+
+impl OverlayTempGuard {
+    fn arm(path: std::path::PathBuf) -> Self {
+        Self { path: Some(path) }
+    }
+
+    fn disarm(&mut self) {
+        self.path = None;
+    }
+}
+
+impl Drop for OverlayTempGuard {
+    fn drop(&mut self) {
+        if let Some(path) = self.path.take() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
