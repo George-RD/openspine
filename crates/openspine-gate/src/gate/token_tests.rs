@@ -354,13 +354,13 @@ fn token_requiring_action_allowed_with_valid_token() {
     let grant = grant_with_token(&["email.read_thread:selected_no_attachments"], token_id);
     let req = request_for_token("email.read_thread:selected_no_attachments", token_id);
     let mut ctx = MockContext::default();
-    ctx.tokens.insert(
+    let mut token = make_token(
         token_id,
-        make_token(
-            token_id,
-            Timestamp::now() + std::time::Duration::from_secs(600),
-        ),
+        Timestamp::now() + std::time::Duration::from_secs(600),
     );
+    // #258: single-owner v1 mints token and grant from the one owner principal.
+    token.user = grant.user;
+    ctx.tokens.insert(token_id, token);
     let outcome = gate(
         &grant,
         &req,
@@ -371,6 +371,42 @@ fn token_requiring_action_allowed_with_valid_token() {
         Timestamp::now(),
     );
     assert_eq!(outcome.decision, GateDecision::Allow);
+}
+
+#[test]
+fn token_requiring_action_denied_for_principal_mismatch() {
+    // #258 invariant: a grant-bound, correctly-typed, unexpired token whose
+    // principal differs from the grant's owner is DENIED. Pins the
+    // single-owner guarantee (production mint always matches); the deny
+    // activates cross-principal enforcement once mint spans principals
+    // (tenancy track #134).
+    let token_id = Ulid::new();
+    let grant = grant_with_token(&["email.read_thread:selected_no_attachments"], token_id);
+    let req = request_for_token("email.read_thread:selected_no_attachments", token_id);
+    let mut ctx = MockContext::default();
+    let mut token = make_token(
+        token_id,
+        Timestamp::now() + std::time::Duration::from_secs(600),
+    );
+    // Everything valid except the principal: a different owner.
+    token.user = Ulid::new().into();
+    assert_ne!(token.user, grant.user);
+    ctx.tokens.insert(token_id, token);
+    let outcome = gate(
+        &grant,
+        &req,
+        ActionOrigin::Shell,
+        &ctx,
+        &test_catalog(),
+        &NoEgress,
+        Timestamp::now(),
+    );
+    assert_eq!(
+        outcome.decision,
+        GateDecision::Deny {
+            reason: DenialReason::SelectionTokenInvalid
+        }
+    );
 }
 
 pub(crate) fn test_catalog() -> ActionCatalog {
