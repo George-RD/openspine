@@ -6,7 +6,10 @@
 //! approval path (which must converge on the kernel-owned Gmail executor).
 
 use crate::api::actions::{mediate_and_dispatch_action, DispatchError, FailureSurface};
-use crate::api::dispatch_tests::{mint_grant_with_selection_token, OWNER_CHAT_ID};
+use crate::api::dispatch_tests::{
+    insert_bound_briefcase_without_classified_sections, mint_grant_with_selection_token,
+    mint_grant_with_selection_token_egress, OWNER_CHAT_ID,
+};
 use crate::gmail::GmailConnector;
 use crate::pipeline::handle_owner_update;
 use crate::store::standing_rules_tests::manifest;
@@ -16,7 +19,9 @@ use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::{digest_of, Digest};
+use openspine_schemas::egress::EgressClass;
 use openspine_schemas::event::{TargetRef, TargetRefKind};
+use openspine_schemas::identity::RelationshipKind;
 use openspine_schemas::standing_rule::BudgetWindow;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -217,10 +222,18 @@ async fn execution_backed_readiness_and_no_executor_summaries_are_distinct() {
     }));
 
     let unbacked = test_state();
-    let (unbacked_grant, _) = mint_grant_with_selection_token(
+    // email.send is egress-rated (DirectMessage): admit it fully so dispatch
+    // reaches the executor miss rather than an egress-class gate denial.
+    let (unbacked_grant, _) = mint_grant_with_selection_token_egress(
         &unbacked,
         &["email.send"],
+        &[EgressClass::DirectMessage],
         Timestamp::now() + Duration::from_secs(120),
+    );
+    insert_bound_briefcase_without_classified_sections(
+        &unbacked,
+        &unbacked_grant,
+        RelationshipKind::Client,
     );
     let unbacked_result = mediate_and_dispatch_action(
         &unbacked,

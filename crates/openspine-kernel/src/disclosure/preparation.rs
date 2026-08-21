@@ -125,9 +125,9 @@ pub(crate) async fn prepare_disclosure_query(
 /// the content cites, never by an LLM's judgment of the text.
 ///
 /// `recipient` records the single-verified-recipient intent; this function
-/// does not resolve or deliver to any recipient, rates no action, and is not
-/// yet called from any dispatch path.
-#[allow(dead_code)]
+/// does not resolve or deliver to any recipient and rates no action. It is
+/// called from the `email.send` dispatch path (#206), which resolves the
+/// egress class from the catalog before invoking it.
 pub(crate) fn prepare_messaging_disclosure(
     action_id: ActionId,
     relationship: RelationshipKind,

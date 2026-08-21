@@ -252,7 +252,7 @@ pub(super) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
             id("email.send"),
             ActionEgressDeclaration {
                 output_channels: None,
-                egress_class: None,
+                egress_class: Some(EgressClass::DirectMessage),
             },
         ),
         (
