@@ -13,10 +13,11 @@
 
 use std::collections::{hash_map::Entry, HashMap};
 
+use crate::api::effect_executors::EffectDisposition;
 use crate::connector_reality::{
     BreakerState, CircuitBreakerConfig, ConnectorProbePermit, ConnectorRuntime, RateLimitConfig,
 };
-use crate::gmail::GmailConnector;
+use crate::gmail::{GmailConnector, GmailError, GmailFailureClass};
 use crate::telegram::TelegramConnector;
 use jiff::Timestamp;
 use openspine_gate::EgressClassifier;
@@ -35,6 +36,20 @@ pub trait Connector {
     fn egress_endpoints(&self) -> Vec<(ActionId, EgressClass)> {
         Vec::new()
     }
+
+    /// Classify a resolved (non-timeout) write error into its typed
+    /// [`EffectDisposition`] at the provider boundary (T2, epic #198). The
+    /// conservative default treats any resolved write error as a
+    /// [`EffectDisposition::ConfirmedFailure`]: the provider answered and
+    /// nothing took hold. Only a connector whose write is not confirmed by the
+    /// returned value — and whose error may mean the write landed before the
+    /// response was lost — overrides this. Telegram (whose send is confirmed by
+    /// its response) and the future WhatsApp connector (T19) inherit the
+    /// default; timeout-after-transmission is handled uniformly one layer up as
+    /// [`EffectDisposition::DeliveryUnknown`] for every connector.
+    fn classify_write_disposition(&self, _err: &anyhow::Error) -> EffectDisposition {
+        EffectDisposition::ConfirmedFailure
+    }
 }
 
 impl Connector for TelegramConnector {
@@ -46,6 +61,33 @@ impl Connector for TelegramConnector {
 impl Connector for GmailConnector {
     fn name(&self) -> &'static str {
         "gmail"
+    }
+
+    /// Gmail's `create_draft` effect is not confirmed by the returned value, so
+    /// an unconfirmed write must retain durable pending evidence unless the
+    /// provider response proves non-occurrence (#173/#174). Transport/
+    /// no-response, malformed success responses, HTTP 429, and HTTP 5xx may all
+    /// mean the draft landed before the response was lost or substituted, so
+    /// they are [`EffectDisposition::DeliveryUnknown`]. A definite client
+    /// rejection (HTTP 4xx other than 429) is a
+    /// [`EffectDisposition::ConfirmedFailure`]. Lifted verbatim from the PR
+    /// #231 status classification; the truth table is unchanged.
+    fn classify_write_disposition(&self, err: &anyhow::Error) -> EffectDisposition {
+        if let Some(gmail) = err.downcast_ref::<GmailError>() {
+            let ambiguous_api_status = matches!(
+                (gmail.class, gmail.status),
+                (GmailFailureClass::Api, Some(429 | 500..=599))
+            );
+            if ambiguous_api_status
+                || matches!(
+                    gmail.class,
+                    GmailFailureClass::Transport | GmailFailureClass::MalformedResponse
+                )
+            {
+                return EffectDisposition::DeliveryUnknown;
+            }
+        }
+        EffectDisposition::ConfirmedFailure
     }
 }
 
@@ -209,6 +251,29 @@ impl ConnectorRegistry {
             v.push(gmail);
         }
         v.into_iter()
+    }
+
+    /// Classify a resolved (non-timeout) write error at the provider boundary
+    /// (T2, #198), dispatching to the named connector's own
+    /// [`Connector::classify_write_disposition`] so each provider owns its
+    /// truth mapping. An unconfigured or unknown connector name falls back to
+    /// the conservative default ([`EffectDisposition::ConfirmedFailure`]); a
+    /// Gmail write can only occur when Gmail is configured, so the fallback is
+    /// unreachable for the one connector that overrides the default today.
+    pub(crate) fn classify_write_disposition(
+        &self,
+        connector: &str,
+        err: &anyhow::Error,
+    ) -> EffectDisposition {
+        match connector {
+            "gmail" => self
+                .gmail
+                .as_ref()
+                .map(|gmail| gmail.classify_write_disposition(err))
+                .unwrap_or(EffectDisposition::ConfirmedFailure),
+            "telegram" => self.telegram.classify_write_disposition(err),
+            _ => EffectDisposition::ConfirmedFailure,
+        }
     }
 
     /// Admit one connector effect through its rate limiter and circuit breaker.

@@ -1,6 +1,7 @@
 // openspine:allow-large-module reason: action mediation and dispatch (gate, handler dispatch, lyra preview, approval flow, failure surfacing)
 use super::authenticate;
 use super::connector_breaker::call_with_connector;
+use super::effect_executors::EffectDisposition;
 use super::proposal::{propose_draft_creation, ProposalError};
 use super::telegram_truncate::{truncate_for_telegram, truncate_with_notice};
 use crate::failure_surfacing::{batch_failure, FailureClass};
@@ -232,6 +233,15 @@ pub(super) async fn post_actions(
     }))
 }
 
+/// Release the consult and fired-exception reservations for a refusal proven
+/// to be pre-effect (`NotAttempted`), rearming the fired one-use token only
+/// after its budget cancel succeeds. This is the `NotAttempted` settlement
+/// primitive: [`settle_reservations`] delegates its cancel arm here, and every
+/// pre-dispatch refusal (before any disclosure reservation is minted, and
+/// before a disposition object exists) calls it directly. Disclosure
+/// reservations are cancelled separately — by [`settle_reservations`] after
+/// dispatch, or self-rolled-back inside disclosure enforcement on its own
+/// pre-dispatch failures — so they are never live at a direct call here.
 fn cleanup_pre_effect_reservations(
     state: &AppState,
     consult_reservation: Option<&(String, u32, String)>,
@@ -270,6 +280,129 @@ fn cleanup_pre_effect_reservations(
                     reservation_id,
                     "standing-rule fired reservation cancel failed before effect"
                 );
+            }
+        }
+    }
+}
+
+/// Settle every standing-rule reservation for one dispatched effect from its
+/// typed [`EffectDisposition`] alone (T3, #198). This is the single source of
+/// truth for finalize/retain/cancel; no caller re-interprets a generic
+/// [`DispatchError`] to decide the reservation lifecycle.
+///
+/// | disposition | consult + disclosure | fired exception |
+/// | --- | --- | --- |
+/// | `ConfirmedSuccess` | finalize (commit budget) | finalize + mark attempted |
+/// | `DeliveryUnknown` | retain `reserved`, note use | note use (no lapse) + mark attempted |
+/// | `NotAttempted` / `ConfirmedFailure` | cancel (release budget) | cancel + rearm one-use token |
+///
+/// `DeliveryUnknown` deliberately retains: releasing budget for a write that
+/// may have landed would under-count real effects, and the executor's pending-
+/// write fence stays open for later reconciliation (D-157). `NotAttempted` and
+/// `ConfirmedFailure` both release, because neither left an effect: nothing was
+/// sent, or the provider proved nothing took hold and the executor already
+/// resolved its fence.
+fn settle_reservations(
+    state: &AppState,
+    disposition: EffectDisposition,
+    consult_reservation: Option<&(String, u32, String)>,
+    disclosure_reservations: &[crate::disclosure::DisclosureReservation],
+    fired_reservation: Option<&(String, u32, String)>,
+    fired_pending: Option<&str>,
+    now: Timestamp,
+) {
+    match disposition {
+        EffectDisposition::ConfirmedSuccess => {
+            if let Some((rule_id, version, reservation_id)) = consult_reservation {
+                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "standing-rule reservation finalize failed after successful dispatch");
+                }
+            }
+            for (rule_id, version, reservation_id) in disclosure_reservations {
+                if let Err(err) = state.store.finalize_standing_rule_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "disclosure reservation finalize failed after successful dispatch");
+                }
+            }
+            if let Some((rule_id, version, reservation_id)) = fired_reservation {
+                // D-161: a fired exception is accounted as an exception, so it
+                // commits its usage without refreshing the lapse clock.
+                if let Err(err) = state.store.finalize_standing_rule_exception_reservation(
+                    rule_id,
+                    *version,
+                    reservation_id,
+                    now,
+                ) {
+                    tracing::error!(error = %err, reservation_id, "standing-rule fired reservation finalize failed after successful dispatch");
+                }
+                let receipt = format!("fired-effect:{reservation_id}:{now}");
+                if let Err(err) = state
+                    .store
+                    .mark_fired_effect_attempted(reservation_id, &receipt)
+                {
+                    tracing::error!(error = %err, reservation_id, "standing-rule fired effect attempt not recorded");
+                }
+            }
+        }
+        EffectDisposition::DeliveryUnknown => {
+            // Deliberately no finalize and no cancel: every reservation on this
+            // path stays `reserved` and keeps counting against its window. A
+            // retained `reserved` row still counts against quota and rate
+            // everywhere headroom is computed (`status IN ('reserved','committed')`),
+            // so the budget stays conservatively consumed; finalizing it to
+            // `committed` would foreclose the later release that a fence
+            // reconciler needs (D-157). Each retained rule is still *used*, so
+            // refresh its lapse clock and re-evaluate the AD-010 drift trigger.
+            for (rule_id, _, _) in consult_reservation
+                .into_iter()
+                .chain(disclosure_reservations.iter())
+            {
+                if let Err(use_err) = state.store.note_standing_rule_use(rule_id, now) {
+                    tracing::error!(error = %use_err, rule_id, "standing-rule use not recorded after retained dispatch");
+                }
+            }
+            if let Some((rule_id, _, reservation_id)) = fired_reservation {
+                // D-161: silence does not refresh the lapse clock, even when its
+                // effect outcome is ambiguous.
+                if let Err(use_err) = state
+                    .store
+                    .note_standing_rule_use_with_lapse(rule_id, now, false)
+                {
+                    tracing::error!(error = %use_err, rule_id, "standing-rule exception use not recorded after retained dispatch");
+                }
+                let receipt = format!("delivery-unknown:{reservation_id}:{now}");
+                if let Err(mark_err) = state
+                    .store
+                    .mark_fired_effect_attempted(reservation_id, &receipt)
+                {
+                    tracing::error!(error = %mark_err, reservation_id, "standing-rule fired delivery-unknown attempt not recorded");
+                }
+            }
+        }
+        EffectDisposition::NotAttempted | EffectDisposition::ConfirmedFailure => {
+            // Neither left an effect: release the reservation and, for fired
+            // defaults, rearm the one-use token only after the cancel succeeds.
+            cleanup_pre_effect_reservations(
+                state,
+                consult_reservation,
+                fired_reservation,
+                fired_pending,
+            );
+            for (_, _, reservation_id) in disclosure_reservations {
+                if let Err(cancel_err) =
+                    state.store.cancel_standing_rule_reservation(reservation_id)
+                {
+                    tracing::error!(error = %cancel_err, reservation_id, "disclosure reservation cancel failed after non-effect dispatch");
+                }
             }
         }
     }
@@ -1126,147 +1259,27 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             .await
         }
     };
-    match dispatched {
-        Ok(result) => {
-            if let Some((rule_id, version, reservation_id)) = &consult_reservation {
-                if let Err(err) = state.store.finalize_standing_rule_reservation(
-                    rule_id,
-                    *version,
-                    reservation_id,
-                    now,
-                ) {
-                    tracing::error!(error = %err, reservation_id, "standing-rule reservation finalize failed after successful dispatch");
-                }
-            }
-            for (rule_id, version, reservation_id) in &disclosure_reservations {
-                if let Err(err) = state.store.finalize_standing_rule_reservation(
-                    rule_id,
-                    *version,
-                    reservation_id,
-                    now,
-                ) {
-                    tracing::error!(error = %err, reservation_id, "disclosure reservation finalize failed after successful dispatch");
-                }
-            }
-            if let Some((rule_id, version, reservation_id)) = &fired_reservation {
-                // D-161: a fired exception is accounted as an exception, so it
-                // commits its usage without refreshing the lapse clock.
-                if let Err(err) = state.store.finalize_standing_rule_exception_reservation(
-                    rule_id,
-                    *version,
-                    reservation_id,
-                    now,
-                ) {
-                    tracing::error!(error = %err, reservation_id, "standing-rule fired reservation finalize failed after successful dispatch");
-                }
-                let receipt = format!("fired-effect:{reservation_id}:{now}");
-                if let Err(err) = state
-                    .store
-                    .mark_fired_effect_attempted(reservation_id, &receipt)
-                {
-                    tracing::error!(error = %err, reservation_id, "standing-rule fired effect attempt not recorded");
-                }
-            }
-            Ok((GateDecision::Allow, None, Some(result), standing_budget))
-        }
+    // T3 (#198): settlement is determined SOLELY by the typed disposition the
+    // dispatch path already computed at the provider boundary. No caller-side
+    // re-interpretation of a generic error decides finalize/retain/cancel.
+    settle_reservations(
+        state,
+        dispatched.disposition,
+        consult_reservation.as_ref(),
+        &disclosure_reservations,
+        fired_reservation.as_ref(),
+        fired_pending,
+        now,
+    );
+    match dispatched.result {
+        Ok(result) => Ok((GateDecision::Allow, None, Some(result), standing_budget)),
         Err(err) => {
-            // An ambiguous outcome means the provider may have acted before
-            // the response was lost. The reservation is RETAINED — left
-            // `reserved`, neither cancelled nor finalized — and the retry is
-            // fenced. A retained `reserved` row still counts against quota and
-            // rate everywhere headroom is computed
-            // (`status IN ('reserved','committed')`), so the budget stays
-            // conservatively consumed; finalizing it to `committed` instead
-            // would foreclose any later release, because
-            // `cancel_standing_rule_reservation` can only delete a row that is
-            // still `reserved`.
-            //
-            // What happens to the row after that, precisely: nothing
-            // automatic. It stays `reserved` and ages out of its trailing
-            // window like any other spent unit. There is no reconciler today
-            // that reads the open pending-write fence and settles the matching
-            // reservation — `resolve_pending_draft_write` only flips the fence
-            // row and never touches `standing_rule_usage`. Keeping the row
-            // releasable is what makes that reconciler possible later; it is
-            // future work, not current behaviour (D-157).
-            let retain_reservation = match &err {
-                // Ambiguous provider outcome: retain budget and fence any retry.
-                DispatchError::DeliveryUnknown(_) => true,
-                // Cancelled here. `BadRequest`/`ConnectorUnavailable`/
-                // `NoExecutor` are proven pre-effect — no write future was
-                // polled. `Connector` carries BOTH scoped-lane effect
-                // outcomes that cancel: `RefusedPreEffect` (the executor
-                // refused before polling any write future, so nothing was
-                // sent and no fence was recorded) and `FailedAfterAttempt` (a
-                // *definite* post-attempt failure — the provider answered that
-                // nothing took hold and the executor already resolved its
-                // pending-write fence). Releasing the budget is correct for
-                // both; only an outcome that might have landed is retained,
-                // and that is the arm above.
-                DispatchError::BadRequest(_)
-                | DispatchError::Connector(_)
-                | DispatchError::ConnectorUnavailable(_)
-                | DispatchError::NoExecutor(_) => false,
-                // Resource includes persistence/recording failures whose
-                // effect ordering may be unknown; retain budget fail-closed.
-                DispatchError::Resource(_) => true,
-            };
-            if retain_reservation {
-                // Deliberately no finalize and no cancel: every reservation on
-                // this path stays `reserved` and keeps counting against its
-                // window. Each retained rule is still *used*, so refresh its
-                // lapse clock and re-evaluate the AD-010 drift trigger — a
-                // rule that keeps saturating through ambiguous outcomes is
-                // exactly the one the owner needs surfaced for re-review.
-                for (rule_id, _, _) in consult_reservation
-                    .iter()
-                    .chain(disclosure_reservations.iter())
-                {
-                    if let Err(use_err) = state.store.note_standing_rule_use(rule_id, now) {
-                        tracing::error!(error = %use_err, rule_id, "standing-rule use not recorded after retained dispatch");
-                    }
-                }
-                if let Some((rule_id, _, _)) = &fired_reservation {
-                    // D-161: silence does not refresh the lapse clock, even
-                    // when its effect outcome is ambiguous.
-                    if let Err(use_err) = state
-                        .store
-                        .note_standing_rule_use_with_lapse(rule_id, now, false)
-                    {
-                        tracing::error!(error = %use_err, rule_id, "standing-rule exception use not recorded after retained dispatch");
-                    }
-                }
-                if let Some((_, _, reservation_id)) = &fired_reservation {
-                    let receipt = format!("delivery-unknown:{reservation_id}:{now}");
-                    if let Err(mark_err) = state
-                        .store
-                        .mark_fired_effect_attempted(reservation_id, &receipt)
-                    {
-                        tracing::error!(error = %mark_err, reservation_id, "standing-rule fired delivery-unknown attempt not recorded");
-                    }
-                }
-            } else {
-                // Confirmed pre-effect failures release the reservation and,
-                // for fired defaults, rearm the one-use token only after the
-                // cancellation succeeds.
-                cleanup_pre_effect_reservations(
-                    state,
-                    consult_reservation.as_ref(),
-                    fired_reservation.as_ref(),
-                    fired_pending,
-                );
-                for (_, _, reservation_id) in &disclosure_reservations {
-                    if let Err(cancel_err) =
-                        state.store.cancel_standing_rule_reservation(reservation_id)
-                    {
-                        tracing::error!(error = %cancel_err, reservation_id, "disclosure reservation cancel failed after pre-effect dispatch failure");
-                    }
-                }
-            }
             // AD-103: a `ConnectorUnavailable` (Open/HalfOpen breaker) already
             // appended the distinct `connector_unavailable` audit; do not also
             // record `action.dispatch_failed` or batch it (that would
-            // double-count the operational outage).
+            // double-count the operational outage). Settlement already ran
+            // above (the breaker rejection is `NotAttempted`, so the
+            // reservation was released).
             if matches!(err, DispatchError::ConnectorUnavailable(_)) {
                 return Err(err);
             }
@@ -1319,6 +1332,18 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
             Err(err)
         }
     }
+}
+
+/// One dispatched effect's outcome, carrying BOTH the typed
+/// [`EffectDisposition`] that drives reservation settlement (T3, #198) AND the
+/// caller-facing [`Result`] surface that other layers audit, batch, and return.
+/// The two are produced together at the provider boundary — the scoped executor
+/// returns its disposition directly, and the generic connector path classifies
+/// its own outcome — so settlement reads `disposition` alone and never
+/// re-interprets `result` to decide finalize/retain/cancel.
+pub(crate) struct DispatchedEffect {
+    pub(crate) disposition: EffectDisposition,
+    pub(crate) result: Result<Value, DispatchError>,
 }
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-//! `EffectOutcome` acceptance tests for scope-matched standing-rule admission
+//! `EffectDisposition` acceptance tests for scope-matched standing-rule admission
 //! (#128). Every test drives a real `email.create_draft` request through the
 //! production mediation path and asserts the durable reservation, fence, and
 //! audit consequences of each outcome.
@@ -399,7 +399,7 @@ async fn unresolved_counterparty_falls_back_via_action_api() {
 /// the catalogued `executor_id` resolved to nothing. That is a proven
 /// pre-effect failure — no write future was polled — so the reservation is
 /// cancelled and the full budget is restored. This is the one arm of the
-/// five-way `EffectOutcome`/dispatch matrix that no other test reaches: the
+/// five-way `EffectDisposition`/dispatch matrix that no other test reaches: the
 /// fired-token lane covers a different admission source, and the readiness
 /// tests exercise messaging without a reservation lifecycle.
 #[tokio::test]

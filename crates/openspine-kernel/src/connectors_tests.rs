@@ -12,7 +12,8 @@ mod tests {
     use openspine_schemas::selection::SelectionToken;
     use ulid::Ulid;
 
-    use crate::gmail::GmailConnector;
+    use crate::api::effect_executors::EffectDisposition;
+    use crate::gmail::{GmailConnector, GmailError, GmailFailureClass};
     use crate::telegram::TelegramConnector;
 
     use super::super::{Connector, ConnectorRegistry};
@@ -347,5 +348,64 @@ mod tests {
         ));
         registry.record_connector_outcome("gmail", true);
         assert_eq!(registry.breaker_state("gmail"), Some(BreakerState::Closed));
+    }
+
+    // T2 (#198): the resolved-write disposition truth table lives on the
+    // connector seam. Lifted from PR #231's `map_write_error` unit tests; the
+    // classification is unchanged, only its home and return type moved from a
+    // Gmail-only `downcast_ref` to `Connector::classify_write_disposition`.
+    fn gmail_disposition(status: Option<u16>, class: GmailFailureClass) -> EffectDisposition {
+        gmail().classify_write_disposition(&anyhow::Error::new(GmailError { status, class }))
+    }
+
+    #[test]
+    fn gmail_transport_write_is_delivery_unknown() {
+        assert_eq!(
+            gmail_disposition(None, GmailFailureClass::Transport),
+            EffectDisposition::DeliveryUnknown
+        );
+    }
+
+    #[test]
+    fn gmail_malformed_success_response_is_delivery_unknown() {
+        assert_eq!(
+            gmail_disposition(Some(200), GmailFailureClass::MalformedResponse),
+            EffectDisposition::DeliveryUnknown
+        );
+    }
+
+    #[test]
+    fn gmail_429_and_5xx_writes_are_delivery_unknown() {
+        // #173: neither a 429 nor a 5xx proves the draft did not land.
+        for status in [429u16, 500, 502, 503, 504] {
+            assert_eq!(
+                gmail_disposition(Some(status), GmailFailureClass::Api),
+                EffectDisposition::DeliveryUnknown,
+                "status {status} must be delivery-unknown"
+            );
+        }
+    }
+
+    #[test]
+    fn confirmed_gmail_4xx_write_failure_is_confirmed_failure() {
+        // A definite client rejection (4xx other than 429) proves the write
+        // did not take hold and resolves the pending row.
+        for status in [400u16, 403, 422] {
+            assert_eq!(
+                gmail_disposition(Some(status), GmailFailureClass::Api),
+                EffectDisposition::ConfirmedFailure,
+                "status {status} must be a confirmed failure"
+            );
+        }
+    }
+
+    #[test]
+    fn telegram_default_write_error_is_confirmed_failure() {
+        // Telegram's send is confirmed by its response, so a resolved error is
+        // a confirmed failure. This default also serves the future WhatsApp
+        // connector (T19) until it proves it needs delivery-unknown handling.
+        let disposition = TelegramConnector::new("t".to_string())
+            .classify_write_disposition(&anyhow::anyhow!("telegram sendMessage 400"));
+        assert_eq!(disposition, EffectDisposition::ConfirmedFailure);
     }
 }

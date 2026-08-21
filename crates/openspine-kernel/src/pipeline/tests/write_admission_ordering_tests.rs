@@ -7,7 +7,7 @@ use super::approval_draft_reconcile_tests::total_pending_draft_write_rows;
 use super::{
     approval_fixture_grant, approval_fixture_request, gmail_with_token_mock, thread_with_sender,
 };
-use crate::api::effect_executors::EffectOutcome;
+use crate::api::effect_executors::EffectDisposition;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -72,7 +72,7 @@ async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
 
     assert_eq!(
         outcome,
-        EffectOutcome::RefusedPreEffect,
+        EffectDisposition::NotAttempted,
         "a rejected write admission never attempted a provider write"
     );
     // The refusal must be at the WRITE admission, not earlier. Proving the
