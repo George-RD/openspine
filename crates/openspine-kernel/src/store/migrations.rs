@@ -141,6 +141,14 @@ pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreErro
         conn,
         "ALTER TABLE notify_dead_letters ADD COLUMN availability_outcome TEXT",
     )?;
+    // #217 (spec #208 D-006): the channel-neutral owner surface reference that
+    // replaces the Telegram-shaped `chat_id`. Additive and idempotent, so a
+    // legacy file gains the column before the destructive v10 rebuild backfills
+    // it from `chat_id` and drops the integer.
+    add_column_if_missing(
+        conn,
+        "ALTER TABLE notify_dead_letters ADD COLUMN owner_surface_json TEXT",
+    )?;
     // 5b: `proposed_artifacts` (in its sibling module, for the size gate).
     // implement-failure-surfacing-contract: sensitive digest detail moves to
     // the encrypted artifact store; SQLite keeps only a bounded non-sensitive

@@ -61,7 +61,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 9);
+        assert_eq!(user_version, 10);
 
         let table_exists: i64 = conn
             .query_row(
@@ -103,7 +103,7 @@ fn versioned_migrations_up_down_up() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 9);
+        assert_eq!(user_version, 10);
 
         let table_exists: i64 = conn
             .query_row(
@@ -169,7 +169,7 @@ fn legacy_user_version_0_stamps_and_migrates() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 9);
+        assert_eq!(user_version, 10);
 
         // Verify legacy row survived (aggregate_id default is 'system')
         let agg_id: String = conn
@@ -205,7 +205,7 @@ fn versioned_migrations_atomicity_rollback() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 9);
+        assert_eq!(user_version, 10);
     }
     drop(store);
 
@@ -223,7 +223,7 @@ fn versioned_migrations_atomicity_rollback() {
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 9);
+    assert_eq!(user_version, 10);
 
     let table_exists: i64 = conn
         .query_row(
@@ -255,7 +255,7 @@ fn versioned_migrations_future_rejected() {
             err,
             crate::store::StoreError::UnsupportedVersion {
                 current: 99,
-                latest: 9
+                latest: 10
             }
         ),
         "expected UnsupportedVersion, got {err:?}"
@@ -323,7 +323,7 @@ fn v2_to_v3_skills_schema_migration_backfills_legacy_rows() {
         let user_version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(user_version, 9, "v3 through v7 migrations must have run");
+        assert_eq!(user_version, 10, "v3 through v10 migrations must have run");
 
         // Verify the column exists.
         let col_count: i64 = conn
@@ -360,20 +360,22 @@ fn v4_normalizes_legacy_timestamp_renderings_idempotently() {
     let path = dir.path().join("kernel.db");
     let store = Store::open(&path).unwrap();
     {
-        let conn = store.conn.lock();
+        let mut conn = store.conn.lock();
         // Re-introduce the three legacy renderings jiff's Display can emit.
         conn.execute_batch(
             "INSERT INTO notify_dead_letters \
-               (id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, \
+               (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, \
                 next_attempt_at, state) \
              VALUES \
-               ('whole', '2026-01-01T00:00:00Z', 1, 'r', '', '', 0, '2026-01-01T00:00:00Z', 'pending'), \
-               ('short', '2026-01-01T00:00:00.5Z', 2, 'r', '', '', 0, '2026-01-01T00:00:00.5Z', 'pending'), \
-               ('full',  '2026-01-01T00:00:00.123456789Z', 3, 'r', '', '', 0, '2026-01-01T00:00:00.123456789Z', 'pending');",
+               ('whole', '2026-01-01T00:00:00Z', NULL, 'r', '', '', 0, '2026-01-01T00:00:00Z', 'pending'), \
+               ('short', '2026-01-01T00:00:00.5Z', NULL, 'r', '', '', 0, '2026-01-01T00:00:00.5Z', 'pending'), \
+               ('full',  '2026-01-01T00:00:00.123456789Z', NULL, 'r', '', '', 0, '2026-01-01T00:00:00.123456789Z', 'pending');",
         )
         .unwrap();
         // Roll the stamp back so the next open re-applies v4 over these rows.
-        conn.execute_batch("PRAGMA user_version = 3").unwrap();
+        // Use the documented down path (not a raw PRAGMA) so the v10 rebuild's
+        // `chat_id` source column is restored and the subsequent re-up runs.
+        super::migrations::revert_versioned_migrations_for_test(&mut conn, 3).unwrap();
     }
     drop(store);
 

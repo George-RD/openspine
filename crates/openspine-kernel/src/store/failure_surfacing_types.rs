@@ -1,6 +1,7 @@
 use jiff::Timestamp;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::digest::Digest;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use rusqlite::Transaction;
 use ulid::Ulid;
 
@@ -180,7 +181,7 @@ impl DetailReceipt {
 pub struct NotifyDeadLetter {
     pub id: Ulid,
     pub enqueued_at: Timestamp,
-    pub chat_id: i64,
+    pub owner_surface: OwnerSurfaceRef,
     pub text_ref: String,
     pub task_grant_id: Ulid,
     pub digest_item_ids: Vec<Ulid>,
@@ -219,6 +220,7 @@ pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreErro
            id TEXT PRIMARY KEY,\n\
            enqueued_at TEXT NOT NULL,\n\
            chat_id INTEGER NOT NULL,\n\
+           owner_surface_json TEXT,\n\
            text_ref TEXT NOT NULL,\n\
            task_grant_id TEXT,\n\
            digest_item_ids TEXT NOT NULL DEFAULT '',\n\

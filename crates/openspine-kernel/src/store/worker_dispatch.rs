@@ -241,10 +241,12 @@ pub fn pending_worker_dispatches(
 /// surfaced. A failed enqueue or conditional mark rolls back both operations,
 /// preserving eligibility for a later startup/watchdog sweep.
 ///
-/// The dead-letter row is Telegram-adapter storage, so the chat id is resolved
-/// from the owner surface here, at that boundary. A non-Telegram owner surface
-/// has no Telegram address to enqueue, so the call fails closed rather than
-/// fabricating one.
+/// The dead-letter row persists the channel-neutral [`OwnerSurfaceRef`]
+/// (#217, spec #208 D-006); the store no longer reaches into the Telegram
+/// adapter to compute a chat id. Address resolution happens at delivery time in
+/// the retry worker. Any authenticated owner surface persists here — Telegram,
+/// terminal, or otherwise — and an unaddressable one is refused at delivery,
+/// not enqueue.
 pub fn surface_stranded_worker(
     store: &Store,
     owner_surface: &OwnerSurfaceRef,
@@ -252,47 +254,42 @@ pub fn surface_stranded_worker(
     grant_id: Ulid,
     reason: &str,
 ) -> Result<(), StoreError> {
-    let chat_id = crate::telegram::telegram_chat_id(owner_surface).map_err(|err| {
-        StoreError::OwnerNotificationFailed(format!(
-            "stranded worker notification requires a resolvable owner chat: {err}"
-        ))
-    })?;
-    let mut conn = store.conn.lock();
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    Store::append_audit_conn(
-        &tx,
-        "owner.notify_failed",
-        Some(&ActionId::new("owner.notify")),
-        None,
-        Some(reason),
-        Some(grant_id),
-        &[],
-        &[],
-    )?;
-    let now = sql_timestamp(Timestamp::now());
-    let notification_id = Ulid::new().to_string();
-    tx.execute(
-        "INSERT INTO notify_dead_letters \
-         (id, enqueued_at, chat_id, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
-         VALUES (?1, ?2, ?3, ?4, ?5, '', 0, ?2, 'pending')",
-        params![
-            notification_id,
-            now,
-            chat_id,
-            text_ref,
-            grant_id.to_string(),
-        ],
-    )?;
-    let changed = tx.execute(
-        "UPDATE worker_dispatch SET recovery_claimed_at = ?2 \
-         WHERE grant_id = ?1 AND state = 'dispatched' AND recovery_claimed_at IS NULL",
-        params![grant_id.to_string(), now],
-    )?;
-    if changed != 1 {
-        return Err(StoreError::WorkerDispatchNotFound);
-    }
-    tx.commit()?;
-    Ok(())
+    let owner_surface_json = serde_json::to_string(owner_surface)?;
+    store.with_immediate_tx(|tx| {
+        Store::append_audit_conn(
+            tx,
+            "owner.notify_failed",
+            Some(&ActionId::new("owner.notify")),
+            None,
+            Some(reason),
+            Some(grant_id),
+            &[],
+            &[],
+        )?;
+        let now = sql_timestamp(Timestamp::now());
+        let notification_id = Ulid::new().to_string();
+        tx.execute(
+            "INSERT INTO notify_dead_letters \
+             (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state) \
+             VALUES (?1, ?2, ?3, ?4, ?5, '', 0, ?2, 'pending')",
+            params![
+                notification_id,
+                now,
+                owner_surface_json,
+                text_ref,
+                grant_id.to_string(),
+            ],
+        )?;
+        let changed = tx.execute(
+            "UPDATE worker_dispatch SET recovery_claimed_at = ?2 \
+             WHERE grant_id = ?1 AND state = 'dispatched' AND recovery_claimed_at IS NULL",
+            params![grant_id.to_string(), now],
+        )?;
+        if changed != 1 {
+            return Err(StoreError::WorkerDispatchNotFound);
+        }
+        Ok(())
+    })
 }
 
 /// Legacy marking helper retained for focused store tests; production recovery

@@ -795,6 +795,7 @@ pub(crate) mod eval_verdict_store;
 mod eval_verdict_store_tests;
 pub(crate) mod event_bus;
 mod failure_surfacing;
+mod failure_surfacing_counters;
 pub(crate) mod failure_surfacing_types;
 mod gate_support;
 #[cfg(test)]
@@ -806,6 +807,9 @@ pub(crate) mod learned_artifacts;
 pub(crate) mod learned_reconfirmation;
 #[cfg(test)]
 mod lineage_tests;
+mod migration_dead_letter_surface;
+#[cfg(test)]
+mod migration_dead_letter_surface_tests;
 mod migration_owner_review;
 #[cfg(test)]
 mod migration_owner_surface_tests;
