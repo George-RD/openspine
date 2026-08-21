@@ -195,6 +195,7 @@ pub(super) async fn post_actions(
             &state,
             &grant,
             action,
+            ActionOrigin::Shell,
             &owner_surface,
             payload.as_ref(),
             FailureSurface::DirectResponse,
@@ -817,6 +818,7 @@ pub(crate) async fn mediate_and_dispatch_action(
         state,
         grant,
         action,
+        ActionOrigin::Shell,
         owner_surface,
         payload,
         surface,
@@ -851,6 +853,7 @@ pub(crate) async fn mediate_and_dispatch_action_headless(
         state,
         grant,
         action,
+        ActionOrigin::Shell,
         owner_surface,
         payload,
         FailureSurface::Detached,
@@ -858,6 +861,57 @@ pub(crate) async fn mediate_and_dispatch_action_headless(
         None,
         None,
         true,
+    )
+    .await
+}
+
+/// Kernel-origin variant (D-055.3): dispatch acting for the kernel itself
+/// (proactive/autonomous lanes with no principal present) rather than for a
+/// shell-submitted request. It runs the IDENTICAL mediation body as every
+/// other origin, so the catalog-rated external-egress disclosure hook fires
+/// for a rated kernel-origin action exactly as it does for a worker-requested
+/// one — there is no second, ungated path for autonomous outbound content
+/// (spec #204 story 7, #207). `gate()` still trusts a kernel-origin action only
+/// for the catalog's enumerated kernel-origin set, and its egress-class
+/// coverage check is origin-symmetric.
+///
+/// This is the single blessed kernel-origin dispatch entry: any future
+/// proactive/autonomous producer routes rated outbound content through here
+/// rather than hand-rolling a connector call (the mistake `notify_owner_with_digest`
+/// avoids only because `owner.notify` is unrated). DORMANT: no production
+/// producer dispatches a rated kernel-origin action yet, so it is
+/// `#[allow(dead_code)]` — exercised today only by the origin-symmetry tests
+/// that drive this real entry, mirroring `escalation::resolve_grant_for_thread`.
+#[allow(dead_code)]
+pub(crate) async fn mediate_and_dispatch_action_kernel_origin(
+    state: &AppState,
+    grant: &TaskGrant,
+    action: ActionId,
+    owner_surface: &OwnerSurfaceRef,
+    payload: Option<&Value>,
+    surface: FailureSurface,
+    fired_pending: Option<&str>,
+) -> Result<
+    (
+        GateDecision,
+        Option<String>,
+        Option<Value>,
+        Option<StandingRuleBudgetInfo>,
+    ),
+    DispatchError,
+> {
+    mediate_and_dispatch_action_with_attribution_and_token(
+        state,
+        grant,
+        action,
+        ActionOrigin::Kernel,
+        owner_surface,
+        payload,
+        surface,
+        None,
+        None,
+        fired_pending,
+        false,
     )
     .await
 }
@@ -877,6 +931,7 @@ pub(crate) async fn mediate_and_dispatch_action_with_attribution(
             state,
             grant,
             action,
+            ActionOrigin::Shell,
             owner_surface,
             payload,
             surface,
@@ -894,6 +949,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     state: &AppState,
     grant: &TaskGrant,
     action: ActionId,
+    origin: ActionOrigin,
     owner_surface: &OwnerSurfaceRef,
     payload: Option<&Value>,
     surface: FailureSurface,
@@ -978,7 +1034,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
     let outcome = gate(
         grant,
         &request,
-        ActionOrigin::Shell,
+        origin,
         &state.store,
         &state.action_catalog,
         &state.connectors,
