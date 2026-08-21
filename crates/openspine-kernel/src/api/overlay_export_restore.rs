@@ -42,39 +42,12 @@ fn require_root_owner_grant(
     grant: &TaskGrant,
     action: &ActionId,
 ) -> Result<(), DispatchError> {
-    if grant.user != state.owner.principal_id {
-        return Err(DispatchError::BadRequest(
-            "overlay export/restore requires the configured owner principal".to_string(),
-        ));
-    }
-
-    let is_root = grant.parent_grant_id.is_none()
-        && grant.root_grant_id == grant.id
-        && matches!(
-            grant.chain.as_slice(),
-            [root]
-                if root.grant_id == grant.id
-                    && root.parent_grant_id.is_none()
-        );
-    if !is_root {
-        return Err(DispatchError::BadRequest(
-            "overlay export/restore requires a root grant with no delegated hops".to_string(),
-        ));
-    }
-
-    if !state.action_catalog.is_non_delegable(action) {
-        return Err(DispatchError::BadRequest(
-            "overlay export/restore requires non-delegable action classification".to_string(),
-        ));
-    }
-
-    if !grant.effectively_allows(action) {
-        return Err(DispatchError::BadRequest(
-            "overlay export/restore requires exact effective authority for the action".to_string(),
-        ));
-    }
-
-    Ok(())
+    super::root_owner_grant::require_root_owner_grant(
+        state,
+        grant,
+        action,
+        "overlay export/restore",
+    )
 }
 
 fn map_control_error(err: ControlError) -> DispatchError {

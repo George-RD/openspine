@@ -28,11 +28,13 @@ use crate::store::{Store, StoreError};
 
 /// The outcome of a crypto-erase.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)] // exercised by focused tests; owner command is a follow-up
 pub struct ErasureReport {
     /// Number of derived learned artifacts flipped to `Erased`.
     pub derived_artifacts_invalidated: usize,
     /// Exact identities of learned artifacts invalidated by this erasure pass.
+    // Read only by the focused erasure tests; the owner command deliberately
+    // does not surface it (avoids leaking learned-artifact detail in a reply).
+    #[allow(dead_code)]
     pub invalidated_identities: Vec<crate::store::learned_artifacts::LearnedArtifactIdentity>,
     /// `true` if the counterparty's payload key existed and was deleted.
     pub key_deleted: bool,
@@ -41,7 +43,6 @@ pub struct ErasureReport {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)] // exercised by focused tests; owner command is a follow-up
 pub enum CounterpartyEraseError {
     #[error("store error during counterparty erasure: {0}")]
     Store(#[from] StoreError),
@@ -56,7 +57,6 @@ pub enum CounterpartyEraseError {
 /// Ordering is fail-closed: a ledger-write failure leaves generation-local
 /// state untouched; any post-ledger failure keeps the scope closed in memory
 /// so startup can retry the same signed id.
-#[allow(dead_code)]
 pub fn erase_counterparty(
     store: &Store,
     artifacts: &ArtifactStore,

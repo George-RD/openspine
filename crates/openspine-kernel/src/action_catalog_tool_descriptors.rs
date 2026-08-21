@@ -12,7 +12,7 @@
 //! scoped to the dispatchable set.
 //!
 //! Invariants the gate test pins:
-//! - one descriptor per dispatchable id (cardinality == 15);
+//! - one descriptor per dispatchable id (cardinality == 16);
 //! - `selection_token_required` mirrors
 //!   `ActionCatalog::requires_selection_token(id).is_some()` exactly.
 //!
@@ -363,6 +363,24 @@ pub(super) fn tool_descriptors() -> Vec<(ActionId, ToolDescriptor)> {
                 ),
                 // Restore overwrites the live governed artifact set: a
                 // privileged mutation the owner should ratify.
+                approval_required: true,
+                selection_token_required: false,
+            },
+        ),
+        (
+            id("openspine.counterparty.erase"),
+            ToolDescriptor {
+                name: "erase_counterparty".to_string(),
+                description: "Crypto-erase a counterparty by id: sign a terminal-ledger entry, \
+                              then invalidate derived artifacts and delete the payload key (root \
+                              owner grant only, irreversible)."
+                    .to_string(),
+                parameters_schema: single_string_field(
+                    "counterparty_id",
+                    "The ULID of the counterparty to crypto-erase.",
+                ),
+                // Irreversible destruction of a counterparty's payload key and
+                // derived artifacts: a privileged mutation the owner should ratify.
                 approval_required: true,
                 selection_token_required: false,
             },

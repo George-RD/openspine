@@ -28,6 +28,7 @@ designed_tools:
   - worker.report_result
   - openspine.overlay.export
   - openspine.overlay.restore
+  - openspine.counterparty.erase
 approval_required_tools:
   - connector.enable
   - route.activate

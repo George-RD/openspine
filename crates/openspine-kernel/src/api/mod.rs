@@ -19,6 +19,7 @@ mod briefcase;
 #[cfg(test)]
 mod briefcase_tests;
 pub(crate) mod connector_breaker;
+pub(crate) mod erase_counterparty;
 pub(crate) mod overlay_export_restore;
 pub(crate) mod skill_context;
 pub(crate) mod worker;
@@ -31,6 +32,7 @@ mod generate;
 pub(crate) mod handler_registry;
 pub(crate) mod plan;
 mod proposal;
+mod root_owner_grant;
 mod scoped_admission;
 pub(crate) use scoped_admission::{resolve_scoped_admission, ScopedAdmission};
 mod task;

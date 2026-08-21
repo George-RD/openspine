@@ -10,8 +10,8 @@ fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
     let paths = catalog.effect_paths();
     assert_eq!(
         paths.len(),
-        21,
-        "Expected exactly 21 classified effect paths, got {:?}",
+        22,
+        "Expected exactly 22 classified effect paths, got {:?}",
         paths
     );
     let path_names: Vec<&str> = paths.iter().map(|p| p.name.as_str()).collect();
@@ -42,6 +42,7 @@ fn test_catalog_effect_paths_are_fully_enumerated_and_classified() {
     assert!(path_names.contains(&"dispatch_skill_context"));
     assert!(path_names.contains(&"dispatch_overlay_export"));
     assert!(path_names.contains(&"dispatch_overlay_restore"));
+    assert!(path_names.contains(&"dispatch_erase_counterparty"));
 }
 
 #[test]
@@ -118,12 +119,12 @@ fn every_dispatchable_action_has_a_tool_descriptor() {
     }
     // Cardinality, not just membership: pins the dispatchable descriptor count
     // so a deliberately-removed descriptor (or a stray extra one) fails, not
-    // just a lookup miss. 15 is the current dispatchable set; changing it is a
+    // just a lookup miss. 16 is the current dispatchable set; changing it is a
     // conscious edit here.
     assert_eq!(
         catalog.tool_descriptor_count(),
-        15,
-        "expected exactly 15 dispatchable tool descriptors"
+        16,
+        "expected exactly 16 dispatchable tool descriptors"
     );
 }
 
@@ -316,6 +317,7 @@ fn non_delegable_catalog_is_exactly_the_root_only_set() {
     let expected = [
         "openspine.overlay.export",
         "openspine.overlay.restore",
+        "openspine.counterparty.erase",
         "email.send",
     ];
     assert_eq!(catalog.non_delegable_count(), expected.len());

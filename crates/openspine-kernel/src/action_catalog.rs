@@ -86,6 +86,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         "skill.context",
         "openspine.overlay.export",
         "openspine.overlay.restore",
+        "openspine.counterparty.erase",
     ];
     // Every catalog id receives a literal declaration. `None/None` is a
     // deliberate classification for non-egress actions, not an auto-default;
@@ -97,6 +98,7 @@ pub fn canonical_catalog() -> ActionCatalog {
         .with_non_delegable([
             id("openspine.overlay.export"),
             id("openspine.overlay.restore"),
+            id("openspine.counterparty.erase"),
             id("email.send"),
         ])
         // Only a catalogued READ action with no kernel-side implementation
@@ -229,6 +231,10 @@ pub fn canonical_catalog() -> ActionCatalog {
             },
             EffectPath {
                 name: "dispatch_overlay_restore".to_string(),
+                classification: EffectPathClass::GatedShell,
+            },
+            EffectPath {
+                name: "dispatch_erase_counterparty".to_string(),
                 classification: EffectPathClass::GatedShell,
             },
         ])
