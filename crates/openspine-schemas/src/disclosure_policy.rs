@@ -15,7 +15,7 @@ use crate::digest::{digest_of_bytes, Digest};
 use crate::egress::EgressClass;
 use crate::event::DataClassification;
 use crate::identity::RelationshipKind;
-use crate::ids::ArtifactId;
+use crate::ids::{ArtifactId, IdentityRef, PrincipalId};
 use crate::provenance::ProvenanceOrigin;
 
 /// Disclosure sensitivity carried by a classified briefcase item.
@@ -226,6 +226,24 @@ pub struct DisclosureCarveOut {
     pub query_shape: Digest,
 }
 
+/// The typed identity a prepared outbound query is bound to reach (D-174 /
+/// spec #220). The origin-closure stage in [`check_egress`] compares each
+/// classified item's [`ProvenanceOrigin`] against this recipient; data whose
+/// origin lies outside the recipient's identity closure is blocked unless a
+/// grant caveat authorizes it. `Unresolved` is fail-closed: it matches no
+/// origin, so an unresolved recipient can never receive counterparty- or
+/// owner-origin data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecipientIdentity {
+    /// The owner principal (#197 / AD-146).
+    Owner { principal: PrincipalId },
+    /// A specific counterparty identity.
+    Counterparty { identity: IdentityRef },
+    /// No recipient identity could be resolved — most-restrictive, matches
+    /// nothing.
+    Unresolved,
+}
+
 /// One outbound query. `generalized_query` is the only text eligible for
 /// transport; `raw_query` remains local to the caller and is never serialized.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -233,6 +251,8 @@ pub struct OutboundQuery {
     pub generalized_query: String,
     pub egress_class: EgressClass,
     pub provenance: DisclosureProvenance,
+    /// The typed identity this query is bound to reach (D-174 / spec #220).
+    pub recipient: RecipientIdentity,
 }
 
 impl OutboundQuery {
@@ -244,11 +264,13 @@ impl OutboundQuery {
         sensitive_terms: &BTreeSet<String>,
         egress_class: EgressClass,
         provenance: DisclosureProvenance,
+        recipient: RecipientIdentity,
     ) -> Self {
         Self {
             generalized_query: generalize_query(raw_query, sensitive_terms),
             egress_class,
             provenance,
+            recipient,
         }
     }
 
@@ -281,8 +303,41 @@ pub struct OwnerQuestionEscalation {
 /// The deterministic disclosure gate result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DisclosureGateDecision {
-    Allow { query: OutboundQuery },
-    Block { escalation: OwnerQuestionEscalation },
+    Allow {
+        query: OutboundQuery,
+    },
+    Block {
+        escalation: OwnerQuestionEscalation,
+    },
+    /// D-174 / spec #220: the origin-closure stage blocked an item whose typed
+    /// identity origin lies outside the bound recipient's closure and is not
+    /// authorized by any grant provenance caveat. Distinct from the coverage
+    /// `Block` so the kernel audits and routes it separately and the auditor
+    /// can reconstruct the decision from origin + sensitivity + recipient +
+    /// egress class.
+    CrossIdentityBlock {
+        origin: Option<ProvenanceOrigin>,
+        recipient: RecipientIdentity,
+        disclosure_class: DisclosureClass,
+        egress_class: EgressClass,
+    },
+}
+
+/// Whether a classified item's typed-identity `origin` may reach `recipient`
+/// under the D-174 origin closure. System-origin data is kernel-generated and
+/// never a cross-identity disclosure, so it reaches any recipient; owner and
+/// counterparty origins reach only the same typed identity. An `Unresolved`
+/// recipient matches nothing (fail closed).
+fn origin_reaches_recipient(origin: &ProvenanceOrigin, recipient: &RecipientIdentity) -> bool {
+    match origin {
+        ProvenanceOrigin::System {} => true,
+        ProvenanceOrigin::Owner { principal } => {
+            matches!(recipient, RecipientIdentity::Owner { principal: to } if principal == to)
+        }
+        ProvenanceOrigin::Counterparty { identity } => {
+            matches!(recipient, RecipientIdentity::Counterparty { identity: to } if identity == to)
+        }
+    }
 }
 
 /// Check every classified provenance class against the relationship-scoped
@@ -292,7 +347,10 @@ pub fn check_egress(
     relationship: RelationshipKind,
     query: OutboundQuery,
     policies: &[DisclosurePolicy],
+    authorized_origins: &[ProvenanceOrigin],
 ) -> DisclosureGateDecision {
+    // Stage 1 — relationship-scoped disclosure coverage. Sensitivity comes
+    // exclusively from immutable provenance, never the generalized text.
     for class in query.provenance.classes() {
         if class.requires_policy()
             && !policies.iter().any(|policy| {
@@ -314,6 +372,32 @@ pub fn check_egress(
                     question:
                         "Can I share this kind of information with this relationship through this channel?".to_string(),
                 },
+            };
+        }
+    }
+    // Stage 2 (D-174 / spec #220) — origin-vs-recipient closure. Runs ONLY
+    // after coverage passes. An item egresses to the bound recipient only when
+    // its typed-identity origin is within the recipient's closure (system, or
+    // the same identity) or a grant caveat authorizes the origin. An
+    // unresolved origin is most-restrictive and fails closed. Comparison is
+    // typed-field only — never query text, never an LLM judgment.
+    for item in &query.provenance.items {
+        if !item.disclosure_class.requires_policy() {
+            continue;
+        }
+        let reaches = match &item.origin {
+            Some(origin) => {
+                origin_reaches_recipient(origin, &query.recipient)
+                    || authorized_origins.contains(origin)
+            }
+            None => false,
+        };
+        if !reaches {
+            return DisclosureGateDecision::CrossIdentityBlock {
+                origin: item.origin.clone(),
+                recipient: query.recipient.clone(),
+                disclosure_class: item.disclosure_class,
+                egress_class: query.egress_class,
             };
         }
     }

@@ -54,11 +54,48 @@ pub(crate) async fn enforce_disclosure_egress(
 ) -> Result<EnforcedDisclosure, DisclosureError> {
     let egress_class = trusted_egress_class(&request.action_id)
         .ok_or_else(|| DisclosureError::UnratedEgress(request.action_id.clone()))?;
+    // Resolve the typed recipient this grant's task is bound to reach from the
+    // kernel-owned briefcase (mirrors the `is_counterparty_erased` precedent).
+    // An unresolved counterparty — or no briefcase — is fail-closed: the origin
+    // closure then matches nothing. Resolved uniformly here so every dispatch
+    // origin (worker-requested and kernel-origin/proactive) inherits the
+    // identical check through this one chokepoint — no second ungated path.
+    let recipient = match state
+        .store
+        .find_briefcase(grant.id)
+        .map_err(DisclosureError::Store)?
+    {
+        Some(briefcase) => match briefcase.task_shape.counterparty {
+            CounterpartyRef::Bound { identity_id, .. } => RecipientIdentity::Counterparty {
+                identity: IdentityRef::from(identity_id),
+            },
+            CounterpartyRef::Unresolved { .. } => RecipientIdentity::Unresolved,
+        },
+        None => RecipientIdentity::Unresolved,
+    };
+    // Pre-resolve the grant-authorized origin set (D-174 widening). The pure
+    // core stays grant-free and only tests membership. The v1 owner grant
+    // carries no `ProvenanceLabelAllowlist` caveat, so every present origin is
+    // authorized and the closure is dormant; a worker sub-grant's empty caveat
+    // authorizes none, closing the origin set strictly.
+    let mut authorized_origins: Vec<ProvenanceOrigin> = Vec::new();
+    for item in &request.provenance.items {
+        if let Some(origin) = &item.origin {
+            if !authorized_origins.contains(origin)
+                && openspine_schemas::grant_chain::effectively_allows_provenance_label(
+                    grant, origin,
+                )
+            {
+                authorized_origins.push(origin.clone());
+            }
+        }
+    }
     let query = OutboundQuery::from_private_context(
         &request.raw_query,
         &request.sensitive_terms,
         egress_class,
         request.provenance,
+        recipient,
     );
     let now = Timestamp::now();
     let all_policies = state
@@ -135,7 +172,7 @@ pub(crate) async fn enforce_disclosure_egress(
     }
     let blocked_query_digest =
         openspine_schemas::digest::digest_of_bytes(query.generalized_query.as_bytes());
-    match check_egress(request.relationship, query, &policies) {
+    match check_egress(request.relationship, query, &policies, &authorized_origins) {
         openspine_schemas::disclosure_policy::DisclosureGateDecision::Allow { query } => {
             Ok(EnforcedDisclosure {
                 query,
@@ -170,6 +207,50 @@ pub(crate) async fn enforce_disclosure_egress(
                 .await
                 .map_err(DisclosureError::Store)?;
             Err(DisclosureError::Blocked(escalation))
+        }
+        openspine_schemas::disclosure_policy::DisclosureGateDecision::CrossIdentityBlock {
+            origin,
+            recipient,
+            disclosure_class,
+            egress_class: blocked_egress,
+        } => {
+            cancel_reservations(&state.store, &reservations);
+            // Auditor (D-174): the block is reconstructible from typed origin +
+            // sensitivity + recipient + egress class + relationship. Detail is
+            // kernel-side only; the worker sees the generic denial mapped in
+            // api/actions.rs, never these internals.
+            let detail = format!(
+                "cross-identity egress blocked: origin={origin:?} recipient={recipient:?} class={disclosure_class:?} egress={blocked_egress:?} relationship={:?}",
+                request.relationship
+            );
+            state
+                .store
+                .append_audit(
+                    "disclosure.cross_identity_blocked",
+                    Some(&request.action_id),
+                    None,
+                    Some(&detail),
+                    Some(grant.id),
+                    &[],
+                    &[],
+                )
+                .map_err(DisclosureError::Store)?;
+            // Inform the owner (AD-133) but mint no disclosure pending question:
+            // unlike a coverage block, a cross-identity block is not resolved by
+            // a relationship/class "/disclosure allow" — widening an origin is a
+            // grant-caveat decision, never a runtime owner answer.
+            let event = EscalationEvent::owner_question(
+                grant.id,
+                format!(
+                    "Blocked outbound {disclosure_class:?} data whose origin is outside the recipient's identity closure ({blocked_egress:?})."
+                ),
+                grant.thread_id.clone(),
+                now,
+            );
+            route_escalation(state, grant, &event)
+                .await
+                .map_err(DisclosureError::Store)?;
+            Err(DisclosureError::CrossIdentityBlocked)
         }
     }
 }

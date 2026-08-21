@@ -14,16 +14,18 @@ use std::collections::BTreeSet;
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::{ArtifactRef, Lifecycle};
-use openspine_schemas::briefcase::{BriefcaseSection, VisibilityClass};
+use openspine_schemas::briefcase::{BriefcaseSection, CounterpartyRef, VisibilityClass};
 use openspine_schemas::disclosure_policy::{
     check_egress, generalize_query, ClassifiedBriefcaseItem, DisclosureCarveOut, DisclosureClass,
     DisclosurePolicy, DisclosurePolicyKey, DisclosureProvenance, OutboundQuery,
-    OwnerQuestionEscalation, PreparedQuery, PreparedQueryRef,
+    OwnerQuestionEscalation, PreparedQuery, PreparedQueryRef, RecipientIdentity,
 };
 use openspine_schemas::egress::EgressClass;
 use openspine_schemas::escalation::EscalationEvent;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::identity::RelationshipKind;
+use openspine_schemas::ids::IdentityRef;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use openspine_schemas::standing_rule::{BudgetWindow, StandingRuleManifest};
 use serde_json::Value;
 use ulid::Ulid;
@@ -49,6 +51,10 @@ pub(crate) enum DisclosureError {
     UnratedEgress(ActionId),
     UnclassifiedSection(String),
     BudgetExhausted(String),
+    /// D-174 / spec #220: the origin-closure stage blocked cross-identity data
+    /// whose typed origin lies outside the bound recipient's closure and is
+    /// unauthorized by any grant provenance caveat.
+    CrossIdentityBlocked,
     Store(StoreError),
 }
 
@@ -67,6 +73,8 @@ pub(crate) use self::preparation::*;
 
 #[cfg(test)]
 mod disclosure_messaging_tests;
+#[cfg(test)]
+mod disclosure_origin_closure_tests;
 #[cfg(test)]
 mod disclosure_regression_tests;
 #[cfg(test)]

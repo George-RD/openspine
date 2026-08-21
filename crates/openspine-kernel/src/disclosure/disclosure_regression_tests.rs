@@ -101,11 +101,13 @@ fn caller_omitted_class_is_still_enforced() {
         &BTreeSet::new(),
         EgressClass::Search,
         provenance,
+        openspine_schemas::disclosure_policy::RecipientIdentity::Unresolved,
     );
     let decision = openspine_schemas::disclosure_policy::check_egress(
         RelationshipKind::Client,
         query,
         &policies,
+        &[],
     );
     match decision {
         openspine_schemas::disclosure_policy::DisclosureGateDecision::Block { escalation } => {
@@ -114,6 +116,9 @@ fn caller_omitted_class_is_still_enforced() {
         openspine_schemas::disclosure_policy::DisclosureGateDecision::Allow { .. } => {
             panic!("uncovered Sensitive class must block despite covered Internal")
         }
+        openspine_schemas::disclosure_policy::DisclosureGateDecision::CrossIdentityBlock {
+            ..
+        } => panic!("coverage must block the uncovered Sensitive class before the origin closure"),
     }
 }
 

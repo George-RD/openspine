@@ -27,8 +27,11 @@ fn query(class: DisclosureClass) -> OutboundQuery {
         &BTreeSet::from(["condition X".to_string()]),
         EgressClass::Search,
         DisclosureProvenance {
-            items: vec![item(class)],
+            // System origin so the coverage-focused cases below are unaffected
+            // by the origin closure (system data reaches any recipient).
+            items: vec![item_with_origin(class, Some(ProvenanceOrigin::System {}))],
         },
+        RecipientIdentity::Unresolved,
     )
 }
 
@@ -61,6 +64,7 @@ fn uncovered_disclosure_class_blocks_and_produces_owner_question_escalation() {
         RelationshipKind::Client,
         query(DisclosureClass::Sensitive),
         &[],
+        &[],
     );
     let DisclosureGateDecision::Block { escalation } = decision else {
         panic!("uncovered sensitive egress must block");
@@ -78,7 +82,7 @@ fn coverage_uses_provenance_even_when_generalized_text_is_public() {
     let mut outbound = query(DisclosureClass::Private);
     outbound.generalized_query = "public research topic".to_string();
     assert!(matches!(
-        check_egress(RelationshipKind::Client, outbound, &[]),
+        check_egress(RelationshipKind::Client, outbound, &[], &[]),
         DisclosureGateDecision::Block { .. }
     ));
 }
@@ -89,7 +93,8 @@ fn active_relationship_and_class_policy_allows_covered_egress() {
         check_egress(
             RelationshipKind::Client,
             query(DisclosureClass::Private),
-            &[policy(DisclosureClass::Private)]
+            &[policy(DisclosureClass::Private)],
+            &[],
         ),
         DisclosureGateDecision::Allow { .. }
     ));
@@ -101,7 +106,8 @@ fn public_context_does_not_require_relationship_policy() {
         check_egress(
             RelationshipKind::Vendor,
             query(DisclosureClass::Public),
-            &[]
+            &[],
+            &[],
         ),
         DisclosureGateDecision::Allow { .. }
     ));
@@ -119,7 +125,8 @@ fn carve_out_extends_covered_egress_without_new_policy() {
         check_egress(
             RelationshipKind::Client,
             query(DisclosureClass::Private),
-            &[covered]
+            &[covered],
+            &[],
         ),
         DisclosureGateDecision::Allow { .. }
     ));
@@ -265,4 +272,187 @@ fn data_classification_maps_unknown_to_sensitive() {
         DisclosureClass::from(DataClassification::Unknown),
         DisclosureClass::Sensitive
     );
+}
+
+fn cp_origin(n: u128) -> ProvenanceOrigin {
+    ProvenanceOrigin::Counterparty {
+        identity: crate::ids::IdentityRef::from(Ulid::from(n)),
+    }
+}
+
+fn cp_recipient(n: u128) -> RecipientIdentity {
+    RecipientIdentity::Counterparty {
+        identity: crate::ids::IdentityRef::from(Ulid::from(n)),
+    }
+}
+
+fn owner_origin() -> ProvenanceOrigin {
+    ProvenanceOrigin::Owner {
+        principal: crate::ids::PrincipalId::from(Ulid::from(7_u128)),
+    }
+}
+
+fn owner_recipient() -> RecipientIdentity {
+    RecipientIdentity::Owner {
+        principal: crate::ids::PrincipalId::from(Ulid::from(7_u128)),
+    }
+}
+
+/// One classified item of `class` and `origin`, bound to `recipient`, over a
+/// covered egress class — so the origin closure is what decides the outcome.
+fn closure_query(
+    origin: Option<ProvenanceOrigin>,
+    recipient: RecipientIdentity,
+    class: DisclosureClass,
+) -> OutboundQuery {
+    OutboundQuery::from_private_context(
+        "hello",
+        &BTreeSet::new(),
+        EgressClass::Search,
+        DisclosureProvenance {
+            items: vec![item_with_origin(class, origin)],
+        },
+        recipient,
+    )
+}
+
+/// D-174 / spec #220: counterparty X's datum bound for counterparty Y is
+/// blocked at the origin closure even though (Client, Internal, Search) is
+/// covered — the cross-counterparty leak Bell's "internal data to a stranger"
+/// failure mode names.
+#[test]
+fn cross_counterparty_origin_is_blocked_by_the_closure() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(cp_origin(1)),
+            cp_recipient(2),
+            DisclosureClass::Internal,
+        ),
+        &[policy(DisclosureClass::Internal)],
+        &[],
+    );
+    assert!(matches!(
+        decision,
+        DisclosureGateDecision::CrossIdentityBlock { .. }
+    ));
+}
+
+/// A counterparty's own datum reaches that same counterparty recipient.
+#[test]
+fn same_counterparty_origin_reaches_its_recipient() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(cp_origin(1)),
+            cp_recipient(1),
+            DisclosureClass::Internal,
+        ),
+        &[policy(DisclosureClass::Internal)],
+        &[],
+    );
+    assert!(matches!(decision, DisclosureGateDecision::Allow { .. }));
+}
+
+/// Owner-origin, non-public data cannot reach a counterparty (stranger)
+/// recipient without an authorizing caveat — "internal data to a stranger"
+/// closed by omission (user story 3).
+#[test]
+fn owner_origin_is_blocked_to_a_counterparty_recipient() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(owner_origin()),
+            cp_recipient(2),
+            DisclosureClass::Internal,
+        ),
+        &[policy(DisclosureClass::Internal)],
+        &[],
+    );
+    assert!(matches!(
+        decision,
+        DisclosureGateDecision::CrossIdentityBlock { .. }
+    ));
+}
+
+/// Owner and system origins both reach the owner recipient.
+#[test]
+fn owner_and_system_origins_reach_the_owner_recipient() {
+    for origin in [owner_origin(), ProvenanceOrigin::System {}] {
+        let decision = check_egress(
+            RelationshipKind::Client,
+            closure_query(Some(origin), owner_recipient(), DisclosureClass::Internal),
+            &[policy(DisclosureClass::Internal)],
+            &[],
+        );
+        assert!(matches!(decision, DisclosureGateDecision::Allow { .. }));
+    }
+}
+
+/// System-origin data is kernel-generated, never a cross-identity disclosure,
+/// so it reaches any recipient.
+#[test]
+fn system_origin_reaches_any_recipient() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(ProvenanceOrigin::System {}),
+            cp_recipient(2),
+            DisclosureClass::Internal,
+        ),
+        &[policy(DisclosureClass::Internal)],
+        &[],
+    );
+    assert!(matches!(decision, DisclosureGateDecision::Allow { .. }));
+}
+
+/// A grant caveat that authorizes counterparty X's origin widens the closure:
+/// X's datum may then egress to a different recipient (the #226 widening path).
+#[test]
+fn an_authorizing_caveat_widens_the_closure_for_the_named_origin() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(cp_origin(1)),
+            cp_recipient(2),
+            DisclosureClass::Internal,
+        ),
+        &[policy(DisclosureClass::Internal)],
+        &[cp_origin(1)],
+    );
+    assert!(matches!(decision, DisclosureGateDecision::Allow { .. }));
+}
+
+/// The origin closure runs ONLY after coverage passes: with no covering
+/// policy the coverage stage blocks first, so a cross-identity item is never
+/// masked by (nor reaches) the closure.
+#[test]
+fn the_closure_runs_only_after_coverage_passes() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(
+            Some(cp_origin(1)),
+            cp_recipient(2),
+            DisclosureClass::Internal,
+        ),
+        &[],
+        &[],
+    );
+    assert!(matches!(decision, DisclosureGateDecision::Block { .. }));
+}
+
+/// Fail closed: an unresolved (`None`) origin is most-restrictive and blocks
+/// at the closure, never treated as safe to send (user story 7).
+#[test]
+fn an_unresolved_origin_fails_closed_at_the_closure() {
+    let decision = check_egress(
+        RelationshipKind::Client,
+        closure_query(None, cp_recipient(2), DisclosureClass::Internal),
+        &[policy(DisclosureClass::Internal)],
+        &[],
+    );
+    assert!(matches!(
+        decision,
+        DisclosureGateDecision::CrossIdentityBlock { origin: None, .. }
+    ));
 }
