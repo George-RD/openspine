@@ -320,14 +320,12 @@ async fn activate_approved_artifact_audits_failure_when_no_row() {
 /// and then resolved — which is exactly what the ordering assertion below
 /// needs to rule out.
 pub(crate) fn total_pending_draft_write_rows(state: &AppState) -> i64 {
-    state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM pending_draft_writes", [], |row| {
+    state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM pending_draft_writes", [], |row| {
             row.get(0)
         })
         .unwrap()
+    })
 }
 
 #[tokio::test]

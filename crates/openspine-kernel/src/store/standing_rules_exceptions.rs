@@ -107,50 +107,54 @@ impl Store {
             .as_nanosecond()
             .try_into()
             .map_err(|_| StoreError::TimestampRange("timestamp out of i64 range".into()))?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let offenders: Vec<(String, i64, String)> = {
-            let mut stmt = tx.prepare(
-                "SELECT rule_id, version, action_id FROM standing_rules \
+        self.with_immediate_tx(|tx| {
+            let offenders: Vec<(String, i64, String)> = {
+                let mut stmt = tx.prepare(
+                    "SELECT rule_id, version, action_id FROM standing_rules \
                  WHERE status = 'active' AND dark_window_default = 'allow'",
-            )?;
-            let mut rows = stmt.query([])?;
-            let mut collected = Vec::new();
-            while let Some(row) = rows.next()? {
-                collected.push((row.get(0)?, row.get(1)?, row.get(2)?));
-            }
-            collected
-        };
-        let mut retired = 0usize;
-        for (rule_id, version, action_id) in offenders {
-            if crate::action_catalog::dark_window_allow_eligible(
-                &openspine_schemas::action::ActionId::new(&action_id),
-            ) {
-                continue;
-            }
-            stale_pending_exceptions_in_tx(&tx, &rule_id, u32::try_from(version).ok(), now_nanos)?;
-            tx.execute(
-                "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
+                )?;
+                let mut rows = stmt.query([])?;
+                let mut collected = Vec::new();
+                while let Some(row) = rows.next()? {
+                    collected.push((row.get(0)?, row.get(1)?, row.get(2)?));
+                }
+                collected
+            };
+            let mut retired = 0usize;
+            for (rule_id, version, action_id) in offenders {
+                if crate::action_catalog::dark_window_allow_eligible(
+                    &openspine_schemas::action::ActionId::new(&action_id),
+                ) {
+                    continue;
+                }
+                stale_pending_exceptions_in_tx(
+                    tx,
+                    &rule_id,
+                    u32::try_from(version).ok(),
+                    now_nanos,
+                )?;
+                tx.execute(
+                    "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2 \
                  WHERE rule_id = ?1 AND status = 'active'",
-                rusqlite::params![rule_id, now_nanos],
-            )?;
-            Store::append_audit_conn(
-                &tx,
-                "standing_rule.ineligible_allow_retired",
-                Some(&openspine_schemas::action::ActionId::new(&action_id)),
-                None,
-                Some(&format!(
+                    rusqlite::params![rule_id, now_nanos],
+                )?;
+                Store::append_audit_conn(
+                    tx,
+                    "standing_rule.ineligible_allow_retired",
+                    Some(&openspine_schemas::action::ActionId::new(&action_id)),
+                    None,
+                    Some(&format!(
                     "rule {rule_id} carries a dark-window Allow default for {action_id}, which the \
                      catalog does not declare eligible; moved to needs_review and its pending \
                      exceptions staled"
                 )),
-                None,
-                &[],
-                &[],
-            )?;
-            retired += 1;
-        }
-        tx.commit()?;
-        Ok(retired)
+                    None,
+                    &[],
+                    &[],
+                )?;
+                retired += 1;
+            }
+            Ok(retired)
+        })
     }
 }

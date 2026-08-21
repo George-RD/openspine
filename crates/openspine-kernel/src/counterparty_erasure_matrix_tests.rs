@@ -195,14 +195,14 @@ fn erasure_report_contains_exact_invalidated_identities_and_d012_target_refs() {
     assert_eq!(report.invalidated_identities[1].artifact_id, "r1");
 
     // Verify audit event carries target_refs
-    let conn = store.conn.lock();
-    let target_refs_json: String = conn
-        .query_row(
+    let target_refs_json: String = store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT meta_json FROM audit_log WHERE kind = 'counterparty.erased'",
             [],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     let meta: serde_json::Value = serde_json::from_str(&target_refs_json).unwrap();
     let target_refs = meta["target_refs"].as_array().unwrap();
     assert_eq!(target_refs.len(), 2);
@@ -233,14 +233,13 @@ fn pending_reconfirmation_is_cancelled_on_erasure_and_cannot_revive_erased() {
         .unwrap();
 
     // Insert pending action request into DB so commit_owner_reconfirmation has a valid request
-    {
-        let conn = store.conn.lock();
+    store.with_conn_for_test(|conn| {
         conn.execute(
             "INSERT INTO action_requests (id, request_json, used) VALUES (?1, '{}', 0)",
             rusqlite::params![request_id.to_string()],
         )
         .unwrap();
-    }
+    });
 
     let report = erase_counterparty(&store, &artifacts, &operations, counterparty).unwrap();
     assert_eq!(report.derived_artifacts_invalidated, 1);

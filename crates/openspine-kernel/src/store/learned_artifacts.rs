@@ -10,7 +10,7 @@ use openspine_schemas::ids::IdentityRef;
 use openspine_schemas::provenance::ProvenanceOrigin;
 use openspine_schemas::reviewed_scope::ReviewedScopeValue;
 use openspine_schemas::standing_rule::StandingRuleManifest;
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension};
 use ulid::Ulid;
 
 use super::{Store, StoreError};
@@ -427,21 +427,20 @@ impl Store {
                 "learned artifacts must be overlay-owned".into(),
             ));
         }
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        Self::insert_learned_artifact_conn(&tx, artifact)?;
-        Self::append_audit_conn(
-            &tx,
-            audit_kind,
-            None,
-            None,
-            Some(audit_reason),
-            None,
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            Self::insert_learned_artifact_conn(tx, artifact)?;
+            Self::append_audit_conn(
+                tx,
+                audit_kind,
+                None,
+                None,
+                Some(audit_reason),
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(())
+        })
     }
 
     /// Remove a malformed learned row after recording the quarantine decision.
@@ -452,40 +451,39 @@ impl Store {
         version: u32,
         reason: &str,
     ) -> Result<bool, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let compatibility: Option<String> = tx
-            .query_row(
-                "SELECT compatibility FROM learned_artifacts
-                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+        self.with_immediate_tx(|tx| {
+            let compatibility: Option<String> = tx
+                .query_row(
+                    "SELECT compatibility FROM learned_artifacts
+                     WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                    params![kind, artifact_id, version as i64],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            let Some(compatibility) = compatibility else {
+                return Ok(false);
+            };
+            if compatibility == status_name(CompatibilityStatus::Erased) {
+                return Ok(false);
+            }
+            Self::append_audit_conn(
+                tx,
+                "artifact.persona_quarantined",
+                None,
+                None,
+                Some(reason),
+                None,
+                &[],
+                &[],
+            )?;
+            tx.execute(
+                "DELETE FROM learned_artifacts
+                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3
+                   AND compatibility != 'erased'",
                 params![kind, artifact_id, version as i64],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let Some(compatibility) = compatibility else {
-            return Ok(false);
-        };
-        if compatibility == status_name(CompatibilityStatus::Erased) {
-            return Ok(false);
-        }
-        Self::append_audit_conn(
-            &tx,
-            "artifact.persona_quarantined",
-            None,
-            None,
-            Some(reason),
-            None,
-            &[],
-            &[],
-        )?;
-        tx.execute(
-            "DELETE FROM learned_artifacts
-             WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3
-               AND compatibility != 'erased'",
-            params![kind, artifact_id, version as i64],
-        )?;
-        tx.commit()?;
-        Ok(true)
+            )?;
+            Ok(true)
+        })
     }
 
     /// Insert a learned-artifact row using an existing connection/transaction.
@@ -736,244 +734,240 @@ impl Store {
         artifacts.with_scope_lock(
             counterparty_id,
             || -> Result<LearnedArtifactErasure, StoreError> {
-                let mut conn = self.conn.lock();
-                let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+                let (matching, newly_invalidated) = self.with_immediate_tx(|tx| {
+                    // Resolve every matching identity before changing rows. Retry
+                    // callers need the complete terminal set for process-local
+                    // cleanup, while the status flag separately identifies rows
+                    // that this transaction will newly transition.
+                    let matching = {
+                        let mut stmt = tx.prepare(
+                            "SELECT kind, artifact_id, version,
+                                    compatibility != 'erased'
+                               FROM learned_artifacts
+                              WHERE json_extract(
+                                        provenance,
+                                        '$.produced_by.source_scope.identity'
+                                    ) = ?1
+                              ORDER BY kind, artifact_id, version",
+                        )?;
+                        let rows = stmt.query_map(params![counterparty_id.to_string()], |row| {
+                            Ok((
+                                LearnedArtifactIdentity {
+                                    kind: row.get(0)?,
+                                    artifact_id: row.get(1)?,
+                                    version: row.get::<_, i64>(2)? as u32,
+                                },
+                                row.get::<_, bool>(3)?,
+                            ))
+                        })?;
+                        let mut vec = Vec::new();
+                        for item in rows {
+                            vec.push(item?);
+                        }
+                        vec
+                    };
 
-                // Resolve every matching identity before changing rows. Retry
-                // callers need the complete terminal set for process-local
-                // cleanup, while the status flag separately identifies rows
-                // that this transaction will newly transition.
-                let matching = {
-                    let mut stmt = tx.prepare(
-                        "SELECT kind, artifact_id, version,
-                                compatibility != 'erased'
-                           FROM learned_artifacts
+                    // Consume every still-live reconfirmation request before
+                    // clearing the row link. A stale owner tap then observes a
+                    // consumed request and can never revive terminal Erased.
+                    tx.execute(
+                        "UPDATE action_requests
+                            SET used = 1
+                          WHERE used = 0
+                            AND id IN (
+                              SELECT pending_reconfirmation_id
+                                FROM learned_artifacts
+                               WHERE json_extract(
+                                         provenance,
+                                         '$.produced_by.source_scope.identity'
+                                     ) = ?1
+                                 AND pending_reconfirmation_id IS NOT NULL
+                            )",
+                        params![counterparty_id.to_string()],
+                    )?;
+                    let newly_invalidated = tx.execute(
+                        "UPDATE learned_artifacts
+                            SET compatibility = 'erased',
+                                pending_reconfirmation_id = NULL,
+                                pending_yaml_digest = NULL
                           WHERE json_extract(
                                     provenance,
                                     '$.produced_by.source_scope.identity'
                                 ) = ?1
-                          ORDER BY kind, artifact_id, version",
+                            AND compatibility != 'erased'",
+                        params![counterparty_id.to_string()],
                     )?;
-                    let rows = stmt.query_map(params![counterparty_id.to_string()], |row| {
-                        Ok((
-                            LearnedArtifactIdentity {
-                                kind: row.get(0)?,
-                                artifact_id: row.get(1)?,
-                                version: row.get::<_, i64>(2)? as u32,
-                            },
-                            row.get::<_, bool>(3)?,
-                        ))
-                    })?;
-                    let mut vec = Vec::new();
-                    for item in rows {
-                        vec.push(item?);
-                    }
-                    vec
-                };
 
-                // Consume every still-live reconfirmation request before
-                // clearing the row link. A stale owner tap then observes a
-                // consumed request and can never revive terminal Erased.
-                tx.execute(
-                    "UPDATE action_requests
-                        SET used = 1
-                      WHERE used = 0
-                        AND id IN (
-                          SELECT pending_reconfirmation_id
-                            FROM learned_artifacts
-                           WHERE json_extract(
-                                     provenance,
-                                     '$.produced_by.source_scope.identity'
-                                 ) = ?1
-                             AND pending_reconfirmation_id IS NOT NULL
-                        )",
-                    params![counterparty_id.to_string()],
-                )?;
-                let newly_invalidated = tx.execute(
-                    "UPDATE learned_artifacts
-                        SET compatibility = 'erased',
-                            pending_reconfirmation_id = NULL,
-                            pending_yaml_digest = NULL
-                      WHERE json_extract(
-                                provenance,
-                                '$.produced_by.source_scope.identity'
-                            ) = ?1
-                        AND compatibility != 'erased'",
-                    params![counterparty_id.to_string()],
-                )?;
-
-                // Revoke every runtime effect addressed by the exact learned
-                // artifact identities resolved above. Tuple-bound predicates
-                // keep another version (or another artifact kind with the
-                // same id) live, while retries also clean up any runtime row
-                // that was resurrected after its learned row became terminal.
-                let invalidated_at = Timestamp::now();
-                let revoked_at = super::standing_rules::timestamp_to_epoch_nanos(invalidated_at)?;
-                for (identity, _) in &matching {
-                    match identity.kind.as_str() {
-                        "standing_rule" => {
-                            super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-                                &tx,
-                                identity.artifact_id.as_str(),
-                                Some(identity.version),
-                                revoked_at,
-                            )?;
-                            tx.execute(
-                                "UPDATE standing_rules
-                                    SET status = 'revoked', revoked_at = ?3
-                                  WHERE artifact_id = ?1 AND version = ?2
-                                    AND status = 'active'",
-                                params![
+                    // Revoke every runtime effect addressed by the exact learned
+                    // artifact identities resolved above. Tuple-bound predicates
+                    // keep another version (or another artifact kind with the
+                    // same id) live, while retries also clean up any runtime row
+                    // that was resurrected after its learned row became terminal.
+                    let invalidated_at = Timestamp::now();
+                    let revoked_at =
+                        super::standing_rules::timestamp_to_epoch_nanos(invalidated_at)?;
+                    for (identity, _) in &matching {
+                        match identity.kind.as_str() {
+                            "standing_rule" => {
+                                super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                                    tx,
                                     identity.artifact_id.as_str(),
-                                    identity.version as i64,
+                                    Some(identity.version),
                                     revoked_at,
-                                ],
-                            )?;
-                        }
-                        "model_swap" => {
-                            tx.execute(
-                                "UPDATE proposed_artifacts
-                                    SET state = 'retired'
-                                  WHERE kind = 'model_swap'
-                                    AND artifact_id = ?1 AND version = ?2
-                                    AND state = 'active'",
-                                params![identity.artifact_id.as_str(), identity.version as i64,],
-                            )?;
-                        }
-                        _ => {}
-                    }
-                }
-                // A standing rule may have been created directly from an
-                // owner-review request and therefore have no learned-artifact
-                // provenance row. Sweep every live rule whose generic
-                // reviewed scope binds this counterparty in the same
-                // transaction as the provenance invalidation and terminal
-                // marker. Parsing the stored manifest keeps the sweep
-                // protocol-neutral: no connector-specific scope field is
-                // interpreted here.
-                // A single unparseable manifest must not abort the whole
-                // crypto-erase sweep (#176): a corrupt row (e.g. a
-                // deny_unknown_fields schema rollback) would otherwise
-                // `?`-abort this BEGIN IMMEDIATE, leaving the erased-scope
-                // marker uninserted and — on the startup reconciliation path —
-                // blocking boot. Isolate the bad row: skip it here, surface it
-                // via a durable audit row below, and keep sweeping so every
-                // other counterparty's rules still erase.
-                let mut scoped_rule_ids: Vec<(String, u32)> = Vec::new();
-                let mut malformed_rule_ids: Vec<String> = Vec::new();
-                {
-                    let mut stmt = tx.prepare(
-                        "SELECT rule_id, rule_json
-                           FROM standing_rules
-                          WHERE status IN ('active', 'paused', 'needs_review')",
-                    )?;
-                    let rows = stmt.query_map([], |row| {
-                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                    })?;
-                    for row in rows {
-                        let (rule_id, rule_json) = row?;
-                        let manifest: StandingRuleManifest = match serde_json::from_str(&rule_json)
-                        {
-                            Ok(manifest) => manifest,
-                            Err(_) => {
-                                malformed_rule_ids.push(rule_id);
-                                continue;
+                                )?;
+                                tx.execute(
+                                    "UPDATE standing_rules
+                                        SET status = 'revoked', revoked_at = ?3
+                                      WHERE artifact_id = ?1 AND version = ?2
+                                        AND status = 'active'",
+                                    params![
+                                        identity.artifact_id.as_str(),
+                                        identity.version as i64,
+                                        revoked_at,
+                                    ],
+                                )?;
                             }
-                        };
-                        let matches_erased = manifest
-                            .reviewed_scope
-                            .as_ref()
-                            .and_then(|binding| {
-                                binding
-                                    .scope
-                                    .dimensions()
-                                    .get(&ReviewedScopeDimension::Counterparty)
-                            })
-                            .is_some_and(|value| {
-                                matches!(
-                                    value,
-                                    ReviewedScopeValue::Counterparty(id)
-                                        if *id == counterparty_id
-                                )
-                            });
-                        if matches_erased {
-                            scoped_rule_ids.push((rule_id, manifest.version));
+                            "model_swap" => {
+                                tx.execute(
+                                    "UPDATE proposed_artifacts
+                                        SET state = 'retired'
+                                      WHERE kind = 'model_swap'
+                                        AND artifact_id = ?1 AND version = ?2
+                                        AND state = 'active'",
+                                    params![
+                                        identity.artifact_id.as_str(),
+                                        identity.version as i64,
+                                    ],
+                                )?;
+                            }
+                            _ => {}
                         }
                     }
-                }
-                for (rule_id, rule_version) in scoped_rule_ids {
-                    super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-                        &tx,
-                        &rule_id,
-                        Some(rule_version),
-                        revoked_at,
-                    )?;
-                    tx.execute(
-                        "UPDATE standing_rules
-                            SET status = 'revoked', revoked_at = ?2
-                          WHERE rule_id = ?1
-                            AND status IN ('active', 'paused', 'needs_review')",
-                        params![rule_id, revoked_at],
-                    )?;
-                }
-                // Surface every skipped unparseable row durably, so a corrupt
-                // manifest is isolated and recorded rather than silently
-                // dropped or allowed to abort the sweep (#176).
-                for rule_id in &malformed_rule_ids {
-                    Self::append_audit_conn(
-                        &tx,
-                        "standing_rule.malformed_row_skipped",
-                        None,
-                        None,
-                        Some(&format!(
-                            "standing rule {rule_id} has an unparseable rule_json manifest; \
-                             skipped during counterparty {counterparty_id} crypto-erase sweep \
-                             instead of aborting it (see #176)"
-                        )),
-                        None,
-                        &[],
-                        &[],
-                    )?;
-                }
+                    // A standing rule may have been created directly from an
+                    // owner-review request and therefore have no learned-artifact
+                    // provenance row. Sweep every live rule whose generic
+                    // reviewed scope binds this counterparty in the same
+                    // transaction as the provenance invalidation and terminal
+                    // marker. Parsing the stored manifest keeps the sweep
+                    // protocol-neutral: no connector-specific scope field is
+                    // interpreted here.
+                    // A single unparseable manifest must not abort the whole
+                    // crypto-erase sweep (#176): a corrupt row (e.g. a
+                    // deny_unknown_fields schema rollback) would otherwise
+                    // `?`-abort this BEGIN IMMEDIATE, leaving the erased-scope
+                    // marker uninserted and — on the startup reconciliation path —
+                    // blocking boot. Isolate the bad row: skip it here, surface it
+                    // via a durable audit row below, and keep sweeping so every
+                    // other counterparty's rules still erase.
+                    let mut scoped_rule_ids: Vec<(String, u32)> = Vec::new();
+                    let mut malformed_rule_ids: Vec<String> = Vec::new();
+                    {
+                        let mut stmt = tx.prepare(
+                            "SELECT rule_id, rule_json
+                               FROM standing_rules
+                              WHERE status IN ('active', 'paused', 'needs_review')",
+                        )?;
+                        let rows = stmt.query_map([], |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                        })?;
+                        for row in rows {
+                            let (rule_id, rule_json) = row?;
+                            let manifest: StandingRuleManifest =
+                                match serde_json::from_str(&rule_json) {
+                                    Ok(manifest) => manifest,
+                                    Err(_) => {
+                                        malformed_rule_ids.push(rule_id);
+                                        continue;
+                                    }
+                                };
+                            let matches_erased = manifest
+                                .reviewed_scope
+                                .as_ref()
+                                .and_then(|binding| {
+                                    binding
+                                        .scope
+                                        .dimensions()
+                                        .get(&ReviewedScopeDimension::Counterparty)
+                                })
+                                .is_some_and(|value| {
+                                    matches!(
+                                        value,
+                                        ReviewedScopeValue::Counterparty(id)
+                                            if *id == counterparty_id
+                                    )
+                                });
+                            if matches_erased {
+                                scoped_rule_ids.push((rule_id, manifest.version));
+                            }
+                        }
+                    }
+                    for (rule_id, rule_version) in scoped_rule_ids {
+                        super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                            tx,
+                            &rule_id,
+                            Some(rule_version),
+                            revoked_at,
+                        )?;
+                        tx.execute(
+                            "UPDATE standing_rules
+                                SET status = 'revoked', revoked_at = ?2
+                              WHERE rule_id = ?1
+                                AND status IN ('active', 'paused', 'needs_review')",
+                            params![rule_id, revoked_at],
+                        )?;
+                    }
+                    // Surface every skipped unparseable row durably, so a corrupt
+                    // manifest is isolated and recorded rather than silently
+                    // dropped or allowed to abort the sweep (#176).
+                    for rule_id in &malformed_rule_ids {
+                        Self::append_audit_conn(
+                            tx,
+                            "standing_rule.malformed_row_skipped",
+                            None,
+                            None,
+                            Some(&format!(
+                                "standing rule {rule_id} has an unparseable rule_json manifest; \
+                                 skipped during counterparty {counterparty_id} crypto-erase sweep \
+                                 instead of aborting it (see #176)"
+                            )),
+                            None,
+                            &[],
+                            &[],
+                        )?;
+                    }
 
-                let marker_new = tx.execute(
-                    "INSERT OR IGNORE INTO erased_counterparties
+                    let marker_new = tx.execute(
+                        "INSERT OR IGNORE INTO erased_counterparties
 
-                             (counterparty_id, erased_at) VALUES (?1, ?2)",
-                    params![counterparty_id.to_string(), invalidated_at.to_string()],
-                )?;
-
-                if newly_invalidated > 0 || marker_new > 0 {
-                    let target_refs: Vec<_> = matching
-                        .iter()
-                        .filter(|(_, was_live)| *was_live)
-                        .map(|(identity, _)| identity.audit_ref())
-                        .collect();
-                    let aggregate = format!("counterparty:{counterparty_id}");
-                    let reason = format!(
-                        "invalidated {newly_invalidated} derived artifacts via provenance links"
-                    );
-                    Self::append_audit_conn_with_options(
-                        &tx,
-                        "counterparty.erased",
-                        None,
-                        None,
-                        Some(&reason),
-                        None,
-                        &target_refs,
-                        &[],
-                        Some(&aggregate),
-                        None,
+                                 (counterparty_id, erased_at) VALUES (?1, ?2)",
+                        params![counterparty_id.to_string(), invalidated_at.to_string()],
                     )?;
-                }
 
-                // Transaction owns rollback on every early error, including a
-                // failed COMMIT. Immediately after the durable marker,
-                // invalidations, reconfirmation cancellation, and audit commit,
-                // fail closed in this process while the scope lock is still
-                // held. Fallible filesystem cleanup follows only after that
-                // non-fallible in-memory closure.
-                tx.commit()?;
+                    if newly_invalidated > 0 || marker_new > 0 {
+                        let target_refs: Vec<_> = matching
+                            .iter()
+                            .filter(|(_, was_live)| *was_live)
+                            .map(|(identity, _)| identity.audit_ref())
+                            .collect();
+                        let aggregate = format!("counterparty:{counterparty_id}");
+                        let reason = format!(
+                            "invalidated {newly_invalidated} derived artifacts via provenance links"
+                        );
+                        Self::append_audit_conn_with_options(
+                            tx,
+                            "counterparty.erased",
+                            None,
+                            None,
+                            Some(&reason),
+                            None,
+                            &target_refs,
+                            &[],
+                            Some(&aggregate),
+                            None,
+                        )?;
+                    }
+                    Ok((matching, newly_invalidated))
+                })?;
                 artifacts.close_counterparty_scope_in_memory(counterparty_id);
                 let key_deleted = artifacts
                     .erase_counterparty_key_locked(counterparty_id)

@@ -35,15 +35,13 @@ async fn mutated_compatibility_epoch_restores_ordinary_approval_before_effect() 
     // A drifted declaration axis: the persisted epoch no longer equals the
     // freshly resolved context's.
     let stale = format!("sha256:{}", "9".repeat(64));
-    env.state
-        .store
-        .conn
-        .lock()
-        .execute(
+    env.state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE standing_rules SET compatibility_digest = ?1 WHERE rule_id = 'rule-epoch'",
             params![stale],
         )
         .unwrap();
+    });
 
     let (decision, _) = dispatch(&env.state, &grant).await;
 
@@ -106,15 +104,13 @@ async fn corrupt_persisted_binding_fails_closed_as_invalid_scope() {
     let mut corrupt: Value = serde_json::to_value(&rule).unwrap();
     corrupt["reviewed_scope"]["scope"]["context_class_digest"] =
         json!(format!("sha256:{}", "d".repeat(64)));
-    env.state
-        .store
-        .conn
-        .lock()
-        .execute(
+    env.state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE standing_rules SET rule_json = ?1 WHERE rule_id = 'rule-corrupt'",
             params![serde_json::to_string(&corrupt).unwrap()],
         )
         .unwrap();
+    });
 
     let (decision, _) = dispatch(&env.state, &grant).await;
 

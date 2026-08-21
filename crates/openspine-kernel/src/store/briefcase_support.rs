@@ -94,11 +94,8 @@ impl Store {
         // blanked so the raw token cannot be recovered from either place.
         let mut redacted = grant.clone();
         redacted.task_token = String::new();
-        let conn = self.conn.lock();
-        conn.execute_batch("BEGIN IMMEDIATE")
-            .map_err(StoreError::from)?;
-        let result = (|| {
-            conn.execute(
+        self.with_immediate_tx(|tx| {
+            tx.execute(
                 super::TASK_GRANT_INSERT_SQL,
                 params![
                     grant.id.to_string(),
@@ -109,22 +106,12 @@ impl Store {
                     serde_json::to_string(owner_surface)?,
                 ],
             )?;
-            conn.execute(
+            tx.execute(
                 "INSERT INTO briefcases (task_grant_id, briefcase_json) VALUES (?1, ?2)",
                 params![grant.id.to_string(), serde_json::to_string(briefcase)?],
             )?;
-            Ok::<(), StoreError>(())
-        })();
-        match result {
-            Ok(()) => {
-                conn.execute_batch("COMMIT").map_err(StoreError::from)?;
-                Ok(())
-            }
-            Err(err) => {
-                let _ = conn.execute_batch("ROLLBACK");
-                Err(err)
-            }
-        }
+            Ok(())
+        })
     }
 
     #[allow(dead_code)]
@@ -196,40 +183,38 @@ impl Store {
         E: From<StoreError>,
         F: FnOnce(&mut Briefcase) -> Result<R, E>,
     {
-        let conn = self.conn.lock();
-        conn.execute_batch("BEGIN IMMEDIATE")
-            .map_err(StoreError::from)
-            .map_err(E::from)?;
-        let result = (|| {
-            let json: String = conn
-                .query_row(
-                    "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
-                    params![task_grant_id.to_string()],
-                    |row| row.get(0),
-                )
-                .map_err(StoreError::from)?;
-            let mut briefcase: Briefcase = serde_json::from_str(&json).map_err(StoreError::from)?;
-            let result = mutate(&mut briefcase)?;
-            conn.execute(
+        let mut user_err: Option<E> = None;
+        let outcome = self.with_immediate_tx(|tx| {
+            let json: String = tx.query_row(
+                "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
+                params![task_grant_id.to_string()],
+                |row| row.get(0),
+            )?;
+            let mut briefcase: Briefcase = serde_json::from_str(&json)?;
+            let result = match mutate(&mut briefcase) {
+                Ok(res) => res,
+                Err(err) => {
+                    user_err = Some(err);
+                    return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+                }
+            };
+            tx.execute(
                 "UPDATE briefcases SET briefcase_json = ?1 WHERE task_grant_id = ?2",
                 params![
-                    serde_json::to_string(&briefcase).map_err(StoreError::from)?,
+                    serde_json::to_string(&briefcase)?,
                     task_grant_id.to_string()
                 ],
-            )
-            .map_err(StoreError::from)?;
-            Ok::<R, E>(result)
-        })();
-        match result {
-            Ok(result) => {
-                conn.execute_batch("COMMIT")
-                    .map_err(StoreError::from)
-                    .map_err(E::from)?;
-                Ok(result)
-            }
-            Err(err) => {
-                let _ = conn.execute_batch("ROLLBACK");
-                Err(err)
+            )?;
+            Ok(result)
+        });
+        match outcome {
+            Ok(result) => Ok(result),
+            Err(store_err) => {
+                if let Some(err) = user_err {
+                    Err(err)
+                } else {
+                    Err(E::from(store_err))
+                }
             }
         }
     }
@@ -252,30 +237,30 @@ impl Store {
         E: From<StoreError>,
         F: FnOnce(&mut Briefcase) -> Result<(R, BriefcaseAudit), E>,
     {
-        let conn = self.conn.lock();
-        conn.execute_batch("BEGIN IMMEDIATE")
-            .map_err(StoreError::from)
-            .map_err(E::from)?;
-        let result = (|| {
-            let json: String = conn
-                .query_row(
-                    "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
-                    params![task_grant_id.to_string()],
-                    |row| row.get(0),
-                )
-                .map_err(StoreError::from)?;
-            let mut briefcase: Briefcase = serde_json::from_str(&json).map_err(StoreError::from)?;
-            let (value, audit) = mutate(&mut briefcase)?;
-            conn.execute(
+        let mut user_err: Option<E> = None;
+        let outcome = self.with_immediate_tx(|tx| {
+            let json: String = tx.query_row(
+                "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
+                params![task_grant_id.to_string()],
+                |row| row.get(0),
+            )?;
+            let mut briefcase: Briefcase = serde_json::from_str(&json)?;
+            let (value, audit) = match mutate(&mut briefcase) {
+                Ok(res) => res,
+                Err(err) => {
+                    user_err = Some(err);
+                    return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
+                }
+            };
+            tx.execute(
                 "UPDATE briefcases SET briefcase_json = ?1 WHERE task_grant_id = ?2",
                 params![
-                    serde_json::to_string(&briefcase).map_err(StoreError::from)?,
+                    serde_json::to_string(&briefcase)?,
                     task_grant_id.to_string()
                 ],
-            )
-            .map_err(StoreError::from)?;
+            )?;
             Self::append_audit_conn(
-                &conn,
+                tx,
                 &audit.kind,
                 audit.action.as_ref(),
                 audit.decision.as_ref(),
@@ -284,18 +269,16 @@ impl Store {
                 &audit.target_refs,
                 &audit.payload_refs,
             )?;
-            Ok::<R, E>(value)
-        })();
-        match result {
-            Ok(value) => {
-                conn.execute_batch("COMMIT")
-                    .map_err(StoreError::from)
-                    .map_err(E::from)?;
-                Ok(value)
-            }
-            Err(err) => {
-                let _ = conn.execute_batch("ROLLBACK");
-                Err(err)
+            Ok(value)
+        });
+        match outcome {
+            Ok(value) => Ok(value),
+            Err(store_err) => {
+                if let Some(err) = user_err {
+                    Err(err)
+                } else {
+                    Err(E::from(store_err))
+                }
             }
         }
     }

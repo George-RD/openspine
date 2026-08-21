@@ -298,16 +298,14 @@ async fn ambiguous_overlap_fails_closed_and_consumes_no_budget() {
     // first row directly to model the states that can — a restored overlay, a
     // migrated legacy row, or a racing activation — and prove the matcher
     // still refuses rather than tie-breaking.
-    env.state
-        .store
-        .conn
-        .lock()
-        .execute(
+    env.state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "UPDATE standing_rules SET status = 'active', revoked_at = NULL \
-             WHERE rule_id = 'rule-overlap-a'",
+                 WHERE rule_id = 'rule-overlap-a'",
             [],
         )
         .unwrap();
+    });
 
     let (decision, budget) = dispatch(&env.state, &grant).await;
 

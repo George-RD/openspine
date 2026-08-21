@@ -22,7 +22,6 @@ use openspine_schemas::resolved_context::ResolvedActionContext;
 use openspine_schemas::reviewed_scope::ScopeComparison;
 use openspine_schemas::standing_rule::StandingRuleManifest;
 use rusqlite::params;
-use rusqlite::TransactionBehavior;
 use ulid::Ulid;
 
 use super::standing_rules::{
@@ -132,8 +131,7 @@ impl Store {
         now: Timestamp,
     ) -> Result<ScopedConsultOutcome, StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(now)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.with_immediate_tx(|tx| {
         if let Some(counterparty_id) = context.counterparty_identity_id() {
             let erased: i64 = tx.query_row(
                 "SELECT EXISTS(
@@ -144,7 +142,7 @@ impl Store {
             )?;
             if erased != 0 {
                 Self::append_audit_conn(
-                    &tx,
+                    tx,
                     "action.scope_context_unresolved",
                     Some(context.action_id()),
                     None,
@@ -155,7 +153,6 @@ impl Store {
                     &[],
                     &[],
                 )?;
-                tx.commit()?;
                 return Ok(ScopedConsultOutcome::none());
             }
         }
@@ -187,7 +184,7 @@ impl Store {
             if reference + rule.expires_after_secs * 1_000_000_000 <= now_nanos {
                 // #135: a lapsed rule leaves no fireable exception behind.
                 super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-                    &tx,
+                    tx,
                     &rule.rule_id,
                     Some(rule.version),
                     now_nanos,
@@ -215,7 +212,7 @@ impl Store {
         // responsibilities collide.
         if matches.len() > 1 {
             Self::append_audit_conn(
-                &tx,
+                tx,
                 "standing_rule.ambiguous_scope_overlap",
                 Some(context.action_id()),
                 None,
@@ -224,7 +221,6 @@ impl Store {
                 &[],
                 &[],
             )?;
-            tx.commit()?;
             return Ok(ScopedConsultOutcome {
                 matched: false,
                 allow: false,
@@ -237,7 +233,6 @@ impl Store {
         }
 
         let Some(rule) = matches.into_iter().next() else {
-            tx.commit()?;
             return Ok(ScopedConsultOutcome::none());
         };
 
@@ -278,7 +273,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit()?;
+
         // Headroom is computed from the same in-transaction counts that
         // authorized the reservation, so it never needs a second fallible
         // read after commit.
@@ -298,6 +293,7 @@ impl Store {
             ambiguous: false,
             quota_remaining,
             rate_remaining,
+        })
         })
     }
 }

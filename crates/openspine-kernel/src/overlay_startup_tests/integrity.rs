@@ -55,8 +55,7 @@ fn startup_terminal_erasure_revokes_scoped_rule_before_reuse() {
         .as_nanosecond()
         .try_into()
         .expect("test timestamp fits i64");
-    {
-        let conn = store.conn.lock();
+    store.with_conn_for_test(|conn| {
         conn.execute(
             "INSERT INTO standing_rules (
                 rule_id, artifact_id, version, action_id, rule_json,
@@ -74,7 +73,7 @@ fn startup_terminal_erasure_revokes_scoped_rule_before_reuse() {
             ],
         )
         .unwrap();
-    }
+    });
     let boot_ms = Timestamp::now().as_millisecond();
     store.commit_boot_clock(boot_ms).unwrap();
     ops.record_terminal_erasure(&counterparty.to_string())
@@ -94,15 +93,14 @@ fn startup_terminal_erasure_revokes_scoped_rule_before_reuse() {
     )
     .unwrap();
 
-    let status: String = reopened
-        .conn
-        .lock()
-        .query_row(
+    let status: String = reopened.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT status FROM standing_rules WHERE rule_id = ?1",
             params![manifest.id],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert_eq!(
         status, "revoked",
         "startup replay must sweep the erased counterparty out of scoped rules"
@@ -169,14 +167,13 @@ fn broken_audit_chain_prevents_erasure_reconciliation_and_mutation() {
         .unwrap();
     assert!(store.verify_audit_chain().unwrap());
 
-    {
-        let conn = store.conn.lock();
+    store.with_conn_for_test(|conn| {
         conn.execute(
             "UPDATE audit_log SET hash = 'sha256:0000000000000000000000000000000000000000000000000000000000000000' WHERE seq = 1",
             [],
         )
         .unwrap();
-    }
+    });
     assert!(!store.verify_audit_chain().unwrap());
 
     let counterparty = Ulid::new();

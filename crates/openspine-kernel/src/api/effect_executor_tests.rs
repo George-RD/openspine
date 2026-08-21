@@ -31,27 +31,25 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn reserved_usage_count(store: &crate::store::Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'reserved'",
             rusqlite::params![rule_id],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 fn committed_usage_count(store: &crate::store::Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'committed'",
             rusqlite::params![rule_id],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 fn batched_failure_details(state: &crate::pipeline::AppState) -> Vec<String> {

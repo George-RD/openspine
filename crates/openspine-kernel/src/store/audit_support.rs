@@ -8,7 +8,6 @@ use openspine_schemas::event_bus::EventSubscriptionFilter;
 use super::{genesis_digest, Store, StoreError};
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::digest::digest_matches_hash;
-use rusqlite::TransactionBehavior;
 use sha2::{Digest as _, Sha256};
 
 impl Store {
@@ -126,22 +125,21 @@ impl Store {
         kind: &str,
         payload_json: &str,
     ) -> Result<AuditEvent, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            kind,
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(&format!("workflow_run:{run_id}")),
-            Some(payload_json),
-        )?;
-        tx.commit()?;
-        Ok(event)
+        self.with_immediate_tx(|tx| {
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                kind,
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(&format!("workflow_run:{run_id}")),
+                Some(payload_json),
+            )?;
+            Ok(event)
+        })
     }
     pub(crate) fn append_workflow_step_if_absent(
         &self,
@@ -150,50 +148,48 @@ impl Store {
         payload_json: &str,
         step_id: &str,
     ) -> Result<(AuditEvent, bool), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let inserted = tx.execute(
-            "INSERT OR IGNORE INTO workflow_step_registry
-             (run_id, step_id, pending_seq) VALUES (?1, ?2, -1)",
-            rusqlite::params![run_id, step_id],
-        )? == 1;
-        let aggregate = format!("workflow_run:{run_id}");
-        if !inserted {
-            let pending_seq: i64 = tx.query_row(
-                "SELECT pending_seq FROM workflow_step_registry
-                 WHERE run_id = ?1 AND step_id = ?2",
+        self.with_immediate_tx(|tx| {
+            let inserted = tx.execute(
+                "INSERT OR IGNORE INTO workflow_step_registry
+                 (run_id, step_id, pending_seq) VALUES (?1, ?2, -1)",
                 rusqlite::params![run_id, step_id],
-                |row| row.get(0),
+            )? == 1;
+            let aggregate = format!("workflow_run:{run_id}");
+            if !inserted {
+                let pending_seq: i64 = tx.query_row(
+                    "SELECT pending_seq FROM workflow_step_registry
+                     WHERE run_id = ?1 AND step_id = ?2",
+                    rusqlite::params![run_id, step_id],
+                    |row| row.get(0),
+                )?;
+                let json: String = tx.query_row(
+                    "SELECT event_json FROM audit_log
+                     WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
+                    rusqlite::params![aggregate, pending_seq],
+                    |row| row.get(0),
+                )?;
+                let event = serde_json::from_str(&json)?;
+                return Ok((event, false));
+            }
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                kind,
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(&aggregate),
+                Some(payload_json),
             )?;
-            let json: String = tx.query_row(
-                "SELECT event_json FROM audit_log
-                 WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
-                rusqlite::params![aggregate, pending_seq],
-                |row| row.get(0),
+            tx.execute(
+                "UPDATE workflow_step_registry SET pending_seq = ?3
+                 WHERE run_id = ?1 AND step_id = ?2 AND pending_seq = -1",
+                rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
             )?;
-            let event = serde_json::from_str(&json)?;
-            tx.commit()?;
-            return Ok((event, false));
-        }
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            kind,
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(&aggregate),
-            Some(payload_json),
-        )?;
-        tx.execute(
-            "UPDATE workflow_step_registry SET pending_seq = ?3
-             WHERE run_id = ?1 AND step_id = ?2 AND pending_seq = -1",
-            rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
-        )?;
-        tx.commit()?;
-        Ok((event, true))
+            Ok((event, true))
+        })
     }
     pub(crate) fn append_workflow_receipt(
         &self,
@@ -202,50 +198,48 @@ impl Store {
         payload_json: &str,
         step_id: &str,
     ) -> Result<(AuditEvent, bool), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let claimed = tx.execute(
-            "UPDATE workflow_step_registry SET receipt_seq = -1
-             WHERE run_id = ?1 AND step_id = ?2 AND receipt_seq IS NULL",
-            rusqlite::params![run_id, step_id],
-        )? == 1;
-        let aggregate = format!("workflow_run:{run_id}");
-        if !claimed {
-            let seq: i64 = tx.query_row(
-                "SELECT receipt_seq FROM workflow_step_registry
-                 WHERE run_id = ?1 AND step_id = ?2",
+        self.with_immediate_tx(|tx| {
+            let claimed = tx.execute(
+                "UPDATE workflow_step_registry SET receipt_seq = -1
+                 WHERE run_id = ?1 AND step_id = ?2 AND receipt_seq IS NULL",
                 rusqlite::params![run_id, step_id],
-                |row| row.get(0),
+            )? == 1;
+            let aggregate = format!("workflow_run:{run_id}");
+            if !claimed {
+                let seq: i64 = tx.query_row(
+                    "SELECT receipt_seq FROM workflow_step_registry
+                     WHERE run_id = ?1 AND step_id = ?2",
+                    rusqlite::params![run_id, step_id],
+                    |row| row.get(0),
+                )?;
+                let json: String = tx.query_row(
+                    "SELECT event_json FROM audit_log
+                     WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
+                    rusqlite::params![aggregate, seq],
+                    |row| row.get(0),
+                )?;
+                let event = serde_json::from_str(&json)?;
+                return Ok((event, false));
+            }
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                kind,
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(&aggregate),
+                Some(payload_json),
             )?;
-            let json: String = tx.query_row(
-                "SELECT event_json FROM audit_log
-                 WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
-                rusqlite::params![aggregate, seq],
-                |row| row.get(0),
+            tx.execute(
+                "UPDATE workflow_step_registry SET receipt_seq = ?3
+                 WHERE run_id = ?1 AND step_id = ?2 AND receipt_seq = -1",
+                rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
             )?;
-            let event = serde_json::from_str(&json)?;
-            tx.commit()?;
-            return Ok((event, false));
-        }
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            kind,
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(&aggregate),
-            Some(payload_json),
-        )?;
-        tx.execute(
-            "UPDATE workflow_step_registry SET receipt_seq = ?3
-             WHERE run_id = ?1 AND step_id = ?2 AND receipt_seq = -1",
-            rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
-        )?;
-        tx.commit()?;
-        Ok((event, true))
+            Ok((event, true))
+        })
     }
 
     pub(crate) fn append_workflow_completion(
@@ -255,50 +249,48 @@ impl Store {
         payload_json: &str,
         step_id: &str,
     ) -> Result<(AuditEvent, bool), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let claimed = tx.execute(
-            "UPDATE workflow_step_registry SET completed_seq = -1
-             WHERE run_id = ?1 AND step_id = ?2 AND completed_seq IS NULL",
-            rusqlite::params![run_id, step_id],
-        )? == 1;
-        let aggregate = format!("workflow_run:{run_id}");
-        if !claimed {
-            let seq: i64 = tx.query_row(
-                "SELECT completed_seq FROM workflow_step_registry
-                 WHERE run_id = ?1 AND step_id = ?2",
+        self.with_immediate_tx(|tx| {
+            let claimed = tx.execute(
+                "UPDATE workflow_step_registry SET completed_seq = -1
+                 WHERE run_id = ?1 AND step_id = ?2 AND completed_seq IS NULL",
                 rusqlite::params![run_id, step_id],
-                |row| row.get(0),
+            )? == 1;
+            let aggregate = format!("workflow_run:{run_id}");
+            if !claimed {
+                let seq: i64 = tx.query_row(
+                    "SELECT completed_seq FROM workflow_step_registry
+                     WHERE run_id = ?1 AND step_id = ?2",
+                    rusqlite::params![run_id, step_id],
+                    |row| row.get(0),
+                )?;
+                let json: String = tx.query_row(
+                    "SELECT event_json FROM audit_log
+                     WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
+                    rusqlite::params![aggregate, seq],
+                    |row| row.get(0),
+                )?;
+                let event = serde_json::from_str(&json)?;
+                return Ok((event, false));
+            }
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                kind,
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+                Some(&aggregate),
+                Some(payload_json),
             )?;
-            let json: String = tx.query_row(
-                "SELECT event_json FROM audit_log
-                 WHERE aggregate_id = ?1 AND aggregate_seq = ?2",
-                rusqlite::params![aggregate, seq],
-                |row| row.get(0),
+            tx.execute(
+                "UPDATE workflow_step_registry SET completed_seq = ?3
+                 WHERE run_id = ?1 AND step_id = ?2 AND completed_seq = -1",
+                rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
             )?;
-            let event = serde_json::from_str(&json)?;
-            tx.commit()?;
-            return Ok((event, false));
-        }
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            kind,
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-            Some(&aggregate),
-            Some(payload_json),
-        )?;
-        tx.execute(
-            "UPDATE workflow_step_registry SET completed_seq = ?3
-             WHERE run_id = ?1 AND step_id = ?2 AND completed_seq = -1",
-            rusqlite::params![run_id, step_id, event.aggregate_seq as i64],
-        )?;
-        tx.commit()?;
-        Ok((event, true))
+            Ok((event, true))
+        })
     }
 }
 #[cfg(test)]

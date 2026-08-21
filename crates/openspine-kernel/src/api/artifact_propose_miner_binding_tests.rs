@@ -67,8 +67,7 @@ async fn miner_review_approval_denied_verdict_refuses_without_activation() {
     super::append_approval(&harness, &context, &target_ref, &scope_ref, '0');
     assert_eq!(reflection_miner_tick(&harness.state).await.unwrap(), 1);
 
-    let review_id: Ulid = {
-        let conn = harness.state.store.conn.lock();
+    let review_id: Ulid = harness.state.store.with_conn_for_test(|conn| {
         conn.query_row(
             "SELECT id FROM owner_reviews ORDER BY created_at DESC LIMIT 1",
             [],
@@ -77,7 +76,7 @@ async fn miner_review_approval_denied_verdict_refuses_without_activation() {
         .unwrap()
         .parse()
         .unwrap()
-    };
+    });
     let row = harness
         .state
         .store
@@ -90,14 +89,13 @@ async fn miner_review_approval_denied_verdict_refuses_without_activation() {
         .evaluation_binding
         .as_ref()
         .expect("miner review must carry evaluation binding");
-    {
-        let conn = harness.state.store.conn.lock();
+    harness.state.store.with_conn_for_test(|conn| {
         conn.execute(
             "UPDATE eval_verdicts SET verdict = 'denied' WHERE id = ?1",
             rusqlite::params![binding.replay_verdict_id.to_string()],
         )
         .unwrap();
-    }
+    });
     let binding_digest = review.binding_digest();
     let error = crate::pipeline::owner_review_decision::submit_owner_review_decision_async(
         &harness.state,

@@ -39,8 +39,7 @@ pub(crate) fn apply_dispatch_test_mutation(state: &AppState, receipt: &ArtifactP
     let Some(mutation) = mutation else {
         return;
     };
-    let conn = state.store.conn.lock();
-    match mutation {
+    state.store.with_conn_for_test(|conn| match mutation {
         DispatchTestMutation::MissingVerdict => {
             conn.execute(
                 "DELETE FROM eval_verdicts WHERE id = ?1",
@@ -79,5 +78,5 @@ pub(crate) fn apply_dispatch_test_mutation(state: &AppState, receipt: &ArtifactP
             )
             .expect("mutate replay verdict decision");
         }
-    }
+    });
 }

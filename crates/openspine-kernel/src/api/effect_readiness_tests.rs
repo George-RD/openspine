@@ -12,39 +12,36 @@ use serde_json::json;
 use std::time::Duration;
 
 fn reserved_usage_count(store: &crate::store::Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'reserved'",
             rusqlite::params![rule_id],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 fn committed_usage_count(store: &crate::store::Store, rule_id: &str) -> i64 {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT COUNT(DISTINCT reservation_id) FROM standing_rule_usage WHERE rule_id = ?1 AND status = 'committed'",
             rusqlite::params![rule_id],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 fn pending_token_consumed_at(store: &crate::store::Store, pending_id: &str) -> Option<i64> {
-    store
-        .conn
-        .lock()
-        .query_row(
+    store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT token_consumed_at FROM standing_rule_pending_actions WHERE pending_id = ?1",
             rusqlite::params![pending_id],
             |row| row.get(0),
         )
         .unwrap()
+    })
 }
 
 #[test]

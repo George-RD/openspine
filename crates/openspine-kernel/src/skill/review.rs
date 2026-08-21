@@ -22,7 +22,7 @@ use jiff::Timestamp;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::skill::Skill;
 
-use crate::store::eval_verdict_store::{insert_eval_verdict_conn, EvalVerdict};
+use crate::store::eval_verdict_store::EvalVerdict;
 use crate::store::Store;
 
 /// Why the promotion review denied a mined skill. Never carries the skill
@@ -152,8 +152,6 @@ fn record_verdict(
     marker: Option<&str>,
 ) -> Result<(), crate::store::StoreError> {
     let evidence = marker.map(|m| format!("ad110_mined_promotion_review:{m}"));
-    let mut conn = store.conn.lock();
-    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
     let row = EvalVerdict {
         id: ulid::Ulid::new(),
         artifact_kind: "skill".to_string(),
@@ -167,7 +165,6 @@ fn record_verdict(
         recorded_at: Timestamp::now(),
         epochs: Default::default(),
     };
-    insert_eval_verdict_conn(&tx, &row)?;
-    tx.commit()?;
+    store.insert_eval_verdict(&row)?;
     Ok(())
 }

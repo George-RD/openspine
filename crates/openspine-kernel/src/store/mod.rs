@@ -167,7 +167,11 @@ pub(super) fn genesis_digest() -> Digest {
 
 #[derive(Clone)]
 pub struct Store {
-    pub(crate) conn: Arc<Mutex<Connection>>,
+    /// Private: the raw connection is reachable only from within `store` and
+    /// its submodules (the transaction/audit combinators). No non-store module
+    /// can lock it, so the Ledger invariants cannot be bypassed (spec #208
+    /// D-004). Test-only raw access goes through `test_hooks::with_conn_for_test`.
+    conn: Arc<Mutex<Connection>>,
     #[cfg(test)]
     activation_tx_failure: Arc<AtomicBool>,
     #[cfg(test)]
@@ -314,7 +318,7 @@ impl Store {
         let mut conn = Connection::open(path)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
-        nerve::ensure_schema(&conn)?;
+        nerve_schema::ensure_schema(&conn)?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -341,7 +345,7 @@ impl Store {
         let mut conn = Connection::open_in_memory()?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
-        nerve::ensure_schema(&conn)?;
+        nerve_schema::ensure_schema(&conn)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
@@ -370,13 +374,35 @@ impl Store {
         &self,
         f: impl FnOnce(&Transaction) -> Result<T, StoreError>,
     ) -> Result<T, StoreError> {
+        self.with_immediate_tx_mapped(|err| err, f)
+    }
+
+    /// Like [`Store::with_immediate_tx`] but generic over the closure's error
+    /// type, so a write path with a domain error surface (e.g. `NerveError`)
+    /// can adopt the same `BEGIN IMMEDIATE` write-serialization discipline
+    /// without restating it. `f` runs inside one `Immediate` transaction that
+    /// commits only on `Ok` and rolls back (via `Transaction`'s `Drop`) on any
+    /// `Err`. Transaction acquisition/commit failures are surfaced as
+    /// [`StoreError`] mapped through `map_store_err` into the caller's error
+    /// type. This is the one place the `transaction_with_behavior(Immediate)`
+    /// call lives (spec #208 D-001).
+    pub(crate) fn with_immediate_tx_mapped<T, E>(
+        &self,
+        map_store_err: impl FnOnce(StoreError) -> E,
+        f: impl FnOnce(&Transaction) -> Result<T, E>,
+    ) -> Result<T, E> {
         // parking_lot::Mutex cannot be poisoned, so there is no lock result to
-        // unwrap; rusqlite errors convert into StoreError::Sqlite via `?`.
+        // unwrap.
         let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let tx = match conn.transaction_with_behavior(TransactionBehavior::Immediate) {
+            Ok(tx) => tx,
+            Err(err) => return Err(map_store_err(StoreError::from(err))),
+        };
         let value = f(&tx)?;
-        tx.commit()?;
-        Ok(value)
+        match tx.commit() {
+            Ok(()) => Ok(value),
+            Err(err) => Err(map_store_err(StoreError::from(err))),
+        }
     }
 
     /// Run `f` inside a `Deferred` read-only transaction and drop the
@@ -523,6 +549,33 @@ impl Store {
             return Ok(None);
         };
         hydrate_task_grant(grant_json, digest, surface_json).map(Some)
+    }
+
+    /// Raw `task_grants` rows for a given `route_id`, newest first. The caller
+    /// (reflection scheduler) hydrates and authenticates each grant (MAC +
+    /// expiry); this accessor only encapsulates connection access so no
+    /// non-store module locks the raw connection (spec #208 D-004).
+    pub(crate) fn task_grant_rows_by_route(
+        &self,
+        route: &str,
+    ) -> Result<Vec<(String, String, Option<String>)>, StoreError> {
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT grant_json, pending_message_digest, owner_surface_json
+             FROM task_grants
+             WHERE json_extract(grant_json, '$.route_id') = ?1
+             ORDER BY id DESC",
+        )?;
+        let rows = statement
+            .query_map([route], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
     }
 
     #[cfg(test)]
@@ -709,64 +762,63 @@ impl Store {
         bot_id: i64,
         migrate_legacy: bool,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let namespaced_key = format!("last_telegram_update_id.{bot_id}");
-        tx.execute(
-            "INSERT INTO kv_state (key, value) VALUES ('telegram.bot_id', ?1)
+        self.with_immediate_tx(|tx| {
+            let namespaced_key = format!("last_telegram_update_id.{bot_id}");
+            tx.execute(
+                "INSERT INTO kv_state (key, value) VALUES ('telegram.bot_id', ?1)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![bot_id.to_string()],
-        )?;
-        if migrate_legacy {
-            let current: Option<String> = tx
-                .query_row(
-                    "SELECT value FROM kv_state WHERE key = ?1",
-                    params![namespaced_key],
-                    |row| row.get(0),
-                )
-                .optional()?;
-            if current.is_none() {
-                if let Some(legacy) = tx
+                params![bot_id.to_string()],
+            )?;
+            if migrate_legacy {
+                let current: Option<String> = tx
                     .query_row(
-                        "SELECT value FROM kv_state WHERE key = 'last_telegram_update_id'",
-                        [],
-                        |row| row.get::<_, String>(0),
+                        "SELECT value FROM kv_state WHERE key = ?1",
+                        params![namespaced_key],
+                        |row| row.get(0),
                     )
-                    .optional()?
-                {
-                    tx.execute(
-                        "INSERT INTO kv_state (key, value) VALUES (?1, ?2)",
-                        params![namespaced_key, legacy],
-                    )?;
+                    .optional()?;
+                if current.is_none() {
+                    if let Some(legacy) = tx
+                        .query_row(
+                            "SELECT value FROM kv_state WHERE key = 'last_telegram_update_id'",
+                            [],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .optional()?
+                    {
+                        tx.execute(
+                            "INSERT INTO kv_state (key, value) VALUES (?1, ?2)",
+                            params![namespaced_key, legacy],
+                        )?;
+                    }
+                }
+            } else {
+                // Changed identity: clear any stale `last_telegram_update_id.<bot_id>`
+                // (e.g. B→A→B) in the same tx so the real bot starts low, not under
+                // an old offset.
+                tx.execute(
+                    "DELETE FROM kv_state WHERE key = ?1",
+                    params![namespaced_key],
+                )?;
+            }
+            #[cfg(test)]
+            {
+                // Test-only fault: fire once, after the bot-id + (optional)
+                // namespaced legacy-offset writes have landed inside the
+                // transaction, so a rollback demonstrably discards those partial
+                // mutations. Consumed on fire so a retry re-attempts cleanly.
+                let mut guard = self.fault_init_tx.lock().expect("fault_init_tx poisoned");
+                if *guard {
+                    *guard = false;
+                    return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
                 }
             }
-        } else {
-            // Changed identity: clear any stale `last_telegram_update_id.<bot_id>`
-            // (e.g. B→A→B) in the same tx so the real bot starts low, not under
-            // an old offset.
             tx.execute(
-                "DELETE FROM kv_state WHERE key = ?1",
-                params![namespaced_key],
+                "DELETE FROM kv_state WHERE key = 'last_telegram_update_id'",
+                [],
             )?;
-        }
-        #[cfg(test)]
-        {
-            // Test-only fault: fire once, after the bot-id + (optional)
-            // namespaced legacy-offset writes have landed inside the
-            // transaction, so a rollback demonstrably discards those partial
-            // mutations. Consumed on fire so a retry re-attempts cleanly.
-            let mut guard = self.fault_init_tx.lock().expect("fault_init_tx poisoned");
-            if *guard {
-                *guard = false;
-                return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
-            }
-        }
-        tx.execute(
-            "DELETE FROM kv_state WHERE key = 'last_telegram_update_id'",
-            [],
-        )?;
-        tx.commit()?;
-        Ok(())
+            Ok(())
+        })
     }
 }
 
@@ -824,6 +876,7 @@ mod migrations_versioned;
 pub(crate) mod nerve;
 pub(crate) mod nerve_dispatch;
 pub(crate) mod nerve_reactions;
+mod nerve_schema;
 pub(crate) mod owner_review;
 mod owner_review_approval;
 mod owner_review_schema;

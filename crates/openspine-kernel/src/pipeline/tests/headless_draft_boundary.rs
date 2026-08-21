@@ -166,14 +166,12 @@ async fn webhook_minted_headless_draft_refuses_before_any_write() {
     // TOTAL fence rows, not just open ones: a definite write failure would also
     // leave zero OPEN rows, so only the total distinguishes "refused before the
     // write" from "attempted the write and failed".
-    let total_fence_rows: i64 = state
-        .store
-        .conn
-        .lock()
-        .query_row("SELECT COUNT(*) FROM pending_draft_writes", [], |row| {
+    let total_fence_rows: i64 = state.store.with_conn_for_test(|conn| {
+        conn.query_row("SELECT COUNT(*) FROM pending_draft_writes", [], |row| {
             row.get(0)
         })
-        .unwrap();
+        .unwrap()
+    });
     assert_eq!(
         total_fence_rows, 0,
         "refusing before the write records no reconciliation fence at all"

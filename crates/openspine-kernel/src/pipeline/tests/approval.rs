@@ -371,17 +371,18 @@ async fn draft_write_timeout_is_delivery_unknown_and_retry_is_fenced() {
         1
     );
 
-    let pending_id: Ulid = {
-        let conn = state.store.conn.lock();
-        conn.query_row(
-            "SELECT id FROM pending_draft_writes WHERE state = 'pending'",
-            [],
-            |row| row.get::<_, String>(0),
-        )
-        .unwrap()
+    let pending_id: Ulid = state
+        .store
+        .with_conn_for_test(|conn| {
+            conn.query_row(
+                "SELECT id FROM pending_draft_writes WHERE state = 'pending'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap()
+        })
         .parse()
-        .unwrap()
-    };
+        .unwrap();
     state.store.resolve_pending_draft_write(pending_id).unwrap();
     assert!(!state
         .store

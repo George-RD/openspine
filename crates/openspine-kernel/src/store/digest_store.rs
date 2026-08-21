@@ -21,34 +21,33 @@ impl Store {
                 .map_err(|_| StoreError::BadDigest(text_ref.to_string()))?,
             schema_version: 1,
         };
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let id = Ulid::new();
-        let now = Timestamp::now();
-        let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
-            summary
-                .chars()
-                .take(MAX_DIGEST_SUMMARY_CHARS)
-                .collect::<String>()
-        } else {
-            summary.to_string()
-        };
-        tx.execute(
-            "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
-            params![id.to_string(), now.to_string(), class, summary, text_ref],
-        )?;
-        Self::append_audit_conn(
-            &tx,
-            "failure.digest_batched",
-            None,
-            None,
-            None,
-            None,
-            &[],
-            slice::from_ref(&artifact_ref),
-        )?;
-        tx.commit()?;
-        Ok(id)
+        self.with_immediate_tx(|tx| {
+            let id = Ulid::new();
+            let now = Timestamp::now();
+            let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
+                summary
+                    .chars()
+                    .take(MAX_DIGEST_SUMMARY_CHARS)
+                    .collect::<String>()
+            } else {
+                summary.to_string()
+            };
+            tx.execute(
+                "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
+                params![id.to_string(), now.to_string(), class, summary, text_ref],
+            )?;
+            Self::append_audit_conn(
+                tx,
+                "failure.digest_batched",
+                None,
+                None,
+                None,
+                None,
+                &[],
+                slice::from_ref(&artifact_ref),
+            )?;
+            Ok(id)
+        })
     }
     /// Record a completed (or escalated) headless webhook run in the owner
     /// digest (AD-134). The `text_ref` is an encrypted artifact digest
@@ -68,34 +67,33 @@ impl Store {
                 .map_err(|_| StoreError::BadDigest(text_ref.to_string()))?,
             schema_version: 1,
         };
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let id = Ulid::new();
-        let now = Timestamp::now();
-        let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
-            summary
-                .chars()
-                .take(MAX_DIGEST_SUMMARY_CHARS)
-                .collect::<String>()
-        } else {
-            summary.to_string()
-        };
-        tx.execute(
-            "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
-            params![id.to_string(), now.to_string(), class, summary, text_ref],
-        )?;
-        Self::append_audit_conn(
-            &tx,
-            "headless.hook_completed",
-            None,
-            None,
-            None,
-            task_grant_id,
-            &[],
-            slice::from_ref(&artifact_ref),
-        )?;
-        tx.commit()?;
-        Ok(id)
+        self.with_immediate_tx(|tx| {
+            let id = Ulid::new();
+            let now = Timestamp::now();
+            let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
+                summary
+                    .chars()
+                    .take(MAX_DIGEST_SUMMARY_CHARS)
+                    .collect::<String>()
+            } else {
+                summary.to_string()
+            };
+            tx.execute(
+                "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
+                params![id.to_string(), now.to_string(), class, summary, text_ref],
+            )?;
+            Self::append_audit_conn(
+                tx,
+                "headless.hook_completed",
+                None,
+                None,
+                None,
+                task_grant_id,
+                &[],
+                slice::from_ref(&artifact_ref),
+            )?;
+            Ok(id)
+        })
     }
 
     /// Record a digest item marking a failure's detail as unavailable, without
@@ -106,45 +104,43 @@ impl Store {
     /// NULL, matching the legacy/unavailable convention (never a dangling ref
     /// to a blob that cannot be decrypted).
     pub fn record_unavailable_failure(&self, class: &str) -> Result<Ulid, StoreError> {
-        let mut conn = self.conn.lock();
         // One terminal marker per class is enough: repeated views of legacy or
         // unresolvable rows must not keep inserting identical NULL-ref markers.
         // Lookup and insert share one write transaction so concurrent views
         // cannot each observe absence and both insert.
         let summary = format!("[{class}] detail unavailable");
-        let tx = conn.transaction()?;
-        if let Some(existing) = tx
-            .query_row(
-                "SELECT id FROM digest_items \
-                 WHERE resolved = 0 AND text_ref IS NULL AND class = ?1 AND summary = ?2 \
-                 ORDER BY seq LIMIT 1",
-                params![class, summary],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?
-        {
-            tx.commit()?;
-            return Ulid::from_string(&existing)
-                .map_err(|_| StoreError::BadDigest(format!("digest_items.id {existing}")));
-        }
-        let id = Ulid::new();
-        let now = Timestamp::now();
-        tx.execute(
-            "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, NULL, 0)",
-            params![id.to_string(), now.to_string(), class, summary],
-        )?;
-        Self::append_audit_conn(
-            &tx,
-            "failure.digest_unavailable",
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(id)
+        self.with_immediate_tx(|tx| {
+            if let Some(existing) = tx
+                .query_row(
+                    "SELECT id FROM digest_items \
+                     WHERE resolved = 0 AND text_ref IS NULL AND class = ?1 AND summary = ?2 \
+                     ORDER BY seq LIMIT 1",
+                    params![class, summary],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?
+            {
+                return Ulid::from_string(&existing)
+                    .map_err(|_| StoreError::BadDigest(format!("digest_items.id {existing}")));
+            }
+            let id = Ulid::new();
+            let now = Timestamp::now();
+            tx.execute(
+                "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, NULL, 0)",
+                params![id.to_string(), now.to_string(), class, summary],
+            )?;
+            Self::append_audit_conn(
+                tx,
+                "failure.digest_unavailable",
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(id)
+        })
     }
 
     /// Whether an item is the canonical terminal marker written by
@@ -168,34 +164,33 @@ impl Store {
         class: &str,
         summary: &str,
     ) -> Result<Ulid, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let id = Ulid::new();
-        let now = Timestamp::now();
-        let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
-            summary
-                .chars()
-                .take(MAX_DIGEST_SUMMARY_CHARS)
-                .collect::<String>()
-        } else {
-            summary.to_string()
-        };
-        tx.execute(
-            "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, NULL, 0)",
-            params![id.to_string(), now.to_string(), class, summary],
-        )?;
-        Self::append_audit_conn(
-            &tx,
-            "failure.digest_batched",
-            None,
-            None,
-            None,
-            None,
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        Ok(id)
+        self.with_immediate_tx(|tx| {
+            let id = Ulid::new();
+            let now = Timestamp::now();
+            let summary = if summary.chars().count() > MAX_DIGEST_SUMMARY_CHARS {
+                summary
+                    .chars()
+                    .take(MAX_DIGEST_SUMMARY_CHARS)
+                    .collect::<String>()
+            } else {
+                summary.to_string()
+            };
+            tx.execute(
+                "INSERT INTO digest_items (id, ts, class, summary, text_ref, resolved) VALUES (?1, ?2, ?3, ?4, NULL, 0)",
+                params![id.to_string(), now.to_string(), class, summary],
+            )?;
+            Self::append_audit_conn(
+                tx,
+                "failure.digest_batched",
+                None,
+                None,
+                None,
+                None,
+                &[],
+                &[],
+            )?;
+            Ok(id)
+        })
     }
 
     pub fn owner_digest_items(&self) -> Result<Vec<DigestItem>, StoreError> {

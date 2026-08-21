@@ -10,7 +10,7 @@ use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::{default_aggregate_id, AuditEvent, AuditKind};
 use openspine_schemas::digest::{canonical_json, digest_from_hash, Digest};
 use openspine_schemas::ids::PrincipalId;
-use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest as _, Sha256};
 use ulid::Ulid;
 
@@ -78,22 +78,21 @@ impl Store {
         {
             return Err(StoreError::Sqlite(rusqlite::Error::QueryReturnedNoRows));
         }
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let event = Self::append_audit_conn_with_options(
-            &tx,
-            kind,
-            action,
-            decision,
-            reason,
-            task_grant_id,
-            target_refs,
-            payload_refs,
-            None,
-            payload_json,
-        )?;
-        tx.commit()?;
-        Ok(event)
+        self.with_immediate_tx(|tx| {
+            let event = Self::append_audit_conn_with_options(
+                tx,
+                kind,
+                action,
+                decision,
+                reason,
+                task_grant_id,
+                target_refs,
+                payload_refs,
+                None,
+                payload_json,
+            )?;
+            Ok(event)
+        })
     }
 
     /// Append one audit row carrying an optional typed `actor` (spec #197,
@@ -114,23 +113,21 @@ impl Store {
         payload_refs: &[ArtifactRef],
         actor: Option<&PrincipalId>,
     ) -> Result<AuditEvent, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let event = Self::append_audit_conn_with_actor(
-            &tx,
-            kind,
-            action,
-            decision,
-            reason,
-            task_grant_id,
-            target_refs,
-            payload_refs,
-            None,
-            None,
-            actor,
-        )?;
-        tx.commit()?;
-        Ok(event)
+        self.with_immediate_tx(|tx| {
+            Self::append_audit_conn_with_actor(
+                tx,
+                kind,
+                action,
+                decision,
+                reason,
+                task_grant_id,
+                target_refs,
+                payload_refs,
+                None,
+                None,
+                actor,
+            )
+        })
     }
 
     #[allow(clippy::too_many_arguments)]

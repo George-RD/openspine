@@ -77,8 +77,7 @@ async fn propose_path_refuses_a_non_delegable_standing_rule_before_review_requir
     );
 
     // Nothing reached review_required, and no verdict claims a pass.
-    let states: Vec<String> = {
-        let conn = state.store.conn.lock();
+    let states: Vec<String> = state.store.with_conn_for_test(|conn| {
         let mut stmt = conn
             .prepare("SELECT state FROM proposed_artifacts WHERE artifact_id = ?1")
             .unwrap();
@@ -90,7 +89,7 @@ async fn propose_path_refuses_a_non_delegable_standing_rule_before_review_requir
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         rows
-    };
+    });
     assert!(
         !states.iter().any(|s| s == "review_required"),
         "the proposal must never reach review_required: {states:?}"
@@ -149,8 +148,7 @@ async fn catalog_email_send_is_non_delegable() {
         "the production path must surface the catalog non-delegable denial: {rendered}"
     );
 
-    let states: Vec<String> = {
-        let conn = state.store.conn.lock();
+    let states: Vec<String> = state.store.with_conn_for_test(|conn| {
         let mut stmt = conn
             .prepare("SELECT state FROM proposed_artifacts WHERE artifact_id = ?1")
             .unwrap();
@@ -162,7 +160,7 @@ async fn catalog_email_send_is_non_delegable() {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
         rows
-    };
+    });
     assert!(
         !states.iter().any(|s| s == "review_required"),
         "the proposal must never reach review_required: {states:?}"

@@ -6,7 +6,7 @@ use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 use super::standing_rules::timestamp_to_epoch_nanos;
@@ -75,8 +75,7 @@ impl Store {
             payload_ref,
         );
         let now_nanos = timestamp_to_epoch_nanos(now)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.with_immediate_tx(|tx| {
         // Re-read the durable erasure marker while this claim transaction is
         // open. The briefcase JSON is only used to obtain the generic bound
         // counterparty; the marker remains the sole authoritative decision.
@@ -96,7 +95,7 @@ impl Store {
         )?;
         if erased != 0 {
             Self::append_audit_conn(
-                &tx,
+                tx,
                 "action.scope_context_unresolved",
                 Some(action),
                 None,
@@ -107,7 +106,6 @@ impl Store {
                 &[],
                 &[],
             )?;
-            tx.commit()?;
             return Ok(None);
         }
         type Row = (String, i64);
@@ -163,7 +161,7 @@ impl Store {
             params![rule_id, rule_version, now_nanos, pending_id],
         )?;
         Self::append_audit_conn(
-            &tx,
+            tx,
             "standing_rule.dark_window_admitted",
             Some(action),
             None,
@@ -172,7 +170,7 @@ impl Store {
             &[],
             &[],
         )?;
-        tx.commit()?;
         Ok(Some((rule_id, rule_version as u32, pending_id.to_string())))
+        })
     }
 }

@@ -122,44 +122,43 @@ impl Store {
         self.sweep_expired_grants(Timestamp::now())?;
         let mut redacted = grant.clone();
         redacted.task_token = String::new();
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        tx.execute(
-            super::TASK_GRANT_INSERT_SQL,
-            params![
-                grant.id.to_string(),
-                super::budget_support::hash_task_token(&grant.task_token),
-                sql_timestamp(grant.expires_at),
-                serde_json::to_string(&redacted)?,
-                pending_message_ref.digest.as_str(),
-                serde_json::to_string(owner_surface)?,
-            ],
-        )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO dispatch_state \
-             (event_id, timer_id, task_id, state, grant_id, token_ref, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, 'handed_off', ?4, ?5, ?6, ?6)",
-            params![
-                key,
-                timer_id,
-                task_id.map(|u| u.to_string()),
-                grant.id.to_string(),
-                serde_json::to_string(token_ref)?,
-                Timestamp::now().to_string(),
-            ],
-        )?;
-        Store::append_audit_conn(
-            &tx,
-            "authority.granted",
-            None,
-            None,
-            None,
-            Some(grant.id),
-            &[],
-            std::slice::from_ref(pending_message_ref),
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            tx.execute(
+                super::TASK_GRANT_INSERT_SQL,
+                params![
+                    grant.id.to_string(),
+                    super::budget_support::hash_task_token(&grant.task_token),
+                    sql_timestamp(grant.expires_at),
+                    serde_json::to_string(&redacted)?,
+                    pending_message_ref.digest.as_str(),
+                    serde_json::to_string(owner_surface)?,
+                ],
+            )?;
+            tx.execute(
+                "INSERT OR REPLACE INTO dispatch_state \
+                 (event_id, timer_id, task_id, state, grant_id, token_ref, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, 'handed_off', ?4, ?5, ?6, ?6)",
+                params![
+                    key,
+                    timer_id,
+                    task_id.map(|u| u.to_string()),
+                    grant.id.to_string(),
+                    serde_json::to_string(token_ref)?,
+                    Timestamp::now().to_string(),
+                ],
+            )?;
+            Store::append_audit_conn(
+                tx,
+                "authority.granted",
+                None,
+                None,
+                None,
+                Some(grant.id),
+                &[],
+                std::slice::from_ref(pending_message_ref),
+            )?;
+            Ok(())
+        })
     }
 
     /// Transition a handed-off dispatch to `terminal` after the worker
@@ -172,25 +171,24 @@ impl Store {
         reason: &str,
         grant_id: &str,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        tx.execute(
-            "UPDATE dispatch_state SET state='terminal', terminal_reason=?2, updated_at=?3 \
-             WHERE event_id=?1",
-            params![key, reason, Timestamp::now().to_string()],
-        )?;
-        tx.execute(
-            "INSERT OR IGNORE INTO processed_timer_events (event_id, grant_id, recorded_at) \
-             VALUES (?1, ?2, ?3)",
-            params![key, grant_id, Timestamp::now().to_string()],
-        )?;
-        tx.execute(
-            "INSERT OR REPLACE INTO dispatch_receipts (dispatch_id, grant_id, completed_at)
-             VALUES (?1, ?2, ?3)",
-            params![key, grant_id, Timestamp::now().to_string()],
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            tx.execute(
+                "UPDATE dispatch_state SET state='terminal', terminal_reason=?2, updated_at=?3 \
+                 WHERE event_id=?1",
+                params![key, reason, Timestamp::now().to_string()],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO processed_timer_events (event_id, grant_id, recorded_at) \
+                 VALUES (?1, ?2, ?3)",
+                params![key, grant_id, Timestamp::now().to_string()],
+            )?;
+            tx.execute(
+                "INSERT OR REPLACE INTO dispatch_receipts (dispatch_id, grant_id, completed_at)
+                 VALUES (?1, ?2, ?3)",
+                params![key, grant_id, Timestamp::now().to_string()],
+            )?;
+            Ok(())
+        })
     }
 
     /// Finalize a non-actionable (or awaiting-dependency) dispatch as
@@ -205,27 +203,26 @@ impl Store {
         reason: &str,
         related_id: &str,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        tx.execute(
-            "INSERT OR REPLACE INTO dispatch_state \
-             (event_id, timer_id, task_id, state, terminal_reason, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, 'terminal', ?4, ?5, ?5)",
-            params![
-                key,
-                timer_id,
-                task_id.map(|u| u.to_string()),
-                reason,
-                Timestamp::now().to_string(),
-            ],
-        )?;
-        tx.execute(
-            "INSERT OR IGNORE INTO processed_timer_events (event_id, grant_id, recorded_at) \
-             VALUES (?1, ?2, ?3)",
-            params![key, related_id, Timestamp::now().to_string()],
-        )?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            tx.execute(
+                "INSERT OR REPLACE INTO dispatch_state \
+                 (event_id, timer_id, task_id, state, terminal_reason, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, 'terminal', ?4, ?5, ?5)",
+                params![
+                    key,
+                    timer_id,
+                    task_id.map(|u| u.to_string()),
+                    reason,
+                    Timestamp::now().to_string(),
+                ],
+            )?;
+            tx.execute(
+                "INSERT OR IGNORE INTO processed_timer_events (event_id, grant_id, recorded_at) \
+                 VALUES (?1, ?2, ?3)",
+                params![key, related_id, Timestamp::now().to_string()],
+            )?;
+            Ok(())
+        })
     }
 
     // ---- dependency waiters ----------------------------------------------
@@ -299,113 +296,112 @@ impl Store {
         &self,
         completed_dependency_id: Ulid,
     ) -> Result<Vec<DependencyWake>, StoreError> {
-        let mut conn = self.conn.lock();
-        let candidates = {
-            let mut stmt = conn.prepare(
-                "SELECT task_id, dependency_id, timer_id, owner_principal_id, event_id \
-                 FROM task_dependency_waiters WHERE dependency_id = ?1 AND state = 'waiting'",
-            )?;
-            let rows = stmt.query_map(params![completed_dependency_id.to_string()], |r| {
-                Ok((
-                    r.get::<_, String>(0)?,
-                    r.get::<_, String>(1)?,
-                    r.get::<_, String>(2)?,
-                    r.get::<_, String>(3)?,
-                    r.get::<_, String>(4)?,
-                ))
-            })?;
-            rows.collect::<Result<Vec<_>, _>>()?
-        };
-        let tx = conn.transaction()?;
-        let now = Timestamp::now().to_string();
-        let mut wakes = Vec::new();
-        for (task_id_s, _dep_s, timer_id, owner_s, _event_id) in candidates {
-            let task_id = parse_ulid(&task_id_s)?;
-            let owner_exists: Option<i64> = tx
-                .query_row(
-                    "SELECT 1 FROM principals WHERE id = ?1",
-                    params![owner_s],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            if owner_exists.is_none() {
-                tx.execute(
-                    "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
-                     WHERE task_id=?1 AND timer_id=?3",
-                    params![task_id_s, now, timer_id],
+        self.with_immediate_tx(|tx| {
+            let candidates = {
+                let mut stmt = tx.prepare(
+                    "SELECT task_id, dependency_id, timer_id, owner_principal_id, event_id \
+                     FROM task_dependency_waiters WHERE dependency_id = ?1 AND state = 'waiting'",
                 )?;
-                continue;
-            }
-            let task_json: Option<String> = tx
-                .query_row(
-                    "SELECT task_json FROM task_board WHERE id = ?1",
-                    params![task_id_s],
-                    |r| r.get(0),
-                )
-                .optional()?;
-            let Some(task_json) = task_json else {
-                tx.execute(
-                    "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
-                     WHERE task_id=?1 AND timer_id=?3",
-                    params![task_id_s, now, timer_id],
-                )?;
-                continue;
+                let rows = stmt.query_map(params![completed_dependency_id.to_string()], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                        r.get::<_, String>(4)?,
+                    ))
+                })?;
+                rows.collect::<Result<Vec<_>, _>>()?
             };
-            let mut task: Task = serde_json::from_str(&task_json)?;
-            if matches!(task.status, TaskStatus::Done | TaskStatus::Cancelled) {
-                tx.execute(
-                    "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
-                     WHERE task_id=?1 AND timer_id=?3",
-                    params![task_id_s, now, timer_id],
-                )?;
-                continue;
-            }
-            let mut all_done = true;
-            for dep in &task.dependencies {
-                let dep_json: Option<String> = tx
+            let now = Timestamp::now().to_string();
+            let mut wakes = Vec::new();
+            for (task_id_s, _dep_s, timer_id, owner_s, _event_id) in candidates {
+                let task_id = parse_ulid(&task_id_s)?;
+                let owner_exists: Option<i64> = tx
                     .query_row(
-                        "SELECT task_json FROM task_board WHERE id = ?1",
-                        params![dep.to_string()],
+                        "SELECT 1 FROM principals WHERE id = ?1",
+                        params![owner_s],
                         |r| r.get(0),
                     )
                     .optional()?;
-                match dep_json.and_then(|j| serde_json::from_str::<Task>(&j).ok()) {
-                    Some(t) if t.status == TaskStatus::Done => {}
-                    _ => {
-                        all_done = false;
-                        break;
+                if owner_exists.is_none() {
+                    tx.execute(
+                        "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
+                         WHERE task_id=?1 AND timer_id=?3",
+                        params![task_id_s, now, timer_id],
+                    )?;
+                    continue;
+                }
+                let task_json: Option<String> = tx
+                    .query_row(
+                        "SELECT task_json FROM task_board WHERE id = ?1",
+                        params![task_id_s],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                let Some(task_json) = task_json else {
+                    tx.execute(
+                        "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
+                         WHERE task_id=?1 AND timer_id=?3",
+                        params![task_id_s, now, timer_id],
+                    )?;
+                    continue;
+                };
+                let mut task: Task = serde_json::from_str(&task_json)?;
+                if matches!(task.status, TaskStatus::Done | TaskStatus::Cancelled) {
+                    tx.execute(
+                        "UPDATE task_dependency_waiters SET state='consumed', updated_at=?2 \
+                         WHERE task_id=?1 AND timer_id=?3",
+                        params![task_id_s, now, timer_id],
+                    )?;
+                    continue;
+                }
+                let mut all_done = true;
+                for dep in &task.dependencies {
+                    let dep_json: Option<String> = tx
+                        .query_row(
+                            "SELECT task_json FROM task_board WHERE id = ?1",
+                            params![dep.to_string()],
+                            |r| r.get(0),
+                        )
+                        .optional()?;
+                    match dep_json.and_then(|j| serde_json::from_str::<Task>(&j).ok()) {
+                        Some(t) if t.status == TaskStatus::Done => {}
+                        _ => {
+                            all_done = false;
+                            break;
+                        }
                     }
                 }
-            }
-            if !all_done {
-                continue;
-            }
-            if task.status == TaskStatus::Blocked {
-                task.status = TaskStatus::Open;
-                let status_str = serde_json::to_value(task.status)?
-                    .as_str()
-                    .unwrap()
-                    .to_string();
+                if !all_done {
+                    continue;
+                }
+                if task.status == TaskStatus::Blocked {
+                    task.status = TaskStatus::Open;
+                    let status_str = serde_json::to_value(task.status)?
+                        .as_str()
+                        .unwrap()
+                        .to_string();
+                    tx.execute(
+                        "UPDATE task_board SET status = ?1, task_json = ?2 WHERE id = ?3",
+                        params![status_str, serde_json::to_string(&task)?, task_id_s],
+                    )?;
+                }
+                let wake_key = format!("wake:{task_id}:{timer_id}");
                 tx.execute(
-                    "UPDATE task_board SET status = ?1, task_json = ?2 WHERE id = ?3",
-                    params![status_str, serde_json::to_string(&task)?, task_id_s],
+                    "UPDATE task_dependency_waiters SET state='ready', updated_at=?2 \
+                     WHERE task_id=?1 AND timer_id=?3",
+                    params![task_id_s, now, timer_id],
                 )?;
+                wakes.push(DependencyWake {
+                    task_id,
+                    timer_id: timer_id.clone(),
+                    dependency_id: completed_dependency_id,
+                    wake_key,
+                });
             }
-            let wake_key = format!("wake:{task_id}:{timer_id}");
-            tx.execute(
-                "UPDATE task_dependency_waiters SET state='ready', updated_at=?2 \
-                 WHERE task_id=?1 AND timer_id=?3",
-                params![task_id_s, now, timer_id],
-            )?;
-            wakes.push(DependencyWake {
-                task_id,
-                timer_id: timer_id.clone(),
-                dependency_id: completed_dependency_id,
-                wake_key,
-            });
-        }
-        tx.commit()?;
-        Ok(wakes)
+            Ok(wakes)
+        })
     }
     /// Periodically poll every distinct waiting dependency. This keeps
     /// dependency wake durable even when task completion was committed by a
@@ -466,9 +462,7 @@ impl Store {
         &self,
         task_id: Ulid,
     ) -> Result<Vec<DependencyWake>, StoreError> {
-        {
-            let mut conn = self.conn.lock();
-            let tx = conn.transaction()?;
+        self.with_immediate_tx(|tx| {
             let json: Option<String> = tx
                 .query_row(
                     "SELECT task_json FROM task_board WHERE id = ?1",
@@ -492,9 +486,9 @@ impl Store {
                         task_id.to_string()
                     ],
                 )?;
-                tx.commit()?;
             }
-        }
+            Ok(())
+        })?;
         self.poll_dependency_waits(task_id)
     }
 }

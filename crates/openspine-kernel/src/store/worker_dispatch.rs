@@ -18,7 +18,7 @@ use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::worker::{WorkerIdentity, WorkerResult};
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,106 +48,102 @@ pub fn record_worker_commissioned(
 ) -> Result<Ulid, StoreError> {
     let mut redacted = grant.clone();
     redacted.task_token = String::new();
-    let mut conn = store.conn.lock();
-    let tx = conn
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(StoreError::from)?;
-    if !grant.effectively_allows(&ActionId::new("worker.report_result")) {
-        return Err(StoreError::WorkerCannotReportResults);
-    }
-    let already_recorded: Option<String> = tx
-        .query_row(
-            "SELECT grant_id FROM worker_dispatch WHERE receipt_key = ?1 LIMIT 1",
-            params![receipt],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(StoreError::from)?;
-    if let Some(original_grant_id) = already_recorded {
-        tx.commit().map_err(StoreError::from)?;
-        return Ulid::from_string(&original_grant_id)
-            .map_err(|_| StoreError::BadUlid("worker_dispatch.grant_id".into()));
-    }
-    // A worker may commission only while its worker parent is still live.
-    // Master grants do not have a worker_dispatch row and remain valid.
-    let parent_state: Option<String> = tx
-        .query_row(
-            "SELECT state FROM worker_dispatch WHERE grant_id = ?1",
-            params![parent_grant_id.to_string()],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(StoreError::from)?;
-    if matches!(parent_state.as_deref(), Some("terminal")) {
-        return Err(StoreError::WorkerDispatchAlreadyFailed);
-    }
-    // A fresh commission is the only restart/recomposition entry point. Fail
-    // closed once this connector has exhausted the default 3/30s intensity
-    // budget; duplicate receipts above are still idempotent and return their
-    // original grant without creating another dispatch.
-    // Count the connector failures already charged within the sliding window.
-    // The configured limit is the last failure that exhausts continuation: once
-    // `recent_failures >= restart_limit` rows are present, the next fresh
-    // commission is refused (the failed worker's grant is never inherited).
-    let cutoff = sql_timestamp(Timestamp::now() - std::time::Duration::from_secs(30));
-    let recent_failures: i64 = tx
-        .query_row(
-            "SELECT COUNT(*) FROM connector_restart_ledger \
-             WHERE connector = ?1 AND occurred_at > ?2",
-            params![connector, cutoff],
-            |row| row.get(0),
-        )
-        .map_err(StoreError::from)?;
-    if recent_failures >= 3 {
-        return Err(StoreError::WorkerRestartCapExceeded(connector.to_string()));
-    }
-    tx.execute(
-        super::TASK_GRANT_INSERT_SQL,
-        params![
-            grant.id.to_string(),
-            super::budget_support::hash_task_token(&grant.task_token),
-            sql_timestamp(grant.expires_at),
-            serde_json::to_string(&redacted)?,
-            pending_ref.digest.as_str(),
-            serde_json::to_string(owner_surface)?,
-        ],
-    )?;
-    tx.execute(
-        "INSERT INTO briefcases (task_grant_id, briefcase_json) VALUES (?1, ?2)",
-        params![grant.id.to_string(), serde_json::to_string(briefcase)?],
-    )?;
-    tx.execute(
-        "INSERT INTO worker_dispatch
-         (grant_id, parent_grant_id, state, receipt_key, request_digest, token_ref,
-          identity_owner, identity_conversation, identity_task, connector, created_at, updated_at)
-         VALUES (?1, ?2, 'dispatched', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
-        params![
-            grant.id.to_string(),
-            parent_grant_id.to_string(),
-            receipt,
-            request_digest.as_str(),
-            serde_json::to_string(token_ref)?,
-            identity.owner,
-            identity.conversation,
-            identity.task,
-            connector,
-            sql_timestamp(jiff::Timestamp::now()),
-        ],
-    )?;
-    Store::append_audit_conn_with_options(
-        &tx,
-        "authority.granted",
-        None,
-        None,
-        None,
-        Some(grant.id),
-        &[],
-        std::slice::from_ref(pending_ref),
-        None,
-        None,
-    )?;
-    tx.commit().map_err(StoreError::from)?;
-    Ok(grant.id)
+    store.with_immediate_tx(|tx| {
+        if !grant.effectively_allows(&ActionId::new("worker.report_result")) {
+            return Err(StoreError::WorkerCannotReportResults);
+        }
+        let already_recorded: Option<String> = tx
+            .query_row(
+                "SELECT grant_id FROM worker_dispatch WHERE receipt_key = ?1 LIMIT 1",
+                params![receipt],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(StoreError::from)?;
+        if let Some(original_grant_id) = already_recorded {
+            return Ulid::from_string(&original_grant_id)
+                .map_err(|_| StoreError::BadUlid("worker_dispatch.grant_id".into()));
+        }
+        // A worker may commission only while its worker parent is still live.
+        // Master grants do not have a worker_dispatch row and remain valid.
+        let parent_state: Option<String> = tx
+            .query_row(
+                "SELECT state FROM worker_dispatch WHERE grant_id = ?1",
+                params![parent_grant_id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(StoreError::from)?;
+        if matches!(parent_state.as_deref(), Some("terminal")) {
+            return Err(StoreError::WorkerDispatchAlreadyFailed);
+        }
+        // A fresh commission is the only restart/recomposition entry point. Fail
+        // closed once this connector has exhausted the default 3/30s intensity
+        // budget; duplicate receipts above are still idempotent and return their
+        // original grant without creating another dispatch.
+        // Count the connector failures already charged within the sliding window.
+        // The configured limit is the last failure that exhausts continuation: once
+        // `recent_failures >= restart_limit` rows are present, the next fresh
+        // commission is refused (the failed worker's grant is never inherited).
+        let cutoff = sql_timestamp(Timestamp::now() - std::time::Duration::from_secs(30));
+        let recent_failures: i64 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM connector_restart_ledger \
+                 WHERE connector = ?1 AND occurred_at > ?2",
+                params![connector, cutoff],
+                |row| row.get(0),
+            )
+            .map_err(StoreError::from)?;
+        if recent_failures >= 3 {
+            return Err(StoreError::WorkerRestartCapExceeded(connector.to_string()));
+        }
+        tx.execute(
+            super::TASK_GRANT_INSERT_SQL,
+            params![
+                grant.id.to_string(),
+                super::budget_support::hash_task_token(&grant.task_token),
+                sql_timestamp(grant.expires_at),
+                serde_json::to_string(&redacted)?,
+                pending_ref.digest.as_str(),
+                serde_json::to_string(owner_surface)?,
+            ],
+        )?;
+        tx.execute(
+            "INSERT INTO briefcases (task_grant_id, briefcase_json) VALUES (?1, ?2)",
+            params![grant.id.to_string(), serde_json::to_string(briefcase)?],
+        )?;
+        tx.execute(
+            "INSERT INTO worker_dispatch
+             (grant_id, parent_grant_id, state, receipt_key, request_digest, token_ref,
+              identity_owner, identity_conversation, identity_task, connector, created_at, updated_at)
+             VALUES (?1, ?2, 'dispatched', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+            params![
+                grant.id.to_string(),
+                parent_grant_id.to_string(),
+                receipt,
+                request_digest.as_str(),
+                serde_json::to_string(token_ref)?,
+                identity.owner,
+                identity.conversation,
+                identity.task,
+                connector,
+                sql_timestamp(jiff::Timestamp::now()),
+            ],
+        )?;
+        Store::append_audit_conn_with_options(
+            tx,
+            "authority.granted",
+            None,
+            None,
+            None,
+            Some(grant.id),
+            &[],
+            std::slice::from_ref(pending_ref),
+            None,
+            None,
+        )?;
+        Ok(grant.id)
+    })
 }
 /// Resolution of a commission receipt lookup. The receipt is bound to the
 /// commissioning parent grant id AND the canonical request digest, so a
@@ -352,70 +348,66 @@ pub fn record_worker_result(
 ) -> Result<(), StoreError> {
     let payload_json = serde_json::to_string(result)?;
 
-    let mut conn = store.conn.lock();
-    let tx = conn
-        .transaction_with_behavior(TransactionBehavior::Immediate)
-        .map_err(StoreError::from)?;
-
-    // D-083 / D-073 receipt check, inside the same transaction as the
-    // terminal flip below so there is no TOCTOU window between "not yet
-    // terminal" and "mark terminal": a result for an already-terminal
-    // dispatch must not be replayed. Fail closed (honest denial, not a
-    // crash).
-    let state: Option<String> = tx
-        .query_row(
-            "SELECT state FROM worker_dispatch WHERE grant_id = ?1",
-            params![worker_grant_id.to_string()],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(StoreError::from)?;
-    match state.as_deref() {
-        None => return Err(StoreError::WorkerDispatchNotFound),
-        Some("terminal") => return Err(StoreError::WorkerResultAlreadyRecorded),
-        _ => {}
-    }
-
-    tx.execute(
-        "UPDATE worker_dispatch SET state='terminal', updated_at=?2 WHERE grant_id=?1",
-        params![
-            worker_grant_id.to_string(),
-            jiff::Timestamp::now().to_string()
-        ],
-    )?;
-
-    // Append the result as a bus event on the worker grant's aggregate,
-    // carrying the structured payload as JSON so the master's consumer sees
-    // the actual outcome, not just a marker (D-073). The free-text notes
-    // and each request's detail reference are emitted as `payload_refs`
-    // (digest references, never bare ULIDs) so the owner's `/digest` path
-    // can reach the DetailReceipt without any plaintext on the ledger
-    // (D-012 / Fit 7). The rest of the result is JSON-inlined here for the
-    // consumer, but every untrusted ref is a digest, never inline text.
-    let mut payload_refs: Vec<ArtifactRef> = Vec::new();
-    if let Some(notes_ref) = &result.notes_ref {
-        payload_refs.push(notes_ref.clone());
-    }
-    for request in &result.requests {
-        if let Some(detail_ref) = &request.detail_ref {
-            payload_refs.push(detail_ref.clone());
+    store.with_immediate_tx(|tx| {
+        // D-083 / D-073 receipt check, inside the same transaction as the
+        // terminal flip below so there is no TOCTOU window between "not yet
+        // terminal" and "mark terminal": a result for an already-terminal
+        // dispatch must not be replayed. Fail closed (honest denial, not a
+        // crash).
+        let state: Option<String> = tx
+            .query_row(
+                "SELECT state FROM worker_dispatch WHERE grant_id = ?1",
+                params![worker_grant_id.to_string()],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(StoreError::from)?;
+        match state.as_deref() {
+            None => return Err(StoreError::WorkerDispatchNotFound),
+            Some("terminal") => return Err(StoreError::WorkerResultAlreadyRecorded),
+            _ => {}
         }
-    }
-    Store::append_audit_conn_with_options(
-        &tx,
-        "worker.result",
-        None,
-        None,
-        None,
-        Some(worker_grant_id),
-        &[],
-        &payload_refs,
-        None,
-        Some(&payload_json),
-    )?;
 
-    tx.commit().map_err(StoreError::from)?;
-    Ok(())
+        tx.execute(
+            "UPDATE worker_dispatch SET state='terminal', updated_at=?2 WHERE grant_id=?1",
+            params![
+                worker_grant_id.to_string(),
+                jiff::Timestamp::now().to_string()
+            ],
+        )?;
+
+        // Append the result as a bus event on the worker grant's aggregate,
+        // carrying the structured payload as JSON so the master's consumer sees
+        // the actual outcome, not just a marker (D-073). The free-text notes
+        // and each request's detail reference are emitted as `payload_refs`
+        // (digest references, never bare ULIDs) so the owner's `/digest` path
+        // can reach the DetailReceipt without any plaintext on the ledger
+        // (D-012 / Fit 7). The rest of the result is JSON-inlined here for the
+        // consumer, but every untrusted ref is a digest, never inline text.
+        let mut payload_refs: Vec<ArtifactRef> = Vec::new();
+        if let Some(notes_ref) = &result.notes_ref {
+            payload_refs.push(notes_ref.clone());
+        }
+        for request in &result.requests {
+            if let Some(detail_ref) = &request.detail_ref {
+                payload_refs.push(detail_ref.clone());
+            }
+        }
+        Store::append_audit_conn_with_options(
+            tx,
+            "worker.result",
+            None,
+            None,
+            None,
+            Some(worker_grant_id),
+            &[],
+            &payload_refs,
+            None,
+            Some(&payload_json),
+        )?;
+
+        Ok(())
+    })
 }
 
 /// Read a commissioned worker's current dispatch state.

@@ -19,7 +19,7 @@ use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::standing_rule::DarkWindowDefault;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 use super::standing_rules::{
@@ -93,9 +93,7 @@ impl Store {
             .as_ref()
             .map(|r| serde_json::to_string(r).map_err(StoreError::Serde))
             .transpose()?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-
+        self.with_immediate_tx(|tx| {
         // Dedup FIRST: an idempotent repeat of an already-scheduled request is
         // not a new exception and must never be refused at the cap.
         let existing_pending_id: Option<String> = tx
@@ -124,7 +122,7 @@ impl Store {
                 )?;
                 if outstanding >= i64::from(dw.max_pending_exceptions) {
                     Self::append_audit_conn(
-                        &tx,
+                        tx,
                         "standing_rule.exception_suppressed_at_cap",
                         Some(&rule.action_id),
                         None,
@@ -137,7 +135,6 @@ impl Store {
                         &[],
                         &[],
                     )?;
-                    tx.commit()?;
                     return Ok(DarkWindowSchedule::SuppressedAtCap);
                 }
                 tx.execute(
@@ -202,7 +199,7 @@ impl Store {
                         params![timer_id, effective_pending_id],
                     )?;
                     Self::append_audit_conn(
-                        &tx,
+                        tx,
                         "workflow.timer_scheduled",
                         Some(&rule.action_id),
                         None,
@@ -217,8 +214,8 @@ impl Store {
                 }
             }
         };
-        tx.commit()?;
         Ok(scheduled)
+        })
     }
 
     /// Claim a fired dark-window timer for processing. Transactionally
@@ -235,160 +232,159 @@ impl Store {
         timer_id: &str,
         now: Timestamp,
     ) -> Result<Option<StandingRulePendingAction>, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let link: Option<(String, Option<i64>)> = tx
+        self.with_immediate_tx(|tx| {
+            let link: Option<(String, Option<i64>)> = tx
             .query_row(
                 "SELECT pending_id, applied_at FROM standing_rule_timer_links WHERE timer_id = ?1",
                 params![timer_id],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
-        let Some((pending_id, applied_at)) = link else {
-            return Ok(None);
-        };
-        if applied_at.is_some() {
-            // Already claimed: idempotent no-op. Recovery re-drives the pending
-            // row directly by id, not through this link.
-            return Ok(None);
-        }
-        type PendingRow = (
-            String,
-            i64,
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            String,
-            String,
-            String,
-            Option<i64>,
-            Option<String>,
-        );
-        let pending: Option<PendingRow> = tx
-            .query_row(
-                "SELECT rule_id, rule_version, task_grant_id, action_id, owner_surface_json, \
+            let Some((pending_id, applied_at)) = link else {
+                return Ok(None);
+            };
+            if applied_at.is_some() {
+                // Already claimed: idempotent no-op. Recovery re-drives the pending
+                // row directly by id, not through this link.
+                return Ok(None);
+            }
+            type PendingRow = (
+                String,
+                i64,
+                String,
+                String,
+                Option<String>,
+                Option<String>,
+                String,
+                String,
+                String,
+                Option<i64>,
+                Option<String>,
+            );
+            let pending: Option<PendingRow> = tx
+                .query_row(
+                    "SELECT rule_id, rule_version, task_grant_id, action_id, owner_surface_json, \
                         payload_ref_json, dark_window_default, request_fingerprint, \
                         dispatch_state, resolved_at, resolution \
                  FROM standing_rule_pending_actions WHERE pending_id = ?1",
-                params![pending_id],
-                |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                        row.get(4)?,
-                        row.get(5)?,
-                        row.get(6)?,
-                        row.get(7)?,
-                        row.get(8)?,
-                        row.get(9)?,
-                        row.get(10)?,
-                    ))
-                },
-            )
-            .optional()?;
-        let Some((
-            rule_id,
-            rule_version,
-            task_grant_id,
-            action_id,
-            owner_surface_json,
-            payload_ref_json,
-            default_str,
-            fingerprint,
-            dispatch_state,
-            resolved_at,
-            resolution,
-        )) = pending
-        else {
-            return Ok(None);
-        };
-        let now_nanos = timestamp_to_epoch_nanos(now)?;
-        let decided = resolved_at.is_some();
-        let terminal = resolved_at
-            .is_some_and(|_| matches!(resolution.as_deref(), Some("denied") | Some("stale")));
-        let deny_default = default_str == "deny";
-        if terminal {
+                    params![pending_id],
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                            row.get(6)?,
+                            row.get(7)?,
+                            row.get(8)?,
+                            row.get(9)?,
+                            row.get(10)?,
+                        ))
+                    },
+                )
+                .optional()?;
+            let Some((
+                rule_id,
+                rule_version,
+                task_grant_id,
+                action_id,
+                owner_surface_json,
+                payload_ref_json,
+                default_str,
+                fingerprint,
+                dispatch_state,
+                resolved_at,
+                resolution,
+            )) = pending
+            else {
+                return Ok(None);
+            };
+            let now_nanos = timestamp_to_epoch_nanos(now)?;
+            let decided = resolved_at.is_some();
+            let terminal = resolved_at
+                .is_some_and(|_| matches!(resolution.as_deref(), Some("denied") | Some("stale")));
+            let deny_default = default_str == "deny";
+            if terminal {
+                tx.execute(
+                    "UPDATE standing_rule_timer_links SET applied_at = ?2 WHERE timer_id = ?1",
+                    params![timer_id, now_nanos],
+                )?;
+                return Ok(None);
+            }
+            if !decided {
+                // Normal fire: owner silence = pre-agreed default. Deny resolves
+                // `denied` (no dispatch); Allow resolves `allowed` (dispatchable).
+                let resolution = if deny_default { "denied" } else { "allowed" };
+                tx.execute(
+                    "UPDATE standing_rule_pending_actions SET resolved_at = ?2, resolution = ?3 \
+                 WHERE pending_id = ?1",
+                    params![pending_id, now_nanos, resolution],
+                )?;
+                Self::append_audit_conn(
+                    tx,
+                    "standing_rule.exception_fired",
+                    None,
+                    None,
+                    Some(&format!(
+                        "rule {rule_id} dark-window fired; default: {default_str}"
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
             tx.execute(
                 "UPDATE standing_rule_timer_links SET applied_at = ?2 WHERE timer_id = ?1",
                 params![timer_id, now_nanos],
             )?;
-            tx.commit()?;
-            return Ok(None);
-        }
-        if !decided {
-            // Normal fire: owner silence = pre-agreed default. Deny resolves
-            // `denied` (no dispatch); Allow resolves `allowed` (dispatchable).
-            let resolution = if deny_default { "denied" } else { "allowed" };
-            tx.execute(
-                "UPDATE standing_rule_pending_actions SET resolved_at = ?2, resolution = ?3 \
-                 WHERE pending_id = ?1",
-                params![pending_id, now_nanos, resolution],
-            )?;
-            Self::append_audit_conn(
-                &tx,
-                "standing_rule.exception_fired",
-                None,
-                None,
-                Some(&format!(
-                    "rule {rule_id} dark-window fired; default: {default_str}"
-                )),
-                None,
-                &[],
-                &[],
-            )?;
-        }
-        tx.execute(
-            "UPDATE standing_rule_timer_links SET applied_at = ?2 WHERE timer_id = ?1",
-            params![timer_id, now_nanos],
-        )?;
-        tx.commit()?;
-        // Compute the effective post-update state: a freshly-fired Allow
-        // (owner silence = pre-agreed Allow default) must surface as
-        // `resolution = 'allowed'` / `resolved_at = now` so the consumer
-        // dispatches it immediately, not just on a later recovery sweep.
-        let effective_resolution: Option<String> = if !decided {
-            if deny_default {
-                Some("denied".to_string())
+
+            // Compute the effective post-update state: a freshly-fired Allow
+            // (owner silence = pre-agreed Allow default) must surface as
+            // `resolution = 'allowed'` / `resolved_at = now` so the consumer
+            // dispatches it immediately, not just on a later recovery sweep.
+            let effective_resolution: Option<String> = if !decided {
+                if deny_default {
+                    Some("denied".to_string())
+                } else {
+                    Some("allowed".to_string())
+                }
             } else {
-                Some("allowed".to_string())
+                resolution.clone()
+            };
+            let effective_resolved_at: Option<Timestamp> = if !decided {
+                Some(now)
+            } else {
+                resolved_at.map(epoch_nanos_to_timestamp).transpose()?
+            };
+            // Denied by the fired default (or already resolved denied/stale):
+            // nothing to dispatch.
+            if effective_resolution.as_deref() != Some("allowed") {
+                return Ok(None);
             }
-        } else {
-            resolution.clone()
-        };
-        let effective_resolved_at: Option<Timestamp> = if !decided {
-            Some(now)
-        } else {
-            resolved_at.map(epoch_nanos_to_timestamp).transpose()?
-        };
-        // Denied by the fired default (or already resolved denied/stale):
-        // nothing to dispatch.
-        if effective_resolution.as_deref() != Some("allowed") {
-            return Ok(None);
-        }
-        let payload_ref = payload_ref_json
-            .map(|json| serde_json::from_str::<ArtifactRef>(&json))
-            .transpose()?;
-        Ok(Some(StandingRulePendingAction {
-            pending_id,
-            rule_id,
-            rule_version: rule_version as u32,
-            task_grant_id: Ulid::from_string(&task_grant_id)
-                .map_err(|err| StoreError::TimestampRange(format!("bad grant id: {err}")))?,
-            action_id: ActionId::new(&action_id),
-            owner_surface: parse_owner_surface(owner_surface_json)?,
-            payload_ref,
-            default: if default_str == "allow" {
-                DarkWindowDefault::Allow
-            } else {
-                DarkWindowDefault::Deny
-            },
-            request_fingerprint: fingerprint,
-            dispatch_state,
-            resolved_at: effective_resolved_at,
-            resolution: effective_resolution,
-        }))
+            let payload_ref = payload_ref_json
+                .map(|json| serde_json::from_str::<ArtifactRef>(&json))
+                .transpose()?;
+            Ok(Some(StandingRulePendingAction {
+                pending_id,
+                rule_id,
+                rule_version: rule_version as u32,
+                task_grant_id: Ulid::from_string(&task_grant_id)
+                    .map_err(|err| StoreError::TimestampRange(format!("bad grant id: {err}")))?,
+                action_id: ActionId::new(&action_id),
+                owner_surface: parse_owner_surface(owner_surface_json)?,
+                payload_ref,
+                default: if default_str == "allow" {
+                    DarkWindowDefault::Allow
+                } else {
+                    DarkWindowDefault::Deny
+                },
+                request_fingerprint: fingerprint,
+                dispatch_state,
+                resolved_at: effective_resolved_at,
+                resolution: effective_resolution,
+            }))
+        })
     }
 }

@@ -195,249 +195,244 @@ impl Store {
         if let Some((manifest, _)) = standing_rule.as_ref() {
             self.reject_incomplete_scope_binding(manifest)?;
         }
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let mut owner_eval_checked = false;
-        if let Some(approval) = owner_review_approval.as_ref() {
-            if let Some(binding) = approval.evaluation_binding.as_ref() {
-                if standing_rule.is_none() {
-                    return Err(StoreError::ProposedArtifactLifecycle(
-                        "evaluated approval has no standing-rule manifest".into(),
-                    ));
+        self.with_immediate_tx(|tx| {
+            let mut owner_eval_checked = false;
+            if let Some(approval) = owner_review_approval.as_ref() {
+                if let Some(binding) = approval.evaluation_binding.as_ref() {
+                    if standing_rule.is_none() {
+                        return Err(StoreError::ProposedArtifactLifecycle(
+                            "evaluated approval has no standing-rule manifest".into(),
+                        ));
+                    }
+                    verify_evaluated_activation_in_tx(tx, proposed_id, binding)?;
+                    owner_eval_checked = true;
                 }
-                verify_evaluated_activation_in_tx(&tx, proposed_id, binding)?;
-                owner_eval_checked = true;
             }
-        }
-        if let Some((manifest, _)) = standing_rule.as_ref() {
-            // Verdict currency is a read-time property of the committed
-            // activation state. Re-check it while BEGIN IMMEDIATE owns the
-            // write transaction, so a world change after any caller-side
-            // preparation cannot slip through.
-            let live = self.live_epochs_for_standing_rule(
-                manifest,
-                live_descriptor_version,
-                live_implementation_version,
-                live_policy_version,
-            );
-            if let Err(error) = super::eval_verdict_currency::reject_stale_eval_verdicts_conn(
-                &tx,
-                "standing_rule",
-                manifest.id.as_str(),
-                manifest.version,
-                &live,
-            ) {
-                // Commit only the durable refusal audit; no activation writes
-                // have occurred yet.
-                tx.commit()?;
-                return Err(error);
+            if let Some((manifest, _)) = standing_rule.as_ref() {
+                // Verdict currency is a read-time property of the committed
+                // activation state. Re-check it while BEGIN IMMEDIATE owns the
+                // write transaction, so a world change after any caller-side
+                // preparation cannot slip through.
+                let live = self.live_epochs_for_standing_rule(
+                    manifest,
+                    live_descriptor_version,
+                    live_implementation_version,
+                    live_policy_version,
+                );
+                if let Err(error) = super::eval_verdict_currency::reject_stale_eval_verdicts_conn(
+                    tx,
+                    "standing_rule",
+                    manifest.id.as_str(),
+                    manifest.version,
+                    &live,
+                ) {
+                    // Commit only the durable refusal audit; no activation writes
+                    // have occurred yet. Return Ok(Err(error)) so with_immediate_tx
+                    // commits the refusal audit, then the outer method unwraps to Err.
+                    return Ok(Err(error));
+                }
             }
-        }
-        let reviewed_to_approved = tx.execute(
-            "UPDATE proposed_artifacts SET state = 'approved'
-             WHERE id = ?1 AND state = 'review_required'",
-            params![proposed_id.to_string()],
-        )?;
-        if reviewed_to_approved != 1 && owner_eval_checked {
-            return Err(StoreError::ProposedArtifactLifecycle(
-                "evaluated proposal failed review_required -> approved".into(),
-            ));
-        }
-        if let Some((manifest, rule_grant_id)) = standing_rule.as_ref() {
-            Self::activate_standing_rule_in_tx(
-                &tx,
-                manifest,
-                *rule_grant_id,
-                jiff::Timestamp::now(),
-            )?;
-        }
-        // Erased is terminal for the identity (kind, artifact_id, version),
-        // not just for the producing scope. INSERT OR REPLACE would otherwise
-        // delete the erased row and reinsert under a different source_scope.
-        let existing_status: Option<String> = tx
-            .query_row(
-                "SELECT compatibility FROM learned_artifacts
-                  WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
-                params![learned.kind, learned.artifact_id, learned.version as i64],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(StoreError::from)?;
-        if existing_status.as_deref() == Some("erased") {
-            tx.rollback()?;
-            return Err(StoreError::LearnedArtifact(
-                "cannot replace an erased learned artifact identity".into(),
-            ));
-        }
-        let learned_rows = tx.execute(
-            "INSERT OR REPLACE INTO learned_artifacts \
-             (kind, artifact_id, version, namespace, provenance, accepted_via, learned_at, \
-              compatibility, nomination, pending_reconfirmation_id, pending_yaml_digest, \
-              accepted_dependency_fingerprint, source_path, accepted_base_epoch) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-            params![
-                learned.kind,
-                learned.artifact_id,
-                learned.version as i64,
-                match learned.namespace {
-                    openspine_schemas::artifact::ArtifactNamespace::Base => "base",
-                    openspine_schemas::artifact::ArtifactNamespace::Overlay => "overlay",
-                },
-                provenance_json,
-                learned
-                    .accepted_via
-                    .as_ref()
-                    .map(serde_json::to_string)
-                    .transpose()
-                    .map_err(|err| StoreError::LearnedArtifact(format!(
-                        "accepted_via json: {err}"
-                    )))?,
-                learned.learned_at.to_string(),
-                match learned.compatibility {
-                    super::learned_artifacts::CompatibilityStatus::Compatible => "compatible",
-                    super::learned_artifacts::CompatibilityStatus::ReconfirmationRequired =>
-                        "reconfirmation_required",
-                    super::learned_artifacts::CompatibilityStatus::OwnerAccepted =>
-                        "owner_accepted",
-                    // Erased artifacts can never be activated (AD-140): their
-                    // source exchange is undecryptable.
-                    super::learned_artifacts::CompatibilityStatus::Erased => "erased",
-                },
-                match learned.nomination {
-                    super::learned_artifacts::NominationStatus::None => "none",
-                    super::learned_artifacts::NominationStatus::Nominated => "nominated",
-                },
-                learned.pending_reconfirmation_id.map(|u| u.to_string()),
-                learned.pending_yaml_digest,
-                learned.accepted_dependency_fingerprint,
-                learned.source_path,
-                learned.accepted_base_epoch,
-            ],
-        )?;
-        if learned_rows == 0 {
-            tx.rollback()?;
-            return Err(StoreError::LearnedArtifact(
-                "learned artifact row failed to insert".into(),
-            ));
-        }
-        if !dangling {
-            let active = tx.execute(
-                "UPDATE proposed_artifacts SET state = 'active' \
-                 WHERE id = ?1 AND state = 'approved'",
+            let reviewed_to_approved = tx.execute(
+                "UPDATE proposed_artifacts SET state = 'approved'
+                 WHERE id = ?1 AND state = 'review_required'",
                 params![proposed_id.to_string()],
             )?;
-            if active != 1 {
-                tx.rollback()?;
-                return Err(StoreError::ProposedArtifactLifecycle(format!(
-                    "proposal {proposed_id} failed to advance approved -> active"
-                )));
+            if reviewed_to_approved != 1 && owner_eval_checked {
+                return Err(StoreError::ProposedArtifactLifecycle(
+                    "evaluated proposal failed review_required -> approved".into(),
+                ));
             }
-            Store::append_audit_conn(
-                &tx,
-                "artifact.activated",
-                None,
-                None,
-                None,
-                grant_id,
-                &[],
-                payload_ref.as_slice(),
+            if let Some((manifest, rule_grant_id)) = standing_rule.as_ref() {
+                Self::activate_standing_rule_in_tx(
+                    tx,
+                    manifest,
+                    *rule_grant_id,
+                    jiff::Timestamp::now(),
+                )?;
+            }
+            // Erased is terminal for the identity (kind, artifact_id, version),
+            // not just for the producing scope. INSERT OR REPLACE would otherwise
+            // delete the erased row and reinsert under a different source_scope.
+            let existing_status: Option<String> = tx
+                .query_row(
+                    "SELECT compatibility FROM learned_artifacts
+                      WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3",
+                    params![learned.kind, learned.artifact_id, learned.version as i64],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(StoreError::from)?;
+            if existing_status.as_deref() == Some("erased") {
+                return Err(StoreError::LearnedArtifact(
+                    "cannot replace an erased learned artifact identity".into(),
+                ));
+            }
+            let learned_rows = tx.execute(
+                "INSERT OR REPLACE INTO learned_artifacts \
+                 (kind, artifact_id, version, namespace, provenance, accepted_via, learned_at, \
+                  compatibility, nomination, pending_reconfirmation_id, pending_yaml_digest, \
+                  accepted_dependency_fingerprint, source_path, accepted_base_epoch) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                params![
+                    learned.kind,
+                    learned.artifact_id,
+                    learned.version as i64,
+                    match learned.namespace {
+                        openspine_schemas::artifact::ArtifactNamespace::Base => "base",
+                        openspine_schemas::artifact::ArtifactNamespace::Overlay => "overlay",
+                    },
+                    provenance_json,
+                    learned
+                        .accepted_via
+                        .as_ref()
+                        .map(serde_json::to_string)
+                        .transpose()
+                        .map_err(|err| StoreError::LearnedArtifact(format!(
+                            "accepted_via json: {err}"
+                        )))?,
+                    learned.learned_at.to_string(),
+                    match learned.compatibility {
+                        super::learned_artifacts::CompatibilityStatus::Compatible => "compatible",
+                        super::learned_artifacts::CompatibilityStatus::ReconfirmationRequired =>
+                            "reconfirmation_required",
+                        super::learned_artifacts::CompatibilityStatus::OwnerAccepted =>
+                            "owner_accepted",
+                        // Erased artifacts can never be activated (AD-140): their
+                        // source exchange is undecryptable.
+                        super::learned_artifacts::CompatibilityStatus::Erased => "erased",
+                    },
+                    match learned.nomination {
+                        super::learned_artifacts::NominationStatus::None => "none",
+                        super::learned_artifacts::NominationStatus::Nominated => "nominated",
+                    },
+                    learned.pending_reconfirmation_id.map(|u| u.to_string()),
+                    learned.pending_yaml_digest,
+                    learned.accepted_dependency_fingerprint,
+                    learned.source_path,
+                    learned.accepted_base_epoch,
+                ],
             )?;
-            if let Some(old) = superseded_old_version {
-                let reason = format!(
-                    "{}:{} v{} superseded by v{}",
-                    learned.kind, learned.artifact_id, old, learned.version
-                );
+            if learned_rows == 0 {
+                return Err(StoreError::LearnedArtifact(
+                    "learned artifact row failed to insert".into(),
+                ));
+            }
+            if !dangling {
+                let active = tx.execute(
+                    "UPDATE proposed_artifacts SET state = 'active' \
+                     WHERE id = ?1 AND state = 'approved'",
+                    params![proposed_id.to_string()],
+                )?;
+                if active != 1 {
+                    return Err(StoreError::ProposedArtifactLifecycle(format!(
+                        "proposal {proposed_id} failed to advance approved -> active"
+                    )));
+                }
                 Store::append_audit_conn(
-                    &tx,
-                    "artifact.superseded",
+                    tx,
+                    "artifact.activated",
                     None,
                     None,
-                    Some(&reason),
+                    None,
                     grant_id,
+                    &[],
+                    payload_ref.as_slice(),
+                )?;
+                if let Some(old) = superseded_old_version {
+                    let reason = format!(
+                        "{}:{} v{} superseded by v{}",
+                        learned.kind, learned.artifact_id, old, learned.version
+                    );
+                    Store::append_audit_conn(
+                        tx,
+                        "artifact.superseded",
+                        None,
+                        None,
+                        Some(&reason),
+                        grant_id,
+                        &[],
+                        &[],
+                    )?;
+                }
+            }
+            if let Some(approval) = owner_review_approval.as_ref() {
+                let changed = tx.execute(
+                    "UPDATE owner_reviews SET state = 'approved', last_decision = ?2,
+                     decision_binding_digest = ?3
+                     WHERE id = ?1 AND owner_principal_id = ?4 AND state = 'pending'",
+                    params![
+                        approval.review_id.to_string(),
+                        format!(
+                            "{:?}",
+                            openspine_schemas::owner_review::DecisionIntent::Approve
+                        ),
+                        approval.binding_digest.as_str(),
+                        approval.owner_principal_id.to_string(),
+                    ],
+                )?;
+                if changed != 1 {
+                    return Err(StoreError::FailureRouting(
+                        "owner review is not pending for this principal".into(),
+                    ));
+                }
+                tx.execute(
+                    "INSERT INTO owner_review_standing_rules (review_id, rule_id, rule_version)
+                     VALUES (?1, ?2, ?3)
+                     ON CONFLICT(review_id) DO UPDATE SET
+                        rule_id = excluded.rule_id, rule_version = excluded.rule_version",
+                    params![
+                        approval.review_id.to_string(),
+                        approval.rule_id,
+                        approval.rule_version as i64,
+                    ],
+                )?;
+                Store::append_audit_conn(
+                    tx,
+                    "owner_review.decision",
+                    None,
+                    None,
+                    Some(&format!(
+                        "{}:Approve:{}:{}:{}",
+                        approval.review_id,
+                        approval.binding_digest.as_str(),
+                        approval.rule_id,
+                        approval.owner_principal_id
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+                Store::append_audit_conn(
+                    tx,
+                    "owner_review.transitioned",
+                    None,
+                    None,
+                    Some(&format!("{}:pending->approved", approval.review_id)),
+                    None,
                     &[],
                     &[],
                 )?;
             }
-        }
-        if let Some(approval) = owner_review_approval.as_ref() {
-            let changed = tx.execute(
-                "UPDATE owner_reviews SET state = 'approved', last_decision = ?2,
-                 decision_binding_digest = ?3
-                 WHERE id = ?1 AND owner_principal_id = ?4 AND state = 'pending'",
-                params![
-                    approval.review_id.to_string(),
-                    format!(
-                        "{:?}",
-                        openspine_schemas::owner_review::DecisionIntent::Approve
-                    ),
-                    approval.binding_digest.as_str(),
-                    approval.owner_principal_id.to_string(),
-                ],
-            )?;
-            if changed != 1 {
-                return Err(StoreError::FailureRouting(
-                    "owner review is not pending for this principal".into(),
+            #[cfg(test)]
+            if self
+                .activation_tx_failure
+                .swap(false, std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(StoreError::LearnedArtifact(
+                    "injected activation transaction failure".into(),
                 ));
             }
-            tx.execute(
-                "INSERT INTO owner_review_standing_rules (review_id, rule_id, rule_version)
-                 VALUES (?1, ?2, ?3)
-                 ON CONFLICT(review_id) DO UPDATE SET
-                    rule_id = excluded.rule_id, rule_version = excluded.rule_version",
-                params![
-                    approval.review_id.to_string(),
-                    approval.rule_id,
-                    approval.rule_version as i64,
-                ],
-            )?;
-            Store::append_audit_conn(
-                &tx,
-                "owner_review.decision",
-                None,
-                None,
-                Some(&format!(
-                    "{}:Approve:{}:{}:{}",
-                    approval.review_id,
-                    approval.binding_digest.as_str(),
-                    approval.rule_id,
-                    approval.owner_principal_id
-                )),
-                None,
-                &[],
-                &[],
-            )?;
-            Store::append_audit_conn(
-                &tx,
-                "owner_review.transitioned",
-                None,
-                None,
-                Some(&format!("{}:pending->approved", approval.review_id)),
-                None,
-                &[],
-                &[],
-            )?;
-        }
-        #[cfg(test)]
-        if self
-            .activation_tx_failure
-            .swap(false, std::sync::atomic::Ordering::SeqCst)
-        {
-            tx.rollback()?;
-            return Err(StoreError::LearnedArtifact(
-                "injected activation transaction failure".into(),
-            ));
-        }
-        if self
-            .fail_next_owner_reconfirmation
-            .load(std::sync::atomic::Ordering::SeqCst)
-        {
-            self.fail_next_owner_reconfirmation
-                .store(false, std::sync::atomic::Ordering::SeqCst);
-            return Err(StoreError::LearnedArtifact(
-                "injected activation transaction failure".into(),
-            ));
-        }
-        tx.commit()?;
-        Ok(true)
+            if self
+                .fail_next_owner_reconfirmation
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                self.fail_next_owner_reconfirmation
+                    .store(false, std::sync::atomic::Ordering::SeqCst);
+                return Err(StoreError::LearnedArtifact(
+                    "injected activation transaction failure".into(),
+                ));
+            }
+            Ok(Ok(true))
+        })?
     }
 }

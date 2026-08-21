@@ -24,7 +24,6 @@ use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use rusqlite::params;
 use rusqlite::OptionalExtension;
-use rusqlite::TransactionBehavior;
 use ulid::Ulid;
 
 const NANOS_PER_SEC: i64 = 1_000_000_000;
@@ -43,8 +42,7 @@ impl Store {
         used_at: Timestamp,
     ) -> Result<Option<String>, StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(used_at)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.with_immediate_tx(|tx| {
         let row = tx
             .query_row(
                 "SELECT quota_max, quota_window_secs, rate_max, rate_window_secs, version \
@@ -90,8 +88,8 @@ impl Store {
                     (?1, ?2, 'rate', ?3, 'reserved', ?4)",
             params![rule_id, version, now_nanos, reservation_id],
         )?;
-        tx.commit()?;
-        Ok(Some(reservation_id))
+            Ok(Some(reservation_id))
+        })
     }
 
     /// Finalize a reserved budget as committed after a successful dispatch.
@@ -135,8 +133,7 @@ impl Store {
         refresh_lapse_clock: bool,
     ) -> Result<bool, StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(used_at)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.with_immediate_tx(|tx| {
         let current: bool = tx
             .query_row(
                 "SELECT 1 FROM standing_rules WHERE rule_id = ?1 AND version = ?2 AND status = 'active'",
@@ -152,7 +149,6 @@ impl Store {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         if reserved_shape != (2, 2) {
-            tx.commit()?;
             return Ok(false);
         }
         if !current {
@@ -160,7 +156,6 @@ impl Store {
                 "DELETE FROM standing_rule_usage WHERE reservation_id = ?1 AND status = 'reserved'",
                 params![reservation_id],
             )?;
-            tx.commit()?;
             return Ok(false);
         }
         let changed = tx.execute(
@@ -171,9 +166,9 @@ impl Store {
         if changed != 2 {
             return Ok(false);
         }
-        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos, refresh_lapse_clock)?;
-        tx.commit()?;
-        Ok(true)
+        Self::note_standing_rule_use_in_tx(tx, rule_id, now_nanos, refresh_lapse_clock)?;
+            Ok(true)
+        })
     }
 
     /// Record that a rule was used for an effect that may have taken hold, and
@@ -203,11 +198,10 @@ impl Store {
         refresh_lapse_clock: bool,
     ) -> Result<(), StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(used_at)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        Self::note_standing_rule_use_in_tx(&tx, rule_id, now_nanos, refresh_lapse_clock)?;
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            Self::note_standing_rule_use_in_tx(tx, rule_id, now_nanos, refresh_lapse_clock)?;
+            Ok(())
+        })
     }
 
     /// Refresh the lapse-expiry clock and apply the AD-010 drift trigger: when
@@ -378,8 +372,7 @@ impl Store {
         now: Timestamp,
     ) -> Result<Option<(StandingRule, Option<String>)>, StoreError> {
         let now_nanos = timestamp_to_epoch_nanos(now)?;
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        self.with_immediate_tx(|tx| {
         // Same column projection as `active_standing_rule_for_action`, but on
         // the reservation transaction so no rule/version swap can occur
         // between lookup and reserve (P1-4). Expiry uses last_used_at
@@ -410,7 +403,7 @@ impl Store {
             // back to normal approval. #135: stale its open exceptions in the
             // same transaction so none can still fire.
             super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
-                &tx,
+                tx,
                 &rule.rule_id,
                 Some(rule.version),
                 now_nanos,
@@ -420,7 +413,6 @@ impl Store {
                  WHERE rule_id = ?1 AND status = 'active'",
                 params![rule.rule_id, now_nanos],
             )?;
-            tx.commit()?;
             return Ok(None);
         }
         // Reserve headroom using reserved+committed so a concurrent in-flight
@@ -459,7 +451,7 @@ impl Store {
         } else {
             None
         };
-        tx.commit()?;
-        Ok(Some((rule, reservation_id)))
+            Ok(Some((rule, reservation_id)))
+        })
     }
 }

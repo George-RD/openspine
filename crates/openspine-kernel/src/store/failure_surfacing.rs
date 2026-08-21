@@ -59,18 +59,6 @@ impl Store {
         digest_item_ids: &[Ulid],
         detail: Option<&DetailReceipt>,
     ) -> Result<Ulid, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        Self::append_audit_conn(
-            &tx,
-            "owner.notify_failed",
-            Some(&ActionId::new("owner.notify")),
-            None,
-            Some(reason),
-            Some(task_grant_id),
-            &[],
-            &[],
-        )?;
         let id = Ulid::new();
         let now = Timestamp::now();
         let ids = digest_item_ids
@@ -81,28 +69,39 @@ impl Store {
         let (semantic_kind, detail_ref, page_index, page_count, availability_outcome) =
             detail_insert_columns(detail);
         let owner_surface_json = serde_json::to_string(owner_surface)?;
-        tx.execute(
-            "INSERT INTO notify_dead_letters \
-             (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state, \
-              semantic_kind, detail_ref, page_index, page_count, availability_outcome) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending', ?8, ?9, ?10, ?11, ?12)",
-            params![
-                id.to_string(),
-                sql_timestamp(now),
-                owner_surface_json,
-                text_ref,
-                task_grant_id.to_string(),
-                ids,
-                sql_timestamp(now),
-                semantic_kind,
-                detail_ref,
-                page_index,
-                page_count,
-                availability_outcome,
-            ],
-        )?;
-        tx.commit()?;
-        Ok(id)
+        self.with_immediate_tx(|tx| {
+            Self::append_audit_conn(
+                tx,
+                "owner.notify_failed",
+                Some(&ActionId::new("owner.notify")),
+                None,
+                Some(reason),
+                Some(task_grant_id),
+                &[],
+                &[],
+            )?;
+            tx.execute(
+                "INSERT INTO notify_dead_letters \
+                 (id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, state, \
+                  semantic_kind, detail_ref, page_index, page_count, availability_outcome) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'pending', ?8, ?9, ?10, ?11, ?12)",
+                params![
+                    id.to_string(),
+                    sql_timestamp(now),
+                    owner_surface_json,
+                    text_ref,
+                    task_grant_id.to_string(),
+                    ids,
+                    sql_timestamp(now),
+                    semantic_kind,
+                    detail_ref,
+                    page_index,
+                    page_count,
+                    availability_outcome,
+                ],
+            )?;
+            Ok(id)
+        })
     }
 
     /// Record notification success and audit metadata. The connector outcome
@@ -112,24 +111,23 @@ impl Store {
         task_grant_id: Ulid,
         detail: Option<&DetailReceipt>,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
         let decision = GateDecision::Allow;
-        let tx = conn.transaction()?;
-        Self::append_audit_conn(
-            &tx,
-            "owner.notified",
-            Some(&ActionId::new("owner.notify")),
-            Some(&decision),
-            None,
-            Some(task_grant_id),
-            &[],
-            &[],
-        )?;
-        if let Some(detail) = detail {
-            detail.append_in_tx(&tx)?;
-        }
-        tx.commit()?;
-        Ok(())
+        self.with_immediate_tx(|tx| {
+            Self::append_audit_conn(
+                tx,
+                "owner.notified",
+                Some(&ActionId::new("owner.notify")),
+                Some(&decision),
+                None,
+                Some(task_grant_id),
+                &[],
+                &[],
+            )?;
+            if let Some(detail) = detail {
+                detail.append_in_tx(tx)?;
+            }
+            Ok(())
+        })
     }
 
     /// Record success, resolve digest items, and optional detail receipt atomically.
@@ -139,30 +137,29 @@ impl Store {
         digest_item_ids: &[Ulid],
         detail: Option<&DetailReceipt>,
     ) -> Result<(), StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
         let decision = GateDecision::Allow;
-        Self::append_audit_conn(
-            &tx,
-            "owner.notified",
-            Some(&ActionId::new("owner.notify")),
-            Some(&decision),
-            None,
-            Some(task_grant_id),
-            &[],
-            &[],
-        )?;
-        for id in digest_item_ids {
-            tx.execute(
-                "UPDATE digest_items SET resolved = 1 WHERE id = ?1",
-                params![id.to_string()],
+        self.with_immediate_tx(|tx| {
+            Self::append_audit_conn(
+                tx,
+                "owner.notified",
+                Some(&ActionId::new("owner.notify")),
+                Some(&decision),
+                None,
+                Some(task_grant_id),
+                &[],
+                &[],
             )?;
-        }
-        if let Some(detail) = detail {
-            detail.append_in_tx(&tx)?;
-        }
-        tx.commit()?;
-        Ok(())
+            for id in digest_item_ids {
+                tx.execute(
+                    "UPDATE digest_items SET resolved = 1 WHERE id = ?1",
+                    params![id.to_string()],
+                )?;
+            }
+            if let Some(detail) = detail {
+                detail.append_in_tx(tx)?;
+            }
+            Ok(())
+        })
     }
 
     /// Claim one due dead-letter for retry, marking it in_progress and
@@ -171,133 +168,132 @@ impl Store {
         &self,
         now: Timestamp,
     ) -> Result<Option<NotifyDeadLetter>, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        #[allow(clippy::type_complexity)]
-        let row: Option<(
-            String,
-            String,
-            Option<String>,
-            String,
-            String,
-            String,
-            i64,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<i64>,
-            Option<i64>,
-            Option<String>,
-        )> = tx
-            .query_row(
-                "SELECT id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, \
-                        semantic_kind, detail_ref, page_index, page_count, availability_outcome \
-                 FROM notify_dead_letters \
-                 WHERE ((state = 'pending' AND next_attempt_at <= ?1) \
-                    OR (state = 'in_progress' AND claimed_until <= ?1)) \
-                 ORDER BY next_attempt_at LIMIT 1",
-                params![sql_timestamp(now)],
-                |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get(1)?,
-                        row.get(2)?,
-                        row.get(3)?,
-                        row.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(5)?.unwrap_or_default(),
-                        row.get(6)?,
-                        row.get(7)?,
-                        row.get(8)?,
-                        row.get(9)?,
-                        row.get(10)?,
-                        row.get(11)?,
-                        row.get(12)?,
-                    ))
-                },
-            )
-            .optional()?;
-        let Some((
-            id,
-            enqueued_at,
-            owner_surface_json,
-            text_ref,
-            task_grant,
-            digest_ids,
-            attempts,
-            next_attempt_at,
-            semantic_kind,
-            detail_ref,
-            page_index,
-            page_count,
-            availability_outcome,
-        )) = row
-        else {
-            return Ok(None);
-        };
-        let owner_surface = parse_owner_surface(owner_surface_json)?;
-        let new_attempts = attempts + 1;
-        let lease_until = now + std::time::Duration::from_secs(300);
-        let claim_token = Ulid::new().to_string();
-        let changed = tx.execute(
-            "UPDATE notify_dead_letters SET state = 'in_progress', attempts = ?2, claimed_until = ?3, claim_token = ?4 \
-             WHERE id = ?1 AND ((state = 'pending' AND next_attempt_at <= ?5) OR (state = 'in_progress' AND claimed_until <= ?5))",
-            params![
+        self.with_immediate_tx(|tx| {
+            #[allow(clippy::type_complexity)]
+            let row: Option<(
+                String,
+                String,
+                Option<String>,
+                String,
+                String,
+                String,
+                i64,
+                String,
+                Option<String>,
+                Option<String>,
+                Option<i64>,
+                Option<i64>,
+                Option<String>,
+            )> = tx
+                .query_row(
+                    "SELECT id, enqueued_at, owner_surface_json, text_ref, task_grant_id, digest_item_ids, attempts, next_attempt_at, \
+                            semantic_kind, detail_ref, page_index, page_count, availability_outcome \
+                     FROM notify_dead_letters \
+                     WHERE ((state = 'pending' AND next_attempt_at <= ?1) \
+                        OR (state = 'in_progress' AND claimed_until <= ?1)) \
+                     ORDER BY next_attempt_at LIMIT 1",
+                    params![sql_timestamp(now)],
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                            row.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                            row.get(6)?,
+                            row.get(7)?,
+                            row.get(8)?,
+                            row.get(9)?,
+                            row.get(10)?,
+                            row.get(11)?,
+                            row.get(12)?,
+                        ))
+                    },
+                )
+                .optional()?;
+            let Some((
                 id,
-                new_attempts,
-                sql_timestamp(lease_until),
-                claim_token,
-                sql_timestamp(now)
-            ],
-        )?;
-        if changed != 1 {
-            return Ok(None);
-        }
-        let decision = GateDecision::Allow;
-        Self::append_audit_conn(
-            &tx,
-            "owner.notify_attempted",
-            Some(&ActionId::new("owner.notify")),
-            Some(&decision),
-            Some("retry attempt"),
-            Some(Ulid::from_string(&task_grant).map_err(|_| {
+                enqueued_at,
+                owner_surface_json,
+                text_ref,
+                task_grant,
+                digest_ids,
+                attempts,
+                next_attempt_at,
+                semantic_kind,
+                detail_ref,
+                page_index,
+                page_count,
+                availability_outcome,
+            )) = row
+            else {
+                return Ok(None);
+            };
+            let owner_surface = parse_owner_surface(owner_surface_json)?;
+            let new_attempts = attempts + 1;
+            let lease_until = now + std::time::Duration::from_secs(300);
+            let claim_token = Ulid::new().to_string();
+            let changed = tx.execute(
+                "UPDATE notify_dead_letters SET state = 'in_progress', attempts = ?2, claimed_until = ?3, claim_token = ?4 \
+                 WHERE id = ?1 AND ((state = 'pending' AND next_attempt_at <= ?5) OR (state = 'in_progress' AND claimed_until <= ?5))",
+                params![
+                    id,
+                    new_attempts,
+                    sql_timestamp(lease_until),
+                    claim_token,
+                    sql_timestamp(now)
+                ],
+            )?;
+            if changed != 1 {
+                return Ok(None);
+            }
+            let decision = GateDecision::Allow;
+            Self::append_audit_conn(
+                tx,
+                "owner.notify_attempted",
+                Some(&ActionId::new("owner.notify")),
+                Some(&decision),
+                Some("retry attempt"),
+                Some(Ulid::from_string(&task_grant).map_err(|_| {
+                    StoreError::BadDigest(format!("dead_letter.task_grant_id {task_grant}"))
+                })?),
+                &[],
+                &[],
+            )?;
+            let task_grant_id = Ulid::from_string(&task_grant).map_err(|_| {
                 StoreError::BadDigest(format!("dead_letter.task_grant_id {task_grant}"))
-            })?),
-            &[],
-            &[],
-        )?;
-        tx.commit()?;
-        let task_grant_id = Ulid::from_string(&task_grant).map_err(|_| {
-            StoreError::BadDigest(format!("dead_letter.task_grant_id {task_grant}"))
-        })?;
-        let digest_item_ids = digest_ids
-            .split(',')
-            .filter(|s| !s.is_empty())
-            .map(|s| {
-                Ulid::from_string(s).map_err(|_| StoreError::BadDigest(format!("digest id {s}")))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok(Some(NotifyDeadLetter {
-            id: Ulid::from_string(&id)
-                .map_err(|_| StoreError::BadDigest(format!("notify_dead_letters.id {id}")))?,
-            enqueued_at: enqueued_at.parse().map_err(|_| {
-                StoreError::BadDigest(format!("dead_letter.enqueued_at {enqueued_at}"))
-            })?,
-            owner_surface,
-            text_ref,
-            task_grant_id,
-            digest_item_ids,
-            attempts: new_attempts as u32,
-            next_attempt_at: next_attempt_at.parse().map_err(|_| {
-                StoreError::BadDigest(format!("dead_letter.next_attempt_at {next_attempt_at}"))
-            })?,
-            state: DeadLetterState::InProgress,
-            claim_token: Some(claim_token),
-            semantic_kind,
-            detail_ref,
-            page_index,
-            page_count,
-            availability_outcome,
-        }))
+            })?;
+            let digest_item_ids = digest_ids
+                .split(',')
+                .filter(|s| !s.is_empty())
+                .map(|s| {
+                    Ulid::from_string(s).map_err(|_| StoreError::BadDigest(format!("digest id {s}")))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Some(NotifyDeadLetter {
+                id: Ulid::from_string(&id)
+                    .map_err(|_| StoreError::BadDigest(format!("notify_dead_letters.id {id}")))?,
+                enqueued_at: enqueued_at.parse().map_err(|_| {
+                    StoreError::BadDigest(format!("dead_letter.enqueued_at {enqueued_at}"))
+                })?,
+                owner_surface,
+                text_ref,
+                task_grant_id,
+                digest_item_ids,
+                attempts: new_attempts as u32,
+                next_attempt_at: next_attempt_at.parse().map_err(|_| {
+                    StoreError::BadDigest(format!("dead_letter.next_attempt_at {next_attempt_at}"))
+                })?,
+                state: DeadLetterState::InProgress,
+                claim_token: Some(claim_token),
+                semantic_kind,
+                detail_ref,
+                page_index,
+                page_count,
+                availability_outcome,
+            }))
+        })
     }
 
     /// Resolve a claimed dead-letter and record its success receipt atomically.
@@ -312,43 +308,42 @@ impl Store {
         digest_item_ids: &[Ulid],
         detail: Option<&DetailReceipt>,
     ) -> Result<bool, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let changed = tx.execute(
-            "UPDATE notify_dead_letters SET state = 'resolved', claimed_until = NULL, claim_token = NULL \
-             WHERE id = ?1 AND state = 'in_progress' AND claim_token = ?2",
-            params![id.to_string(), claim_token],
-        )?;
-        if changed != 1 {
-            return Ok(false);
-        }
-        let decision = GateDecision::Allow;
-        Self::append_audit_conn(
-            &tx,
-            "owner.notified",
-            Some(&ActionId::new("owner.notify")),
-            Some(&decision),
-            None,
-            Some(task_grant_id),
-            &[],
-            &[],
-        )?;
-        tx.execute(
-            "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'success', 1) \
-             ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
-            [],
-        )?;
-        for item_id in digest_item_ids {
-            tx.execute(
-                "UPDATE digest_items SET resolved = 1 WHERE id = ?1",
-                params![item_id.to_string()],
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE notify_dead_letters SET state = 'resolved', claimed_until = NULL, claim_token = NULL \
+                 WHERE id = ?1 AND state = 'in_progress' AND claim_token = ?2",
+                params![id.to_string(), claim_token],
             )?;
-        }
-        if let Some(detail) = detail {
-            detail.append_in_tx(&tx)?;
-        }
-        tx.commit()?;
-        Ok(true)
+            if changed != 1 {
+                return Ok(false);
+            }
+            let decision = GateDecision::Allow;
+            Self::append_audit_conn(
+                tx,
+                "owner.notified",
+                Some(&ActionId::new("owner.notify")),
+                Some(&decision),
+                None,
+                Some(task_grant_id),
+                &[],
+                &[],
+            )?;
+            tx.execute(
+                "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'success', 1) \
+                 ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
+                [],
+            )?;
+            for item_id in digest_item_ids {
+                tx.execute(
+                    "UPDATE digest_items SET resolved = 1 WHERE id = ?1",
+                    params![item_id.to_string()],
+                )?;
+            }
+            if let Some(detail) = detail {
+                detail.append_in_tx(tx)?;
+            }
+            Ok(true)
+        })
     }
 
     /// Atomically reschedule a failed retry AND record its durable failure
@@ -364,39 +359,38 @@ impl Store {
         reason: &str,
         task_grant_id: Ulid,
     ) -> Result<bool, StoreError> {
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let changed = tx.execute(
-            "UPDATE notify_dead_letters SET state = 'pending', next_attempt_at = ?2, claimed_until = NULL, claim_token = NULL \
-             WHERE id = ?1 AND state = 'in_progress' AND claim_token = ?3",
-            params![
-                id.to_string(),
-                sql_timestamp(next_attempt_at),
-                claim_token
-            ],
-        )?;
-        if changed != 1 {
-            return Ok(false);
-        }
-        Self::append_audit_conn(
-            &tx,
-            "owner.notify_failed",
-            Some(&ActionId::new("owner.notify")),
-            None,
-            Some(reason),
-            Some(task_grant_id),
-            &[],
-            &[],
-        )?;
-        if !reason.starts_with("resource failure") {
-            tx.execute(
-                "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'failure', 1) \
-                 ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
-                [],
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE notify_dead_letters SET state = 'pending', next_attempt_at = ?2, claimed_until = NULL, claim_token = NULL \
+                 WHERE id = ?1 AND state = 'in_progress' AND claim_token = ?3",
+                params![
+                    id.to_string(),
+                    sql_timestamp(next_attempt_at),
+                    claim_token
+                ],
             )?;
-        }
-        tx.commit()?;
-        Ok(true)
+            if changed != 1 {
+                return Ok(false);
+            }
+            Self::append_audit_conn(
+                tx,
+                "owner.notify_failed",
+                Some(&ActionId::new("owner.notify")),
+                None,
+                Some(reason),
+                Some(task_grant_id),
+                &[],
+                &[],
+            )?;
+            if !reason.starts_with("resource failure") {
+                tx.execute(
+                    "INSERT INTO connector_counters (connector, outcome, count) VALUES ('telegram', 'failure', 1) \
+                     ON CONFLICT(connector, outcome) DO UPDATE SET count = count + 1",
+                    [],
+                )?;
+            }
+            Ok(true)
+        })
     }
 
     /// Every non-resolved dead-letter, for tests and future ops tooling.

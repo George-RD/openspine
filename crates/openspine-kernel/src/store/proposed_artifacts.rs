@@ -472,88 +472,87 @@ impl Store {
                 "replay and judge proofs have different artifact digests".to_string(),
             ));
         }
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        let row: (String, String, i64, String, String) = tx.query_row(
-            "SELECT kind, artifact_id, version, state, yaml_digest
-             FROM proposed_artifacts WHERE id = ?1",
-            params![proposal_id.to_string()],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                ))
-            },
-        )?;
-        let (kind, artifact_id, version, state, digest) = row;
-        if state != lifecycle_name(Lifecycle::Validated) {
-            return Err(StoreError::ProposedArtifactLifecycle(format!(
-                "proposed artifact {proposal_id} was not in validated state"
-            )));
-        }
-        if digest != replay.artifact_digest() {
-            return Err(StoreError::ProposedArtifactLifecycle(
-                "eval proof digest does not match stored proposal digest".to_string(),
-            ));
-        }
-        // Distinct, strictly-ordered timestamps so latest_eval_verdict is
-        // deterministic across the two semantically different rows.
-        let replay_at = Timestamp::now();
-        let judge_at = replay_at + std::time::Duration::from_nanos(1);
-        let replay_verdict_id = Ulid::new();
-        let judge_verdict_id = Ulid::new();
-        for (id, verdict, fitness, evidence, evaluator, recorded_at) in [
-            (
-                replay_verdict_id,
-                replay.verdict(),
-                replay.fitness(),
-                replay.evidence_json(),
-                "overlay-eval-gate/replay@v2",
-                replay_at,
-            ),
-            (
-                judge_verdict_id,
-                judge.verdict(),
-                judge.fitness(),
-                judge.evidence_json(),
-                "overlay-eval-gate/risk-judge@v2",
-                judge_at,
-            ),
-        ] {
-            let verdict_row = super::eval_verdict_store::EvalVerdict {
-                id,
-                artifact_kind: kind.clone(),
-                artifact_id: artifact_id.clone(),
-                artifact_version: version as u32,
-                verdict: verdict.to_string(),
-                fitness,
-                evidence: Some(evidence.to_string()),
-                evaluator: Some(evaluator.to_string()),
-                artifact_digest: digest.clone(),
-                recorded_at,
-                // The epochs both verdicts were computed under (#133),
-                // so activation can decide currency at read time.
-                epochs: epochs.clone(),
-            };
-            super::eval_verdict_store::insert_eval_verdict_conn(&tx, &verdict_row)?;
-        }
-        let changed = tx.execute(
-            "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
-            params![
-                lifecycle_name(Lifecycle::ReviewRequired),
-                proposal_id.to_string(),
-                lifecycle_name(Lifecycle::Validated)
-            ],
-        )?;
-        if changed != 1 {
-            return Err(StoreError::ProposedArtifactLifecycle(
-                "proposal changed while eval gate was running".to_string(),
-            ));
-        }
-        tx.commit()?;
-        Ok((replay_verdict_id, judge_verdict_id))
+        self.with_immediate_tx(|tx| {
+            let row: (String, String, i64, String, String) = tx.query_row(
+                "SELECT kind, artifact_id, version, state, yaml_digest
+                 FROM proposed_artifacts WHERE id = ?1",
+                params![proposal_id.to_string()],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )?;
+            let (kind, artifact_id, version, state, digest) = row;
+            if state != lifecycle_name(Lifecycle::Validated) {
+                return Err(StoreError::ProposedArtifactLifecycle(format!(
+                    "proposed artifact {proposal_id} was not in validated state"
+                )));
+            }
+            if digest != replay.artifact_digest() {
+                return Err(StoreError::ProposedArtifactLifecycle(
+                    "eval proof digest does not match stored proposal digest".to_string(),
+                ));
+            }
+            // Distinct, strictly-ordered timestamps so latest_eval_verdict is
+            // deterministic across the two semantically different rows.
+            let replay_at = Timestamp::now();
+            let judge_at = replay_at + std::time::Duration::from_nanos(1);
+            let replay_verdict_id = Ulid::new();
+            let judge_verdict_id = Ulid::new();
+            for (id, verdict, fitness, evidence, evaluator, recorded_at) in [
+                (
+                    replay_verdict_id,
+                    replay.verdict(),
+                    replay.fitness(),
+                    replay.evidence_json(),
+                    "overlay-eval-gate/replay@v2",
+                    replay_at,
+                ),
+                (
+                    judge_verdict_id,
+                    judge.verdict(),
+                    judge.fitness(),
+                    judge.evidence_json(),
+                    "overlay-eval-gate/risk-judge@v2",
+                    judge_at,
+                ),
+            ] {
+                let verdict_row = super::eval_verdict_store::EvalVerdict {
+                    id,
+                    artifact_kind: kind.clone(),
+                    artifact_id: artifact_id.clone(),
+                    artifact_version: version as u32,
+                    verdict: verdict.to_string(),
+                    fitness,
+                    evidence: Some(evidence.to_string()),
+                    evaluator: Some(evaluator.to_string()),
+                    artifact_digest: digest.clone(),
+                    recorded_at,
+                    // The epochs both verdicts were computed under (#133),
+                    // so activation can decide currency at read time.
+                    epochs: epochs.clone(),
+                };
+                super::eval_verdict_store::insert_eval_verdict_conn(tx, &verdict_row)?;
+            }
+            let changed = tx.execute(
+                "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
+                params![
+                    lifecycle_name(Lifecycle::ReviewRequired),
+                    proposal_id.to_string(),
+                    lifecycle_name(Lifecycle::Validated)
+                ],
+            )?;
+            if changed != 1 {
+                return Err(StoreError::ProposedArtifactLifecycle(
+                    "proposal changed while eval gate was running".to_string(),
+                ));
+            }
+            Ok((replay_verdict_id, judge_verdict_id))
+        })
     }
 }

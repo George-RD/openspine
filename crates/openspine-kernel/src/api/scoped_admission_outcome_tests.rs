@@ -72,17 +72,14 @@ async fn delivery_unknown_retains_reservation_and_leaves_fence_open() {
     // and the AD-010 drift trigger is re-evaluated, so a responsibility that
     // keeps saturating through ambiguous outcomes is still surfaced for owner
     // re-review even though nothing was ever finalized.
-    let last_used: Option<i64> = env
-        .state
-        .store
-        .conn
-        .lock()
-        .query_row(
+    let last_used: Option<i64> = env.state.store.with_conn_for_test(|conn| {
+        conn.query_row(
             "SELECT last_used_at FROM standing_rules WHERE rule_id = 'rule-unknown'",
             [],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap()
+    });
     assert!(
         last_used.is_some(),
         "a retained reservation still records the rule as used"
@@ -341,15 +338,13 @@ async fn unresolvable_context_fails_closed_and_consults_no_rule() {
         )
         .unwrap();
     // Remove the briefcase: the bound counterparty is now unresolvable.
-    env.state
-        .store
-        .conn
-        .lock()
-        .execute(
+    env.state.store.with_conn_for_test(|conn| {
+        conn.execute(
             "DELETE FROM briefcases WHERE task_grant_id = ?1",
             params![grant.id.to_string()],
         )
         .unwrap();
+    });
 
     let (decision, _) = dispatch(&env.state, &grant).await;
 
@@ -381,8 +376,7 @@ async fn unresolved_counterparty_falls_back_via_action_api() {
         .unwrap();
     // Keep the briefcase, but unbind its counterparty: the identity binding is
     // gone while every other resolved dimension still matches the live rule.
-    {
-        let conn = env.state.store.conn.lock();
+    env.state.store.with_conn_for_test(|conn| {
         let stored: String = conn
             .query_row(
                 "SELECT briefcase_json FROM briefcases WHERE task_grant_id = ?1",
@@ -401,7 +395,7 @@ async fn unresolved_counterparty_falls_back_via_action_api() {
             params![briefcase.to_string(), grant.id.to_string()],
         )
         .unwrap();
-    }
+    });
 
     let (decision, _) = dispatch(&env.state, &grant).await;
 
@@ -412,8 +406,7 @@ async fn unresolved_counterparty_falls_back_via_action_api() {
     // Bind on this guard's own reason, not merely on "something fell back":
     // deleting the guard still yields ApprovalRequired (the scope no longer
     // matches), so a reason-free assertion would not kill it.
-    let reasons: Vec<String> = {
-        let conn = env.state.store.conn.lock();
+    let reasons: Vec<String> = env.state.store.with_conn_for_test(|conn| {
         let mut stmt = conn
             .prepare(
                 "SELECT event_json FROM audit_log
@@ -424,7 +417,7 @@ async fn unresolved_counterparty_falls_back_via_action_api() {
             .unwrap()
             .collect::<Result<Vec<_>, _>>()
             .unwrap()
-    };
+    });
     assert!(
         reasons.iter().any(|event| event.contains(
             "briefcase counterparty is unresolved; reusable delegation requires an identity-bound counterparty"
