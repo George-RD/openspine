@@ -238,6 +238,86 @@ fn dark_window_allow_eligibility_allowlist_is_empty_and_fails_closed() {
     }
 }
 
+/// #135: the allowlist decision is total over the three states the ticket
+/// names — empty, filled, and misconfigured. Exercised on the pure predicate so
+/// each state is asserted directly, without mutating the (empty) production
+/// allowlist.
+#[test]
+fn dark_window_allow_eligibility_covers_empty_filled_and_misconfigured_lists() {
+    use super::action_catalog_contracts::{
+        dark_window_allow_eligibility, DarkWindowAllowEligibility,
+    };
+    use std::collections::BTreeSet;
+
+    let safe = id("openspine.status.read");
+    let effectful = id("email.send");
+
+    // Empty: nothing is eligible, whatever is queried — the fail-closed default
+    // that makes token minting inert today.
+    let empty = BTreeSet::new();
+    let none_certified = BTreeSet::new();
+    assert_eq!(
+        dark_window_allow_eligibility(&safe, &empty, &none_certified),
+        DarkWindowAllowEligibility::NotAllowlisted
+    );
+
+    // Filled and valid: a certified-safe entry is eligible; an id not on the
+    // list is not.
+    let filled: BTreeSet<ActionId> = [safe.clone()].into_iter().collect();
+    let certified: BTreeSet<ActionId> = [safe.clone()].into_iter().collect();
+    assert_eq!(
+        dark_window_allow_eligibility(&safe, &filled, &certified),
+        DarkWindowAllowEligibility::Eligible
+    );
+    assert_eq!(
+        dark_window_allow_eligibility(&effectful, &filled, &certified),
+        DarkWindowAllowEligibility::NotAllowlisted
+    );
+
+    // Misconfigured: one uncertified entry (an effectful action) fails the
+    // whole list closed — even the otherwise-valid entry beside it cannot mint.
+    let misconfigured: BTreeSet<ActionId> = [safe.clone(), effectful.clone()].into_iter().collect();
+    let certified_partial: BTreeSet<ActionId> = [safe.clone()].into_iter().collect();
+    assert_eq!(
+        dark_window_allow_eligibility(&safe, &misconfigured, &certified_partial),
+        DarkWindowAllowEligibility::Misconfigured
+    );
+    assert_eq!(
+        dark_window_allow_eligibility(&effectful, &misconfigured, &certified_partial),
+        DarkWindowAllowEligibility::Misconfigured
+    );
+}
+
+/// #135/D-146: the safety boundary the production predicate composes with the
+/// allowlist is complete. It certifies only ids that reach no connector, write,
+/// or counterparty, so a misconfigured entry fails closed. An effect-inference
+/// check would miss the effectful ids below — they declare no egress class and
+/// no output channel — whereas requiring approval-narrowing certification fails
+/// them closed.
+#[test]
+fn the_dark_window_safety_boundary_certifies_only_no_external_effect_ids() {
+    let catalog = canonical_catalog();
+    for action in [
+        "email.send",
+        "email.create_draft",
+        "coolify.deploy",
+        "filesystem.host_write",
+        "secret.rotate",
+        "network.raw_egress",
+        "policy.modify_direct",
+    ] {
+        assert!(
+            !catalog.is_approval_narrowing(&id(action)),
+            "{action} must not be certified safe: allowlisting it fails the whole list closed"
+        );
+    }
+    // The catalog's certified-safe set: a read of kernel status, and an
+    // approval-requirement narrowing that reaches no connector. Only these
+    // could be added to the allowlist without misconfiguring it.
+    assert!(catalog.is_approval_narrowing(&id("openspine.status.read")));
+    assert!(catalog.is_approval_narrowing(&id("connector.enable")));
+}
+
 #[test]
 fn non_effect_stub_allowlist_is_explicit_and_fails_closed() {
     let catalog = canonical_catalog();
