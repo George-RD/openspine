@@ -2,7 +2,7 @@ use super::*;
 use openspine_schemas::briefcase::{RelationshipTier, TopUpOutcome};
 use openspine_schemas::identity::RelationshipKind;
 fn grant_with(id: &str, event_id: &str, token: &str) -> TaskGrant {
-    serde_json::from_value(serde_json::json!({"id":id,"schema_version":1,"lifecycle_state":"active","user":"owner","purpose":"test","issued_by":"kernel","issued_at":"2026-01-01T00:00:00Z","expires_at":"2030-01-01T00:00:00Z","event_id":event_id,"route_id":"route","agent_id":"agent","workflow_id":"workflow","capability_pack_id":"pack","allowed_actions":[],"approval_required_actions":[],"denied_actions":[],"output_channels":[],"limits":{"max_model_calls":1,"max_artifacts":1,"max_runtime_seconds":1},"task_token":token,"root_grant_id":id,"parent_grant_id":null,"mode":"live","chain":[],"caveat_mac":""})).unwrap()
+    serde_json::from_value(serde_json::json!({"id":id,"schema_version":1,"lifecycle_state":"active","user":"01ARZ3NDEKTSV4RRFFQ69G5FAV","purpose":"test","issued_by":"kernel","issued_at":"2026-01-01T00:00:00Z","expires_at":"2030-01-01T00:00:00Z","event_id":event_id,"route_id":"route","agent_id":"agent","workflow_id":"workflow","capability_pack_id":"pack","allowed_actions":[],"approval_required_actions":[],"denied_actions":[],"output_channels":[],"limits":{"max_model_calls":1,"max_artifacts":1,"max_runtime_seconds":1},"task_token":token,"root_grant_id":id,"parent_grant_id":null,"mode":"live","chain":[],"caveat_mac":""})).unwrap()
 }
 fn grant() -> TaskGrant {
     grant_with(

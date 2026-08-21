@@ -91,20 +91,21 @@ fn regression_stale_valid_bundle_metadata_mismatch_rejected() {
     }
 
     let ops4 = acquire(&data3, KEY).unwrap();
+    let restore_grant = grant("other_user", RESTORE_ACTION);
     let staged = ops4
         .stage_export_or_restore(
-            &grant("other_user", RESTORE_ACTION),
+            &restore_grant,
             &ActionId::new(RESTORE_ACTION),
             "bundle-owner-test",
             Timestamp::now(),
         )
         .unwrap();
-    assert_eq!(staged.owner_principal_id(), "other_user");
+    assert_eq!(staged.owner_principal_id(), restore_grant.user.to_string());
     let pending4 = ops4
         .process_pre_open(false, Timestamp::now())
         .expect("authenticated source request must verify")
         .expect("restore pending");
-    assert_eq!(pending4.owner_principal_id, "other_user");
+    assert_eq!(pending4.owner_principal_id, restore_grant.user.to_string());
     finalize_ok(&ops4, pending4);
 }
 

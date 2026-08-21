@@ -95,7 +95,7 @@ fn email_reply_drafter_grant(task_token: &str) -> TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".to_string(),
+        user: Ulid::new().into(),
         purpose: "draft_email_reply".to_string(),
         issued_by: "kernel".to_string(),
         issued_at,

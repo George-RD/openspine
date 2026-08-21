@@ -42,7 +42,7 @@ fn require_root_owner_grant(
     grant: &TaskGrant,
     action: &ActionId,
 ) -> Result<(), DispatchError> {
-    if grant.user != state.owner_principal_id.to_string() {
+    if grant.user != openspine_schemas::ids::PrincipalId::from(state.owner_principal_id) {
         return Err(DispatchError::BadRequest(
             "overlay export/restore requires the configured owner principal".to_string(),
         ));
@@ -151,7 +151,7 @@ mod tests {
 
     fn mint_grant(
         state: &AppState,
-        user: String,
+        user: openspine_schemas::ids::PrincipalId,
         action: &str,
         parent: Option<Ulid>,
         chain_nonempty: bool,
@@ -239,7 +239,7 @@ mod tests {
         let action = ActionId::new(EXPORT_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             EXPORT_ACTION,
             None,
             false,
@@ -265,14 +265,14 @@ mod tests {
         let action = ActionId::new(RESTORE_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             RESTORE_ACTION,
             None,
             false,
         );
         let export_grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             EXPORT_ACTION,
             None,
             false,
@@ -319,7 +319,7 @@ mod tests {
     async fn foreign_principal_is_rejected() {
         let state = test_state();
         let action = ActionId::new(EXPORT_ACTION);
-        let grant = mint_grant(&state, Ulid::new().to_string(), EXPORT_ACTION, None, false);
+        let grant = mint_grant(&state, Ulid::new().into(), EXPORT_ACTION, None, false);
         let payload = json!({"bundle_name": "backup-1"});
         let err = handle_overlay_export(
             &state,
@@ -340,7 +340,7 @@ mod tests {
         let parent = Ulid::new();
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             EXPORT_ACTION,
             Some(parent),
             true,
@@ -364,7 +364,7 @@ mod tests {
         let action = ActionId::new(EXPORT_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             EXPORT_ACTION,
             Some(Ulid::new()),
             true,
@@ -390,7 +390,7 @@ mod tests {
         let action = ActionId::new(RESTORE_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             RESTORE_ACTION,
             None,
             false,
@@ -443,7 +443,7 @@ mod tests {
         let action = ActionId::new(EXPORT_ACTION);
         let grant = mint_grant(
             &state,
-            state.owner_principal_id.to_string(),
+            state.owner_principal_id.into(),
             EXPORT_ACTION,
             None,
             false,

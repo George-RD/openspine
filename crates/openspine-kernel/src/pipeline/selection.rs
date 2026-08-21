@@ -25,14 +25,14 @@ pub(super) fn build_selection_token(
     thread_id: &str,
     now: Timestamp,
 ) -> SelectionToken {
-    let user = state.owner_user_id.to_string();
+    let user: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
     SelectionToken {
         id: Ulid::new(),
         schema_version: 1,
         token_type: SelectionTokenType::email_thread_selection(),
-        user: user.clone(),
+        user,
         target_id: thread_id.to_string(),
-        selected_by: user.clone(),
+        selected_by: user,
         selected_at: now,
         issued_by: "kernel".to_string(),
         expires_at: now + SELECTION_TOKEN_TTL,

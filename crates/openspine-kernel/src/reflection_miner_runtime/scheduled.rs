@@ -62,7 +62,9 @@ pub(crate) fn find_active_grant_by_route(
         if grant.is_expired(now) {
             continue;
         }
-        if grant.user != state.owner_principal_id.to_string() || !grant.verify_mac(&key) {
+        if grant.user != openspine_schemas::ids::PrincipalId::from(state.owner_principal_id)
+            || !grant.verify_mac(&key)
+        {
             return Err(MinerRuntimeError::UnauthenticatedGrant);
         }
         let digest = openspine_schemas::digest::Digest::parse(digest)
@@ -231,7 +233,7 @@ fn derive_repeated_approval_observation(
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
     let scope = format!("reflection:{miner_grant_id}");
     let entries = state.store.load_owner_miner_audit_slice(
-        &state.owner_principal_id.to_string(),
+        state.owner_principal_id.into(),
         &key,
         &scope,
         ceiling,

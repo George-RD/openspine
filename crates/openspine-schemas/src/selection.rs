@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
 use crate::event::{AccountRole, Connector};
+use crate::ids::PrincipalId;
 
 /// PRD §15 `type`. String-backed (like [`crate::action::ActionId`]) rather
 /// than a closed enum: PRD §2 requires schemas to stay general enough for
@@ -67,9 +68,9 @@ pub struct SelectionToken {
     pub schema_version: u32,
     #[serde(rename = "type")]
     pub token_type: SelectionTokenType,
-    pub user: String,
+    pub user: PrincipalId,
     pub target_id: String,
-    pub selected_by: String,
+    pub selected_by: PrincipalId,
     pub selected_at: jiff::Timestamp,
     pub issued_by: String,
     pub expires_at: jiff::Timestamp,
@@ -93,9 +94,9 @@ mod tests {
             id: Ulid::new(),
             schema_version: 1,
             token_type: SelectionTokenType::email_thread_selection(),
-            user: "owner".to_string(),
+            user: Ulid::new().into(),
             target_id: "thread_abc123".to_string(),
-            selected_by: "owner".to_string(),
+            selected_by: Ulid::new().into(),
             selected_at: now,
             issued_by: "kernel".to_string(),
             expires_at: now + std::time::Duration::from_secs(600),

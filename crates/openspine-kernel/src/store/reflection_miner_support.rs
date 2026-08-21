@@ -14,6 +14,7 @@ use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::event::DataClassification;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::ids::PrincipalId;
 use openspine_schemas::reflection_miner::AuditTrailEntry;
 use openspine_schemas::resolved_context::ResolvedActionContext;
 use openspine_schemas::reviewed_scope::ReviewedActionScope;
@@ -83,7 +84,7 @@ impl Store {
     /// controls only what the miner can see, never event ownership.
     pub fn load_owner_miner_audit_slice(
         &self,
-        owner_principal_id: &str,
+        owner_principal_id: PrincipalId,
         grant_hmac_key: &[u8],
         scope: &str,
         ceiling: DataClassification,
@@ -100,7 +101,7 @@ impl Store {
              WHERE json_extract(g.grant_json, '$.user') = ?1
              ORDER BY a.seq ASC",
         )?;
-        let rows = stmt.query_map(params![owner_principal_id], |row| {
+        let rows = stmt.query_map(params![owner_principal_id.to_string()], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
         let mut out = Vec::new();

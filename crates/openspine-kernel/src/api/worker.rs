@@ -396,7 +396,7 @@ pub(crate) fn handle_worker_commission<'a>(
         // AD-102: address this worker by identity tuple, never by process
         // handle. Derived from trusted grant context.
         let identity = WorkerIdentity {
-            owner: grant.user.clone(),
+            owner: grant.user.to_string(),
             conversation: grant
                 .thread_id
                 .clone()

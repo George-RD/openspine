@@ -80,7 +80,7 @@ fn commission(
     )
     .expect("mint worker");
     let identity = WorkerIdentity {
-        owner: parent.user.clone(),
+        owner: parent.user.to_string(),
         conversation: parent.event_id.to_string(),
         task: worker.id.to_string(),
     };
@@ -110,7 +110,7 @@ fn worker_crash_emits_structured_failure_and_requires_recomposition() {
     // handling must reclaim this exact grant's slot.
     claim_conversation_in_flight(
         &store,
-        &parent.user,
+        &parent.user.to_string(),
         &parent.event_id.to_string(),
         worker.id,
     )
@@ -139,14 +139,14 @@ fn worker_crash_emits_structured_failure_and_requires_recomposition() {
     let newer_holder = Ulid::new();
     claim_conversation_in_flight(
         &store,
-        &parent.user,
+        &parent.user.to_string(),
         &parent.event_id.to_string(),
         newer_holder,
     )
     .unwrap();
     release_conversation_in_flight_for_grant(
         &store,
-        &parent.user,
+        &parent.user.to_string(),
         &parent.event_id.to_string(),
         worker.id,
     )
@@ -154,7 +154,7 @@ fn worker_crash_emits_structured_failure_and_requires_recomposition() {
     assert!(matches!(
         claim_conversation_in_flight(
             &store,
-            &parent.user,
+            &parent.user.to_string(),
             &parent.event_id.to_string(),
             Ulid::new(),
         ),
@@ -162,7 +162,7 @@ fn worker_crash_emits_structured_failure_and_requires_recomposition() {
     ));
     release_conversation_in_flight_for_grant(
         &store,
-        &parent.user,
+        &parent.user.to_string(),
         &parent.event_id.to_string(),
         newer_holder,
     )

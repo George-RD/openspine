@@ -231,7 +231,7 @@ async fn scheduled_reflection_miner_duplicate_decision_event_is_not_repeated() {
         .state
         .store
         .load_owner_miner_audit_slice(
-            &harness.state.owner_principal_id.to_string(),
+            harness.state.owner_principal_id.into(),
             &crate::grant_hmac_key().unwrap(),
             &format!("reflection:{}", miner_grant.id),
             openspine_schemas::event::DataClassification::Private,

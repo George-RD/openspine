@@ -54,7 +54,7 @@ fn parent_grant() -> TaskGrant {
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: "owner".to_string(),
+        user: Ulid::new().into(),
         purpose: "test".to_string(),
         issued_by: "kernel".to_string(),
         issued_at: now,
@@ -144,7 +144,7 @@ async fn commission_and_record(state: &AppState) -> ArtifactRef {
         "receipt-consumer-test",
         &request_digest,
         &WorkerIdentity {
-            owner: parent.user.clone(),
+            owner: parent.user.to_string(),
             conversation: parent.event_id.to_string(),
             task: worker.id.to_string(),
         },

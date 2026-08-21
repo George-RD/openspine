@@ -28,6 +28,27 @@ pub type ArtifactId = String;
 /// once its `user` field is retyped to `PrincipalId` (D-005), and non-Ulid
 /// `user` shapes (`"owner"`, `"kernel"`, raw i64) become unrepresentable by
 /// construction.
+///
+/// # Type safety (spec #200)
+///
+/// The retype makes the pre-#200 `"owner"`/`"kernel"` (and any raw string)
+/// `user` shapes reject at compile time — a `TaskGrant`, `RootAuthority`, or
+/// `SelectionToken` identity field can no longer be assigned a `String`:
+///
+/// ```compile_fail
+/// let mut grant: openspine_schemas::grant::TaskGrant = unimplemented!();
+/// grant.user = "owner".to_string(); // expected PrincipalId, found String
+/// ```
+///
+/// ```compile_fail
+/// let mut root: openspine_schemas::grant_chain::RootAuthority = unimplemented!();
+/// root.user = "kernel".to_string(); // expected PrincipalId, found String
+/// ```
+///
+/// ```compile_fail
+/// let mut token: openspine_schemas::selection::SelectionToken = unimplemented!();
+/// token.user = "owner".to_string(); // expected PrincipalId, found String
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct PrincipalId(Ulid);

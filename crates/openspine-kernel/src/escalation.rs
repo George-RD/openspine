@@ -115,7 +115,7 @@ mod tests {
             id,
             schema_version: 1,
             lifecycle_state: Lifecycle::Active,
-            user: "owner".into(),
+            user: ulid::Ulid::new().into(),
             purpose: "test".into(),
             issued_by: "kernel".into(),
             issued_at: now,

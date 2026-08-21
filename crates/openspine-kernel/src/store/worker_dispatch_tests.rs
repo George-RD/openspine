@@ -86,7 +86,7 @@ fn commission(store: &Store, parent: &TaskGrant) -> TaskGrant {
         &format!("receipt-{}", parent.id),
         &request_digest(),
         &WorkerIdentity {
-            owner: parent.user.clone(),
+            owner: parent.user.to_string(),
             conversation: parent.event_id.to_string(),
             task: worker.id.to_string(),
         },
@@ -246,7 +246,7 @@ fn commission_is_receipt_idempotent() {
         &receipt,
         &request_digest(),
         &WorkerIdentity {
-            owner: parent.user.clone(),
+            owner: parent.user.to_string(),
             conversation: parent.event_id.to_string(),
             task: worker.id.to_string(),
         },
@@ -265,7 +265,7 @@ fn commission_is_receipt_idempotent() {
         &receipt,
         &request_digest(),
         &WorkerIdentity {
-            owner: parent.user.clone(),
+            owner: parent.user.to_string(),
             conversation: parent.event_id.to_string(),
             task: worker.id.to_string(),
         },
@@ -327,7 +327,7 @@ fn commission_receipt_binding_rejects_different_parent_or_request() {
         receipt,
         &request_digest(),
         &WorkerIdentity {
-            owner: parent.user.clone(),
+            owner: parent.user.to_string(),
             conversation: parent.event_id.to_string(),
             task: worker.id.to_string(),
         },

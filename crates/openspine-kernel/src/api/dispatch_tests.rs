@@ -90,14 +90,14 @@ pub(crate) fn mint_grant_with_selection_token(
     token_expires_at: Timestamp,
 ) -> (TaskGrant, SelectionToken) {
     let now = Timestamp::now();
-    let user = state.owner_user_id.to_string();
+    let user: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
     let token = SelectionToken {
         id: Ulid::new(),
         schema_version: 1,
         token_type: SelectionTokenType::email_thread_selection(),
-        user: user.clone(),
+        user,
         target_id: "thread-1".to_string(),
-        selected_by: user.clone(),
+        selected_by: user,
         selected_at: now,
         issued_by: "kernel".to_string(),
         expires_at: token_expires_at,

@@ -293,7 +293,7 @@ pub fn compose_authority(
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: input.principal_id.to_string(),
+        user: input.principal_id.into(),
         purpose: input.purpose.to_string(),
         issued_by: "kernel".to_string(),
         issued_at,

@@ -114,7 +114,7 @@ fn owner_grant(
         id: Ulid::new(),
         schema_version: 1,
         lifecycle_state: Lifecycle::Active,
-        user: owner_principal_id.to_string(),
+        user: owner_principal_id.into(),
         purpose: "secret-intake".to_string(),
         issued_by: "owner-control".to_string(),
         issued_at: now,

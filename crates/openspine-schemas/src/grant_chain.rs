@@ -18,6 +18,7 @@ use crate::action::ActionId;
 use crate::digest::canonical_json;
 use crate::egress::EgressClass;
 use crate::grant::{GrantLimits, GrantMode, TaskGrant};
+use crate::ids::PrincipalId;
 
 /// One ordered Macaroons-simple caveat (AD-101 / AD-036).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,7 +83,7 @@ pub struct RootAuthority {
     pub allowed_egress_classes: Vec<EgressClass>,
     pub output_channels: Vec<String>,
     pub limits: GrantLimits,
-    pub user: String,
+    pub user: PrincipalId,
     pub purpose: String,
     pub event_id: Ulid,
     pub route_id: String,
@@ -105,7 +106,7 @@ impl RootAuthority {
             allowed_egress_classes: grant.allowed_egress_classes.clone(),
             output_channels: grant.output_channels.clone(),
             limits: grant.limits,
-            user: grant.user.clone(),
+            user: grant.user,
             purpose: grant.purpose.clone(),
             event_id: grant.event_id,
             route_id: grant.route_id.clone(),
