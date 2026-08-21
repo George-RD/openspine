@@ -18,7 +18,7 @@ fn provenance(class: DisclosureClass) -> DisclosureProvenance {
                 schema_version: 1,
             },
             disclosure_class: class,
-            origin: None,
+            origin: Some(ProvenanceOrigin::System {}),
         }],
     }
 }
@@ -100,8 +100,10 @@ fn uncovered_egress_blocks_and_produces_owner_question() {
             &BTreeSet::from(["condition X".to_string()]),
             EgressClass::Search,
             provenance(DisclosureClass::Sensitive),
+            RecipientIdentity::Unresolved,
         ),
         &state.store.load_disclosure_policies().unwrap(),
+        &[],
     );
     let openspine_schemas::disclosure_policy::DisclosureGateDecision::Block { escalation } =
         decision
