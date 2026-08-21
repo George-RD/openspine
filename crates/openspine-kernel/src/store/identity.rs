@@ -9,6 +9,7 @@ use openspine_schemas::digest::Digest;
 use openspine_schemas::identity::{
     EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity,
 };
+use openspine_schemas::ids::PrincipalId;
 use openspine_schemas::principal::Principal;
 use rusqlite::{params, OptionalExtension};
 use sha2::Digest as _;
@@ -66,6 +67,20 @@ impl Store {
         });
 
         if !has_matching_identifier {
+            // Reserved owner-config-mismatch rejection kind (spec #208 D-007).
+            // Audit-only (no state effect), so it uses the append_audit* entry
+            // per the audited_effect module contract: commit the durable
+            // rejection row, then fail closed. The actor is the stored owner.
+            self.append_audit_with_actor(
+                "identity.owner_config_mismatch",
+                None,
+                None,
+                Some(&format!("identity={}", owner_identity.id)),
+                None,
+                &[],
+                &[],
+                Some(&PrincipalId::from(owner.id)),
+            )?;
             return Err(StoreError::NotOwner(
                 "Stored owner Telegram identifier does not match current configured owner ID"
                     .to_string(),
@@ -109,38 +124,46 @@ impl Store {
             schema_version: 1,
         };
 
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-
-        tx.execute(
-            "INSERT INTO identities (id, identity_json) VALUES (?1, ?2)",
-            params![
-                identity_id.to_string(),
-                serde_json::to_string(&owner_identity)?
-            ],
-        )?;
-
-        tx.execute(
-            "INSERT INTO identity_identifiers (value_hash, identifier_kind, identity_id) VALUES (?1, ?2, ?3)",
-            params![
-                owner_hash.as_str(),
-                "telegram_user_id",
-                identity_id.to_string()
-            ],
-        )?;
-
+        // Owner-creation is the reserved bootstrap-binding audit kind; the
+        // actor is the newly minted owner principal (spec #208 D-007). Routed
+        // through with_audited_effect so the owner insert and its audit row
+        // commit atomically in one Immediate transaction.
+        let descriptor = AuditDescriptor::new("identity.bootstrapped")
+            .with_reason(format!("identity={identity_id}"))
+            .with_actor(PrincipalId::from(principal.id));
         let principal_json = serde_json::to_string(&principal)?;
-        tx.execute(
-            "INSERT INTO principals (id, identity_id, is_owner, principal_json) VALUES (?1, ?2, ?3, ?4)",
-            params![
-                principal.id.to_string(),
-                principal.identity_id.to_string(),
-                1,
-                principal_json
-            ],
-        )?;
 
-        tx.commit()?;
+        self.with_audited_effect(descriptor, |tx| {
+            tx.execute(
+                "INSERT INTO identities (id, identity_json) VALUES (?1, ?2)",
+                params![
+                    identity_id.to_string(),
+                    serde_json::to_string(&owner_identity)?
+                ],
+            )?;
+
+            tx.execute(
+                "INSERT INTO identity_identifiers (value_hash, identifier_kind, identity_id) VALUES (?1, ?2, ?3)",
+                params![
+                    owner_hash.as_str(),
+                    "telegram_user_id",
+                    identity_id.to_string()
+                ],
+            )?;
+
+            tx.execute(
+                "INSERT INTO principals (id, identity_id, is_owner, principal_json) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    principal.id.to_string(),
+                    principal.identity_id.to_string(),
+                    1,
+                    principal_json
+                ],
+            )?;
+
+            Ok(())
+        })?;
+
         Ok(principal)
     }
 
@@ -212,10 +235,12 @@ impl Store {
         // Enforce owner-principal context boundary
         self.owner_principal_by_id(owner_principal_id)?;
 
-        let descriptor = AuditDescriptor::new("identity.bound").with_reason(format!(
-            "owner={owner_principal_id} identity={}",
-            identity.id
-        ));
+        // Owner fact moves out of the reason string into the typed actor
+        // dimension (spec #208 D-007); reason keeps only the bound-identity
+        // target reference.
+        let descriptor = AuditDescriptor::new("identity.bound")
+            .with_reason(format!("identity={}", identity.id))
+            .with_actor(PrincipalId::from(owner_principal_id));
 
         self.with_audited_effect(descriptor, |tx| {
             // Insert identity
