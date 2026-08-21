@@ -104,6 +104,7 @@ fn private_section() -> BriefcaseSection {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
+        origin: None,
         payload: json!("condition X"),
     }
 }

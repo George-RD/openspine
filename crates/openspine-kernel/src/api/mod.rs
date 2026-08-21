@@ -55,6 +55,9 @@ mod effect_executor_tests;
 mod effect_readiness_tests;
 
 #[cfg(test)]
+mod disclosure_origin_tests;
+
+#[cfg(test)]
 mod skill_context_action_tests;
 
 #[cfg(test)]
