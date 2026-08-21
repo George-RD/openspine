@@ -16,11 +16,15 @@ use openspine_schemas::owner_surface::OwnerSurfaceRef;
 /// unexpired approval. Re-derives the recipient from a live Gmail fetch and
 /// re-checks it against the proposal-bound digest before calling
 /// `create_draft`, because a new thread message can change the recipient.
-/// Candidate Gmail-write extension: a write timeout/no-response leaves
-/// durable pending evidence for manual/operator reconciliation; no automatic
-/// resend is safe without Gmail idempotency.
-/// Returns a truthful outcome distinguishing pre-effect refusal, confirmed
-/// execution, delivery uncertainty, and failure after an attempted write.
+/// Provider-boundary contract: connector admission is taken before the pending
+/// fence and before polling any provider future. A rejected admission is
+/// [`EffectOutcome::RefusedPreEffect`]. Once the write future is polled, a
+/// confirmed Gmail success is [`EffectOutcome::Executed`], a definite client
+/// rejection is [`EffectOutcome::FailedAfterAttempt`], and an outcome that does
+/// not prove non-occurrence (timeout, transport/malformed response, HTTP 429,
+/// or HTTP 5xx) is [`EffectOutcome::DeliveryUnknown`] with durable pending
+/// evidence left open for reconciliation. No automatic resend is safe without
+/// Gmail idempotency.
 pub(crate) async fn create_approved_draft(
     state: &AppState,
     grant: &TaskGrant,
@@ -92,7 +96,9 @@ pub(crate) async fn create_approved_draft(
     .await
     {
         Ok(thread) => thread,
-        Err(DispatchError::ConnectorUnavailable(err)) => return Err(err),
+        Err(DispatchError::ConnectorUnavailable(_)) => {
+            return Ok(EffectOutcome::RefusedPreEffect);
+        }
         Err(err) => {
             state.store.append_audit(
                 "draft.creation_failed",
@@ -199,7 +205,9 @@ pub(crate) async fn create_approved_draft(
         grant,
     ) {
         Ok(permit) => permit,
-        Err(DispatchError::ConnectorUnavailable(err)) => return Err(err),
+        Err(DispatchError::ConnectorUnavailable(_)) => {
+            return Ok(EffectOutcome::RefusedPreEffect);
+        }
         Err(err) => {
             state.store.append_audit(
                 "draft.creation_failed",
@@ -302,10 +310,6 @@ pub(crate) async fn create_approved_draft(
             )?;
             notify_owner_best_effort(state, owner_surface, "Draft created in Gmail.").await;
             Ok(EffectOutcome::Executed)
-        }
-        Err(DispatchError::ConnectorUnavailable(err)) => {
-            state.store.resolve_pending_draft_write(pending_id)?;
-            Err(err)
         }
         Err(DispatchError::DeliveryUnknown(_)) => unreachable!("handled above"),
         Err(err) => {

@@ -331,13 +331,13 @@ pub(crate) fn total_pending_draft_write_rows(state: &AppState) -> i64 {
 }
 
 #[tokio::test]
-async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
-    // An Open breaker blocks the executor at its FIRST connector call — the
-    // live thread fetch — so it exits before the write is ever admitted and no
-    // pending-write fence row is recorded. Deliberately scoped to that: it
-    // cannot pin write-admission ordering, because a breaker open enough to
-    // reject the write also rejects the preceding fetch. The write-admission
-    // ordering is pinned by the rate-limit test below.
+async fn unavailable_gmail_connector_is_a_pre_effect_refusal_without_a_fence_row() {
+    // #174: an Open breaker blocks the executor at its FIRST connector call —
+    // the live thread fetch — before polling any provider future. The executor
+    // must preserve that known ordering as `RefusedPreEffect`; a bare error is
+    // collapsed to Resource by the scoped caller and permanently retains the
+    // reservation. This test cannot pin the later write-admission arm because
+    // an Open breaker necessarily rejects the preceding fetch first.
     let token_server = MockServer::start().await;
     let api_server = MockServer::start().await;
     // No mocks mounted: the Open breaker must block before any Gmail call.
@@ -356,22 +356,28 @@ async fn unavailable_gmail_connector_refuses_before_any_fence_row() {
         state.connectors.record_connector_outcome("gmail", false);
     }
 
-    let result = crate::pipeline::approval::create_approved_draft(
+    let outcome = crate::pipeline::approval::create_approved_draft(
         &state,
         &grant,
         &request,
         &crate::test_support::owner_surface(&state),
     )
-    .await;
+    .await
+    .expect("pre-effect connector rejection is a typed refusal, not an executor error");
 
-    assert!(
-        result.is_err(),
-        "an unavailable gmail connector propagates as an error, not an outcome: {result:?}"
-    );
+    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
     assert_eq!(
         total_pending_draft_write_rows(&state),
         0,
         "refusing at the thread fetch must record no pending-write fence"
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("connector_unavailable")
+            .unwrap(),
+        1,
+        "admission records exactly one connector_unavailable audit"
     );
     assert_eq!(
         state
