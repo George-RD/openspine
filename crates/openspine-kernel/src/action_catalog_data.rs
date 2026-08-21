@@ -458,5 +458,12 @@ pub(super) fn egress_declarations() -> Vec<(ActionId, ActionEgressDeclaration)> 
                 egress_class: None,
             },
         ),
+        (
+            id("openspine.counterparty.erase"),
+            ActionEgressDeclaration {
+                output_channels: None,
+                egress_class: None,
+            },
+        ),
     ]
 }

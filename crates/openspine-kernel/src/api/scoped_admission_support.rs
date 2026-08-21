@@ -352,7 +352,7 @@ pub(super) async fn dispatch(state: &AppState, grant: &TaskGrant) -> (GateDecisi
     }
 }
 
-pub(super) fn mint_draft_grant_with_counterparty(
+pub(crate) fn mint_draft_grant_with_counterparty(
     state: &AppState,
     thread_id: &str,
     identity_id: Ulid,

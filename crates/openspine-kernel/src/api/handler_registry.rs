@@ -27,6 +27,7 @@ use super::actions::{
 use super::artifact_nominate::dispatch_artifact_nominate;
 use super::artifact_propose::dispatch_artifact_propose;
 use super::connector_breaker::call_with_connector_write;
+use super::erase_counterparty::handle_erase_counterparty;
 use super::overlay_export_restore::{handle_overlay_export, handle_overlay_restore};
 use super::plan::dispatch_plan_preview;
 use super::skill_context::dispatch_skill_context;
@@ -97,6 +98,10 @@ impl ActionHandlerRegistry {
         map.insert(
             "openspine.overlay.restore",
             handle_overlay_restore as ActionHandler,
+        );
+        map.insert(
+            "openspine.counterparty.erase",
+            handle_erase_counterparty as ActionHandler,
         );
         ActionHandlerRegistry { map }
     }
