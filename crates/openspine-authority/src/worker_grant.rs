@@ -438,6 +438,34 @@ mod worker_grant_tests {
         );
     }
 
+    /// AD-146 (single owner, v1): a worker sub-grant is the SAME task identity
+    /// as its master (see the module note) — it inherits the parent's typed
+    /// principal id byte-for-byte. A commissioned worker can never be minted
+    /// under a different principal, so every hop of the chain names the one
+    /// owner. `user` is part of the MAC-covered root authority, so this is
+    /// also structurally enforced (AD-148), but assert the value directly.
+    #[test]
+    fn worker_subgrant_inherits_parent_principal_id_byte_for_byte() {
+        let root = root_grant();
+        let worker = mint_worker_grant(&root, &commission_spec(&root), &test_catalog(), TEST_KEY)
+            .expect("worker mints");
+        assert_eq!(
+            worker.user, root.user,
+            "worker sub-grant must carry the parent's principal id (AD-146)"
+        );
+        let deeper = mint_worker_grant(
+            &worker,
+            &commission_spec(&worker),
+            &test_catalog(),
+            TEST_KEY,
+        )
+        .expect("grandchild mints");
+        assert_eq!(
+            deeper.user, root.user,
+            "principal id must be identical across every hop of the chain (AD-146)"
+        );
+    }
+
     #[test]
     fn non_delegable_actions_rejected_even_if_parent_allows() {
         for action in ["openspine.overlay.export", "openspine.overlay.restore"] {

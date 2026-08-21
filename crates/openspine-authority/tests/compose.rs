@@ -447,3 +447,37 @@ fn pack_egress_classes_propagate_to_task_grant() {
     };
     assert_eq!(grant.allowed_egress_classes, vec![EgressClass::Search]);
 }
+
+/// AD-146 (single owner, v1): a composed task grant is issued to the owner
+/// principal id the composition was keyed with — the grant carries the typed
+/// `PrincipalId`, byte-for-byte the `principal_id` input. This is the second
+/// half of the single-owner discipline (the "exactly one owner" half lives in
+/// the kernel store tests): every grant the kernel mints names that one owner.
+#[test]
+fn composed_grant_is_issued_to_the_owner_principal_id() {
+    let (event, identity, route, agent, workflow, pack, policy, session) = (
+        owner_event(),
+        owner_identity(),
+        owner_route(),
+        main_assistant_agent(),
+        owner_control_conversation_workflow(),
+        owner_control_basic_pack(),
+        global_policy(),
+        empty_session_policy(),
+    );
+    let mut input = owner_control_input(
+        &event, &identity, &route, &agent, &workflow, &pack, &policy, &session,
+    );
+    let owner = ulid::Ulid::new();
+    input.principal_id = owner;
+    let AuthorityOutcome::Granted(grant) =
+        compose_authority(&input, &test_catalog(), jiff::Timestamp::now())
+    else {
+        panic!("expected a grant")
+    };
+    assert_eq!(
+        grant.user,
+        openspine_schemas::ids::PrincipalId::from(owner),
+        "composed grant must be issued to the owner principal id (AD-146)"
+    );
+}
