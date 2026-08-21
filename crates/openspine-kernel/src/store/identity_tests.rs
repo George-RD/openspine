@@ -121,6 +121,68 @@ mod tests {
     }
 
     #[test]
+    fn owner_assert_binding_rolls_back_effect_on_audit_failure() {
+        let store = Store::open_in_memory().unwrap();
+        let owner = store.bootstrap_owner_principal(42, "George").unwrap();
+
+        // Baseline: bootstrap created exactly the owner identity.
+        let baseline_identities = store.count_identities().unwrap();
+        assert_eq!(baseline_identities, 1);
+
+        // Force the audit append for "identity.bound" to fail deterministically.
+        store
+            .install_audit_append_failure_for_kind("identity.bound")
+            .unwrap();
+
+        let counterparty_id = Ulid::new();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(b"999");
+        let val_hash = openspine_schemas::digest::digest_from_hash(hasher.finalize().into());
+
+        let counterparty = Identity {
+            id: counterparty_id,
+            display_name: "Bound Counterparty".to_string(),
+            entity_type: EntityType::Person,
+            identifiers: vec![Identifier {
+                kind: IdentifierKind::TelegramUserId,
+                value_hash: val_hash.clone(),
+                verified: true,
+                verification_method: IdentifierVerificationMethod::UserConfirmed,
+            }],
+            relationships: vec![Relationship {
+                kind: RelationshipKind::Spouse,
+                target_id: owner.identity_id,
+                confidence: 1.0,
+                notes_ref: None,
+            }],
+            schema_version: 1,
+        };
+
+        // The injected RAISE(FAIL, ...) surfaces as a Sqlite error.
+        let err = store
+            .owner_assert_identity_binding(
+                owner.id,
+                &VerifiedOwnerContext::test_new(),
+                &counterparty,
+            )
+            .unwrap_err();
+        assert!(matches!(err, StoreError::Sqlite(_)));
+
+        // AD-105: the effect rows rolled back — no orphan identity, no orphan
+        // identifier mapping, and no audit row for the failed binding.
+        assert!(store.get_identity(counterparty_id).unwrap().is_none());
+        assert!(store
+            .resolve_identity_by_identifier_hash(&val_hash, IdentifierKind::TelegramUserId)
+            .unwrap()
+            .is_none());
+        assert_eq!(store.count_identities().unwrap(), baseline_identities);
+        assert_eq!(
+            store.count_audit_events_of_kind("identity.bound").unwrap(),
+            0
+        );
+    }
+
+    #[test]
     fn owner_assert_binding_rejects_non_owner_principal_id() {
         let store = Store::open_in_memory().unwrap();
         let _owner = store.bootstrap_owner_principal(42, "George").unwrap();

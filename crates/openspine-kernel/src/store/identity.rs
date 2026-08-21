@@ -3,7 +3,7 @@
 //! Enforces D-006 (identity has zero authority fields) and the single-owner
 //! invariant at the database layer using a partial unique index.
 
-use super::{Store, StoreError};
+use super::{AuditDescriptor, Store, StoreError};
 use crate::telegram::VerifiedOwnerContext;
 use openspine_schemas::digest::Digest;
 use openspine_schemas::identity::{
@@ -212,50 +212,37 @@ impl Store {
         // Enforce owner-principal context boundary
         self.owner_principal_by_id(owner_principal_id)?;
 
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
+        let descriptor = AuditDescriptor::new("identity.bound").with_reason(format!(
+            "owner={owner_principal_id} identity={}",
+            identity.id
+        ));
 
-        // Insert identity
-        tx.execute(
-            "INSERT INTO identities (id, identity_json) VALUES (?1, ?2)",
-            params![identity.id.to_string(), serde_json::to_string(identity)?],
-        )?;
-
-        // Insert identifiers mapping
-        for identifier in &identity.identifiers {
-            let kind_str = match identifier.kind {
-                IdentifierKind::TelegramUserId => "telegram_user_id",
-                IdentifierKind::Email => "email",
-                IdentifierKind::WhatsappNumber => "whatsapp_number",
-            };
+        self.with_audited_effect(descriptor, |tx| {
+            // Insert identity
             tx.execute(
-                "INSERT INTO identity_identifiers (value_hash, identifier_kind, identity_id) VALUES (?1, ?2, ?3)",
-                params![
-                    identifier.value_hash.as_str(),
-                    kind_str,
-                    identity.id.to_string()
-                ],
+                "INSERT INTO identities (id, identity_json) VALUES (?1, ?2)",
+                params![identity.id.to_string(), serde_json::to_string(identity)?],
             )?;
-        }
 
-        // Blocker audit alignment: append audit record INSIDE the transaction
-        // before commit, so binding and audit are atomic.
-        Self::append_audit_conn(
-            &tx,
-            "identity.bound",
-            None,
-            None,
-            Some(&format!(
-                "owner={owner_principal_id} identity={}",
-                identity.id
-            )),
-            None,
-            &[],
-            &[],
-        )?;
+            // Insert identifiers mapping
+            for identifier in &identity.identifiers {
+                let kind_str = match identifier.kind {
+                    IdentifierKind::TelegramUserId => "telegram_user_id",
+                    IdentifierKind::Email => "email",
+                    IdentifierKind::WhatsappNumber => "whatsapp_number",
+                };
+                tx.execute(
+                    "INSERT INTO identity_identifiers (value_hash, identifier_kind, identity_id) VALUES (?1, ?2, ?3)",
+                    params![
+                        identifier.value_hash.as_str(),
+                        kind_str,
+                        identity.id.to_string()
+                    ],
+                )?;
+            }
 
-        tx.commit()?;
-        Ok(())
+            Ok(())
+        })
     }
 
     /// Retrieve an identity record by ID.
