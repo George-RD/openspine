@@ -12,8 +12,14 @@ use crate::connector_reality::BreakerState;
 use jiff::Timestamp;
 use openspine_schemas::action::ActionId;
 use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::briefcase::{
+    Briefcase, BriefcaseSection, CounterpartyRef, RelationshipTier, TaskClass, TaskShape,
+};
+use openspine_schemas::digest::Digest;
+use openspine_schemas::egress::EgressClass;
 use openspine_schemas::event::{AccountRole, Connector};
 use openspine_schemas::grant::{GrantLimits, TaskGrant};
+use openspine_schemas::identity::RelationshipKind;
 use openspine_schemas::selection::{
     SelectionScope, SelectionToken, SelectionTokenType, SelectionVerificationMethod,
 };
@@ -89,6 +95,18 @@ pub(crate) fn mint_grant_with_selection_token(
     allowed_actions: &[&str],
     token_expires_at: Timestamp,
 ) -> (TaskGrant, SelectionToken) {
+    mint_grant_with_selection_token_egress(state, allowed_actions, &[], token_expires_at)
+}
+
+/// Variant that seals the grant with a specific set of allowed egress classes,
+/// so a test can admit a rated egress action (e.g. `email.send`, rated
+/// `DirectMessage`) past the gate's egress-class coverage check (gate.rs:226).
+pub(crate) fn mint_grant_with_selection_token_egress(
+    state: &crate::pipeline::AppState,
+    allowed_actions: &[&str],
+    allowed_egress_classes: &[EgressClass],
+    token_expires_at: Timestamp,
+) -> (TaskGrant, SelectionToken) {
     let now = Timestamp::now();
     let user = state.owner_user_id.to_string();
     let token = SelectionToken {
@@ -136,7 +154,7 @@ pub(crate) fn mint_grant_with_selection_token(
         allowed_actions: allowed_actions.iter().map(|a| ActionId::new(*a)).collect(),
         approval_required_actions: vec![],
         denied_actions: vec![],
-        allowed_egress_classes: vec![],
+        allowed_egress_classes: allowed_egress_classes.to_vec(),
         output_channels: vec!["telegram.owner.reply".to_string()],
         limits: GrantLimits {
             max_model_calls: 8,
@@ -164,6 +182,48 @@ pub(crate) fn mint_grant_with_selection_token(
         .unwrap();
 
     (grant, token)
+}
+
+/// Insert a briefcase with a bound counterparty and NO classified (non-public)
+/// sections, so a rated egress action's disclosure hook derives empty
+/// provenance and passes trivially — leaving the post-gate executor lookup as
+/// the next boundary. Used to admit `email.send` fully in the no-executor
+/// tests without seeding any disclosure policy.
+pub(crate) fn insert_bound_briefcase_without_classified_sections(
+    state: &crate::pipeline::AppState,
+    grant: &TaskGrant,
+    relationship: RelationshipKind,
+) {
+    insert_bound_briefcase_with_sections(state, grant, relationship, vec![]);
+}
+
+/// Insert a briefcase with a bound counterparty and the given sections, so a
+/// rated egress action's disclosure hook derives provenance from exactly those
+/// classified sections.
+pub(crate) fn insert_bound_briefcase_with_sections(
+    state: &crate::pipeline::AppState,
+    grant: &TaskGrant,
+    relationship: RelationshipKind,
+    sections: Vec<BriefcaseSection>,
+) {
+    let briefcase = Briefcase {
+        schema_version: 1,
+        task_shape: TaskShape {
+            route_id: grant.route_id.clone(),
+            workflow_id: grant.workflow_id.clone(),
+            counterparty: CounterpartyRef::Bound {
+                identity_id: Ulid::from(11_u128),
+                relationship,
+            },
+        },
+        source_snapshot_id: Digest::parse(format!("sha256:{}", "0".repeat(64))).unwrap(),
+        depth: 1,
+        tier: RelationshipTier::Known,
+        class: TaskClass::Conversation,
+        sections,
+        top_up_log: vec![],
+    };
+    state.store.insert_briefcase(grant.id, &briefcase).unwrap();
 }
 
 #[tokio::test]
@@ -435,8 +495,10 @@ async fn unregistered_known_action_returns_stub_shape() {
 #[tokio::test]
 async fn unregistered_effect_actions_fail_closed_without_stub() {
     for action in [
-        // Counterparty-facing, but explicitly allowed by this custom grant:
-        // the test pins the post-gate NoExecutor boundary, not escalation.
+        // Counterparty-facing AND egress-rated (DirectMessage). Admitted fully
+        // below (egress class granted + an empty-provenance briefcase so the
+        // disclosure hook passes) so the test still pins the post-gate
+        // NoExecutor boundary rather than an egress-class denial.
         "email.send",
         // These mutations are also explicitly allowed and have no egress or
         // selection-token gate constraint; each must reach NoExecutor.
@@ -450,11 +512,26 @@ async fn unregistered_effect_actions_fail_closed_without_stub() {
     ] {
         let state = test_state();
         let store = state.store.clone();
-        let (grant, _token) = mint_grant_with_selection_token(
-            &state,
-            &[action],
-            Timestamp::now() + std::time::Duration::from_secs(120),
-        );
+        let (grant, _token) = if action == "email.send" {
+            let minted = mint_grant_with_selection_token_egress(
+                &state,
+                &[action],
+                &[EgressClass::DirectMessage],
+                Timestamp::now() + std::time::Duration::from_secs(120),
+            );
+            insert_bound_briefcase_without_classified_sections(
+                &state,
+                &minted.0,
+                RelationshipKind::Client,
+            );
+            minted
+        } else {
+            mint_grant_with_selection_token(
+                &state,
+                &[action],
+                Timestamp::now() + std::time::Duration::from_secs(120),
+            )
+        };
 
         let (addr, handle) = start_server(state).await;
         let resp = post_action(addr, &grant.task_token, action, None).await;
