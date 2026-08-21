@@ -2,6 +2,8 @@
 //! source file stays under the 500-line budget.
 
 use super::*;
+use crate::cli::bootstrap::encrypted_state_in;
+use std::path::PathBuf;
 
 /// `openspine chat` holds the data-root lock for as long as it runs, and its
 /// own first-run notice tells the owner to run `openspine setup`. Refusing

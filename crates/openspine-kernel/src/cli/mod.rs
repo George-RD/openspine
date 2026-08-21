@@ -1,5 +1,6 @@
 //! OpenSpine Kernel CLI commands and setup wizard.
-
+pub mod bootstrap;
+pub mod init;
 pub mod login;
 pub mod onboarding;
 mod prompt;

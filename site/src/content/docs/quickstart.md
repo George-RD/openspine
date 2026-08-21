@@ -19,6 +19,19 @@ cargo build --workspace
 
 `check.sh` runs formatting, lints, the full test suite, strict OpenSpec validation, and the claims register that ties every documented security claim to a named test or recorded manual justification.
 
+## First run (local chat)
+
+One command turns the built binary into a running, governed install. `openspine init` writes a configuration and an owner-only key file, binds you as the single trusted owner, and prints the trust ceremony — seed key, approval boundary, and how to test it:
+
+```sh
+cargo build --workspace --bins
+export PATH="$PWD/target/debug:$PATH"
+openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name"
+openspine --config openspine.local.yaml chat
+```
+
+`--owner` is your Telegram user id — the trusted principal every later approval and audit row is bound to. Message [@userinfobot](https://t.me/userinfobot) to find it. This is the fastest path to a governed local reply; the [first-run guide](https://github.com/George-RD/openspine/blob/main/docs/first-run.md) explains each step of the ceremony and the capability rungs beyond it. The Docker deployment below adds Telegram and the guarded Gmail draft flow.
+
 ## Configure a real server
 
 1. Copy `.env.example` to `.env` and fill in the values. Compose passes this file into the kernel container. At minimum you need:
@@ -52,4 +65,4 @@ Send a direct message to your bot from the configured owner account:
 - `/draft <thread_id>` reads only the selected Gmail thread and prepares a reply. Telegram shows the exact text for approval before Gmail receives a draft. Email sending remains denied.
 - `/propose <kind>` followed by YAML proposes a new rule, route, or policy. It stays inactive until you approve the exact text.
 
-The current setup friction is tracked in [issue #118](https://github.com/George-RD/openspine/issues/118). The intended package-level install and run flow is tracked in [issue #117](https://github.com/George-RD/openspine/issues/117).
+`openspine init` collapses local first-run into one command ([issue #118](https://github.com/George-RD/openspine/issues/118)); the remaining Docker/Telegram/Gmail setup and the intended package-level install and run flow are tracked in [issue #117](https://github.com/George-RD/openspine/issues/117).

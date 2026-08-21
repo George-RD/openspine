@@ -185,14 +185,20 @@ cargo build --workspace --bins
 export PATH="$PWD/target/debug:$PATH"
 ```
 
-Run the wizard. It writes a configuration and an owner-only key file when they
-are absent, offers the models your endpoint actually serves, and finishes by
-sending a verification request through the model gateway:
+Run the first-run trust loop. One command writes a configuration and an
+owner-only key file, binds you as the single trusted owner, and prints the
+trust ceremony (seed key, approval boundary, and how to test it):
 
 ```sh
-openspine --config openspine.local.yaml setup
+openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name"
 openspine --config openspine.local.yaml chat
 ```
+
+`--owner` is your Telegram user id — the trusted principal every later approval
+is bound to. The [first-run guide](docs/first-run.md) explains the ceremony and
+the capability rungs beyond it. `openspine setup` remains the interactive
+alternative: it offers the models your endpoint actually serves and can log in
+to a model provider.
 
 Inside the conversation, `/status` prints the readiness report and `/help` lists
 the commands. On first start, a configured install prints a short orientation

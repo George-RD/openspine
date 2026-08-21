@@ -5,6 +5,7 @@
 //! and provider authorization from [`crate::cli::login`], so the parts worth
 //! testing are testable without a terminal.
 
+use super::bootstrap;
 use super::login::login_flow;
 use super::prompt::{confirm, prompt};
 use crate::cli::readiness::{self, Readiness};
@@ -15,7 +16,7 @@ use crate::env_file;
 use crate::overlay_export_restore::{self, OverlayOperations};
 use crate::secret_store::SecretStore;
 use anyhow::Context as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// An open credential vault together with the data-root lifetime lock that
 /// guarantees no kernel is writing the same state underneath us.
@@ -249,38 +250,19 @@ async fn bootstrap(config_path: &Path) -> anyhow::Result<()> {
 /// keeps the value the vault on disk was encrypted under.
 fn ensure_key_material(config_path: &Path) -> anyhow::Result<()> {
     let env_path = env_file::path_for(config_path);
-    let entries = starter::key_entries(&readiness::process_env);
-    let missing: Vec<&str> = entries
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .filter(|name| readiness::process_env(name).is_none())
-        .collect();
+    let missing = bootstrap::missing_key_names(&readiness::process_env);
     if missing.is_empty() {
         return Ok(());
     }
 
-    // The artifact key encrypts the credential vault, the artifact store, and
-    // the counterparty key ring. Minting a fresh one over an existing data root
-    // does not fail loudly: it silently makes every stored credential
-    // undecryptable. Refuse, and name the recovery.
-    if missing.contains(&"OPENSPINE_ARTIFACT_KEY") {
-        if let Some(state) = encrypted_state_in(config_path) {
-            anyhow::bail!(
-                "{} already holds encrypted state but OPENSPINE_ARTIFACT_KEY is not set. \
-                 Restore the original key into {}: generating a new one would make the \
-                 existing vault permanently unreadable.",
-                state.display(),
-                env_path.display()
-            );
-        }
-    }
+    bootstrap::guard_orphan_artifact_key(config_path, &missing)?;
 
     println!("This install has no value for {}.", missing.join(", "));
     if !confirm("Generate the missing key material now?", true)? {
         return Ok(());
     }
 
-    let added = env_file::merge_owner_only(&env_path, &entries)?;
+    let added = bootstrap::add_missing_key_material(config_path)?;
     if added.is_empty() {
         println!("  {} already defines them", env_path.display());
     } else {
@@ -293,23 +275,6 @@ fn ensure_key_material(config_path: &Path) -> anyhow::Result<()> {
     env_file::load_adjacent(config_path)?;
     println!();
     Ok(())
-}
-
-/// The first piece of artifact-key-encrypted state in the configured data root,
-/// or `None` for a genuinely new one.
-///
-/// Uses the configured `data_dir` rather than the overlay controller's canonical
-/// root so it needs no lock: this runs before the vault is opened.
-fn encrypted_state_in(config_path: &Path) -> Option<PathBuf> {
-    let data_dir = Config::load(config_path).ok()?.data_dir;
-    ["credentials", "artifacts", "kernel.db"]
-        .iter()
-        .map(|entry| data_dir.join(entry))
-        .find(|path| match std::fs::read_dir(path) {
-            Ok(mut entries) => entries.next().is_some(),
-            // Not a directory: `kernel.db` is a file, so existence is enough.
-            Err(_) => path.exists(),
-        })
 }
 
 /// Offer the model ids the endpoint actually serves. A model string this binary
