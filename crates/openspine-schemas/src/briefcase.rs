@@ -51,7 +51,7 @@ use ulid::Ulid;
 use crate::digest::{canonical_json, digest_of, Digest};
 use crate::identity::RelationshipKind;
 use crate::ids::ArtifactId;
-use crate::ids::IdentityRef;
+use crate::ids::{IdentityRef, PrincipalId};
 use crate::provenance::ProvenanceOrigin;
 
 /// Relationship tier (AD-031's first depth axis): a coarsening of
@@ -252,6 +252,13 @@ pub struct PackSources {
     #[serde(default)]
     pub skills: Vec<SourceSlice>,
     pub counterparty_slice: Value,
+    /// The resolved owner principal (spec #220 / D-174). Part of the
+    /// content-addressed pack inputs so `snapshot_id` captures it and the
+    /// byte-identity invariant stays honest: two packs are byte-identical iff
+    /// shape AND snapshot (owner included) match. The kernel sets this from
+    /// the grant's typed `user`; `pack` derives the owner-origin every
+    /// owner-sourced section carries from it.
+    pub owner: PrincipalId,
 }
 
 impl PackSources {
@@ -322,13 +329,27 @@ pub fn depth(tier: RelationshipTier, class: TaskClass) -> u8 {
 
 /// AD-021/AD-032: pack this task's briefcase. Pure and deterministic over
 /// `(shape, sources, tier, class)` — see the module-level determinism note
-/// for what that claim depends on.
+/// for what that claim depends on. `sources.owner` is part of that snapshot,
+/// so the byte-identity claim stays honest even though origins now vary with
+/// the owner.
+///
+/// Origin derivation (spec #220 / D-174): the grant, preference, and skill
+/// sections are the owner's own authority and learned pool, so they carry
+/// `Owner(sources.owner)` — the resolved typed identity of the owner
+/// principal. The counterparty slice is the one section produced under a
+/// counterparty identity and derives its own origin below. Both origins are
+/// derived from typed inputs the kernel resolved (see
+/// `openspine-kernel::briefcase`); this pure stamper reads a typed
+/// [`PrincipalId`] / [`CounterpartyRef`], never a worker-supplied raw origin.
 pub fn pack(
     shape: TaskShape,
     sources: &PackSources,
     tier: RelationshipTier,
     class: TaskClass,
 ) -> Briefcase {
+    let owner_origin = ProvenanceOrigin::Owner {
+        principal: sources.owner,
+    };
     let depth_val = depth(tier, class);
     let snapshot_id = sources.snapshot_id();
     let mut sections = vec![BriefcaseSection {
@@ -337,7 +358,7 @@ pub fn pack(
         visibility: VisibilityClass::KernelBound,
         depth: depth_val,
         disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
-        origin: Some(ProvenanceOrigin::system()),
+        origin: Some(owner_origin.clone()),
         payload: sources.grant_view.clone(),
     }];
     let mut eligible: Vec<(SectionKind, &SourceSlice)> = sources
@@ -359,7 +380,7 @@ pub fn pack(
             visibility: VisibilityClass::WorkerScratch,
             depth: depth_val,
             disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
-            origin: Some(ProvenanceOrigin::system()),
+            origin: Some(owner_origin.clone()),
             payload: source.payload.clone(),
         });
     }

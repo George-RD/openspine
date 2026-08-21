@@ -411,7 +411,9 @@ async fn prepared_query_mints_consumes_once_and_verifies_digest() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
-        origin: None,
+        origin: Some(openspine_schemas::provenance::ProvenanceOrigin::Owner {
+            principal: openspine_schemas::ids::PrincipalId::from(ulid::Ulid::new()),
+        }),
         payload: json!("condition X"),
     }];
     let grant_id = ulid::Ulid::new();

@@ -125,6 +125,19 @@ impl Briefcase {
         self.top_up_log.push(decision);
     }
 
+    /// The owner-identity origin the pack minted (spec #220 / D-174): the
+    /// origin stamped on the `Grant` section, which `pack` always creates from
+    /// the owner principal. Owner-sourced top-up sections (preferences/skills)
+    /// inherit it verbatim so a topped-up owner datum binds to the identical
+    /// origin an initially-packed one does. `None` only if a briefcase somehow
+    /// carries no grant section, which fails closed for rated egress.
+    fn owner_origin(&self) -> Option<ProvenanceOrigin> {
+        self.sections
+            .iter()
+            .find(|section| matches!(section.kind, SectionKind::Grant))
+            .and_then(|section| section.origin.clone())
+    }
+
     /// The ONLY way a section can be added after `pack()`.
     pub fn apply_top_up(
         &mut self,
@@ -171,10 +184,12 @@ impl Briefcase {
         if is_new_key && content_count >= ceiling as usize {
             return Err(BriefcaseError::TopUpDepthExceeded);
         }
-        // Mirror `pack`'s per-kind origin: a counterparty-slice top-up carries
-        // the task's counterparty identity (or `None` when unresolved); every
-        // other kind is kernel-produced (system). Deriving from the pack's own
-        // `task_shape` keeps mint-time and consume-time origins identical, so a
+        // Mirror `pack`'s per-kind origin (spec #220 / D-174): a
+        // counterparty-slice top-up carries the task's counterparty identity
+        // (or `None` when unresolved); every other kind is owner-sourced
+        // (owner preferences/skills), so it inherits the exact owner origin the
+        // pack minted onto the grant section. Deriving both from the pack's own
+        // state keeps mint-time and consume-time origins identical, so a
         // legitimately topped-up section still binds.
         let origin = match decision.request.kind {
             SectionKind::CounterpartySlice => match &self.task_shape.counterparty {
@@ -185,7 +200,7 @@ impl Briefcase {
                 }
                 CounterpartyRef::Unresolved { .. } => None,
             },
-            _ => Some(ProvenanceOrigin::system()),
+            _ => self.owner_origin(),
         };
         let new_section = BriefcaseSection {
             key: key.clone(),

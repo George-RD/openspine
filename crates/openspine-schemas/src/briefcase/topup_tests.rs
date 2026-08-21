@@ -1,4 +1,4 @@
-use super::tests::{shape, sources};
+use super::tests::{owner, shape, sources};
 use super::*;
 use serde_json::json;
 use ulid::Ulid;
@@ -221,6 +221,7 @@ fn depth_limits_packed_content_for_strangers() {
             preferences,
             skills: vec![],
             counterparty_slice: json!({}),
+            owner: owner(),
         },
         RelationshipTier::Stranger,
         TaskClass::Conversation,
@@ -303,6 +304,44 @@ fn counterparty_ref_unresolved_serializes_with_tag() {
 }
 
 #[test]
+fn owner_sourced_top_up_inherits_the_pack_owner_origin() {
+    use crate::provenance::ProvenanceOrigin;
+    let mut packed = pack(
+        shape(Ulid::new()),
+        &sources(),
+        RelationshipTier::Owner,
+        TaskClass::Conversation,
+    );
+    let request = TopUpRequest {
+        request_id: Ulid::new(),
+        section_key: "calendar".to_string(),
+        kind: SectionKind::Preference,
+        requested_depth: 1,
+        justification: "need scheduling context".to_string(),
+    };
+    let source = SourceSlice {
+        key: "calendar".to_string(),
+        payload: json!({"tone": "concise"}),
+        minimum_depth: 1,
+    };
+    let mut decision = packed.evaluate_top_up(&request, &top_up_policy_relevant());
+    decision.source_digest = Some(crate::digest::digest_of(&source.payload));
+    packed
+        .apply_top_up(decision, source, &top_up_policy_relevant())
+        .unwrap();
+    let added = packed
+        .sections
+        .iter()
+        .find(|s| s.key == "preference:calendar")
+        .unwrap();
+    assert_eq!(
+        added.origin,
+        Some(ProvenanceOrigin::Owner { principal: owner() }),
+        "an owner-sourced top-up must carry the same owner origin the pack minted, never System"
+    );
+}
+
+#[test]
 fn repeated_shallow_topups_cannot_exceed_aggregate_depth_budget() {
     let mut packed = pack(
         shape(Ulid::new()),
@@ -311,6 +350,7 @@ fn repeated_shallow_topups_cannot_exceed_aggregate_depth_budget() {
             preferences: vec![],
             skills: vec![],
             counterparty_slice: json!({}),
+            owner: owner(),
         },
         RelationshipTier::Stranger,
         TaskClass::Conversation,
@@ -358,6 +398,7 @@ fn ranked_source_requires_matching_requested_depth() {
             preferences: vec![],
             skills: vec![],
             counterparty_slice: json!({}),
+            owner: owner(),
         },
         RelationshipTier::Stranger,
         TaskClass::Conversation,

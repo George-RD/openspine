@@ -41,9 +41,11 @@ fn sensitive_terms_from_sections(sections: &[BriefcaseSection]) -> BTreeSet<Stri
 /// reach a worker's view — Internal, Private, and Sensitive all require a
 /// covering policy (`DisclosureClass::requires_policy`); only Public is
 /// exempt. `KernelBound` sections never reach a worker's context and are
-/// excluded from query provenance. Any worker-visible section WITHOUT a
-/// disclosure classification fails closed: legacy/unknown content must never
-/// silently drop out of the enforced set.
+/// excluded from query provenance. Any worker-visible policy-requiring section
+/// WITHOUT a disclosure classification OR without a resolved typed-identity
+/// origin (spec #220 / D-174) fails closed: legacy/unknown content and
+/// unresolved-origin content must never silently drop out of the enforced set,
+/// and an absent origin is treated as most-restrictive, never as safe.
 pub(crate) fn provenance_from_sections(
     sections: &[BriefcaseSection],
 ) -> Result<DisclosureProvenance, DisclosureError> {
@@ -58,17 +60,20 @@ pub(crate) fn provenance_from_sections(
         if !disclosure_class.requires_policy() {
             continue;
         }
+        // Fail closed on an unresolved origin (spec #220 / D-174): a
+        // worker-visible policy-requiring section whose typed-identity origin
+        // could not be derived (e.g. an unresolved-counterparty slice) is
+        // treated as most-restrictive, exactly like an absent disclosure class.
+        let Some(origin) = section.origin.clone() else {
+            return Err(DisclosureError::UnclassifiedSection(section.key.clone()));
+        };
         items.push(ClassifiedBriefcaseItem {
             item_ref: ArtifactRef {
                 digest: openspine_schemas::digest::digest_of(&section.payload),
                 schema_version: 1,
             },
             disclosure_class,
-            // Carry the kernel-derived origin verbatim from the section. Egress
-            // coverage still keys only on `disclosure_class`; the origin rides
-            // alongside for the origin-vs-recipient closure landing in a later
-            // egress ticket (#225–#227) and is part of the minted binding.
-            origin: section.origin.clone(),
+            origin: Some(origin),
         });
     }
     Ok(DisclosureProvenance { items })
