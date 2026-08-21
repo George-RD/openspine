@@ -16,8 +16,8 @@ use sha2::Digest as _;
 use ulid::Ulid;
 
 use super::tests::start_server;
+use crate::identity::OwnerVerifiedProof;
 use crate::pipeline::AppState;
-use crate::telegram::VerifiedOwnerContext;
 use crate::test_support::fixtures::test_state;
 const OWNER_CHAT_ID: i64 = 555;
 
@@ -273,7 +273,7 @@ fn bind_email_identity(state: &AppState, email: &str, relationship: Relationship
     };
     state
         .store
-        .owner_assert_identity_binding(owner.id, &VerifiedOwnerContext::test_new(), &identity)
+        .owner_assert_identity_binding(owner.id, &OwnerVerifiedProof::test_new(), &identity)
         .unwrap();
     identity_id
 }

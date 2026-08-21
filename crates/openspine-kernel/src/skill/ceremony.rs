@@ -14,10 +14,10 @@ use jiff::Timestamp;
 use openspine_schemas::skill::{Skill, SkillProvenance};
 use ulid::Ulid;
 
+use crate::identity::OwnerVerifiedProof;
 use crate::skill::review::{run_promotion_review, PromotionDenial};
 use crate::store::skill_store::{get_skill, insert_skill, promote_skill, reject_skill};
 use crate::store::Store;
-use crate::telegram::VerifiedOwnerContext;
 
 /// Capability token that proves the caller is inside the ceremony module.
 /// `store::skill_store::{insert_skill,promote_skill,reject_skill}` require
@@ -102,7 +102,7 @@ pub(crate) fn install_skill(
 pub fn install_user_skill(
     store: &Store,
     owner_principal_id: Ulid,
-    proof: &VerifiedOwnerContext,
+    proof: &OwnerVerifiedProof,
     skill: &mut Skill,
     now: Timestamp,
 ) -> Result<(), CeremonyError> {
@@ -136,7 +136,7 @@ pub(crate) fn promote_mined_skill(
     store: &Store,
     skill_id: &str,
     version: u32,
-    proof: &VerifiedOwnerContext,
+    proof: &OwnerVerifiedProof,
     owner_principal_id: Ulid,
 ) -> Result<Skill, PromotionDenial> {
     store
@@ -198,7 +198,7 @@ pub(crate) fn reject_mined_skill(
     skill_id: &str,
     version: u32,
     reason: &str,
-    proof: &VerifiedOwnerContext,
+    proof: &OwnerVerifiedProof,
     owner_principal_id: Ulid,
 ) -> Result<(), PromotionDenial> {
     store
@@ -229,8 +229,8 @@ pub enum OwnerSkillDecision {
 /// Owner-controlled promotion tap (AD-041 install/update ceremony).
 ///
 /// This is the ONLY owner entry point that lands a mined skill on the shelf.
-/// It authenticates the caller with a genuine [`VerifiedOwnerContext`] (the
-/// unforgeable proof minted only by Telegram owner verification) AND verifies
+/// It authenticates the caller with a genuine [`OwnerVerifiedProof`] (the
+/// unforgeable proof minted only by a channel adapter's owner verification) AND
 /// the supplied `owner_principal_id` resolves to the configured owner
 /// (mirroring `identity::owner_assert_identity_binding`). On `Approve` it
 /// delegates to [`promote_mined_skill`], which runs the AD-110
@@ -239,7 +239,7 @@ pub enum OwnerSkillDecision {
 /// sufficient to bypass the evaluator. On `Reject` it persists the owner's
 /// motivation and keeps the skill `PendingReview` -> `Rejected`.
 ///
-/// Auth model: the function requires `&VerifiedOwnerContext`, so it can only
+/// Auth model: the function requires `&OwnerVerifiedProof`, so it can only
 /// be called from the owner-verified pipeline (or a test holding the proof);
 /// a worker holding a mere `TaskGrant` cannot reach it. The AD-110 verdict
 /// is recorded in its own transaction before the (separate) promotion
@@ -248,7 +248,7 @@ pub enum OwnerSkillDecision {
 pub fn owner_decide_promotion(
     store: &Store,
     owner_principal_id: Ulid,
-    proof: &VerifiedOwnerContext,
+    proof: &OwnerVerifiedProof,
     skill_id: &str,
     version: u32,
     decision: OwnerSkillDecision,

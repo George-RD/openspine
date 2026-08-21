@@ -1,6 +1,6 @@
 //! Tests for the owner-controlled promotion tap (AD-041/AD-110):
 //! `owner_decide_promotion` authenticates the caller with a genuine
-//! `VerifiedOwnerContext` + owner-principal check, routes approvals through
+//! `OwnerVerifiedProof` + owner-principal check, routes approvals through
 //! the AD-110 evaluator (the sole promotion-token issuer), and proves
 //! verdict-before-effect (a post-verdict promotion failure leaves the skill
 //! `PendingReview`, never `Installed`).
@@ -8,13 +8,13 @@
 use jiff::Timestamp;
 use openspine_schemas::skill::{Skill, SkillProvenance, SkillState, SkillVisibility};
 
+use crate::identity::OwnerVerifiedProof;
 use crate::skill::ceremony::CeremonyToken;
 use crate::skill::ceremony::{owner_decide_promotion, OwnerSkillDecision};
 use crate::skill::review::PromotionDenial;
 use crate::store::skill_promotion_decisions::recent_promotion_decisions_for_test;
 use crate::store::skill_store::{get_skill, insert_skill};
 use crate::store::Store;
-use crate::telegram::VerifiedOwnerContext;
 
 #[allow(clippy::too_many_arguments)]
 fn record_preview(
@@ -92,7 +92,7 @@ fn owner_approval_promotes_through_evaluator() {
     owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_good",
         1,
         OwnerSkillDecision::Approve,
@@ -140,7 +140,7 @@ fn owner_rejection_keeps_skill_off_shelf() {
     owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_pending",
         1,
         OwnerSkillDecision::Reject {
@@ -179,7 +179,7 @@ fn owner_decide_rejects_unknown_principal() {
     let err = owner_decide_promotion(
         &store,
         ulid::Ulid::new(),
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_x",
         1,
         OwnerSkillDecision::Approve,
@@ -225,7 +225,7 @@ fn verdict_recorded_before_promotion_effect_is_atomic() {
     let result = owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_flaky",
         1,
         OwnerSkillDecision::Approve,
@@ -291,7 +291,7 @@ fn owner_approve_but_evaluator_denies_labels_decision_approve() {
     let err = owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_evil",
         1,
         OwnerSkillDecision::Approve,
@@ -343,7 +343,7 @@ fn repeat_owner_tap_on_same_version_fails_closed() {
     owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_good",
         1,
         OwnerSkillDecision::Approve,
@@ -356,7 +356,7 @@ fn repeat_owner_tap_on_same_version_fails_closed() {
     let second = owner_decide_promotion(
         &store,
         principal.id,
-        &VerifiedOwnerContext::test_new(),
+        &OwnerVerifiedProof::test_new(),
         "mined_good",
         1,
         OwnerSkillDecision::Reject {

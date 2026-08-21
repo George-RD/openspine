@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn captured_value_stays_out_of_audit_metadata() {
     let state = crate::test_support::fixtures::test_state();
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
@@ -90,7 +90,7 @@ async fn gmail_paired_intake_stages_first_half_then_promotes_on_second() {
     )
     .with_urls(format!("{}/token", token_server.uri()), token_server.uri());
     let state = crate::test_support::fixtures::test_state_with_gmail(gmail);
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
 
     // First half: client_secret should be staged, not live.
     assert!(arm(
@@ -184,7 +184,7 @@ async fn gmail_paired_intake_works_in_reverse_order() {
     )
     .with_urls(format!("{}/token", token_server.uri()), token_server.uri());
     let state = crate::test_support::fixtures::test_state_with_gmail(gmail);
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
 
     // First half: refresh_token.
     assert!(arm(
@@ -239,7 +239,7 @@ async fn gmail_paired_intake_works_in_reverse_order() {
 #[tokio::test]
 async fn audit_failure_rolls_back_live_credential() {
     let state = crate::test_support::fixtures::test_state();
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
 
     // Pre-seed the live slot with an old value.
     state.secrets.put("test.slot", b"old-value").unwrap();
@@ -297,7 +297,7 @@ async fn audit_failure_rolls_back_paired_promotion() {
     )
     .with_urls(format!("{}/token", token_server.uri()), token_server.uri());
     let state = crate::test_support::fixtures::test_state_with_gmail(gmail);
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
 
     // 1. Stage the first half (client_secret).
     assert!(arm(

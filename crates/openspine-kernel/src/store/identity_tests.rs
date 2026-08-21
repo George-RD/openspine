@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use crate::telegram::VerifiedOwnerContext;
+    use crate::identity::OwnerVerifiedProof;
     use openspine_schemas::identity::{
         EntityType, Identifier, IdentifierKind, IdentifierVerificationMethod, Identity,
         Relationship, RelationshipKind,
@@ -99,11 +99,7 @@ mod tests {
 
         // Assert binding
         store
-            .owner_assert_identity_binding(
-                owner.id,
-                &VerifiedOwnerContext::test_new(),
-                &counterparty,
-            )
+            .owner_assert_identity_binding(owner.id, &OwnerVerifiedProof::test_new(), &counterparty)
             .unwrap();
 
         // Verify lookup resolves correctly
@@ -160,11 +156,7 @@ mod tests {
 
         // The injected RAISE(FAIL, ...) surfaces as a Sqlite error.
         let err = store
-            .owner_assert_identity_binding(
-                owner.id,
-                &VerifiedOwnerContext::test_new(),
-                &counterparty,
-            )
+            .owner_assert_identity_binding(owner.id, &OwnerVerifiedProof::test_new(), &counterparty)
             .unwrap_err();
         assert!(matches!(err, StoreError::Sqlite(_)));
 
@@ -208,7 +200,7 @@ mod tests {
         // Attempting to assert with non_owner ID should fail with NotOwner
         let res = store.owner_assert_identity_binding(
             non_owner.id,
-            &VerifiedOwnerContext::test_new(),
+            &OwnerVerifiedProof::test_new(),
             &counterparty,
         );
         assert!(res.is_err());
@@ -217,7 +209,7 @@ mod tests {
         // Attempting to assert with completely fake principal ID should also fail
         let res = store.owner_assert_identity_binding(
             Ulid::new(),
-            &VerifiedOwnerContext::test_new(),
+            &OwnerVerifiedProof::test_new(),
             &counterparty,
         );
         assert!(res.is_err());

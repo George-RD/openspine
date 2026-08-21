@@ -12,8 +12,8 @@
 //! [`notify_owner_best_effort`]) and the public entry points
 //! ([`run_telegram_poll_loop`], [`handle_owner_update`]). Identity resolution
 //! lives in [`crate::identity::IdentityResolver`], driven by an unforgeable
-//! [`crate::telegram::VerifiedOwnerContext`] minted only by
-//! [`crate::telegram::verify_update`].
+//! [`crate::identity::OwnerVerifiedProof`] minted only by a channel adapter
+//! (today [`crate::telegram::verify_update`]).
 //!
 //! Lane selection (the `/draft <thread_id>` command) is recognized here, at
 //! the Event-stage boundary, and handed to the driver as lane data — the

@@ -6,10 +6,11 @@
 
 use super::bot_identity_support::*;
 use crate::config::{ProviderAuth, ProviderConfig, ProviderKind};
+use crate::identity::OwnerVerifiedProof;
 use crate::model_gateway::ProviderClient;
 use crate::pipeline::handle_owner_update;
 use crate::secret_intake::{arm, SecretMode};
-use crate::telegram::{VerifiedOwnerContext, BOT_TOKEN_SLOT};
+use crate::telegram::BOT_TOKEN_SLOT;
 use crate::test_support::fixtures::*;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -59,7 +60,7 @@ async fn same_bot_token_rotation_preserves_namespaced_offset() {
         .set_kv("last_telegram_update_id.777", "100")
         .unwrap();
 
-    let proof = VerifiedOwnerContext::test_new();
+    let proof = OwnerVerifiedProof::test_new();
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 555),
@@ -124,7 +125,7 @@ async fn different_bot_token_rotation_starts_fresh_namespace() {
         .set_kv("last_telegram_update_id.777", "100")
         .unwrap();
 
-    let proof = VerifiedOwnerContext::test_new();
+    let proof = OwnerVerifiedProof::test_new();
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 555),

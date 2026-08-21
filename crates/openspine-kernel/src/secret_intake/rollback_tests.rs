@@ -23,7 +23,7 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     )
     .with_urls(format!("{}/token", token_server.uri()), token_server.uri());
     let state = crate::test_support::fixtures::test_state_with_gmail(gmail);
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
@@ -112,7 +112,7 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
     )
     .with_urls(format!("{}/token", token_server.uri()), token_server.uri());
     let state = crate::test_support::fixtures::test_state_with_gmail(gmail);
-    let proof = crate::telegram::VerifiedOwnerContext::test_new();
+    let proof = crate::identity::OwnerVerifiedProof::test_new();
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),

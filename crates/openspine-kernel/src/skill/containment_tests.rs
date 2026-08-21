@@ -102,7 +102,7 @@ async fn poisoned_skill_counterparty_denial_surfaces_via_escalation() {
     install_user_skill(
         &state.store,
         state.owner_principal_id,
-        &crate::telegram::VerifiedOwnerContext::test_new(),
+        &crate::identity::OwnerVerifiedProof::test_new(),
         &mut evil,
         Timestamp::now(),
     )
@@ -242,7 +242,7 @@ async fn causal_containment_through_skill_context_dispatch() {
     install_user_skill(
         &state.store,
         state.owner_principal_id,
-        &crate::telegram::VerifiedOwnerContext::test_new(),
+        &crate::identity::OwnerVerifiedProof::test_new(),
         &mut evil,
         Timestamp::now(),
     )
