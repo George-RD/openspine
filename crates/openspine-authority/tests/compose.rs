@@ -6,6 +6,7 @@
 //! Fixture builders live in `tests/common/mod.rs` (also split out for the
 //! same size-gate reason).
 
+#[allow(dead_code)]
 mod common;
 
 use common::*;
