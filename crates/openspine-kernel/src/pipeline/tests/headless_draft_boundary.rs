@@ -128,7 +128,7 @@ async fn webhook_minted_headless_draft_refuses_before_any_write() {
     let request_id = persisted.id;
     let mut tap = crate::test_support::fixtures::owner_update("");
     tap.text = None;
-    tap.chat_id = state.owner_user_id;
+    tap.chat_id = state.owner.telegram_binding();
     tap.callback_query = Some(CallbackQueryUpdate {
         id: "headless-draft-boundary-approve".to_string(),
         data: Some(format!("approve_draft:{request_id}")),

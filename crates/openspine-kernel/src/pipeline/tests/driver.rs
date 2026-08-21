@@ -81,12 +81,12 @@ async fn owner_lane_executed_stage_trace_matches_sync_prefix() {
     let grant = result.unwrap();
     assert_eq!(
         grant.user.to_string(),
-        state.owner_principal_id.to_string(),
+        state.owner.principal_id.to_string(),
         "composition must consume principal_id, not the Telegram owner config string"
     );
     assert_ne!(
         grant.user.to_string(),
-        state.owner_user_id.to_string(),
+        state.owner.telegram_binding().to_string(),
         "grant.user must not be the raw Telegram owner user id"
     );
     assert_eq!(trace, PipelineStage::SYNC_PREFIX.to_vec());

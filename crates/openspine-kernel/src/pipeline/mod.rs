@@ -89,6 +89,7 @@ use openspine_schemas::action::{ActionCatalog, ActionId};
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::grant::GrantLimits;
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::owner::OwnerPrincipal;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::policy::{Constraints, SessionPolicy};
 use ulid::Ulid;
@@ -138,9 +139,11 @@ pub struct AppState {
     /// kernel state so replay dedup is stable across hook deliveries.
     #[allow(dead_code)]
     pub webhook_verifier: WebhookVerifier,
-    pub owner_user_id: i64,
-    pub owner_principal_id: Ulid,
-    pub owner_identity_id: Ulid,
+    /// The single typed source of truth for the bootstrapped owner's identity
+    /// (spec #197, D-002). Replaces the three loose scalars this state carried
+    /// (`owner_user_id`, `owner_principal_id`, `owner_identity_id`); the raw
+    /// Telegram binding is reachable only via [`OwnerPrincipal::telegram_binding`].
+    pub owner: OwnerPrincipal,
     /// e.g. `http://127.0.0.1:7777` — passed to the shell as `KERNEL_ENDPOINT`.
     pub kernel_endpoint: String,
     /// D-025 / PRD §16 escape hatch. See [`sandbox::refuses_external_communication_without_containment`].
@@ -198,7 +201,10 @@ impl AppState {
     /// they address the configured owner chat through this one helper instead
     /// of passing its integer around.
     pub fn telegram_owner_surface(&self) -> OwnerSurfaceRef {
-        crate::telegram::telegram_owner_surface(self.owner_principal_id, self.owner_user_id)
+        crate::telegram::telegram_owner_surface(
+            self.owner.principal_id.as_ulid(),
+            self.owner.telegram_binding(),
+        )
     }
 
     /// Serialize concurrent owner turns per authenticated owner surface. Keyed
@@ -436,7 +442,7 @@ pub async fn handle_owner_update(
     state: &AppState,
     update: &telegram::TelegramUpdate,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let verified = telegram::verify_update(update, state.owner_user_id);
+    let verified = telegram::verify_update(update, state.owner.telegram_binding());
     if let VerifiedUpdate::Ignored { reason } = &verified {
         state.store.append_audit(
             "telegram.update.ignored",
@@ -457,7 +463,8 @@ pub async fn handle_owner_update(
     };
     // The Telegram adapter mints the channel-neutral surface exactly once, at
     // the edge; everything downstream carries the surface, never the integer.
-    let owner_surface = telegram::telegram_owner_surface(state.owner_principal_id, chat_id);
+    let owner_surface =
+        telegram::telegram_owner_surface(state.owner.principal_id.as_ulid(), chat_id);
 
     let _guard = state.lock_conversation(&owner_surface).await;
 
@@ -640,7 +647,7 @@ pub async fn handle_owner_update(
             let armed = crate::secret_intake::arm(
                 state,
                 &owner_surface,
-                state.owner_principal_id,
+                state.owner.principal_id.as_ulid(),
                 proof,
                 mode,
                 slot,
@@ -759,8 +766,8 @@ pub async fn handle_owner_update(
     if let Some((channel_user_id, relationship_str)) = telegram::parse_bind_command(&text) {
         let result = crate::identity::handle_owner_bind(
             &state.store,
-            state.owner_principal_id,
-            state.owner_identity_id,
+            state.owner.principal_id.as_ulid(),
+            state.owner.identity_id,
             owner_verified
                 .as_ref()
                 .expect("bind command requires verified owner"),
@@ -798,7 +805,7 @@ pub async fn handle_owner_update(
                         Ok(mut skill) => {
                             match crate::skill::ceremony::install_user_skill(
                                 &state.store,
-                                state.owner_principal_id,
+                                state.owner.principal_id.as_ulid(),
                                 proof,
                                 &mut skill,
                                 jiff::Timestamp::now(),
@@ -918,7 +925,7 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
                             if let Err(e) = state.store.record_skill_preview(
                                 id,
                                 ver,
-                                &state.owner_principal_id.to_string(),
+                                &state.owner.principal_id.to_string(),
                                 &skill.content_digest,
                                 &provenance_summary,
                                 &prior,
@@ -945,7 +952,7 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
             (Some(id), Some(ver), Some("approve"), Some(proof)) => {
                 crate::skill::ceremony::owner_decide_promotion(
                     &state.store,
-                    state.owner_principal_id,
+                    state.owner.principal_id.as_ulid(),
                     proof,
                     id,
                     ver,
@@ -957,7 +964,7 @@ Use /promote {} {} approve or /promote {} {} reject <reason>.",
             (Some(id), Some(ver), Some("reject"), Some(proof)) => {
                 crate::skill::ceremony::owner_decide_promotion(
                     &state.store,
-                    state.owner_principal_id,
+                    state.owner.principal_id.as_ulid(),
                     proof,
                     id,
                     ver,
@@ -1020,7 +1027,7 @@ pub async fn handle_terminal_message(
     state: &AppState,
     text: String,
 ) -> anyhow::Result<Option<TaskGrant>> {
-    let owner_surface = OwnerSurfaceRef::authenticated_terminal(state.owner_principal_id);
+    let owner_surface = OwnerSurfaceRef::authenticated_terminal(state.owner.principal_id.as_ulid());
     let _guard = state.lock_conversation(&owner_surface).await;
     match owner_review_commands::handle_owner_review_command(
         state,
@@ -1059,7 +1066,7 @@ pub async fn handle_terminal_message(
         text,
         thread_id: None,
         owner_verified: None,
-        principal_override: Some(state.owner_principal_id),
+        principal_override: Some(state.owner.principal_id.as_ulid()),
         event_type_override: None,
         timer_event_id: None,
         correlated_task_id: None,

@@ -116,7 +116,7 @@ async fn terminal_owner_message_composes_local_cli_grant_and_persists_input() {
     assert_eq!(
         bound_surface,
         openspine_schemas::owner_surface::OwnerSurfaceRef::authenticated_terminal(
-            state.owner_principal_id
+            state.owner.principal_id.as_ulid()
         )
     );
     assert_ne!(bound_surface, state.telegram_owner_surface());

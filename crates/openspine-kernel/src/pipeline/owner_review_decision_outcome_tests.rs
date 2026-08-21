@@ -29,7 +29,7 @@ fn persist(state: &AppState, review: &OwnerReviewRequest) {
     persist_owner_review(
         state,
         review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -51,7 +51,7 @@ async fn edit_is_refused_as_requiring_a_replacement_review() {
     let (state, mut rx) = terminal_state();
     let review = owner_review_offering(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Edit is offered here".into(),
         &[openspine_schemas::owner_review::OwnerReviewDecision::Edit],
     );
@@ -94,7 +94,7 @@ async fn a_digest_token_that_does_not_prefix_the_stored_digest_is_refused() {
     let (state, mut rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Token must prefix the digest".into(),
     );
     persist(&state, &review);
@@ -134,7 +134,7 @@ async fn an_approval_receipt_reports_the_lifecycle_outcome_and_no_effect() {
     let (state, mut rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Approve commits authority, not an effect".into(),
     );
     persist(&state, &review);
@@ -193,7 +193,7 @@ fn kernel_refuses_a_widened_narrow_regardless_of_the_delta_parser() {
     // A review bound to ONE target, and a well-formed scope over TWO.
     let review = owner_review_with_target_count(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "One reviewed target".into(),
         1,
     );
@@ -251,7 +251,7 @@ async fn terminal_originates_a_decision_and_telegram_reaches_the_same_row() {
 
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "The terminal decides this one first.".into(),
     );
     persist(&state, &review);

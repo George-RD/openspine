@@ -108,7 +108,7 @@ pub(crate) fn mint_grant_with_selection_token_egress(
     token_expires_at: Timestamp,
 ) -> (TaskGrant, SelectionToken) {
     let now = Timestamp::now();
-    let user: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
+    let user: openspine_schemas::ids::PrincipalId = state.owner.principal_id;
     let token = SelectionToken {
         id: Ulid::new(),
         schema_version: 1,

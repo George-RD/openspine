@@ -34,8 +34,7 @@ async fn typed_task_owner_principal_composes_grant_user_through_gate() {
         other => panic!("task timer must produce a worker grant, got {other:?}"),
     };
     assert_eq!(
-        grant.user,
-        openspine_schemas::ids::PrincipalId::from(state.owner_principal_id),
+        grant.user, state.owner.principal_id,
         "composed grant.user is the Task's owner principal id (AD-146)"
     );
     let (decision, _, _, _) = mediate_and_dispatch_action(

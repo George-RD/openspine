@@ -27,7 +27,7 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.client_secret"
@@ -53,7 +53,7 @@ async fn paired_promotion_rolls_back_on_counterpart_put_failure() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token"
@@ -116,7 +116,7 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.client_secret"
@@ -144,7 +144,7 @@ async fn paired_promotion_rolls_back_on_staged_delete_failure() {
     assert!(arm(
         &state,
         &crate::test_support::owner_surface_for(&state, 42),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &proof,
         SecretMode::Intake,
         "gmail.refresh_token"

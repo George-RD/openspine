@@ -52,7 +52,7 @@ fn install_context_skill(state: &crate::pipeline::AppState, id: &str, agent: &st
     };
     install_user_skill(
         &state.store,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         &crate::identity::OwnerVerifiedProof::test_new(),
         &mut skill,
         Timestamp::now(),

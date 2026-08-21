@@ -114,7 +114,7 @@ async fn telegram_approval_from_a_foreign_chat_is_refused_without_burning_the_re
 #[tokio::test]
 async fn telegram_cannot_approve_a_grant_bound_to_the_terminal_surface() {
     let (state, _server) = state_with_callback_ack().await;
-    let terminal = OwnerSurfaceRef::authenticated_terminal(state.owner_principal_id);
+    let terminal = OwnerSurfaceRef::authenticated_terminal(state.owner.principal_id.as_ulid());
     assert_eq!(
         terminal.principal_id(),
         state.telegram_owner_surface().principal_id(),

@@ -66,7 +66,7 @@ async fn approval_records_verified_surface_principal_as_approver_and_audit_actor
     // The approver of record is the verified principal, not the config scalar.
     assert_ne!(
         expected.to_string(),
-        state.owner_user_id.to_string(),
+        state.owner.telegram_binding().to_string(),
         "the verified principal must not be the raw Telegram owner user id"
     );
     let approval = state

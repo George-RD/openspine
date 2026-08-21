@@ -29,7 +29,7 @@ fn persist(state: &AppState, review: &openspine_schemas::owner_review::OwnerRevi
     persist_owner_review(
         state,
         review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -53,7 +53,7 @@ async fn terminal_delta_parser_rejects_an_unreviewed_target() {
     let (state, mut rx) = terminal_state();
     let review = owner_review_with_target_count(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Two reviewed targets".into(),
         2,
     );
@@ -98,7 +98,7 @@ async fn terminal_cannot_mutate_lifecycle_state_before_approval_binds_a_rule() {
     let (state, mut rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Nothing is bound yet".into(),
     );
     persist(&state, &review);
@@ -148,7 +148,7 @@ async fn inspect_is_read_only_and_writes_no_disposition() {
     let (state, mut rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Inspect must not decide anything".into(),
     );
     persist(&state, &review);
@@ -198,7 +198,7 @@ fn rendered_copy_never_claims_readiness_without_a_registered_executor() {
     let state = test_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Readiness is derived, not asserted".into(),
     );
     let backed = state.is_execution_backed(review.reviewed_scope.action_id());
@@ -235,7 +235,7 @@ async fn narrow_persists_a_distinct_record_and_leaves_the_original_bytes_untouch
     let (state, mut rx) = terminal_state();
     let review = owner_review_with_target_count(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Two reviewed targets".into(),
         2,
     );
@@ -319,7 +319,7 @@ async fn terminal_reject_transitions_the_review_and_binds_no_rule() {
     let (state, mut rx) = terminal_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Rejectable review".into(),
     );
     persist(&state, &review);

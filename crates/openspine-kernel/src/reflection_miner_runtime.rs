@@ -168,7 +168,7 @@ pub(crate) async fn run_reflection_miner(
         .find_task_grant_by_id(submitting_grant_id)?
         .ok_or(MinerRuntimeError::GrantNotFound)?;
     let key = crate::grant_hmac_key().ok_or(MinerRuntimeError::GrantKeyUnavailable)?;
-    let owner_principal: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
+    let owner_principal: openspine_schemas::ids::PrincipalId = state.owner.principal_id;
     if !miner_grant.verify_mac(&key)
         || !submitting_grant.verify_mac(&key)
         || miner_grant.user != owner_principal
@@ -322,7 +322,7 @@ async fn dispatch_reflection_proposal(
         let rendered = persist_owner_review(
             state,
             &review,
-            state.owner_principal_id,
+            state.owner.principal_id.as_ulid(),
             now + jiff::SignedDuration::from_secs(review.limits.expires_after_secs),
             now,
             None,

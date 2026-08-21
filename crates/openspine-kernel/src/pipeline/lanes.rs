@@ -288,7 +288,7 @@ pub(super) fn email_build_envelope(
         .as_deref()
         .expect("email-preview lane always carries a thread id");
     let raw_ref = state.artifacts.put(thread_id.as_bytes())?;
-    let user = state.owner_user_id.to_string();
+    let user = state.owner.telegram_binding().to_string();
     let envelope = EventEnvelope {
         id: Ulid::new(),
         source: Source::Gmail,
@@ -468,7 +468,7 @@ pub(super) fn scheduled_build_envelope(
         verification_method: VerificationMethod::None,
         replay_protected: false,
         replay_nonce: None,
-        channel_account: state.owner_user_id.to_string(),
+        channel_account: state.owner.telegram_binding().to_string(),
         raw_event_ref: raw_ref.clone(),
         actor_hint: ActorHint::default(),
         target_refs: vec![],

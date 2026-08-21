@@ -264,7 +264,7 @@ async fn verified_hook_approval_required_escalates_through_owner_surface() {
         id: "headless-approve-1".to_string(),
         data: Some(format!("approve_draft:{request_id}")),
     });
-    first_tap.chat_id = state.owner_user_id;
+    first_tap.chat_id = state.owner.telegram_binding();
     handle_owner_update(&state, &first_tap)
         .await
         .expect("headless approval callback dispatches");
@@ -282,7 +282,7 @@ async fn verified_hook_approval_required_escalates_through_owner_surface() {
         id: "headless-approve-2".to_string(),
         data: Some(format!("approve_draft:{request_id}")),
     });
-    second_tap.chat_id = state.owner_user_id;
+    second_tap.chat_id = state.owner.telegram_binding();
     handle_owner_update(&state, &second_tap)
         .await
         .expect("duplicate headless approval callback is handled");

@@ -171,7 +171,7 @@ pub async fn run_headless_hook(
         owner_verified: None,
         // A verified webhook is a trusted, kernel-bound source: it resolves to
         // the owner principal so the route can compose bounded authority.
-        principal_override: Some(state.owner_principal_id),
+        principal_override: Some(state.owner.principal_id.as_ulid()),
         event_type_override: None,
         timer_event_id: None,
         correlated_task_id: None,

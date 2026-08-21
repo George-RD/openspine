@@ -150,7 +150,7 @@ pub(super) async fn drafts_written(server: &MockServer) -> usize {
 /// shape binds an identity-resolved counterparty.
 pub(crate) fn mint_draft_grant(state: &AppState, thread_id: &str) -> TaskGrant {
     let now = Timestamp::now();
-    let user: openspine_schemas::ids::PrincipalId = state.owner_principal_id.into();
+    let user: openspine_schemas::ids::PrincipalId = state.owner.principal_id;
     let token = SelectionToken {
         id: Ulid::new(),
         schema_version: 1,

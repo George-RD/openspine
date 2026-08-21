@@ -28,13 +28,13 @@ fn forged_principal_and_wrong_digest_are_refused_before_review_mutation() {
     let now = Timestamp::now();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Refusal checks".into(),
     );
     persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + jiff::SignedDuration::from_hours(1),
         now,
         None,
@@ -54,7 +54,7 @@ fn forged_principal_and_wrong_digest_are_refused_before_review_mutation() {
         ),
         Err(OwnerReviewDecisionError::PrincipalMismatch)
     ));
-    let correct = OwnerSurfaceRef::authenticated_terminal(state.owner_principal_id);
+    let correct = OwnerSurfaceRef::authenticated_terminal(state.owner.principal_id.as_ulid());
     let wrong_digest = Digest::parse(format!("sha256:{}", "f".repeat(64))).unwrap();
     assert!(matches!(
         submit_owner_review_decision(
@@ -115,14 +115,11 @@ fn forged_principal_and_wrong_digest_are_refused_before_review_mutation() {
 #[test]
 fn expired_review_cannot_activate_authority() {
     let state = test_state();
+    let owner_principal = state.owner.principal_id.as_ulid();
     let now = Timestamp::now();
-    let review = owner_review(
-        Ulid::new(),
-        state.owner_principal_id,
-        "Expired review".into(),
-    );
-    persist_owner_review(&state, &review, state.owner_principal_id, now, now, None).unwrap();
-    let surface = OwnerSurfaceRef::authenticated_terminal(state.owner_principal_id);
+    let review = owner_review(Ulid::new(), owner_principal, "Expired review".into());
+    persist_owner_review(&state, &review, owner_principal, now, now, None).unwrap();
+    let surface = OwnerSurfaceRef::authenticated_terminal(owner_principal);
 
     assert!(matches!(
         submit_owner_review_decision(
@@ -201,7 +198,7 @@ async fn terminal_narrow_delta_constructs_the_replacement_digest_in_kernel() {
     state.terminal_reply_tx = Some(reply_tx);
     let review = owner_review_with_target_count(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Two reviewed targets".into(),
         2,
     );
@@ -209,7 +206,7 @@ async fn terminal_narrow_delta_constructs_the_replacement_digest_in_kernel() {
     persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -244,14 +241,14 @@ async fn terminal_cannot_submit_a_decision_absent_from_the_stored_review() {
     state.terminal_reply_tx = Some(reply_tx);
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "No Edit decision is stored".into(),
     );
     let now = Timestamp::now();
     persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -286,14 +283,14 @@ fn oversized_review_is_not_persisted_as_approvable() {
     let state = test_state();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "x".repeat(crate::api::telegram_truncate::TELEGRAM_MAX_MESSAGE_UTF16_UNITS + 1),
     );
     let now = Timestamp::now();
     let result = persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -313,13 +310,13 @@ async fn pause_resume_and_revoke_commands_are_replay_safe() {
     let now = Timestamp::now();
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Lifecycle review".into(),
     );
     let pending_rendered = persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,
@@ -423,14 +420,14 @@ async fn telegram_and_terminal_decide_the_same_digest_bound_review_row() {
     state.terminal_reply_tx = Some(reply_tx);
     let review = owner_review(
         Ulid::new(),
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         "Create drafts only inside the exact reviewed scope.".into(),
     );
     let now = Timestamp::now();
     let rendered = persist_owner_review(
         &state,
         &review,
-        state.owner_principal_id,
+        state.owner.principal_id.as_ulid(),
         now + std::time::Duration::from_secs(3600),
         now,
         None,

@@ -43,7 +43,7 @@ pub(crate) async fn notify_owner_with_digest(
         return NotifyOutcome::SurfaceUnsupported;
     }
     let now = Timestamp::now();
-    let Some(notify_grant) = kernel_notify_grant(state.owner_principal_id) else {
+    let Some(notify_grant) = kernel_notify_grant(state.owner.principal_id.as_ulid()) else {
         record_notify_skipped(state, "notify grant unavailable (HMAC key unset)");
         tracing::warn!("OPENSPINE_GRANT_HMAC_KEY unset; refusing owner.notify (fail-closed)");
         return NotifyOutcome::GateUnavailable;
