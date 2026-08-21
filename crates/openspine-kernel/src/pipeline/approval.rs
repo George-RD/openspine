@@ -12,6 +12,7 @@ use jiff::Timestamp;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::GateDecision;
 use openspine_schemas::approval::{ApprovalDecision, ApprovalRecord, TimeoutBehavior};
+use openspine_schemas::ids::PrincipalId;
 use ulid::Ulid;
 
 use super::post_approval::resolve_post_approval_handler;
@@ -199,11 +200,15 @@ pub(super) async fn handle_draft_approval_callback(
     };
 
     let now = Timestamp::now();
+    // D-004: the approver of record is the verified surface principal, not a
+    // static config value. Wrapped here because `OwnerSurfaceRef::principal_id`
+    // still returns a bare `Ulid` (untouched by #200).
+    let approver = PrincipalId::from(owner_surface.principal_id());
     let approval = ApprovalRecord {
         id: Ulid::new(),
         schema_version: 1,
         action_request_id: request.id,
-        approved_by: state.owner_user_id.to_string(),
+        approved_by: approver,
         approved_at: now,
         approved_payload_digest: payload_ref.digest.clone(),
         approved_target_digest: target_digest.clone(),
@@ -213,7 +218,9 @@ pub(super) async fn handle_draft_approval_callback(
         approval_channel: "telegram_inline".to_string(),
     };
     state.store.insert_approval(&approval)?;
-    state.store.append_audit(
+    // D-003: the approval decision is owner-authored, so it carries the
+    // verified principal as the audit actor.
+    state.store.append_audit_with_actor(
         "approval.recorded",
         Some(&request.action),
         None,
@@ -221,6 +228,7 @@ pub(super) async fn handle_draft_approval_callback(
         Some(grant.id),
         &[],
         &[],
+        Some(&approver),
     )?;
 
     let outcome = gate(

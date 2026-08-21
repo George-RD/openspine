@@ -487,3 +487,6 @@ mod approval_draft_admission_tests;
 
 #[path = "write_admission_ordering_tests.rs"]
 mod write_admission_ordering_tests;
+
+#[path = "approval_actor_tests.rs"]
+mod approval_actor_tests;

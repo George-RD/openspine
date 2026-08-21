@@ -12,6 +12,7 @@ use ulid::Ulid;
 use crate::action::{ActionId, GateDecision};
 use crate::artifact::ArtifactRef;
 use crate::digest::Digest;
+use crate::ids::PrincipalId;
 
 /// Nominal audit-kind identifier (AD-105 / D-013).
 ///
@@ -135,6 +136,13 @@ pub struct AuditEvent {
     pub aggregate_seq: u64,
     #[serde(default)]
     pub payload_json: Option<String>,
+    /// Typed principal that authored this event (spec #197, D-003). `Some`
+    /// on owner-authored events (approval, review, escalation), `None` on
+    /// system/worker events. `#[serde(default)]` so pre-#197 `event_json`
+    /// rows, which lack the field, still deserialize under
+    /// `deny_unknown_fields`.
+    #[serde(default)]
+    pub actor: Option<PrincipalId>,
     pub prev_hash: Digest,
     pub hash: Digest,
 }
@@ -167,6 +175,7 @@ mod tests {
             aggregate_id: "task_grant:test".to_string(),
             aggregate_seq: 1,
             payload_json: Some(r#"{"value":42}"#.to_string()),
+            actor: Some(PrincipalId::from(Ulid::new())),
             prev_hash: genesis_hash(),
             hash: Digest::parse(format!("sha256:{}", "1".repeat(64))).unwrap(),
         };
@@ -198,6 +207,37 @@ mod tests {
         assert_eq!(event.aggregate_id, "system");
         assert_eq!(event.aggregate_seq, 0);
         assert_eq!(event.payload_json, None);
+        // Pre-#197 rows lack `actor`; it defaults to None.
+        assert_eq!(event.actor, None);
+    }
+
+    #[test]
+    fn actor_defaults_to_none_and_serializes_as_bare_ulid_string() {
+        // Legacy `event_json` predating #197 has no `actor` key; `#[serde(default)]`
+        // fills None. A populated actor serializes as the plain Ulid string
+        // (PrincipalId is serde-transparent), matching the #200 wire discipline.
+        let legacy = serde_json::json!({
+            "id": Ulid::new().to_string(),
+            "schema_version": 1,
+            "ts": Timestamp::now().to_string(),
+            "kind": "approval.recorded",
+            "action": null,
+            "decision": null,
+            "reason": null,
+            "task_grant_id": null,
+            "prev_hash": genesis_hash().as_str(),
+            "hash": format!("sha256:{}", "3".repeat(64)),
+        });
+        let event: AuditEvent = serde_json::from_value(legacy).unwrap();
+        assert_eq!(event.actor, None);
+
+        let actor = Ulid::from_string("01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap();
+        let populated = AuditEvent {
+            actor: Some(PrincipalId::from(actor)),
+            ..event
+        };
+        let wire = serde_json::to_value(&populated).unwrap();
+        assert_eq!(wire["actor"], serde_json::json!(actor.to_string()));
     }
 
     #[test]

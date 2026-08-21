@@ -237,7 +237,7 @@ fn insert_request_and_approval(store: &Store, action: &str) -> Ulid {
             id: Ulid::new(),
             schema_version: 1,
             action_request_id: request_id,
-            approved_by: "owner".to_string(),
+            approved_by: openspine_schemas::ids::PrincipalId::from(Ulid::new()),
             approved_at: jiff::Timestamp::now(),
             approved_payload_digest: payload_digest,
             approved_target_digest: target_digest,
