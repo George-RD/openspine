@@ -4,7 +4,7 @@
 
 use super::approval_draft_reconcile_tests::total_pending_draft_write_rows;
 use super::*;
-use crate::api::effect_executors::EffectOutcome;
+use crate::api::effect_executors::EffectDisposition;
 
 #[tokio::test]
 async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
@@ -59,7 +59,7 @@ async fn rate_limited_write_admission_is_refused_without_a_fence_row() {
 
     assert_eq!(
         outcome,
-        EffectOutcome::RefusedPreEffect,
+        EffectDisposition::NotAttempted,
         "a rejected write admission never attempted a provider write"
     );
     assert_eq!(
@@ -125,7 +125,7 @@ async fn definite_write_failure_is_failed_after_attempt_and_resolves_the_fence()
     .await
     .unwrap();
 
-    assert_eq!(outcome, EffectOutcome::FailedAfterAttempt);
+    assert_eq!(outcome, EffectDisposition::ConfirmedFailure);
     assert_eq!(
         state
             .store
@@ -196,7 +196,7 @@ async fn provider_5xx_write_is_delivery_unknown_and_leaves_the_fence_open() {
     .await
     .unwrap();
 
-    assert_eq!(outcome, EffectOutcome::DeliveryUnknown);
+    assert_eq!(outcome, EffectDisposition::DeliveryUnknown);
     assert_eq!(
         state
             .store

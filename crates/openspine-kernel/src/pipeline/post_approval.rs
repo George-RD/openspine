@@ -12,7 +12,7 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::api::effect_executors::EffectOutcome;
+use crate::api::effect_executors::EffectDisposition;
 use openspine_gate::{gate, ActionOrigin};
 use openspine_schemas::action::{ActionRequest, GateDecision};
 use openspine_schemas::grant::TaskGrant;
@@ -123,8 +123,9 @@ fn handle_headless_approved<'a>(
             )?;
             return Ok(());
         }
-        // `headless.approved_dispatched` is appended only for `Executed`;
-        // `RefusedPreEffect`, `DeliveryUnknown`, and `FailedAfterAttempt`
+        // `headless.approved_dispatched` is appended only for
+        // `ConfirmedSuccess`; `NotAttempted`, `DeliveryUnknown`, and
+        // `ConfirmedFailure`
         // return `Ok(())` without it because the executor already appended
         // its own truthful audit (`draft.payload_mutated_since_approval`,
         // `draft.target_mutated_since_approval`, `draft.creation_failed`, or
@@ -137,7 +138,7 @@ fn handle_headless_approved<'a>(
         {
             if let Some(executor) = state.effect_executors.lookup(&descriptor.executor_id) {
                 let effect_outcome = executor(state, grant, request, owner_surface).await?;
-                if effect_outcome == EffectOutcome::Executed {
+                if effect_outcome == EffectDisposition::ConfirmedSuccess {
                     state.store.append_audit(
                         "headless.approved_dispatched",
                         Some(&request.action),
@@ -159,6 +160,7 @@ fn handle_headless_approved<'a>(
             None,
         )
         .await
+        .result
         .map_err(|err| anyhow::anyhow!("headless approved dispatch failed: {err:?}"))?;
         state.store.append_audit(
             "headless.approved_dispatched",

@@ -23,7 +23,8 @@ use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use std::future::Future;
 use tokio::time::timeout;
 
-use super::actions::DispatchError;
+use super::actions::{DispatchError, DispatchedEffect};
+use super::effect_executors::EffectDisposition;
 use crate::connector_reality::{
     ConnectorCallError, ConnectorProbePermit, CONNECTOR_UNAVAILABLE_AUDIT_KIND,
 };
@@ -205,7 +206,7 @@ where
     match timeout(state.connector_call_timeout, fut).await {
         Ok(inner) => {
             record_connector_outcome(state, connector, permit, inner.is_ok());
-            inner.map_err(|err| map_write_error(err.into()))
+            inner.map_err(|err| write_error_to_dispatch(state, connector, err.into()))
         }
         Err(_elapsed) => {
             record_connector_outcome(state, connector, permit, false);
@@ -238,26 +239,62 @@ where
     call_with_admitted_connector_write(state, connector, action, permit, fut).await
 }
 
-/// Run the effect of one `gate()`-allowed action. Only reached after `Allow`
-/// — a deny/approval-required decision never calls this. A registry miss is a
-/// typed fail-closed [`DispatchError::NoExecutor`] except for catalog-declared
-/// non-effect stub ids. The handler itself admits each connector call it makes
-/// via [`call_with_connector`].
+/// Run the effect of one `gate()`-allowed action and return its typed
+/// [`EffectDisposition`] alongside the caller-facing [`Result`] (T3, #198).
+/// Only reached after `Allow` — a deny/approval-required decision never calls
+/// this. A registry miss is a typed fail-closed [`DispatchError::NoExecutor`]
+/// except for catalog-declared non-effect stub ids. The handler itself admits
+/// each connector call it makes via [`call_with_connector`].
 pub(crate) async fn dispatch_allowed_action(
     state: &AppState,
     grant: &TaskGrant,
     action: &ActionId,
     owner_surface: &OwnerSurfaceRef,
     payload: Option<&serde_json::Value>,
-) -> Result<serde_json::Value, DispatchError> {
+) -> DispatchedEffect {
     let id = action.0.as_str();
-    match state.action_handlers.lookup(id) {
+    let result = match state.action_handlers.lookup(id) {
         Some(handler) => handler(state, grant, action, owner_surface, payload).await,
         None if state.action_catalog.is_non_effect_stub(action) => Ok(serde_json::json!({
             "stub": true,
             "note": format!("{id} has no Step 4 kernel-side implementation yet"),
         })),
         None => Err(DispatchError::NoExecutor(action.clone())),
+    };
+    DispatchedEffect {
+        disposition: generic_effect_disposition(&result),
+        result,
+    }
+}
+
+/// Classify the generic connector-dispatch outcome into its typed
+/// [`EffectDisposition`] at the connector boundary (T3, #198), so the mediation
+/// settlement site keys off a disposition rather than re-interpreting a generic
+/// error. This is the connector boundary's own truth, not a caller-side
+/// re-derivation: the write helper already classified any resolved write error
+/// through the [`crate::connectors::Connector`] trait seam, and the timeout
+/// path into [`DispatchError::DeliveryUnknown`]; this collapses that surface
+/// into the four-state disposition settlement consumes.
+fn generic_effect_disposition(
+    result: &Result<serde_json::Value, DispatchError>,
+) -> EffectDisposition {
+    match result {
+        Ok(_) => EffectDisposition::ConfirmedSuccess,
+        // A write whose outcome is unconfirmed (timeout-after-transmission,
+        // transport/malformed response, Gmail 429/5xx) may have landed: retain
+        // the reservation and leave any fence open. A persistence/recording
+        // failure whose effect ordering is unknown fails closed the same way.
+        Err(DispatchError::DeliveryUnknown(_) | DispatchError::Resource(_)) => {
+            EffectDisposition::DeliveryUnknown
+        }
+        // A resolved connector failure proved nothing took hold; release budget.
+        Err(DispatchError::Connector(_)) => EffectDisposition::ConfirmedFailure,
+        // Proven pre-effect: no write future was polled, so nothing was sent.
+        Err(
+            DispatchError::BadRequest(_)
+            | DispatchError::ConnectorUnavailable(_)
+            | DispatchError::NoExecutor(_),
+        ) => EffectDisposition::NotAttempted,
     }
 }
 
@@ -296,101 +333,70 @@ fn map_admission_error(
     }
 }
 
-/// Map a resolved (non-timeout) write outcome to a dispatch error.
-///
-/// A `gmail.create_draft` whose effect is not confirmed by the returned value
-/// must retain durable pending evidence unless the provider response proves
-/// non-occurrence. Transport/no-response, malformed success responses, HTTP
-/// 429, and HTTP 5xx may all mean the write landed before the response was
-/// lost or substituted, so they surface as [`DispatchError::DeliveryUnknown`].
-/// A definite client rejection (HTTP 4xx other than 429) is a confirmed
-/// failure and resolves the pending row.
-fn map_write_error(err: anyhow::Error) -> DispatchError {
-    if let Some(gmail) = err.downcast_ref::<crate::gmail::GmailError>() {
-        let ambiguous_api_status = matches!(
-            (gmail.class, gmail.status),
-            (crate::gmail::GmailFailureClass::Api, Some(429 | 500..=599))
-        );
-        if ambiguous_api_status
-            || matches!(
-                gmail.class,
-                crate::gmail::GmailFailureClass::Transport
-                    | crate::gmail::GmailFailureClass::MalformedResponse
-            )
-        {
-            return DispatchError::DeliveryUnknown(anyhow!(
-                "gmail write outcome is unconfirmed (delivery-unknown): {gmail}"
-            ));
-        }
+/// Surface a resolved (non-timeout) write error as the caller-facing
+/// [`DispatchError`], classifying it at the provider boundary via
+/// [`crate::connectors::ConnectorRegistry::classify_write_disposition`]
+/// (T2, #198). A [`EffectDisposition::DeliveryUnknown`] retains durable pending
+/// evidence and fences retry; every other disposition resolves the pending row
+/// as a confirmed failure. Replaces the former Gmail-only `downcast_ref` so
+/// Telegram and the future WhatsApp connector classify through the same seam.
+fn write_error_to_dispatch(state: &AppState, connector: &str, err: anyhow::Error) -> DispatchError {
+    match state.connectors.classify_write_disposition(connector, &err) {
+        EffectDisposition::DeliveryUnknown => DispatchError::DeliveryUnknown(anyhow!(
+            "{connector} write outcome is unconfirmed (delivery-unknown): {err}"
+        )),
+        EffectDisposition::ConfirmedSuccess
+        | EffectDisposition::ConfirmedFailure
+        | EffectDisposition::NotAttempted => DispatchError::Connector(err),
     }
-    DispatchError::Connector(err)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use openspine_schemas::action::ActionId;
 
+    // T3 (#198): the generic connector seam classifies its own outcome into the
+    // four-state disposition settlement keys off. This is the shared-seam
+    // counterpart to the scoped executor's own disposition; both feed the one
+    // `settle_reservations` authority.
     #[test]
-    fn gmail_transport_write_is_delivery_unknown() {
-        let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-            status: None,
-            class: crate::gmail::GmailFailureClass::Transport,
-        }));
-        assert!(matches!(err, DispatchError::DeliveryUnknown(_)));
+    fn ok_is_confirmed_success() {
+        let disposition = generic_effect_disposition(&Ok(serde_json::json!({"created": true})));
+        assert_eq!(disposition, EffectDisposition::ConfirmedSuccess);
     }
 
     #[test]
-    fn gmail_malformed_success_response_is_delivery_unknown() {
-        let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-            status: Some(200),
-            class: crate::gmail::GmailFailureClass::MalformedResponse,
-        }));
-        assert!(matches!(err, DispatchError::DeliveryUnknown(_)));
-    }
-
-    #[test]
-    fn gmail_5xx_write_is_delivery_unknown() {
-        // #173: a 5xx from drafts.create does not prove the write failed — the
-        // draft may have landed before the intermediary errored — so it is
-        // delivery-unknown, not a confirmed failure.
-        for status in [500u16, 502, 503, 504] {
-            let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-                status: Some(status),
-                class: crate::gmail::GmailFailureClass::Api,
-            }));
-            assert!(
-                matches!(err, DispatchError::DeliveryUnknown(_)),
-                "status {status} must be delivery-unknown, got {err:?}"
-            );
+    fn delivery_unknown_and_resource_retain_as_delivery_unknown() {
+        // A write that may have landed (delivery-unknown) and a recording
+        // failure whose effect ordering is unknown both fail closed by
+        // retaining the reservation.
+        for err in [
+            DispatchError::DeliveryUnknown(anyhow!("timed out after transmission")),
+            DispatchError::Resource(anyhow!("durable audit write failed")),
+        ] {
+            let disposition = generic_effect_disposition(&Err(err));
+            assert_eq!(disposition, EffectDisposition::DeliveryUnknown);
         }
     }
 
     #[test]
-    fn gmail_429_write_is_delivery_unknown() {
-        // #173: a 429 (rate limited) likewise does not prove non-occurrence.
-        let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-            status: Some(429),
-            class: crate::gmail::GmailFailureClass::Api,
-        }));
-        assert!(
-            matches!(err, DispatchError::DeliveryUnknown(_)),
-            "got {err:?}"
-        );
+    fn resolved_connector_failure_is_confirmed_failure() {
+        let disposition =
+            generic_effect_disposition(&Err(DispatchError::Connector(anyhow!("send rejected"))));
+        assert_eq!(disposition, EffectDisposition::ConfirmedFailure);
     }
 
     #[test]
-    fn confirmed_gmail_4xx_write_failure_is_connector_error() {
-        // A definite client rejection (4xx other than 429) proves the write
-        // did not take hold and resolves the pending row.
-        for status in [400u16, 403, 422] {
-            let err = map_write_error(anyhow::Error::new(crate::gmail::GmailError {
-                status: Some(status),
-                class: crate::gmail::GmailFailureClass::Api,
-            }));
-            assert!(
-                matches!(err, DispatchError::Connector(_)),
-                "status {status} must be a confirmed connector failure, got {err:?}"
-            );
+    fn proven_pre_effect_errors_are_not_attempted() {
+        // No write future was polled, so nothing was sent: release budget.
+        for err in [
+            DispatchError::BadRequest("bad payload".into()),
+            DispatchError::ConnectorUnavailable(anyhow!("breaker open")),
+            DispatchError::NoExecutor(ActionId::new("email.create_draft")),
+        ] {
+            let disposition = generic_effect_disposition(&Err(err));
+            assert_eq!(disposition, EffectDisposition::NotAttempted);
         }
     }
 }

@@ -510,7 +510,12 @@ async fn unknown_action_is_not_stub_eligible() {
         None,
     )
     .await;
-    let error = match result {
+    assert_eq!(
+        result.disposition,
+        crate::api::effect_executors::EffectDisposition::NotAttempted,
+        "an unknown action never polls a write future: NotAttempted"
+    );
+    let error = match result.result {
         Err(error) => error,
         Ok(value) => panic!("unknown action must not return a result or stub: {value}"),
     };

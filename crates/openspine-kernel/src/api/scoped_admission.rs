@@ -38,13 +38,13 @@ use openspine_schemas::event::{Connector, TargetRef, TargetRefKind};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::resolved_context::{ResolvedActionContext, ResolvedActionContextInput};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 use ulid::Ulid;
 
-use super::actions::DispatchError;
+use super::actions::{DispatchError, DispatchedEffect};
 use super::connector_breaker::call_with_connector;
-use super::effect_executors::EffectOutcome;
+use super::effect_executors::EffectDisposition;
 use crate::pipeline::AppState;
 
 /// The kernel-resolved context for one action plus the digest-bound request
@@ -494,47 +494,69 @@ pub(crate) fn consult_scoped_rule(
     })
 }
 
-/// Run the shared `gmail.create_draft` executor for a scope-matched
-/// admission and map its truthful [`EffectOutcome`] onto the dispatch result
-/// the caller's reservation lifecycle already keys off:
+/// Run the shared `gmail.create_draft` executor for a scope-matched admission
+/// and return its truthful [`EffectDisposition`] together with the caller-
+/// facing dispatch [`Result`] (T3, #198). Settlement keys off the disposition
+/// alone; the paired error is only the audit/return surface:
 ///
-/// | outcome | dispatch result | reservation |
+/// | disposition | result surface | reservation (settled by disposition) |
 /// | --- | --- | --- |
-/// | `Executed` | `Ok` | finalize |
+/// | `ConfirmedSuccess` | `Ok` | finalize |
 /// | `DeliveryUnknown` | `DeliveryUnknown` | retain, fence left open |
-/// | `RefusedPreEffect` | `Connector` | cancel |
-/// | `FailedAfterAttempt` | `Connector` | cancel |
-/// | registry miss | `NoExecutor` | cancel |
+/// | `NotAttempted` | `Connector` | cancel |
+/// | `ConfirmedFailure` | `Connector` | cancel |
+/// | registry miss | `NotAttempted` / `NoExecutor` | cancel |
+/// | executor error | `DeliveryUnknown` / `Resource` | retain (fail-closed) |
 ///
-/// Retaining on `DeliveryUnknown` is the deliberately conservative
-/// direction: releasing budget for a write that may have landed would
-/// under-count real effects, whereas retaining over-counts at worst. An
-/// executor error whose effect ordering is unknown maps to `Resource`, which
-/// the caller also retains.
+/// Retaining on `DeliveryUnknown` is the deliberately conservative direction:
+/// releasing budget for a write that may have landed would under-count real
+/// effects, whereas retaining over-counts at worst. An executor error whose
+/// effect ordering is unknown is treated as `DeliveryUnknown` so the caller
+/// retains fail-closed, while its `Resource` surface still audits truthfully.
 pub(crate) async fn dispatch_scoped_effect(
     state: &AppState,
     grant: &TaskGrant,
     admission: &ScopedAdmissionContext,
     owner_surface: &OwnerSurfaceRef,
-) -> Result<Value, DispatchError> {
+) -> DispatchedEffect {
     let Some(executor) = state
         .effect_executors
         .lookup(admission.context.executor_id())
     else {
-        return Err(DispatchError::NoExecutor(admission.request.action.clone()));
+        return DispatchedEffect {
+            disposition: EffectDisposition::NotAttempted,
+            result: Err(DispatchError::NoExecutor(admission.request.action.clone())),
+        };
     };
     match executor(state, grant, &admission.request, owner_surface).await {
-        Ok(EffectOutcome::Executed) => Ok(json!({"created": true})),
-        Ok(EffectOutcome::DeliveryUnknown) => Err(DispatchError::DeliveryUnknown(anyhow!(
-            "gmail draft write outcome is unknown; the reconciliation fence stays open"
-        ))),
-        Ok(EffectOutcome::RefusedPreEffect) => Err(DispatchError::Connector(anyhow!(
-            "scope-matched draft creation was refused before any provider write"
-        ))),
-        Ok(EffectOutcome::FailedAfterAttempt) => Err(DispatchError::Connector(anyhow!(
-            "scope-matched draft creation failed after an attempted write"
-        ))),
-        Err(err) => Err(DispatchError::Resource(err)),
+        Ok(EffectDisposition::ConfirmedSuccess) => DispatchedEffect {
+            disposition: EffectDisposition::ConfirmedSuccess,
+            result: Ok(json!({"created": true})),
+        },
+        Ok(EffectDisposition::DeliveryUnknown) => DispatchedEffect {
+            disposition: EffectDisposition::DeliveryUnknown,
+            result: Err(DispatchError::DeliveryUnknown(anyhow!(
+                "gmail draft write outcome is unknown; the reconciliation fence stays open"
+            ))),
+        },
+        Ok(EffectDisposition::NotAttempted) => DispatchedEffect {
+            disposition: EffectDisposition::NotAttempted,
+            result: Err(DispatchError::Connector(anyhow!(
+                "scope-matched draft creation was refused before any provider write"
+            ))),
+        },
+        Ok(EffectDisposition::ConfirmedFailure) => DispatchedEffect {
+            disposition: EffectDisposition::ConfirmedFailure,
+            result: Err(DispatchError::Connector(anyhow!(
+                "scope-matched draft creation failed after an attempted write"
+            ))),
+        },
+        // An executor error's effect ordering is unknown; fail closed by
+        // retaining (DeliveryUnknown) while auditing it truthfully as Resource.
+        Err(err) => DispatchedEffect {
+            disposition: EffectDisposition::DeliveryUnknown,
+            result: Err(DispatchError::Resource(err)),
+        },
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::api::actions::DispatchError;
 use crate::api::connector_breaker::call_with_connector;
-use crate::api::effect_executors::EffectOutcome;
+use crate::api::effect_executors::EffectDisposition;
 use crate::artifact_store::ArtifactStoreError;
 use openspine_schemas::action::ActionRequest;
 use openspine_schemas::artifact::ArtifactRef;
@@ -18,11 +18,12 @@ use openspine_schemas::owner_surface::OwnerSurfaceRef;
 /// `create_draft`, because a new thread message can change the recipient.
 /// Provider-boundary contract: connector admission is taken before the pending
 /// fence and before polling any provider future. A rejected admission is
-/// [`EffectOutcome::RefusedPreEffect`]. Once the write future is polled, a
-/// confirmed Gmail success is [`EffectOutcome::Executed`], a definite client
-/// rejection is [`EffectOutcome::FailedAfterAttempt`], and an outcome that does
-/// not prove non-occurrence (timeout, transport/malformed response, HTTP 429,
-/// or HTTP 5xx) is [`EffectOutcome::DeliveryUnknown`] with durable pending
+/// [`EffectDisposition::NotAttempted`]. Once the write future is polled, a
+/// confirmed Gmail success is [`EffectDisposition::ConfirmedSuccess`], a
+/// definite client rejection is [`EffectDisposition::ConfirmedFailure`], and
+/// an outcome that does not prove non-occurrence (timeout, transport/malformed
+/// response, HTTP 429, or HTTP 5xx) is [`EffectDisposition::DeliveryUnknown`]
+/// with durable pending
 /// evidence left open for reconciliation. No automatic resend is safe without
 /// Gmail idempotency.
 pub(crate) async fn create_approved_draft(
@@ -30,7 +31,7 @@ pub(crate) async fn create_approved_draft(
     grant: &TaskGrant,
     request: &ActionRequest,
     owner_surface: &OwnerSurfaceRef,
-) -> anyhow::Result<EffectOutcome> {
+) -> anyhow::Result<EffectDisposition> {
     let payload_ref = request
         .payload_ref
         .as_ref()
@@ -53,7 +54,7 @@ pub(crate) async fn create_approved_draft(
                 "The draft content changed since you approved it — please run /draft again.",
             )
             .await;
-            return Ok(EffectOutcome::RefusedPreEffect);
+            return Ok(EffectDisposition::NotAttempted);
         }
         Err(other) => return Err(other.into()),
     };
@@ -82,7 +83,7 @@ pub(crate) async fn create_approved_draft(
             "gmail connector unavailable during approval",
             "gmail connector unavailable during approval",
         )?;
-        return Ok(EffectOutcome::RefusedPreEffect);
+        return Ok(EffectDisposition::NotAttempted);
     };
 
     crate::spend::guard_connector_for(state, grant).await?;
@@ -97,7 +98,7 @@ pub(crate) async fn create_approved_draft(
     {
         Ok(thread) => thread,
         Err(DispatchError::ConnectorUnavailable(_)) => {
-            return Ok(EffectOutcome::RefusedPreEffect);
+            return Ok(EffectDisposition::NotAttempted);
         }
         Err(err) => {
             state.store.append_audit(
@@ -115,7 +116,7 @@ pub(crate) async fn create_approved_draft(
                 "gmail thread fetch failed during approval",
                 &format!("{err:?}"),
             )?;
-            return Ok(EffectOutcome::RefusedPreEffect);
+            return Ok(EffectDisposition::NotAttempted);
         }
     };
     let Some(target) = crate::gmail::newest_non_owner_recipient(&thread, gmail.mailbox_address())
@@ -135,7 +136,7 @@ pub(crate) async fn create_approved_draft(
             "Approved, but couldn't determine who to reply to.",
         )
         .await;
-        return Ok(EffectOutcome::RefusedPreEffect);
+        return Ok(EffectDisposition::NotAttempted);
     };
 
     let current_target_digest = digest_of(&json!({
@@ -164,7 +165,7 @@ pub(crate) async fn create_approved_draft(
             "The thread changed since you approved this draft — please run /draft again.",
         )
         .await;
-        return Ok(EffectOutcome::RefusedPreEffect);
+        return Ok(EffectDisposition::NotAttempted);
     }
     let request_fingerprint = crate::store::draft_request_fingerprint(
         request.action.as_str(),
@@ -188,7 +189,7 @@ pub(crate) async fn create_approved_draft(
             "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
         )
         .await;
-        return Ok(EffectOutcome::RefusedPreEffect);
+        return Ok(EffectDisposition::NotAttempted);
     }
 
     crate::spend::guard_connector_for(state, grant).await?;
@@ -206,7 +207,7 @@ pub(crate) async fn create_approved_draft(
     ) {
         Ok(permit) => permit,
         Err(DispatchError::ConnectorUnavailable(_)) => {
-            return Ok(EffectOutcome::RefusedPreEffect);
+            return Ok(EffectDisposition::NotAttempted);
         }
         Err(err) => {
             state.store.append_audit(
@@ -224,7 +225,7 @@ pub(crate) async fn create_approved_draft(
                 "gmail create draft admission rejected during approval",
                 &format!("{err:?}"),
             )?;
-            return Ok(EffectOutcome::RefusedPreEffect);
+            return Ok(EffectDisposition::NotAttempted);
         }
     };
     // Candidate Gmail-write extension: persist durable pending evidence before
@@ -261,7 +262,7 @@ pub(crate) async fn create_approved_draft(
             "This draft write is still awaiting Gmail reconciliation; no retry was sent.",
         )
         .await;
-        return Ok(EffectOutcome::RefusedPreEffect);
+        return Ok(EffectDisposition::NotAttempted);
     }
     let draft_result = crate::api::connector_breaker::call_with_admitted_connector_write(
         state,
@@ -281,7 +282,7 @@ pub(crate) async fn create_approved_draft(
             &[],
             std::slice::from_ref(payload_ref),
         )?;
-        return Ok(EffectOutcome::DeliveryUnknown);
+        return Ok(EffectDisposition::DeliveryUnknown);
     }
     match draft_result {
         Ok(draft_id) => {
@@ -309,7 +310,7 @@ pub(crate) async fn create_approved_draft(
                 &payload_refs,
             )?;
             notify_owner_best_effort(state, owner_surface, "Draft created in Gmail.").await;
-            Ok(EffectOutcome::Executed)
+            Ok(EffectDisposition::ConfirmedSuccess)
         }
         Err(DispatchError::DeliveryUnknown(_)) => unreachable!("handled above"),
         Err(err) => {
@@ -333,7 +334,7 @@ pub(crate) async fn create_approved_draft(
                 "gmail create draft failed during approval",
                 &format!("{err:?}"),
             )?;
-            Ok(EffectOutcome::FailedAfterAttempt)
+            Ok(EffectDisposition::ConfirmedFailure)
         }
     }
 }

@@ -24,7 +24,7 @@ use crate::pipeline::AppState;
 
 /// The boxed future returned by one effect executor.
 pub(crate) type EffectExecutorFuture<'a> =
-    Pin<Box<dyn Future<Output = anyhow::Result<EffectOutcome>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = anyhow::Result<EffectDisposition>> + Send + 'a>>;
 
 /// A kernel-owned executor for one catalogued effect implementation.
 pub(crate) type EffectExecutor = for<'a> fn(
@@ -34,14 +34,16 @@ pub(crate) type EffectExecutor = for<'a> fn(
     &'a OwnerSurfaceRef,
 ) -> EffectExecutorFuture<'a>;
 
-/// The truthful result of one attempted effect. The safety-relevant partition
-/// is "may an external write have reached the provider": only
-/// [`Self::Executed`] and [`Self::DeliveryUnknown`] answer yes.
+/// The truthful, typed disposition of one attempted effect at the provider
+/// boundary (T2, epic #198). The safety-relevant partition is "may an
+/// external write have reached the provider": only [`Self::ConfirmedSuccess`]
+/// and [`Self::DeliveryUnknown`] answer yes. Settlement keys off this
+/// disposition alone (T3), never off a re-interpreted generic error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EffectOutcome {
+pub(crate) enum EffectDisposition {
     /// The provider confirmed the write, and its durable evidence — audit row
     /// plus a resolved pending-write fence — is recorded.
-    Executed,
+    ConfirmedSuccess,
     /// The executor refused before polling any *write* future: no write permit
     /// was consumed, this attempt recorded no pending-write fence, and no
     /// provider write was attempted. Covers every pre-effect re-derivation
@@ -49,7 +51,7 @@ pub(crate) enum EffectOutcome {
     /// have performed its read-only recipient re-derivation (a Gmail thread
     /// fetch) before refusing — that read is not an effect, but "nothing was
     /// sent" is the precise claim here, not "nothing was called".
-    RefusedPreEffect,
+    NotAttempted,
     /// The write future was polled and its result is ambiguous — the provider
     /// may have acted before the response was lost. The pending-write fence is
     /// left OPEN and the write is never automatically retried, because Gmail's
@@ -60,8 +62,8 @@ pub(crate) enum EffectOutcome {
     /// The write future was polled and returned a *definite* failure, so no
     /// effect took hold; the pending-write fence has been resolved. Reached
     /// only after admission succeeded — a rejected permit is
-    /// [`Self::RefusedPreEffect`] instead.
-    FailedAfterAttempt,
+    /// [`Self::NotAttempted`] instead.
+    ConfirmedFailure,
 }
 
 /// Kernel-owned effect executors keyed by their catalog `executor_id`.

@@ -2,7 +2,7 @@
 //! These are submodule tests of the `approval` module, so `super::*`
 //! brings the shared fixtures (`approval_fixture_grant`, `test_state_with_*`).
 use super::*;
-use crate::api::effect_executors::EffectOutcome;
+use crate::api::effect_executors::EffectDisposition;
 
 #[tokio::test]
 async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
@@ -53,7 +53,7 @@ async fn payload_mutated_since_approval_is_denied_and_creates_no_draft() {
     )
     .await
     .unwrap();
-    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
+    assert_eq!(outcome, EffectDisposition::NotAttempted);
     assert_eq!(
         state
             .store
@@ -113,7 +113,7 @@ async fn target_mutated_since_approval_is_refused_without_a_draft() {
     .await
     .unwrap();
 
-    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
+    assert_eq!(outcome, EffectDisposition::NotAttempted);
     assert_eq!(
         state
             .store
@@ -171,7 +171,7 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
     .await
     .unwrap();
 
-    assert_eq!(outcome, EffectOutcome::DeliveryUnknown);
+    assert_eq!(outcome, EffectDisposition::DeliveryUnknown);
     assert_eq!(
         state
             .store
@@ -237,7 +237,7 @@ async fn successful_draft_write_is_executed_and_resolves_pending_row() {
     .await
     .unwrap();
 
-    assert_eq!(outcome, EffectOutcome::Executed);
+    assert_eq!(outcome, EffectDisposition::ConfirmedSuccess);
     assert_eq!(
         state
             .store
@@ -365,7 +365,7 @@ async fn unavailable_gmail_connector_is_a_pre_effect_refusal_without_a_fence_row
     .await
     .expect("pre-effect connector rejection is a typed refusal, not an executor error");
 
-    assert_eq!(outcome, EffectOutcome::RefusedPreEffect);
+    assert_eq!(outcome, EffectDisposition::NotAttempted);
     assert_eq!(
         total_pending_draft_write_rows(&state),
         0,
