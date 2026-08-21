@@ -22,6 +22,8 @@ pub use crate::delegation_contract::{
 use crate::artifact::ArtifactRef;
 use crate::egress::EgressClass;
 use crate::event::TargetRef;
+mod catalog_metadata;
+pub use catalog_metadata::{ActionEgressDeclaration, ToolDescriptor};
 
 /// Dotted action identifier, exact-match only (D-033) — e.g. `email.send`,
 /// `telegram.reply:owner_channel`, `email.read_thread:selected_no_attachments`.
@@ -87,20 +89,6 @@ pub struct EffectPath {
     pub classification: EffectPathClass,
 }
 
-/// The catalog-owned egress metadata for one registered action (blocker 1).
-///
-/// Both axes are *declared* per action and owned by the kernel catalog, never
-/// derived from optional connector metadata. `None` on an axis means the
-/// action carries no requirement on that axis (e.g. a non-egress action has
-/// `egress_class: None`; a non-output action has `output_channels: None`).
-/// An empty `Some(vec![])` on `output_channels` is a deliberate,
-/// fail-closed declaration (the action is classified as delivering to a
-/// channel but names none — the gate must deny).
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct ActionEgressDeclaration {
-    pub output_channels: Option<Vec<String>>,
-    pub egress_class: Option<EgressClass>,
-}
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ActionCatalog {
     ids: HashSet<ActionId>,
@@ -129,6 +117,11 @@ pub struct ActionCatalog {
     /// mandatory output-channel + egress-class declaration. Enforcement reads
     /// ONLY this map; connector metadata is never consulted.
     egress_declarations: HashMap<ActionId, ActionEgressDeclaration>,
+    /// Kernel-owned model-facing tool descriptor per dispatchable action
+    /// (spec #209, capability-derived tool catalog). Presentation metadata
+    /// only; never shell-spoofable, never on TaskGrant. The projection (IT2)
+    /// and wire seam (IT3) consume this axis.
+    tool_descriptors: HashMap<ActionId, ToolDescriptor>,
     /// Actions that may carry a standing rule binding NO reviewed scope: the
     /// rule narrows an approval requirement rather than admitting an effect.
     /// Fail-closed, so `email.send` can never hold blanket reusable authority.
@@ -155,6 +148,7 @@ impl ActionCatalog {
             counterparty_facing_actions: HashSet::new(),
             approval_narrowing_actions: HashSet::new(),
             egress_declarations: HashMap::new(),
+            tool_descriptors: HashMap::new(),
             delegation_descriptors: HashMap::new(),
             implementation_descriptors: HashMap::new(),
         }

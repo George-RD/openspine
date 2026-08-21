@@ -95,6 +95,39 @@ fn handler_registry_requires_explicit_classification() {
 }
 
 #[test]
+fn every_dispatchable_action_has_a_tool_descriptor() {
+    // Fail-closed completeness (spec #209 D3): a granted, dispatchable action
+    // that lacks a tool descriptor is a capability gap a human must
+    // consciously accept, so it fails here rather than silently omitting.
+    // Mirrors `handler_registry_requires_explicit_classification`.
+    let catalog = canonical_catalog();
+    let registry = crate::api::handler_registry::ActionHandlerRegistry::default_registrations();
+    for action in registry.registered_action_ids() {
+        let descriptor = catalog
+            .tool_descriptor_for(&action)
+            .unwrap_or_else(|| panic!("dispatchable action {action} lacks a tool descriptor"));
+        // The presentation flag must stay honest against the catalog's own
+        // selection-token axis: a descriptor may not claim a different
+        // token requirement than the action actually carries.
+        assert_eq!(
+            descriptor.selection_token_required,
+            catalog.requires_selection_token(&action).is_some(),
+            "tool descriptor for {action} has a selection_token_required flag \
+             that disagrees with the catalog"
+        );
+    }
+    // Cardinality, not just membership: pins the dispatchable descriptor count
+    // so a deliberately-removed descriptor (or a stray extra one) fails, not
+    // just a lookup miss. 15 is the current dispatchable set; changing it is a
+    // conscious edit here.
+    assert_eq!(
+        catalog.tool_descriptor_count(),
+        15,
+        "expected exactly 15 dispatchable tool descriptors"
+    );
+}
+
+#[test]
 fn worker_actions_declare_no_egress_and_no_output_channel() {
     // `worker.commission` / `worker.report_result` / `worker.failed` must
     // not be classified as egress endpoints or output-channel deliveries:
