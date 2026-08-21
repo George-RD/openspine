@@ -40,6 +40,7 @@ pub mod persona;
 pub mod plan;
 pub mod policy;
 pub mod principal;
+pub mod provenance;
 pub mod reflection_miner;
 pub mod resolved_context;
 pub mod responsibility;
