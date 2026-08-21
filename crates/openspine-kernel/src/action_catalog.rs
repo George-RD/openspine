@@ -13,6 +13,8 @@ use openspine_schemas::selection::SelectionTokenType;
 mod action_catalog_contracts;
 #[path = "action_catalog_data.rs"]
 mod action_catalog_data;
+#[path = "action_catalog_tool_descriptors.rs"]
+mod action_catalog_tool_descriptors;
 /// The canonical declaration of what a standing rule for an action must bind,
 /// re-exported so activation-time scope-binding enforcement reads the same
 /// descriptor table the catalog itself is assembled from.
@@ -141,6 +143,7 @@ pub fn canonical_catalog() -> ActionCatalog {
             SelectionTokenType::email_thread_selection(),
         )])
         .with_egress_declarations(decls)
+        .with_tool_descriptors(action_catalog_tool_descriptors::tool_descriptors())
         .with_delegation_descriptors(action_catalog_data::delegation_descriptors())
         .with_implementation_descriptors(action_catalog_data::implementation_descriptors())
         .with_effect_paths([
