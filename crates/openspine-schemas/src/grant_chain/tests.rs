@@ -367,3 +367,92 @@ fn principal_id_user_preserves_mac_preimage_and_wire_bytes() {
     let wire = serde_json::to_value(&grant).expect("grant serializes");
     assert_eq!(wire["user"], serde_json::json!(owner.to_string()));
 }
+
+fn sample_owner_origin() -> crate::provenance::ProvenanceOrigin {
+    crate::provenance::ProvenanceOrigin::Owner {
+        principal: crate::ids::PrincipalId::from(Ulid::new()),
+    }
+}
+
+#[test]
+fn effective_provenance_label_intersects_every_caveat() {
+    let mut grant = sample_root();
+    // An empty ProvenanceLabelAllowlist narrows the effective origin set to
+    // empty regardless of anything else in the chain (mirrors the egress arm).
+    grant.chain[0]
+        .added_caveats
+        .push(Caveat::ProvenanceLabelAllowlist { origins: vec![] });
+    assert!(!effectively_allows_provenance_label(
+        &grant,
+        &sample_owner_origin()
+    ));
+
+    // With no such caveat at all, every origin is allowed by default (the v1
+    // owner grant carries no provenance caveat).
+    let bare = sample_root();
+    assert!(effectively_allows_provenance_label(
+        &bare,
+        &sample_owner_origin()
+    ));
+}
+
+#[test]
+fn provenance_label_narrows_to_named_origins_only() {
+    let allowed = sample_owner_origin();
+    let denied = crate::provenance::ProvenanceOrigin::Counterparty {
+        identity: crate::ids::IdentityRef::from(Ulid::new()),
+    };
+    let mut grant = sample_root();
+    grant.chain[0]
+        .added_caveats
+        .push(Caveat::ProvenanceLabelAllowlist {
+            origins: vec![allowed.clone()],
+        });
+    assert!(effectively_allows_provenance_label(&grant, &allowed));
+    assert!(!effectively_allows_provenance_label(&grant, &denied));
+}
+
+#[test]
+fn provenance_label_tamper_invalidates_mac() {
+    let mut grant = sample_root();
+    grant
+        .chain
+        .last_mut()
+        .unwrap()
+        .added_caveats
+        .push(Caveat::ProvenanceLabelAllowlist {
+            origins: vec![sample_owner_origin()],
+        });
+    // Re-seal over the caveat-carrying chain (seal_root would drop the caveat
+    // by rebuilding a fresh empty step), so the MAC covers the caveat.
+    let root = RootAuthority::from_grant(&grant);
+    grant.caveat_mac = compute_mac_hex(TEST_GRANT_HMAC_KEY, &root, &grant.chain);
+    assert!(verify_mac(TEST_GRANT_HMAC_KEY, &grant));
+
+    // Widening the caveat's origins after sealing must break the MAC: the
+    // caveat is MAC-covered (AD-148), so no post-seal mutation is trusted.
+    if let Some(Caveat::ProvenanceLabelAllowlist { origins }) =
+        grant.chain.last_mut().unwrap().added_caveats.last_mut()
+    {
+        origins.push(crate::provenance::ProvenanceOrigin::System {});
+    } else {
+        panic!("expected the provenance caveat to be present");
+    }
+    assert!(
+        !verify_mac(TEST_GRANT_HMAC_KEY, &grant),
+        "mutating a sealed provenance caveat must invalidate the MAC"
+    );
+}
+
+#[test]
+fn provenance_caveat_is_supported_only_by_upgraded_verifier() {
+    let mut grant = sample_root();
+    grant.chain[0]
+        .added_caveats
+        .push(Caveat::ProvenanceLabelAllowlist { origins: vec![] });
+    assert!(has_unsupported_caveats(&grant));
+    assert!(!has_unsupported_caveats_except(
+        &grant,
+        &[SupportedCaveatKind::ProvenanceLabelAllowlist]
+    ));
+}

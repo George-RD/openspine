@@ -19,6 +19,7 @@ use crate::digest::canonical_json;
 use crate::egress::EgressClass;
 use crate::grant::{GrantLimits, GrantMode, TaskGrant};
 use crate::ids::PrincipalId;
+use crate::provenance::ProvenanceOrigin;
 
 /// One ordered Macaroons-simple caveat (AD-101 / AD-036).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,6 +49,16 @@ pub enum Caveat {
     /// (which would desync `seal_child_from_parent_tip` from `verify_mac`).
     EgressClassAllowlist {
         classes: Vec<EgressClass>,
+    },
+    /// D-174 / spec #220: narrows the effective provenance-origin allowlist to
+    /// the intersection of every such caveat in the chain (mirrors
+    /// `EgressClassAllowlist`, AD-060). A worker sub-grant is minted with an
+    /// empty list unconditionally, so its effective origins are provably empty
+    /// regardless of what an ancestor carried — append-only narrowing, never a
+    /// root-field mutation (there is no provenance root field, and adding one
+    /// would desync `seal_child_from_parent_tip` from `verify_mac`; AD-148).
+    ProvenanceLabelAllowlist {
+        origins: Vec<ProvenanceOrigin>,
     },
 }
 
@@ -211,6 +222,19 @@ fn caveat_bytes(caveat: &Caveat) -> Vec<u8> {
             let mut c: Vec<&str> = classes.iter().map(EgressClass::as_str).collect();
             c.sort_unstable();
             serde_json::json!({"kind":"egress_class_allowlist","classes":c})
+        }
+        Caveat::ProvenanceLabelAllowlist { origins } => {
+            // Origins are not `Ord`; canonicalize each to a JSON value and
+            // sort the vector by its canonical string so logically-equal
+            // caveats hash identically (mirrors the egress arm's sort).
+            // `canonical_json` sorts object keys but not array order, so the
+            // pre-sort here is load-bearing for MAC determinism.
+            let mut o: Vec<serde_json::Value> = origins
+                .iter()
+                .map(|origin| serde_json::to_value(origin).expect("ProvenanceOrigin serializes"))
+                .collect();
+            o.sort_unstable_by_key(canonical_json);
+            serde_json::json!({"kind":"provenance_label_allowlist","origins":o})
         }
     };
     canonical_json(&v).into_bytes()
@@ -404,6 +428,7 @@ pub fn has_unsupported_caveats(grant: &TaskGrant) -> bool {
 pub enum SupportedCaveatKind {
     OutputChannelAllowlist,
     EgressClassAllowlist,
+    ProvenanceLabelAllowlist,
 }
 
 /// Reject caveats this verifier does not understand or enforce.
@@ -428,6 +453,9 @@ pub fn has_unsupported_caveats_except(
             Caveat::EgressClassAllowlist { .. } => {
                 !supported.contains(&SupportedCaveatKind::EgressClassAllowlist)
             }
+            Caveat::ProvenanceLabelAllowlist { .. } => {
+                !supported.contains(&SupportedCaveatKind::ProvenanceLabelAllowlist)
+            }
         })
 }
 
@@ -440,6 +468,26 @@ pub fn effectively_allows_egress_class(grant: &TaskGrant, class: &EgressClass) -
     for caveat in flattened_caveats(&grant.chain) {
         if let Caveat::EgressClassAllowlist { classes } = caveat {
             if !classes.contains(class) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Effective D-174 provenance-origin membership: `origin` is allowed only if
+/// every `ProvenanceLabelAllowlist` caveat in the chain names it (intersection
+/// / AND semantics). Unlike egress classes there is no root allowlist field —
+/// `TaskGrant`/`RootAuthority` carry no provenance root field, and adding one
+/// would desync the MAC (AD-148) — so a grant carrying no such caveat (the v1
+/// single-owner owner grant) allows every origin by default. An empty
+/// `origins` list narrows to "no origin allowed", so a worker sub-grant minted
+/// with an empty caveat is provably closed regardless of what an ancestor
+/// carried (append-only narrowing, never widening; D-007 / AD-101).
+pub fn effectively_allows_provenance_label(grant: &TaskGrant, origin: &ProvenanceOrigin) -> bool {
+    for caveat in flattened_caveats(&grant.chain) {
+        if let Caveat::ProvenanceLabelAllowlist { origins } = caveat {
+            if !origins.contains(origin) {
                 return false;
             }
         }
