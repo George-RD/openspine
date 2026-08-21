@@ -179,6 +179,16 @@ pub struct AppState {
     /// Exclusive overlay export/restore controller; holds the data-root
     /// lifetime lock for the process lifetime.
     pub overlay_operations: std::sync::Arc<crate::overlay_export_restore::OverlayOperations>,
+    /// Test-only deterministic seam (#177). A reachability test arms this
+    /// one-shot hook to run a single injected side effect in the window
+    /// between the pre-transaction scoped resolution read
+    /// (`api/scoped_admission::resolve_scoped_admission`) and the reservation
+    /// transaction (`store::standing_rules_scoped::consult_and_reserve_scoped_rule`),
+    /// so that transaction's in-transaction erased-counterparty recheck can
+    /// observe a marker the pre-transaction check could not. The field is
+    /// `#[cfg(test)]`, so the shipped path carries neither a load nor a branch.
+    #[cfg(test)]
+    pub(crate) pre_reserve_erasure_hook: parking_lot::Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl AppState {
@@ -215,6 +225,15 @@ impl AppState {
         self.action_catalog
             .implementation_descriptor_for_action(action)
             .is_some_and(|d| self.effect_executors.lookup(&d.executor_id).is_some())
+    }
+
+    /// Arm the one-shot pre-reservation seam (#177). The hook fires exactly
+    /// once, on the next scoped consultation, between the resolution read and
+    /// the reservation transaction; it is read-and-cleared so the normal path
+    /// is a no-op.
+    #[cfg(test)]
+    pub(crate) fn arm_pre_reserve_erasure_hook(&self, hook: Box<dyn FnOnce() + Send>) {
+        *self.pre_reserve_erasure_hook.lock() = Some(hook);
     }
 }
 

@@ -121,6 +121,8 @@ fn build_state_at(data_root: &Path, master_key: &[u8; 32]) -> AppState {
         },
         conversation_locks: parking_lot::Mutex::new(HashMap::new()),
         overlay_operations: ops,
+        #[cfg(test)]
+        pre_reserve_erasure_hook: parking_lot::Mutex::new(None),
     }
 }
 

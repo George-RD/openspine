@@ -548,6 +548,9 @@ mod effect_truth_tests;
 #[path = "scoped_admission_outcome_tests.rs"]
 mod outcome_tests;
 #[cfg(test)]
+#[path = "scoped_admission_recheck_tests.rs"]
+mod recheck_tests;
+#[cfg(test)]
 #[path = "scoped_admission_support.rs"]
 pub(super) mod scoped_admission_support;
 #[cfg(test)]
