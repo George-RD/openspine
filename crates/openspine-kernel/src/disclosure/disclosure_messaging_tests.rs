@@ -26,6 +26,7 @@ async fn messaging_preparation_drives_core_without_query_generalization() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
+        origin: None,
         payload: json!("condition X"),
     }];
     // Non-query preparation: the message body carries the sensitive term

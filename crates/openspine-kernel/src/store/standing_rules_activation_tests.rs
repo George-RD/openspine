@@ -31,7 +31,7 @@ fn learned_artifact() -> LearnedArtifact {
                 digest: digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
-            source_scope: Ulid::new(),
+            source_scope: crate::store::learned_artifacts::origin_from_producing_scope(Ulid::new()),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),

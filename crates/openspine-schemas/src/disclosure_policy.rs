@@ -16,6 +16,7 @@ use crate::egress::EgressClass;
 use crate::event::DataClassification;
 use crate::identity::RelationshipKind;
 use crate::ids::ArtifactId;
+use crate::provenance::ProvenanceOrigin;
 
 /// Disclosure sensitivity carried by a classified briefcase item.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -58,6 +59,14 @@ impl From<DataClassification> for DisclosureClass {
 pub struct ClassifiedBriefcaseItem {
     pub item_ref: ArtifactRef,
     pub disclosure_class: DisclosureClass,
+    /// The kernel-derived typed-identity origin this datum was produced under
+    /// (spec #220 / D-174). `None` is an unresolved/legacy origin and, like an
+    /// unclassified `disclosure_class`, must be treated as most-restrictive by
+    /// any egress-time origin check (the deterministic origin-vs-recipient
+    /// closure lands in the egress ticket, #225–#227). Kernel-derived, never
+    /// worker-set: the whole item is minted only inside `provenance_from_sections`.
+    #[serde(default)]
+    pub origin: Option<ProvenanceOrigin>,
 }
 
 /// Provenance set carried by an outbound query.

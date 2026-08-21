@@ -302,21 +302,17 @@ pub(super) async fn reinstate_artifact(
         grant_event_id: grant.event_id,
         reviewed_ref: payload_ref.clone(),
     };
-    // `row.provenance` is the original producing provenance. A LegacyMigration
-    // row was only a quarantine placeholder: the owner's tap establishes a
-    // fresh `ProducedBy` exchange link (this grant's event id + the reviewed
-    // bytes' digest) BEFORE any visibility, so LegacyMigration provenance is
-    // never published. An already-`ProducedBy` row keeps its link untouched.
-    let effective_provenance = match &row.provenance {
-        crate::store::learned_artifacts::Provenance::LegacyMigration { .. } => {
-            crate::store::learned_artifacts::Provenance::ProducedBy {
-                source_event_id: grant.event_id,
-                source_exchange: payload_ref.clone(),
-                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
-            }
-        }
-        other => other.clone(),
-    };
+    // `row.provenance` is the original producing provenance. Its origin is
+    // append-only: a LegacyMigration row was only a quarantine placeholder, so
+    // the owner's tap ESTABLISHES a fresh system-origin `ProducedBy` link (this
+    // grant's event id + the reviewed bytes' digest) before any visibility; an
+    // already-`ProducedBy` row PRESERVES its recorded origin untouched, so no
+    // reconfirmation ever relabels a datum's producing identity (D-174).
+    let effective_provenance = crate::store::learned_artifacts::establish_or_preserve_origin(
+        &row.provenance,
+        grant.event_id,
+        payload_ref.clone(),
+    );
     // The matching `Approved` proposal (if any) advances to `Active` inside
     // the same transaction, via affected-row count — a legacy/no-proposal
     // Resolve the proposal lifecycle this reconfirm completes. A LegacyMigration

@@ -56,7 +56,7 @@ pub(crate) fn admit(
             continue;
         }
         if artifacts
-            .get_scoped(*source_scope, source_exchange)
+            .get_scoped(source_scope.producing_scope(), source_exchange)
             .is_err()
         {
             tracing::warn!(artifact_id = %row.artifact_id, version = row.version,

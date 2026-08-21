@@ -18,6 +18,7 @@ fn provenance(class: DisclosureClass) -> DisclosureProvenance {
                 schema_version: 1,
             },
             disclosure_class: class,
+            origin: None,
         }],
     }
 }
@@ -410,6 +411,7 @@ async fn prepared_query_mints_consumes_once_and_verifies_digest() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
+        origin: None,
         payload: json!("condition X"),
     }];
     let grant_id = ulid::Ulid::new();

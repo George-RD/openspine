@@ -175,7 +175,9 @@ async fn full_export_restore_e2e_regression_under_newer_base() {
                     digest: digest_of_bytes(b"exchange-live"),
                     schema_version: 1,
                 },
-                source_scope: counterparty_live,
+                source_scope: crate::store::learned_artifacts::origin_from_producing_scope(
+                    counterparty_live,
+                ),
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
@@ -286,7 +288,9 @@ async fn full_export_restore_e2e_regression_under_newer_base() {
                 digest: digest_of_bytes(b"exchange-incompat"),
                 schema_version: 1,
             },
-            source_scope: counterparty_live,
+            source_scope: crate::store::learned_artifacts::origin_from_producing_scope(
+                counterparty_live,
+            ),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),

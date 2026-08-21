@@ -72,7 +72,7 @@ pub(super) fn learned_row(id: &str, version: u32, digest: &str) -> LearnedArtifa
                 digest: digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
-            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+            source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -274,7 +274,7 @@ fn persona_with_dangling_source_event_is_excluded_even_with_exchange_blob() {
             provenance: Provenance::ProducedBy {
                 source_event_id: Ulid::new(),
                 source_exchange: exchange_ref,
-                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+                source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
@@ -438,7 +438,7 @@ fn prune_non_highest_active_preserves_persona_typed_and_source_entries() {
                     digest: digest_of_bytes(b"exchange"),
                     schema_version: 1,
                 },
-                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+                source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
@@ -539,7 +539,9 @@ fn persona_admission_excludes_erased_and_uses_recorded_source_scope() {
         provenance: Provenance::ProducedBy {
             source_event_id: bootstrap_event.id,
             source_exchange: exchange_ref,
-            source_scope: custom_scope,
+            source_scope: crate::store::learned_artifacts::origin_from_producing_scope(
+                custom_scope,
+            ),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),

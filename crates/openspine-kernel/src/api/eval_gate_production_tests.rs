@@ -216,7 +216,7 @@ async fn activation_path_refuses_a_stale_verdict() {
             provenance: Provenance::ProducedBy {
                 source_event_id: ulid::Ulid::new(),
                 source_exchange: env.state.artifacts.put(b"eval-currency-probe").unwrap(),
-                source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+                source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
             },
             accepted_via: None,
             learned_at: Timestamp::now(),
