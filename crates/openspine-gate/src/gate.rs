@@ -339,6 +339,14 @@ fn validate_selection_token(
         return Some(DenialReason::SelectionTokenInvalid);
     }
 
+    // #258: the token's principal MUST match the grant's. In single-owner v1
+    // the kernel mints both from the one owner principal, so this never fires
+    // in production; it pins the single-owner guarantee against a
+    // cross-principal token once mint spans principals (tenancy track #134).
+    if token.user != grant.user {
+        return Some(DenialReason::SelectionTokenInvalid);
+    }
+
     None
 }
 
