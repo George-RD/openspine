@@ -6,9 +6,10 @@
 //! classes they permit, and the gate denies an action whose rated class is
 //! not covered by the grant.
 //!
-//! This is a closed enum for phases 0–3: the three classes AD-060 names.
-//! Adding a class is a deliberate, reviewed change (new variant + catalog
-//! + registry rating), not a dynamic string.
+//! This enum grows only by deliberate, reviewed change (a new variant plus its
+//! catalog and registry rating), never a dynamic string. It started as the
+//! three web classes AD-060 names (`Search`/`ForumBrowse`/`WebFormPost`) and
+//! gained `DirectMessage` for messaging-style external sends (spec #204).
 
 use serde::{Deserialize, Serialize};
 
@@ -21,12 +22,17 @@ use serde::{Deserialize, Serialize};
 /// `WebFormPost` — submitting data to an external web form or API endpoint
 /// that accepts user-supplied content (side-effecting, potentially
 /// irreversible).
+/// `DirectMessage` — a messaging-style send of composed kernel content to one
+/// verified recipient over a bound channel (email, Telegram, future WhatsApp);
+/// they share the same risk shape — content addressed to a single recipient
+/// via a selection token.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EgressClass {
     Search,
     ForumBrowse,
     WebFormPost,
+    DirectMessage,
 }
 
 impl EgressClass {
@@ -36,6 +42,7 @@ impl EgressClass {
             EgressClass::Search => "search",
             EgressClass::ForumBrowse => "forum-browse",
             EgressClass::WebFormPost => "web-form-post",
+            EgressClass::DirectMessage => "direct-message",
         }
     }
 }
@@ -50,6 +57,7 @@ mod tests {
             EgressClass::Search,
             EgressClass::ForumBrowse,
             EgressClass::WebFormPost,
+            EgressClass::DirectMessage,
         ] {
             let json = serde_json::to_string(&class).unwrap();
             let back: EgressClass = serde_json::from_str(&json).unwrap();
@@ -66,6 +74,10 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&EgressClass::WebFormPost).unwrap(),
             "\"web-form-post\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EgressClass::DirectMessage).unwrap(),
+            "\"direct-message\""
         );
     }
 }
