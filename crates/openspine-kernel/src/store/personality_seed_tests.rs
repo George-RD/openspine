@@ -113,10 +113,13 @@ fn seed_if_missing_loads_overlay_artifacts_with_real_traceable_provenance() {
             } => {
                 assert_eq!(source_event_id.to_string(), bootstrap_event_id);
                 assert!(!source_exchange.digest.to_string().is_empty());
-                assert_eq!(*source_scope, SYSTEM_SCOPE);
+                assert_eq!(
+                    *source_scope,
+                    openspine_schemas::provenance::ProvenanceOrigin::system()
+                );
                 assert_eq!(
                     artifacts
-                        .get_scoped(*source_scope, source_exchange)
+                        .get_scoped(source_scope.producing_scope(), source_exchange)
                         .unwrap(),
                     b"openspine personality seed bootstrap: kernel-authored exchange \
 establishing ProducedBy provenance for the pre-populated Donna x Leo persona \
@@ -320,7 +323,7 @@ fn dangling_seed_row_is_quarantined_and_reseeded() {
         provenance: Provenance::ProducedBy {
             source_event_id: Ulid::new(),
             source_exchange: exchange_ref,
-            source_scope: SYSTEM_SCOPE,
+            source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -403,7 +406,9 @@ fn erased_seed_identity_is_not_quarantined_or_reseeded() {
         provenance: Provenance::ProducedBy {
             source_event_id: Ulid::new(),
             source_exchange,
-            source_scope,
+            source_scope: crate::store::learned_artifacts::origin_from_producing_scope(
+                source_scope,
+            ),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),

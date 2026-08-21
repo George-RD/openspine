@@ -7,8 +7,8 @@ use serde_json::Value;
 
 use super::{
     canonical_json, digest_of, Briefcase, BriefcaseError, BriefcaseSection, BriefcaseView,
-    SectionKind, SourceSlice, TopUpDecision, TopUpOutcome, TopUpPolicy, TopUpRequest,
-    VisibilityClass, WorkerVisibility,
+    CounterpartyRef, IdentityRef, ProvenanceOrigin, SectionKind, SourceSlice, TopUpDecision,
+    TopUpOutcome, TopUpPolicy, TopUpRequest, VisibilityClass, WorkerVisibility,
 };
 
 impl Briefcase {
@@ -171,12 +171,29 @@ impl Briefcase {
         if is_new_key && content_count >= ceiling as usize {
             return Err(BriefcaseError::TopUpDepthExceeded);
         }
+        // Mirror `pack`'s per-kind origin: a counterparty-slice top-up carries
+        // the task's counterparty identity (or `None` when unresolved); every
+        // other kind is kernel-produced (system). Deriving from the pack's own
+        // `task_shape` keeps mint-time and consume-time origins identical, so a
+        // legitimately topped-up section still binds.
+        let origin = match decision.request.kind {
+            SectionKind::CounterpartySlice => match &self.task_shape.counterparty {
+                CounterpartyRef::Bound { identity_id, .. } => {
+                    Some(ProvenanceOrigin::Counterparty {
+                        identity: IdentityRef::from(*identity_id),
+                    })
+                }
+                CounterpartyRef::Unresolved { .. } => None,
+            },
+            _ => Some(ProvenanceOrigin::system()),
+        };
         let new_section = BriefcaseSection {
             key: key.clone(),
             kind: decision.request.kind,
             visibility: VisibilityClass::WorkerScratch,
             depth: decision.request.requested_depth,
             disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Sensitive),
+            origin,
             payload: section_source.payload,
         };
         if let Some(existing) = self.sections.iter_mut().find(|s| s.key == key) {

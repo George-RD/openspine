@@ -51,6 +51,8 @@ use ulid::Ulid;
 use crate::digest::{canonical_json, digest_of, Digest};
 use crate::identity::RelationshipKind;
 use crate::ids::ArtifactId;
+use crate::ids::IdentityRef;
+use crate::provenance::ProvenanceOrigin;
 
 /// Relationship tier (AD-031's first depth axis): a coarsening of
 /// [`RelationshipKind`] onto the ordered scale the depth function and the
@@ -270,6 +272,14 @@ pub struct BriefcaseSection {
     /// `None` is legacy/unknown and must fail closed for rated egress.
     #[serde(default)]
     pub disclosure_class: Option<crate::disclosure_policy::DisclosureClass>,
+    /// The kernel-derived typed-identity origin this section's data was
+    /// produced under (spec #220 / D-174), carried alongside its
+    /// `disclosure_class` so a later egress check can tell one counterparty's
+    /// datum from another's. `None` is an unresolved/legacy origin and, like an
+    /// absent `disclosure_class`, must fail closed for rated egress. Set only
+    /// by the kernel packer; never worker-writable (AD-032).
+    #[serde(default)]
+    pub origin: Option<ProvenanceOrigin>,
     pub payload: Value,
 }
 
@@ -327,6 +337,7 @@ pub fn pack(
         visibility: VisibilityClass::KernelBound,
         depth: depth_val,
         disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
+        origin: Some(ProvenanceOrigin::system()),
         payload: sources.grant_view.clone(),
     }];
     let mut eligible: Vec<(SectionKind, &SourceSlice)> = sources
@@ -348,15 +359,28 @@ pub fn pack(
             visibility: VisibilityClass::WorkerScratch,
             depth: depth_val,
             disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Private),
+            origin: Some(ProvenanceOrigin::system()),
             payload: source.payload.clone(),
         });
     }
+    // The counterparty slice is the one section produced under a counterparty
+    // identity, not the kernel/system: a bound counterparty carries its typed
+    // `IdentityRef` origin; an unresolved counterparty has no identity-store
+    // binding, so it yields `None` — an unresolved origin the egress ticket
+    // (#225–#227) treats as most-restrictive (fail closed).
+    let counterparty_origin = match &shape.counterparty {
+        CounterpartyRef::Bound { identity_id, .. } => Some(ProvenanceOrigin::Counterparty {
+            identity: IdentityRef::from(*identity_id),
+        }),
+        CounterpartyRef::Unresolved { .. } => None,
+    };
     sections.push(BriefcaseSection {
         key: "counterparty_slice".to_string(),
         kind: SectionKind::CounterpartySlice,
         visibility: VisibilityClass::WorkerScratch,
         depth: depth_val,
         disclosure_class: Some(crate::disclosure_policy::DisclosureClass::Internal),
+        origin: counterparty_origin,
         payload: sources.counterparty_slice.clone(),
     });
     sections.sort_by(|a, b| a.key.cmp(&b.key));

@@ -17,6 +17,7 @@ async fn nested_json_sensitive_term_extraction_redacts_all_strings() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
+        origin: None,
         payload: json!({"profile": {"condition": "nested condition X"}, "aliases": ["condition X"]}),
     }];
     let reference = prepare_disclosure_query(
@@ -50,6 +51,7 @@ fn caller_omitted_class_is_still_enforced() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Internal),
+            origin: None,
             payload: json!("internal summary"),
         },
         BriefcaseSection {
@@ -58,6 +60,7 @@ fn caller_omitted_class_is_still_enforced() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Sensitive),
+            origin: None,
             payload: json!("condition X"),
         },
     ];
@@ -114,6 +117,7 @@ fn unclassified_worker_visible_section_fails_closed() {
         visibility: VisibilityClass::WorkerScratch,
         depth: 0,
         disclosure_class: None,
+        origin: None,
         payload: json!("legacy content"),
     }];
     assert!(matches!(
@@ -126,6 +130,7 @@ fn unclassified_worker_visible_section_fails_closed() {
         visibility: VisibilityClass::KernelBound,
         depth: 0,
         disclosure_class: Some(DisclosureClass::Private),
+        origin: None,
         payload: json!("kernel-only"),
     }];
     // KernelBound never reaches a worker: excluded from query provenance, so
@@ -163,6 +168,7 @@ async fn blocked_disclosure_releases_reserved_envelope_budget() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Internal),
+            origin: None,
             payload: json!("internal summary"),
         },
         BriefcaseSection {
@@ -171,6 +177,7 @@ async fn blocked_disclosure_releases_reserved_envelope_budget() {
             visibility: VisibilityClass::WorkerScratch,
             depth: 0,
             disclosure_class: Some(DisclosureClass::Sensitive),
+            origin: None,
             payload: json!("condition X"),
         },
     ];

@@ -5,6 +5,9 @@ use jiff::Timestamp;
 use openspine_schemas::action::ReviewedScopeDimension;
 use openspine_schemas::artifact::{ArtifactNamespace, ArtifactRef};
 use openspine_schemas::digest::digest_of_bytes;
+#[cfg(test)]
+use openspine_schemas::ids::IdentityRef;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use openspine_schemas::reviewed_scope::ReviewedScopeValue;
 use openspine_schemas::standing_rule::StandingRuleManifest;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
@@ -46,20 +49,66 @@ pub enum Provenance {
     ProducedBy {
         source_event_id: Ulid,
         source_exchange: ArtifactRef,
-        /// The counterparty scope `source_exchange` was stored under at
-        /// production time (AD-140). Required, not inferred from the blob
-        /// store at erasure time: two counterparties can store identical
-        /// plaintext, which content-addresses to the SAME `source_exchange`
-        /// digest, so a path-existence or blob-header check alone cannot
-        /// tell which counterparty actually produced THIS artifact. Recording
-        /// the producing scope in the provenance edge itself is what makes
-        /// crypto-erase invalidation exact rather than a byproduct of
-        /// digest collisions.
-        source_scope: Ulid,
+        /// The typed-identity origin `source_exchange` was produced under at
+        /// production time (AD-140 / D-174). Generalized from a bare
+        /// counterparty-scope `Ulid` to a closed [`ProvenanceOrigin`] so the
+        /// lineage records *whose* data this is — a counterparty identity, the
+        /// owner, or the system — not just an opaque scope id. Required, not
+        /// inferred from the blob store at erasure time: two counterparties
+        /// can store identical plaintext, which content-addresses to the SAME
+        /// `source_exchange` digest, so a path-existence or blob-header check
+        /// alone cannot tell which counterparty actually produced THIS
+        /// artifact. Recording the producing origin in the provenance edge
+        /// itself is what makes crypto-erase invalidation exact rather than a
+        /// byproduct of digest collisions. Immutable and append-only: a later
+        /// authorization or reconfirmation never rewrites it (see
+        /// [`establish_or_preserve_origin`]).
+        source_scope: ProvenanceOrigin,
     },
     LegacyMigration {
         discovered_at: Timestamp,
     },
+}
+
+/// Map a producing-scope `Ulid` to a typed [`ProvenanceOrigin`] for the
+/// learned-artifact lineage (AD-140). The reserved [`SYSTEM_SCOPE`]
+/// (`Ulid::nil()`) is the system origin; every other scope is a counterparty
+/// identity. Learned artifacts are only ever produced under the system scope
+/// or a counterparty scope — never directly under an owner principal — so this
+/// bridge never mints an `Owner` origin; owner-origin labels enter through the
+/// briefcase pack path, not here.
+#[cfg(test)]
+pub(crate) fn origin_from_producing_scope(scope: Ulid) -> ProvenanceOrigin {
+    if scope == SYSTEM_SCOPE {
+        ProvenanceOrigin::system()
+    } else {
+        ProvenanceOrigin::Counterparty {
+            identity: IdentityRef::from(scope),
+        }
+    }
+}
+
+/// The append-only origin rule for reconfirmation (AD-070 / D-174): an origin,
+/// once minted, is never rewritten by a later authorization or reconfirmation
+/// event. A `LegacyMigration` row was only a quarantine placeholder and has no
+/// origin, so the owner's tap *establishes* a fresh `ProducedBy` link (this
+/// grant's event id + the reviewed bytes' digest, under the system origin)
+/// before any visibility. An already-`ProducedBy` row *preserves* its recorded
+/// origin untouched — the caller's fresh event/exchange are ignored, so no
+/// reconfirmation can relabel a datum's producing identity.
+pub(crate) fn establish_or_preserve_origin(
+    existing: &Provenance,
+    fresh_event_id: Ulid,
+    fresh_exchange: ArtifactRef,
+) -> Provenance {
+    match existing {
+        Provenance::LegacyMigration { .. } => Provenance::ProducedBy {
+            source_event_id: fresh_event_id,
+            source_exchange: fresh_exchange,
+            source_scope: ProvenanceOrigin::system(),
+        },
+        other => other.clone(),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,54 +216,55 @@ pub(super) fn ensure_schema(conn: &Connection) -> Result<(), StoreError> {
            erased_at TEXT NOT NULL
          );",
     )?;
-    // Pre-typed legacy tables lack `provenance` until
-    // `migrate_provenance_column` rebuilds them. Installing the trigger
-    // earlier fails because the WHEN clause references NEW.provenance.
-    if table_has_column(conn, "learned_artifacts", "provenance")? {
-        ensure_closure_triggers(conn)?;
-    }
+    // Triggers are installed by `migrate_provenance_column`, never here: they
+    // must be (re)created only AFTER the row-shape migration has rewritten
+    // legacy `source_scope` values to the typed `ProvenanceOrigin` wire form.
+    // Installing the current-shape trigger before that rewrite would ABORT the
+    // migration of any row whose (now-typed) counterparty identity is already
+    // erased. `ensure_schema` runs immediately before
+    // `migrate_provenance_column` in the open sequence, so the triggers are
+    // always present after open.
     Ok(())
-}
-
-fn table_has_column(conn: &Connection, table: &str, column: &str) -> Result<bool, StoreError> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM pragma_table_info(?1) WHERE name = ?2",
-        params![table, column],
-        |row| row.get(0),
-    )?;
-    Ok(count > 0)
 }
 
 fn ensure_closure_triggers(conn: &Connection) -> Result<(), StoreError> {
     // The database marker is the durable closure boundary. Triggers enforce
     // it for every insertion path, including activation's upsert, without a
-    // check-then-insert race. SYSTEM_SCOPE remains valid for
-    // internal/unattributable and migrated legacy provenance.
-    conn.execute_batch(&format!(
-        "CREATE TRIGGER IF NOT EXISTS reject_closed_scope_learned_artifact_insert
+    // check-then-insert race. Only a `counterparty` origin is erasable: the
+    // system and owner origins (and `LegacyMigration` rows, which have no
+    // `produced_by`) never carry a `$.produced_by.source_scope.identity`, so
+    // they can never match an erased counterparty and remain always valid.
+    // DROP-then-CREATE, never `CREATE ... IF NOT EXISTS`: an upgraded database
+    // still carries the pre-D-174 trigger text, which reads the now-typed
+    // `$.produced_by.source_scope` as an object and can never match an erased
+    // counterparty — silently disabling AD-140 closure. Replacing the trigger
+    // text unconditionally is what keeps enforcement live across the upgrade.
+    conn.execute_batch(
+        "DROP TRIGGER IF EXISTS reject_closed_scope_learned_artifact_insert;
+         DROP TRIGGER IF EXISTS reject_closed_scope_learned_artifact_provenance_update;
+         CREATE TRIGGER reject_closed_scope_learned_artifact_insert
            BEFORE INSERT ON learned_artifacts
-           WHEN json_extract(NEW.provenance, '$.produced_by.source_scope') != '{system_scope}'
+           WHEN json_extract(NEW.provenance, '$.produced_by.source_scope.kind') = 'counterparty'
             AND EXISTS (
               SELECT 1 FROM erased_counterparties
                WHERE counterparty_id =
-                     json_extract(NEW.provenance, '$.produced_by.source_scope')
+                     json_extract(NEW.provenance, '$.produced_by.source_scope.identity')
             )
            BEGIN
              SELECT RAISE(ABORT, 'learned artifact source scope is erased');
            END;
-         CREATE TRIGGER IF NOT EXISTS reject_closed_scope_learned_artifact_provenance_update
+         CREATE TRIGGER reject_closed_scope_learned_artifact_provenance_update
            BEFORE UPDATE OF provenance ON learned_artifacts
-           WHEN json_extract(NEW.provenance, '$.produced_by.source_scope') != '{system_scope}'
+           WHEN json_extract(NEW.provenance, '$.produced_by.source_scope.kind') = 'counterparty'
             AND EXISTS (
               SELECT 1 FROM erased_counterparties
                WHERE counterparty_id =
-                     json_extract(NEW.provenance, '$.produced_by.source_scope')
+                     json_extract(NEW.provenance, '$.produced_by.source_scope.identity')
             )
            BEGIN
              SELECT RAISE(ABORT, 'learned artifact source scope is erased');
            END;",
-        system_scope = SYSTEM_SCOPE
-    ))?;
+    )?;
     Ok(())
 }
 
@@ -231,19 +281,45 @@ pub(super) fn migrate_provenance_column(conn: &Connection) -> Result<(), StoreEr
         .map(|count| count > 0)
         .unwrap_or(false);
     if has_provenance {
-        // Current-main databases already have typed provenance JSON, but
-        // ProducedBy rows created before AD-140 lack source_scope. Upgrade
-        // only that missing member; valid scopes and LegacyMigration rows are
-        // untouched. A single UPDATE statement is atomic and idempotent.
+        // Current-main databases already have typed provenance JSON. Two
+        // shapes need upgrading to the typed `ProvenanceOrigin` wire form
+        // (D-174), both atomic and idempotent:
+        //   (1) pre-AD-140 `ProducedBy` rows that lack `source_scope` entirely
+        //       — backfilled to the system origin;
+        //   (2) post-AD-140 rows whose `source_scope` is still a bare `Ulid`
+        //       string — rewrapped as `{"kind":"system"}` for the reserved
+        //       SYSTEM_SCOPE, else `{"kind":"counterparty","identity":<ulid>}`.
+        // `json_object(...)` carries the JSON subtype, so `json_set` nests it
+        // as an object rather than quoting it as text; the `= 'text'` filter
+        // makes (2) a no-op once already migrated. LegacyMigration rows have no
+        // `produced_by` and are untouched. The row-shape rewrite runs BEFORE
+        // `ensure_closure_triggers` reinstalls the current-shape triggers, so a
+        // row whose (now-typed) identity is already erased is not aborted mid
+        // migration by its own new trigger.
         conn.execute(
             "UPDATE learned_artifacts
                 SET provenance = json_set(
-                    provenance, '$.produced_by.source_scope', ?1
+                    provenance, '$.produced_by.source_scope', json_object('kind', 'system')
                 )
               WHERE json_type(provenance, '$.produced_by') = 'object'
                 AND json_type(
                     provenance, '$.produced_by.source_scope'
                 ) IS NULL",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE learned_artifacts
+                SET provenance = json_set(
+                    provenance, '$.produced_by.source_scope',
+                    CASE WHEN json_extract(provenance, '$.produced_by.source_scope') = ?1
+                         THEN json_object('kind', 'system')
+                         ELSE json_object(
+                             'kind', 'counterparty',
+                             'identity', json_extract(provenance, '$.produced_by.source_scope')
+                         )
+                    END
+                )
+              WHERE json_type(provenance, '$.produced_by.source_scope') = 'text'",
             params![SYSTEM_SCOPE.to_string()],
         )?;
         ensure_closure_triggers(conn)?;
@@ -251,11 +327,10 @@ pub(super) fn migrate_provenance_column(conn: &Connection) -> Result<(), StoreEr
     }
     let tx = conn.unchecked_transaction()?;
     // Pre-typed-provenance rows predate per-counterparty scoping (AD-140)
-    // entirely, so they belong to the reserved SYSTEM_SCOPE -- interpolated
-    // (not a bind parameter: `execute_batch` runs a script, not one
-    // parameterized statement) as a fixed constant, never user input.
-    let sql = format!(
-        "ALTER TABLE learned_artifacts RENAME TO learned_artifacts_old;
+    // entirely, so they belong to the reserved SYSTEM_SCOPE, recorded as the
+    // typed system origin `{"kind":"system"}` (D-174) via a nested
+    // `json_object` that carries the JSON subtype so it nests as an object.
+    let sql = "ALTER TABLE learned_artifacts RENAME TO learned_artifacts_old;
          CREATE TABLE learned_artifacts (
            kind TEXT NOT NULL, artifact_id TEXT NOT NULL, version INTEGER NOT NULL,
            namespace TEXT NOT NULL DEFAULT 'overlay', provenance TEXT NOT NULL,
@@ -273,14 +348,12 @@ pub(super) fn migrate_provenance_column(conn: &Connection) -> Result<(), StoreEr
              'source_event_id', source_event_id,
              'source_exchange', json_object('digest', source_exchange_digest,
                                              'schema_version', source_exchange_schema_version),
-             'source_scope', '{system_scope}')),
+             'source_scope', json_object('kind', 'system'))),
            NULL, learned_at, compatibility, nomination, pending_reconfirmation_id, pending_yaml_digest,
            NULL
          FROM learned_artifacts_old;
-         DROP TABLE learned_artifacts_old;",
-        system_scope = SYSTEM_SCOPE
-    );
-    tx.execute_batch(&sql)?;
+         DROP TABLE learned_artifacts_old;";
+    tx.execute_batch(sql)?;
     // Renaming the old table retargets its triggers to
     // `learned_artifacts_old`, and dropping it removes those triggers. Restore
     // them against the replacement table before this rebuild can commit.
@@ -593,7 +666,8 @@ impl Store {
         Ok(())
     }
     /// Crypto-erase invalidation (AD-140): mark every learned artifact whose
-    /// `Provenance::ProducedBy.source_scope` equals `counterparty_id` as
+    /// `Provenance::ProducedBy.source_scope` is a `Counterparty` origin whose
+    /// identity equals `counterparty_id` as
     /// permanently `Erased`, and permanently close that counterparty's
     /// scope (in memory first, then tombstone + physical key deletion via
     /// `ArtifactStore::erase_counterparty_key_locked`). Returns every matching
@@ -642,11 +716,13 @@ impl Store {
     /// audit/chain is guaranteed by the DB marker above, not by
     /// key-existence.
     ///
-    /// Resolution is by `source_scope` (the producing scope recorded in the
-    /// provenance edge), the only reliable match: two counterparties can
-    /// store identical plaintext (same digest), so the digest alone cannot
-    /// attribute the producing scope. LegacyMigration provenance has no
-    /// `source_scope`, so it never matches an erase.
+    /// Resolution is by the counterparty identity recorded in the typed
+    /// `source_scope` origin (`$.produced_by.source_scope.identity`), the only
+    /// reliable match: two counterparties can store identical plaintext (same
+    /// digest), so the digest alone cannot attribute the producing identity.
+    /// System- and owner-origin rows (and `LegacyMigration` provenance, which
+    /// has no `produced_by`) carry no counterparty identity, so they never
+    /// match an erase.
     pub(crate) fn mark_learned_artifacts_erased(
         &self,
         counterparty_id: Ulid,
@@ -674,7 +750,7 @@ impl Store {
                            FROM learned_artifacts
                           WHERE json_extract(
                                     provenance,
-                                    '$.produced_by.source_scope'
+                                    '$.produced_by.source_scope.identity'
                                 ) = ?1
                           ORDER BY kind, artifact_id, version",
                     )?;
@@ -707,7 +783,7 @@ impl Store {
                             FROM learned_artifacts
                            WHERE json_extract(
                                      provenance,
-                                     '$.produced_by.source_scope'
+                                     '$.produced_by.source_scope.identity'
                                  ) = ?1
                              AND pending_reconfirmation_id IS NOT NULL
                         )",
@@ -720,7 +796,7 @@ impl Store {
                             pending_yaml_digest = NULL
                       WHERE json_extract(
                                 provenance,
-                                '$.produced_by.source_scope'
+                                '$.produced_by.source_scope.identity'
                             ) = ?1
                         AND compatibility != 'erased'",
                     params![counterparty_id.to_string()],

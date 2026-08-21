@@ -17,7 +17,7 @@ fn sample() -> LearnedArtifact {
                 digest: digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
-            source_scope: Ulid::new(),
+            source_scope: origin_from_producing_scope(Ulid::new()),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -170,7 +170,7 @@ fn typed_provenance_missing_source_scope_migration_is_idempotent() {
                 digest: exchange_digest.clone(),
                 schema_version: 1,
             },
-            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+            source_scope: ProvenanceOrigin::system(),
         }
     );
 
@@ -187,7 +187,7 @@ fn typed_provenance_missing_source_scope_migration_is_idempotent() {
                 digest: exchange_digest.clone(),
                 schema_version: 1,
             },
-            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+            source_scope: ProvenanceOrigin::system(),
         }
     );
 }
@@ -212,7 +212,7 @@ fn record_post_closure_learned_artifact_is_atomically_rejected() {
             digest: digest_of_bytes(b"post_closure"),
             schema_version: 1,
         },
-        source_scope: counterparty,
+        source_scope: origin_from_producing_scope(counterparty),
     };
 
     let res = store.record_learned_artifact(&new_artifact);
@@ -235,7 +235,7 @@ fn mark_reconfirmation_required_excludes_erased_rows() {
             digest: digest_of_bytes(b"ex"),
             schema_version: 1,
         },
-        source_scope: counterparty,
+        source_scope: origin_from_producing_scope(counterparty),
     };
     store.record_learned_artifact(&artifact).unwrap();
 
@@ -303,7 +303,7 @@ fn table_rebuild_reinstalls_closure_triggers() {
             digest: digest_of_bytes(b"post_rebuild"),
             schema_version: 1,
         },
-        source_scope: counterparty,
+        source_scope: origin_from_producing_scope(counterparty),
     };
     assert!(
         store.record_learned_artifact(&blocked).is_err(),
@@ -369,7 +369,7 @@ fn activation_cannot_replace_erased_identity_with_other_scope() {
             digest: digest_of_bytes(b"activation_erased"),
             schema_version: 1,
         },
-        source_scope: erased_scope,
+        source_scope: origin_from_producing_scope(erased_scope),
     };
     store.record_learned_artifact(&artifact).unwrap();
     store
@@ -404,7 +404,7 @@ fn activation_cannot_replace_erased_identity_with_other_scope() {
             digest: digest_of_bytes(b"activation_other"),
             schema_version: 1,
         },
-        source_scope: other_scope,
+        source_scope: origin_from_producing_scope(other_scope),
     };
 
     let err = store
@@ -449,7 +449,7 @@ fn owner_reconfirmation_cannot_replace_erased_identity_with_other_scope() {
             digest: digest_of_bytes(b"reconfirm_erased"),
             schema_version: 1,
         },
-        source_scope: erased_scope,
+        source_scope: origin_from_producing_scope(erased_scope),
     };
     store.record_learned_artifact(&artifact).unwrap();
     store
@@ -478,7 +478,7 @@ fn owner_reconfirmation_cannot_replace_erased_identity_with_other_scope() {
                     digest: digest_of_bytes(b"reconfirm_other"),
                     schema_version: 1,
                 },
-                source_scope: other_scope,
+                source_scope: origin_from_producing_scope(other_scope),
             },
             accepted_via: None,
             base_epoch: "epoch".into(),
@@ -522,4 +522,212 @@ fn quarantine_leaves_erased_identity_untouched() {
     let retained = store.list_learned_artifacts().unwrap();
     assert_eq!(retained.len(), 1);
     assert_eq!(retained[0].compatibility, CompatibilityStatus::Erased);
+}
+
+/// D-174 append-only origin invariant: an origin, once minted, is never
+/// rewritten by a later authorization/reconfirmation event.
+/// `establish_or_preserve_origin` is the seam the reconfirm handler runs, so
+/// unit-testing it pins the guarantee without the async pipeline.
+#[test]
+fn produced_by_origin_is_append_only_across_reconfirmation() {
+    let minted = Provenance::ProducedBy {
+        source_event_id: Ulid::new(),
+        source_exchange: ArtifactRef {
+            digest: digest_of_bytes(b"minted"),
+            schema_version: 1,
+        },
+        source_scope: origin_from_producing_scope(Ulid::new()),
+    };
+    // A reconfirmation supplies a DIFFERENT event id and exchange digest; the
+    // recorded origin must survive verbatim — the hash-chained, append-only
+    // guarantee that no reconfirmation relabels a datum's producing identity.
+    let preserved = establish_or_preserve_origin(
+        &minted,
+        Ulid::new(),
+        ArtifactRef {
+            digest: digest_of_bytes(b"reconfirm"),
+            schema_version: 1,
+        },
+    );
+    assert_eq!(
+        preserved, minted,
+        "reconfirmation must preserve the minted ProducedBy origin unchanged"
+    );
+
+    // A LegacyMigration placeholder carries no origin: the owner's tap
+    // ESTABLISHES a fresh system-origin ProducedBy (never a counterparty one),
+    // which is an establishment, not a rewrite of a pre-existing origin.
+    let established = establish_or_preserve_origin(
+        &Provenance::LegacyMigration {
+            discovered_at: Timestamp::now(),
+        },
+        Ulid::new(),
+        ArtifactRef {
+            digest: digest_of_bytes(b"established"),
+            schema_version: 1,
+        },
+    );
+    match established {
+        Provenance::ProducedBy { source_scope, .. } => {
+            assert_eq!(source_scope, ProvenanceOrigin::system());
+        }
+        other => panic!("legacy migration must establish a ProducedBy origin, got {other:?}"),
+    }
+}
+
+/// A current-main typed row whose `source_scope` is still a bare `Ulid` string
+/// (pre-D-174) is rewrapped on upgrade into the typed `ProvenanceOrigin` wire
+/// form: the reserved SYSTEM_SCOPE becomes the system origin, every other scope
+/// a counterparty identity. Idempotent across reopens.
+#[test]
+fn typed_bare_ulid_source_scope_migrates_to_tagged_origin() {
+    let dir = std::env::temp_dir().join(format!("overlay_mig_bare_{}", Ulid::new()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("kernel.db");
+    let counterparty = Ulid::new();
+    let exchange_digest = digest_of_bytes(b"bare_scope");
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE learned_artifacts (
+               kind TEXT NOT NULL, artifact_id TEXT NOT NULL, version INTEGER NOT NULL,
+               namespace TEXT NOT NULL DEFAULT 'overlay', provenance TEXT NOT NULL,
+               accepted_via TEXT, learned_at TEXT NOT NULL,
+               compatibility TEXT NOT NULL DEFAULT 'compatible',
+               nomination TEXT NOT NULL DEFAULT 'none', pending_reconfirmation_id TEXT,
+               pending_yaml_digest TEXT, accepted_dependency_fingerprint TEXT,
+               source_path TEXT, accepted_base_epoch TEXT,
+               PRIMARY KEY(kind, artifact_id, version));",
+        )
+        .unwrap();
+        for (aid, scope) in [
+            ("r_sys", crate::counterparty_keys::SYSTEM_SCOPE),
+            ("r_cp", counterparty),
+        ] {
+            let provenance_json = serde_json::json!({
+                "produced_by": {
+                    "source_event_id": Ulid::new().to_string(),
+                    "source_exchange": {
+                        "digest": exchange_digest.to_string(),
+                        "schema_version": 1
+                    },
+                    "source_scope": scope.to_string()
+                }
+            })
+            .to_string();
+            conn.execute(
+                "INSERT INTO learned_artifacts
+                   (kind, artifact_id, version, namespace, provenance, learned_at, compatibility)
+                 VALUES ('route', ?1, 1, 'overlay', ?2, ?3, 'compatible')",
+                rusqlite::params![aid, provenance_json, Timestamp::now().to_string()],
+            )
+            .unwrap();
+        }
+    }
+
+    let assert_origins = |store: &Store| {
+        let rows = store.list_learned_artifacts().unwrap();
+        let sys = rows.iter().find(|r| r.artifact_id == "r_sys").unwrap();
+        let cp = rows.iter().find(|r| r.artifact_id == "r_cp").unwrap();
+        let Provenance::ProducedBy {
+            source_scope: sys_scope,
+            ..
+        } = &sys.provenance
+        else {
+            panic!("r_sys must be ProducedBy");
+        };
+        let Provenance::ProducedBy {
+            source_scope: cp_scope,
+            ..
+        } = &cp.provenance
+        else {
+            panic!("r_cp must be ProducedBy");
+        };
+        assert_eq!(*sys_scope, ProvenanceOrigin::system());
+        assert_eq!(
+            *cp_scope,
+            ProvenanceOrigin::Counterparty {
+                identity: openspine_schemas::ids::IdentityRef::from(counterparty),
+            }
+        );
+    };
+
+    let store = Store::open(&path).unwrap();
+    assert_origins(&store);
+    // Reopening is idempotent: the `= 'text'` filter makes the rewrite a no-op.
+    drop(store);
+    let store = Store::open(&path).unwrap();
+    assert_origins(&store);
+}
+
+/// The advisory hole this guards: `CREATE TRIGGER IF NOT EXISTS` would leave an
+/// upgraded database carrying the pre-D-174 trigger text, which reads the now
+/// typed `source_scope` as an object and can never match an erased counterparty
+/// — silently disabling AD-140 closure. Opening a DB seeded with the OLD
+/// trigger must REPLACE it, so an insert under an already-erased counterparty
+/// still aborts.
+#[test]
+fn upgrade_replaces_stale_closure_triggers_and_keeps_erasure_enforced() {
+    let dir = std::env::temp_dir().join(format!("overlay_mig_stale_trig_{}", Ulid::new()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("kernel.db");
+    let counterparty = Ulid::new();
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE learned_artifacts (
+               kind TEXT NOT NULL, artifact_id TEXT NOT NULL, version INTEGER NOT NULL,
+               namespace TEXT NOT NULL DEFAULT 'overlay', provenance TEXT NOT NULL,
+               accepted_via TEXT, learned_at TEXT NOT NULL,
+               compatibility TEXT NOT NULL DEFAULT 'compatible',
+               nomination TEXT NOT NULL DEFAULT 'none', pending_reconfirmation_id TEXT,
+               pending_yaml_digest TEXT, accepted_dependency_fingerprint TEXT,
+               source_path TEXT, accepted_base_epoch TEXT,
+               PRIMARY KEY(kind, artifact_id, version));
+             CREATE TABLE erased_counterparties (
+               counterparty_id TEXT PRIMARY KEY, erased_at TEXT NOT NULL);",
+        )
+        .unwrap();
+        // Install the OLD (pre-D-174) trigger text verbatim, keyed on the bare
+        // scalar `source_scope`. Against the typed object wire form this can
+        // never match, so if the upgrade failed to replace it, enforcement
+        // would silently no-op.
+        conn.execute_batch(&format!(
+            "CREATE TRIGGER reject_closed_scope_learned_artifact_insert
+               BEFORE INSERT ON learned_artifacts
+               WHEN json_extract(NEW.provenance, '$.produced_by.source_scope') != '{sys}'
+                AND EXISTS (
+                  SELECT 1 FROM erased_counterparties
+                   WHERE counterparty_id =
+                         json_extract(NEW.provenance, '$.produced_by.source_scope')
+                )
+               BEGIN
+                 SELECT RAISE(ABORT, 'stale trigger');
+               END;",
+            sys = crate::counterparty_keys::SYSTEM_SCOPE
+        ))
+        .unwrap();
+        conn.execute(
+            "INSERT INTO erased_counterparties (counterparty_id, erased_at) VALUES (?1, ?2)",
+            rusqlite::params![counterparty.to_string(), Timestamp::now().to_string()],
+        )
+        .unwrap();
+    }
+
+    // Opening runs migrate_provenance_column, which DROP-then-CREATEs the
+    // current-shape triggers, replacing the stale one.
+    let store = Store::open(&path).unwrap();
+    let mut blocked = sample();
+    blocked.provenance = Provenance::ProducedBy {
+        source_event_id: Ulid::new(),
+        source_exchange: ArtifactRef {
+            digest: digest_of_bytes(b"post_upgrade"),
+            schema_version: 1,
+        },
+        source_scope: origin_from_producing_scope(counterparty),
+    };
+    assert!(
+        store.record_learned_artifact(&blocked).is_err(),
+        "upgraded closure trigger must still reject an insert under an erased counterparty"
+    );
 }

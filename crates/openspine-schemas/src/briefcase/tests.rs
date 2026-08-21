@@ -252,6 +252,7 @@ fn worker_default_visibility_excludes_returned_output_and_kernel_bound() {
         visibility: VisibilityClass::ReturnedOutput,
         depth: 1,
         disclosure_class: Some(DisclosureClass::Public),
+        origin: None,
         payload: json!({"outcome": "done"}),
     });
     let visibility = WorkerVisibility::worker_default(Ulid::new());

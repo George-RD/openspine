@@ -29,7 +29,7 @@ fn learned_route() -> LearnedArtifact {
                 digest: digest_of_bytes(b"exchange"),
                 schema_version: 1,
             },
-            source_scope: crate::counterparty_keys::SYSTEM_SCOPE,
+            source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),

@@ -43,7 +43,6 @@ use ulid::Ulid;
 
 use crate::artifact_loader;
 use crate::artifact_store::ArtifactStore;
-use crate::counterparty_keys::SYSTEM_SCOPE;
 use crate::store::learned_artifacts::{
     CompatibilityStatus, LearnedArtifact, NominationStatus, Provenance,
 };
@@ -190,7 +189,7 @@ fn stage_persona(
         provenance: Provenance::ProducedBy {
             source_event_id,
             source_exchange: exchange_ref.clone(),
-            source_scope: SYSTEM_SCOPE,
+            source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
         },
         accepted_via: None,
         learned_at: Timestamp::now(),
@@ -239,7 +238,9 @@ fn valid_seed_provenance(
         .payload_refs
         .iter()
         .any(|reference| reference == source_exchange)
-        && artifacts.get_scoped(*source_scope, source_exchange).is_ok())
+        && artifacts
+            .get_scoped(source_scope.producing_scope(), source_exchange)
+            .is_ok())
 }
 
 /// Idempotently seed the Donna×Leo personality elements into the overlay.

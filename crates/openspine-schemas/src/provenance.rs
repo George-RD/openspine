@@ -27,6 +27,7 @@
 //! here.
 
 use serde::{Deserialize, Serialize};
+use ulid::Ulid;
 
 use crate::ids::{IdentityRef, PrincipalId};
 
@@ -51,6 +52,27 @@ pub enum ProvenanceOrigin {
     /// injected keys (fail-open), so `System {}` keeps the whole enum
     /// fail-closed against authority-shaped injection.
     System {},
+}
+
+impl ProvenanceOrigin {
+    /// The kernel/system origin (no principal, no counterparty). The reserved,
+    /// non-erasable producing scope in the AD-140 learned-artifact lineage.
+    pub const fn system() -> Self {
+        ProvenanceOrigin::System {}
+    }
+
+    /// The scalar producing scope this origin maps to for AD-140 lineage: the
+    /// inner `Ulid` of a counterparty/owner identity, or `Ulid::nil()` — the
+    /// reserved system scope (`SYSTEM_SCOPE`) — for the system origin. Kernel
+    /// code uses this where a scope value is needed for a scoped blob fetch or
+    /// a comparison, keeping the typed origin the single source of truth.
+    pub fn producing_scope(&self) -> Ulid {
+        match self {
+            ProvenanceOrigin::Owner { principal } => principal.as_ulid(),
+            ProvenanceOrigin::Counterparty { identity } => identity.as_ulid(),
+            ProvenanceOrigin::System {} => Ulid::nil(),
+        }
+    }
 }
 
 #[cfg(test)]

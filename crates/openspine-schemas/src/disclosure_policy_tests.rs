@@ -1,6 +1,13 @@
 use super::*;
 use crate::digest::Digest;
 fn item(class: DisclosureClass) -> ClassifiedBriefcaseItem {
+    item_with_origin(class, None)
+}
+
+fn item_with_origin(
+    class: DisclosureClass,
+    origin: Option<ProvenanceOrigin>,
+) -> ClassifiedBriefcaseItem {
     ClassifiedBriefcaseItem {
         item_ref: ArtifactRef {
             digest: Digest::parse(
@@ -10,6 +17,7 @@ fn item(class: DisclosureClass) -> ClassifiedBriefcaseItem {
             schema_version: 1,
         },
         disclosure_class: class,
+        origin,
     }
 }
 
@@ -180,6 +188,41 @@ fn binding_matches_rejects_a_different_provenance_set() {
     let prepared = prepared_query(grant_id, minted_provenance);
     let other_provenance = DisclosureProvenance {
         items: vec![item(DisclosureClass::Sensitive)],
+    };
+    assert!(!prepared.binding_matches(
+        &ActionId::new("web.search"),
+        RelationshipKind::Client,
+        EgressClass::Search,
+        grant_id,
+        &other_provenance,
+    ));
+}
+
+/// The typed-identity origin is part of the minted binding (D-174): two
+/// provenance sets identical in sensitivity but differing only in origin must
+/// NOT bind. This mirrors `binding_matches_rejects_a_different_provenance_set`
+/// and confirms `origin` participates in the derived-`PartialEq` equality the
+/// consume-side re-derivation is checked against — a token minted against one
+/// producing identity can never be replayed against another.
+#[test]
+fn binding_matches_rejects_a_different_origin() {
+    let grant_id = Ulid::new();
+    let minted_provenance = DisclosureProvenance {
+        items: vec![item_with_origin(
+            DisclosureClass::Private,
+            Some(ProvenanceOrigin::Counterparty {
+                identity: crate::ids::IdentityRef::from(Ulid::new()),
+            }),
+        )],
+    };
+    let prepared = prepared_query(grant_id, minted_provenance);
+    let other_provenance = DisclosureProvenance {
+        items: vec![item_with_origin(
+            DisclosureClass::Private,
+            Some(ProvenanceOrigin::Counterparty {
+                identity: crate::ids::IdentityRef::from(Ulid::new()),
+            }),
+        )],
     };
     assert!(!prepared.binding_matches(
         &ActionId::new("web.search"),

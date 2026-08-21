@@ -22,7 +22,9 @@ fn learned_row(
         provenance: crate::store::learned_artifacts::Provenance::ProducedBy {
             source_event_id: Ulid::new(),
             source_exchange: source_exchange.clone(),
-            source_scope,
+            source_scope: crate::store::learned_artifacts::origin_from_producing_scope(
+                source_scope,
+            ),
         },
         accepted_via: None,
         learned_at: jiff::Timestamp::now(),

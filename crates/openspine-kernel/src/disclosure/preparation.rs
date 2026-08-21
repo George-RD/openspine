@@ -64,6 +64,11 @@ pub(crate) fn provenance_from_sections(
                 schema_version: 1,
             },
             disclosure_class,
+            // Carry the kernel-derived origin verbatim from the section. Egress
+            // coverage still keys only on `disclosure_class`; the origin rides
+            // alongside for the origin-vs-recipient closure landing in a later
+            // egress ticket (#225–#227) and is part of the minted binding.
+            origin: section.origin.clone(),
         });
     }
     Ok(DisclosureProvenance { items })
