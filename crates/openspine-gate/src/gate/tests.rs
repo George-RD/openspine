@@ -114,7 +114,7 @@ pub(crate) fn approval_for(
         id: Ulid::new(),
         schema_version: 1,
         action_request_id: req.id,
-        approved_by: "owner".to_string(),
+        approved_by: openspine_schemas::ids::PrincipalId::from(Ulid::new()),
         approved_at: now,
         approved_payload_digest: req.payload_ref.as_ref().unwrap().digest.clone(),
         approved_target_digest: req.target_digest.clone().unwrap(),

@@ -61,7 +61,7 @@ fn sample_approval(action_request_id: Ulid) -> ApprovalRecord {
         id: Ulid::new(),
         schema_version: 1,
         action_request_id,
-        approved_by: "owner".to_string(),
+        approved_by: openspine_schemas::ids::PrincipalId::from(Ulid::new()),
         approved_at: now,
         approved_payload_digest: Digest::parse(format!("sha256:{}", "a".repeat(64))).unwrap(),
         approved_target_digest: Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap(),

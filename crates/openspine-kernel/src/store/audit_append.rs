@@ -9,6 +9,7 @@ use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
 use openspine_schemas::audit::{default_aggregate_id, AuditEvent, AuditKind};
 use openspine_schemas::digest::{canonical_json, digest_from_hash, Digest};
+use openspine_schemas::ids::PrincipalId;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use sha2::{Digest as _, Sha256};
 use ulid::Ulid;
@@ -95,6 +96,43 @@ impl Store {
         Ok(event)
     }
 
+    /// Append one audit row carrying an optional typed `actor` (spec #197,
+    /// D-003): the principal that authored the event. Used by owner-authored
+    /// paths (approval, review, escalation); all other callers use
+    /// [`Self::append_audit`] / [`Self::append_audit_with_payload_json`],
+    /// which record `actor = None`. The actor is folded into the hashed
+    /// pre-image, so it cannot be silently rewritten.
+    #[allow(clippy::too_many_arguments)]
+    pub fn append_audit_with_actor(
+        &self,
+        kind: &str,
+        action: Option<&ActionId>,
+        decision: Option<&GateDecision>,
+        reason: Option<&str>,
+        task_grant_id: Option<Ulid>,
+        target_refs: &[ArtifactRef],
+        payload_refs: &[ArtifactRef],
+        actor: Option<&PrincipalId>,
+    ) -> Result<AuditEvent, StoreError> {
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let event = Self::append_audit_conn_with_actor(
+            &tx,
+            kind,
+            action,
+            decision,
+            reason,
+            task_grant_id,
+            target_refs,
+            payload_refs,
+            None,
+            None,
+            actor,
+        )?;
+        tx.commit()?;
+        Ok(event)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn append_audit_conn(
         conn: &Connection,
@@ -132,6 +170,41 @@ impl Store {
         aggregate_override: Option<&str>,
         payload_json: Option<&str>,
     ) -> Result<AuditEvent, StoreError> {
+        Self::append_audit_conn_with_actor(
+            conn,
+            kind,
+            action,
+            decision,
+            reason,
+            task_grant_id,
+            target_refs,
+            payload_refs,
+            aggregate_override,
+            payload_json,
+            None,
+        )
+    }
+
+    /// As [`Self::append_audit_conn_with_options`], but also folds an optional
+    /// typed `actor` (spec #197, D-003) into the hashed pre-image. New rows
+    /// carry `actor` in their `meta` object unconditionally (null when absent),
+    /// so the identity of the event author cannot be silently rewritten;
+    /// historical rows re-verify from their stored `meta_json` verbatim and are
+    /// unaffected by this addition.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn append_audit_conn_with_actor(
+        conn: &Connection,
+        kind: &str,
+        action: Option<&ActionId>,
+        decision: Option<&GateDecision>,
+        reason: Option<&str>,
+        task_grant_id: Option<Ulid>,
+        target_refs: &[ArtifactRef],
+        payload_refs: &[ArtifactRef],
+        aggregate_override: Option<&str>,
+        payload_json: Option<&str>,
+        actor: Option<&PrincipalId>,
+    ) -> Result<AuditEvent, StoreError> {
         let prev_hash = Self::last_hash(conn)?;
         let id = Ulid::new();
         let ts = Timestamp::now();
@@ -150,6 +223,7 @@ impl Store {
             "target_refs": target_refs, "payload_refs": payload_refs,
             "aggregate_id": aggregate_id, "aggregate_seq": aggregate_seq,
             "payload_json": payload_json,
+            "actor": actor.map(|a| a.to_string()),
         });
         let canonical = canonical_json(&meta);
         let mut hasher = Sha256::new();
@@ -170,6 +244,7 @@ impl Store {
             aggregate_id: aggregate_id.clone(),
             aggregate_seq,
             payload_json: payload_json.map(str::to_string),
+            actor: actor.copied(),
             prev_hash,
             hash,
         };

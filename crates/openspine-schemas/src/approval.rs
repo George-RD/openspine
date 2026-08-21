@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
 use crate::digest::Digest;
+use crate::ids::PrincipalId;
 
 /// PRD §17 `decision`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -37,7 +38,7 @@ pub struct ApprovalRecord {
     pub id: Ulid,
     pub schema_version: u32,
     pub action_request_id: Ulid,
-    pub approved_by: String,
+    pub approved_by: PrincipalId,
     pub approved_at: jiff::Timestamp,
     pub approved_payload_digest: Digest,
     pub approved_target_digest: Digest,
@@ -73,7 +74,7 @@ mod tests {
             id: Ulid::new(),
             schema_version: 1,
             action_request_id: Ulid::new(),
-            approved_by: "owner".to_string(),
+            approved_by: PrincipalId::from(Ulid::new()),
             approved_at: now,
             approved_payload_digest: Digest::parse(format!("sha256:{}", "a".repeat(64))).unwrap(),
             approved_target_digest: Digest::parse(format!("sha256:{}", "b".repeat(64))).unwrap(),
@@ -90,6 +91,18 @@ mod tests {
         let json = serde_json::to_string(&approval).unwrap();
         let back: ApprovalRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(approval, back);
+    }
+
+    #[test]
+    fn approved_by_serializes_as_bare_ulid_string() {
+        // D-005 discipline (mirrors #200): PrincipalId is serde-transparent,
+        // so `approved_by` persists as the plain Ulid string — a stored
+        // approval row is byte-identical to the pre-retype `String` shape.
+        let approver = Ulid::from_string("01ARZ3NDEKTSV4RRFFQ69G5FAV").unwrap();
+        let mut approval = sample_approval();
+        approval.approved_by = PrincipalId::from(approver);
+        let wire = serde_json::to_value(&approval).expect("approval serializes");
+        assert_eq!(wire["approved_by"], serde_json::json!(approver.to_string()));
     }
 
     #[test]
