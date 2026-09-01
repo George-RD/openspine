@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Local gate. Mirrors .github/workflows/ci.yml.
 #
-# Usage:
-#   scripts/check.sh              # everything except a specific change's strict validation
-#   scripts/check.sh <change-id>  # also strict-validate one in-flight OpenSpec change
+# Usage: scripts/check.sh
+# The OpenSpec invocation validates the canonical historical specs only.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+if [ "$#" -ne 0 ]; then
+  echo "Usage: scripts/check.sh" >&2
+  exit 2
+fi
 
 openspec_bin="${OPENSPINE_OPENSPEC_BIN:-$PWD/node_modules/.bin/openspec}"
 if [ ! -x "$openspec_bin" ]; then
@@ -54,16 +58,7 @@ node --test scripts/check-store-boundaries.test.mjs
 echo "== scripts/check-claims.sh =="
 scripts/check-claims.sh
 
-echo "== scripts/check-omp-ceremony.sh =="
-scripts/check-omp-ceremony.sh
-
-if [ "$#" -ge 1 ]; then
-  change_id="$1"
-  echo "== openspec validate ${change_id} --strict =="
-  "$openspec_bin" validate "$change_id" --strict
-else
-  echo "== openspec validate --all --strict =="
-  "$openspec_bin" validate --all --strict
-fi
+echo "== openspec validate --all --strict =="
+"$openspec_bin" validate --all --strict
 
 echo "All checks passed."

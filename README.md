@@ -288,7 +288,9 @@ Then message your bot:
 | [`.raw/openspine-progressive-delegation-positioning-2026-07-31.md`](.raw/openspine-progressive-delegation-positioning-2026-07-31.md) | The positioning correction from narrow proof to employee-like progressive delegation. |
 | [`.raw/openspine-layperson-offer-rerun-2026-07-30.md`](.raw/openspine-layperson-offer-rerun-2026-07-30.md) | The earlier Growth Arsenal rerun that established the buyer problem and alpha constraints. |
 | [`.raw/openspine-positioning-audit-2026-07-30.md`](.raw/openspine-positioning-audit-2026-07-30.md) | The architecture and positioning audit. |
-| [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md) | What has landed, what comes next, and the implementation order. |
+| [`DIRECTION.md`](DIRECTION.md) | Current process rulings and settled product direction. |
+| [`docs/agents/delivery.md`](docs/agents/delivery.md) | Pull requests, bounded stacks, gates, review evidence, and merge. |
+| [`openspec/openspine-change-sequence.md`](openspec/openspine-change-sequence.md) | Historical delivery decomposition; not the current backlog or implementation order. |
 
 ## Status
 

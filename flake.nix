@@ -70,7 +70,7 @@
 
           shellHook = ''
             echo "openspine dev shell: rustc $(rustc --version), node $(node --version)"
-            echo "openspec CLI: run 'npm install -g @openspec/cli' if not already on PATH"
+            echo "historical OpenSpec validator: run 'npm ci' to install the pinned local CLI"
           '';
         };
       });

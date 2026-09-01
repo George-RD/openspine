@@ -12,21 +12,34 @@ a decision. Vocabulary: [CONTEXT.md](CONTEXT.md); user stories:
   **to-spec** (spec issue on the tracker, labelled `ready-for-agent`) →
   **to-tickets** (tracer-bullet implementation issues with native blocking
   edges) → **implement**.
-- The openspec ceremony (propose → apply → archive) is **retired for new
-  work**. Do not open new changes under `openspec/changes/`.
+- The OpenSpec ceremony (propose → apply → archive) is **retired**. The tracker
+  workflow is the sole delivery path; never create `openspec/changes/` entries.
 - In-flight openspec changes at ruling time: **none** (`openspec/changes/`
   held only `archive/`). The Effect Truth track (#173, #174) had not entered
   openspec and proceeds under the new workflow. Nothing to migrate.
-- The archived spec tree (`openspec/specs/`, `openspec/changes/archive/`)
-  remains the historical record; `scripts/check.sh` continues to validate it.
-  Retiring that tooling is housekeeping for after the new workflow proves
-  out, not part of any current map.
+- `openspec/specs/` remains the canonical historical spec snapshot and
+  `scripts/check.sh` strictly validates it. `openspec/changes/archive/` remains
+  static change history. The retired ceremony skills and commands were removed
+  on 2026-09-01; OpenSpec is no longer a delivery tool.
 - **Wayfinder handoff shape**: a design (grilling) ticket resolves when its
   decision is recorded *and* a to-spec spec issue exists on the tracker,
   linked from the resolution comment. `to-tickets` and `implement` run
   off-map from that spec. Fold tickets resolve by comments on the issues they
   fold into; filing tickets resolve by the filed issue. Implementation order
   must be derivable from the tracker alone.
+
+## Delivery mechanics (ruled 2026-09-01)
+
+- Code reaches `main` through pull requests, never direct pushes.
+- An implementation issue may use a bounded stack of 2–4 complete, tested PR
+  layers only when the layers are genuinely dependent. Independent work stays
+  unstacked.
+- `/code-review` covers every layer. One independent adversarial review covers
+  the exact cumulative stack head; trust-boundary changes also get a specialist
+  review. Changed diffs or trees invalidate the corresponding evidence.
+- [`docs/agents/delivery.md`](docs/agents/delivery.md) is the operational
+  workflow for branching, gates, review evidence, stack synchronization, and
+  merge.
 
 ## Decided — not to reopen (2026-08-20)
 
