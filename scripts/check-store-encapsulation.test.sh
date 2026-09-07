@@ -1,77 +1,139 @@
 #!/usr/bin/env bash
-# Deliberate-negative test for the effect-write placement net, invariant #4 of
-# check-store-encapsulation.sh (ticket #262). Proves the net REJECTS an
-# un-audited production INSERT into an effect table (including lowercase /
-# multi-space bypass attempts) and ACCEPTS the audit-paired allowlisted modules
-# and cfg(test) `*tests.rs` fixtures. Exercised against throwaway fixture trees
-# via OPENSPINE_EFFECT_WRITE_SRC so it never depends on the live kernel source.
+# Exercise invariant #4 through the real gate in an isolated repository. Each
+# fixture runs alone so a detected offender cannot hide an undetected one.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-gate="$PWD/scripts/check-store-encapsulation.sh"
+repo="$PWD"
 marker="(ticket #262)"
 fails=0
+cases=0
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
 
-ok_dir=$(mktemp -d)
-bad_dir=$(mktemp -d)
-trap 'rm -rf "$ok_dir" "$bad_dir"' EXIT
+# Keep the unrelated Store checks hermetic. Copy the actual entrypoint rather
+# than duplicating its logic; check.sh separately scans the real source tree.
+mkdir -p "$tmp/repo/scripts" "$tmp/repo/crates/openspine-kernel/src/store"
+cp "$repo/scripts/check-store-encapsulation.sh" "$tmp/repo/scripts/"
+if [ -f "$repo/scripts/check-effect-writes.mjs" ]; then
+  cp "$repo/scripts/check-effect-writes.mjs" "$tmp/repo/scripts/"
+fi
+: >"$tmp/repo/crates/openspine-kernel/src/store/mod.rs"
+gate="$tmp/repo/scripts/check-store-encapsulation.sh"
 
-run_gate() { # $1 = fixture src root; sets gate_out / gate_rc
+run_gate() {
   gate_out=$(OPENSPINE_EFFECT_WRITE_SRC="$1" bash "$gate" 2>&1) && gate_rc=0 || gate_rc=$?
 }
 
-# --- ACCEPT: an audit-paired allowlisted module and a cfg(test) *tests.rs file.
-mkdir -p "$ok_dir/store" "$ok_dir/failure_surfacing"
-cat >"$ok_dir/store/identity.rs" <<'RS'
-// allowlisted audit-paired module (routes through with_audited_effect)
-tx.execute("INSERT INTO identities (id, identity_json) VALUES (?1, ?2)", params![])?;
-RS
-cat >"$ok_dir/failure_surfacing/tests.rs" <<'RS'
-// the one known cfg(test) fixture, allowlisted by exact path
-conn.execute("INSERT INTO principals (id) VALUES (?1)", params![])?;
-RS
-run_gate "$ok_dir"
-if [ "$gate_rc" -ne 0 ]; then
-  echo "FAIL: gate rejected an allowlisted / cfg(test) placement (rc=$gate_rc):" >&2
-  echo "$gate_out" >&2
-  fails=1
-else
-  echo "ok: allowlisted store module + the named cfg(test) fixture accepted"
-fi
+check_result() { # expected status, diagnostic path
+  cases=$((cases + 1))
+  if [ "$gate_rc" -ne "$1" ]; then
+    echo "FAIL: $label: expected rc=$1, got $gate_rc" >&2
+    echo "$gate_out" >&2
+    fails=$((fails + 1))
+  elif [ "$1" -ne 0 ] && { ! grep -qF "$marker" <<<"$gate_out" ||
+    ! grep -qF "$2" <<<"$gate_out"; }; then
+    echo "FAIL: $label: missing placement diagnostic or offending path ($2)" >&2
+    echo "$gate_out" >&2
+    fails=$((fails + 1))
+  else
+    echo "ok: $label"
+  fi
+}
 
-# --- REJECT: a stray un-audited insert in a non-allowlisted module (lowercase,
-#     multi-space spelling proves the match is not bypassable) AND a look-alike
-#     `*_tests.rs` name that is NOT the named fixture (proves the exact allowlist
-#     closes the filename-heuristic bypass a production `mod rogue_tests;` opens).
-mkdir -p "$bad_dir/pipeline"
-cat >"$bad_dir/pipeline/rogue.rs" <<'RS'
-// un-audited effect write that must be caught by the placement net
-conn.execute("insert   into   identities (id) VALUES (?1)", params![])?;
-RS
-cat >"$bad_dir/pipeline/rogue_tests.rs" <<'RS'
-// a *_tests.rs name that is not the allowlisted fixture must NOT be exempt
-conn.execute("INSERT INTO principals (id) VALUES (?1)", params![])?;
-RS
-run_gate "$bad_dir"
-if [ "$gate_rc" -eq 0 ]; then
-  echo "FAIL: gate accepted an un-audited effect-table write (should reject)" >&2
-  fails=1
-elif ! printf '%s' "$gate_out" | grep -qF "$marker"; then
-  echo "FAIL: gate rejected the write but without the #262 placement message:" >&2
-  echo "$gate_out" >&2
-  fails=1
-elif ! printf '%s' "$gate_out" | grep -qF "rogue_tests.rs"; then
-  echo "FAIL: a non-allowlisted *_tests.rs effect write slipped past the net:" >&2
-  echo "$gate_out" >&2
-  fails=1
-else
-  echo "ok: un-audited effect write and look-alike *_tests.rs both rejected"
-fi
+fixture() { # expected status, source-relative path, SQL, label, optional string mode
+  label="$4"
+  local root="$tmp/fixture trees/$cases"
+  mkdir -p "$root/$(dirname "$2")"
+  if [ "${5:-raw}" = string ]; then
+    printf 'tx.execute("%s", [])?;\n' "$3" >"$root/$2"
+  else
+    printf 'tx.execute(r##"%s"##, [])?;\n' "$3" >"$root/$2"
+  fi
+  # Spaces and a trailing slash must not change exact allowlist membership.
+  run_gate "$root/"
+  check_result "$1" "$2"
+}
+
+for path in store/identity.rs store/audited_effect.rs store/effect_settlement.rs \
+  store/pending_draft.rs failure_surfacing/tests.rs; do
+  fixture 0 "$path" 'INSERT INTO identities (id) VALUES (1)' "exact allowlist: $path"
+done
+for path in pipeline/rogue.rs pipeline/rogue_tests.rs pipeline/store/identity.rs \
+  pipeline/store/audited_effect.rs pipeline/store/effect_settlement.rs \
+  pipeline/store/pending_draft.rs pipeline/failure_surfacing/tests.rs \
+  notstore/identity.rs notfailure_surfacing/tests.rs; do
+  fixture 1 "$path" 'INSERT INTO identities (id) VALUES (1)' "untrusted path: $path"
+done
+for table in identities principals pending_draft_writes; do
+  fixture 1 pipeline/rogue.rs "insert   into   $table (id) VALUES (1)" "lowercase: $table"
+  fixture 1 pipeline/rogue.rs "$(printf 'INSERT\nINTO\n%s (id) VALUES (1)' "$table")" "multiline: $table"
+  fixture 1 pipeline/rogue.rs "REPLACE INTO $table (id) VALUES (1)" "replace: $table"
+done
+for conflict in ROLLBACK ABORT FAIL IGNORE REPLACE; do
+  fixture 1 pipeline/rogue.rs "INSERT OR $conflict INTO identities (id) VALUES (1)" "conflict: $conflict"
+done
+for target in '"identities"' '[identities]' '`identities`' "'identities'" \
+  'main.identities' '"main" . "identities"' 'main.[principals]' \
+  '[main].`pending_draft_writes`' "'main'.'identities'"; do
+  fixture 1 pipeline/rogue.rs "INSERT INTO $target (id) VALUES (1)" "quoted/qualified: $target"
+done
+# Quotes delimit SQLite tokens without whitespace before the table or alias.
+for target in '"identities"' '[principals]' '`pending_draft_writes`' "'identities'" \
+  '"main".identities' '[main].principals' '`main`.`pending_draft_writes`' \
+  "'main'.'identities'"; do
+  fixture 1 pipeline/rogue.rs "INSERT INTO$target(id) VALUES(1)" "compact quoted target: $target"
+done
+for target in '"identities"' '[identities]' '`identities`' "'identities'"; do
+  fixture 1 pipeline/rogue.rs "INSERT INTO $target"'AS row(id) VALUES(1)' "quoted alias boundary: $target"
+done
+fixture 1 pipeline/rogue.rs 'REPLACE INTO[principals](id) VALUES(1)' 'compact replace target'
+fixture 1 pipeline/rogue.rs 'INSERT OR IGNORE INTO"main"."identities"(id) VALUES(1)' 'compact conflict target'
+fixture 0 pipeline/ordinary.rs 'INSERT INTOidentities(id) VALUES(1)' 'INTO keyword boundary'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO"identities_archive"AS row(id) VALUES(1)' 'compact non-effect target'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO[identities].other(id) VALUES(1)' 'compact effect-named schema'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO identitiesAS(id) VALUES(1)' 'unquoted table boundary'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO "identitiesAS"(id) VALUES(1)' 'quoted table boundary'
+for target in '"identities""archive"' "'principals''archive'" \
+  '`pending_draft_writes``archive`' '"main"."identities""archive"'; do
+  fixture 0 pipeline/ordinary.rs "INSERT INTO $target(id) VALUES(1)" "escaped quote in non-effect name: $target"
+done
+fixture 1 pipeline/rogue.rs 'INSERT/**/INTO/* row */identities (id) VALUES (1)' 'block comments'
+fixture 1 pipeline/rogue.rs $'INSERT -- row\nINTO -- target\nprincipals (id) VALUES (1)' 'line comments'
+fixture 1 pipeline/rogue.rs $'INSERT\r\nOR\tIGNORE\r\nINTO identities (id) VALUES (1)' 'CRLF and tabs'
+fixture 1 pipeline/rogue.rs 'INSERT INTO \"identities\" (id) VALUES (1)' 'Rust escaped quotes' string
+fixture 1 pipeline/rogue.rs 'INSERT\nINTO\tidentities (id) VALUES (1)' 'Rust escaped whitespace' string
+fixture 1 pipeline/rogue.rs $'INSERT \\\n    INTO identities (id) VALUES (1)' 'Rust line continuation' string
+fixture 1 pipeline/rogue.rs 'WITH data AS (SELECT 1) INSERT INTO identities SELECT * FROM data' 'CTE insert'
+for table in identity_identifiers identities_archive principals2 pending_draft_writes_backup \
+  'main.identities_archive' '"identities_archive"' 'identities$archive' \
+  'identities.other' '"principals" /* schema */ . "other"' 'identitiesé'; do
+  fixture 0 pipeline/ordinary.rs "INSERT INTO $table (id) VALUES (1)" "non-effect table: $table"
+done
+fixture 0 pipeline/ordinary.rs 'SELECT id FROM identities' 'read-only SQL'
+fixture 0 pipeline/ordinary.rs '' 'empty source'
+fixture 0 pipeline/ordinary.rs 'REINSERT INTO identities (id) VALUES (1)' 'keyword boundary'
+
+label='missing scan root fails closed'
+run_gate "$tmp/missing"
+check_result 1 "$tmp/missing"
+label='file used as scan root fails closed'
+: >"$tmp/not-a-directory"
+run_gate "$tmp/not-a-directory"
+check_result 1 "$tmp/not-a-directory"
+label='unreadable source (dangling symlink) fails closed'
+mkdir -p "$tmp/dangling/pipeline"
+ln -s "$tmp/no-such-file" "$tmp/dangling/pipeline/rogue.rs"
+run_gate "$tmp/dangling"
+check_result 1 'pipeline/rogue.rs'
+label='symlinked directory cannot hide source'
+mkdir -p "$tmp/linked"
+ln -s "$tmp/fixture trees/0" "$tmp/linked/nested"
+run_gate "$tmp/linked"
+check_result 1 'nested'
 
 if [ "$fails" -ne 0 ]; then
-  echo "check-store-encapsulation.test: FAILED" >&2
+  echo "check-store-encapsulation.test: $fails/$cases cases FAILED" >&2
   exit 1
 fi
-
-echo "check-store-encapsulation.test: effect-write placement net accepts the"
-echo "audit-paired and cfg(test) placements and rejects un-audited effect writes."
+echo "check-store-encapsulation.test: $cases isolated cases passed."
