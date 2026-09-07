@@ -25,7 +25,13 @@ pub(super) const MAX_FILES: usize = 4096;
 pub(super) const MAX_FILE_BYTES: usize = 8 * 1024 * 1024;
 pub(super) const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
 pub(super) const FAMILIES: [&str; 7] = [
-    "agents", "routes", "workflows", "packs", "templates", "policies", "golden_sets",
+    "agents",
+    "routes",
+    "workflows",
+    "packs",
+    "templates",
+    "policies",
+    "golden_sets",
 ];
 
 /// Inventory-v1 hashes canonical JSON `{inventory_format_version: 1, files}`,
@@ -63,7 +69,9 @@ impl PackageSnapshot {
 
     /// The exact validated bytes. No source path or mutable access escapes.
     pub(crate) fn files(&self) -> impl Iterator<Item = (&str, &[u8])> {
-        self.files.iter().map(|(path, bytes)| (path.as_str(), bytes.as_slice()))
+        self.files
+            .iter()
+            .map(|(path, bytes)| (path.as_str(), bytes.as_slice()))
     }
 
     pub(crate) fn summary(&self) -> String {
@@ -72,8 +80,11 @@ impl PackageSnapshot {
             "Package: {}\nRevision: {}\nContent digest: {}\nInventory: v1, {} files, {} bytes\n\
              Validation: passed (structure only)\nProvenance: local-unverified\n\
              Publisher not verified. This command does not install or select a package.\n",
-            self.report.package_id, self.report.revision, self.report.content_digest,
-            self.report.inventory.len(), bytes,
+            self.report.package_id,
+            self.report.revision,
+            self.report.content_digest,
+            self.report.inventory.len(),
+            bytes,
         )
     }
 }
@@ -83,11 +94,14 @@ impl PackageSnapshot {
 pub(crate) fn inspect(directory: &Path) -> Result<PackageSnapshot, InspectionError> {
     let files = source::capture(directory)?;
     let declaration = validation::validate(&files)?;
-    let inventory: Vec<_> = files.iter().map(|(path, bytes)| InventoryFile {
-        path: path.clone(),
-        bytes: bytes.len(),
-        digest: digest_of_bytes(bytes),
-    }).collect();
+    let inventory: Vec<_> = files
+        .iter()
+        .map(|(path, bytes)| InventoryFile {
+            path: path.clone(),
+            bytes: bytes.len(),
+            digest: digest_of_bytes(bytes),
+        })
+        .collect();
     let content_digest = digest_of(&serde_json::json!({
         "inventory_format_version": 1,
         "files": inventory,
@@ -127,7 +141,9 @@ pub(crate) enum InspectionError {
     ArtifactCollision,
     #[error("Declared artifact IDs do not match all captured loadable artifacts.")]
     InventoryMismatch,
-    #[error("The entry agent must resolve to an active agent at its highest declared source version.")]
+    #[error(
+        "The entry agent must resolve to an active agent at its highest declared source version."
+    )]
     EntryAgentInvalid,
     #[error("Cannot create or read the private temporary validation snapshot. Check temporary-directory access and free space.")]
     StagingUnavailable,

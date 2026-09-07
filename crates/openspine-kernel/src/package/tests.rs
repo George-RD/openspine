@@ -7,8 +7,11 @@ fn copy_tree(source: &Path, destination: &Path) {
     for entry in fs::read_dir(source).unwrap() {
         let source = entry.unwrap().path();
         let destination = destination.join(source.file_name().unwrap());
-        if source.is_dir() { copy_tree(&source, &destination); }
-        else { fs::copy(source, destination).unwrap(); }
+        if source.is_dir() {
+            copy_tree(&source, &destination);
+        } else {
+            fs::copy(source, destination).unwrap();
+        }
     }
 }
 
@@ -16,16 +19,26 @@ fn copy_tree(source: &Path, destination: &Path) {
 fn package_snapshot_retains_exact_validated_bytes_after_source_mutation_and_removal() {
     let temporary = tempfile::tempdir().unwrap();
     let source = temporary.path().join("candidate");
-    copy_tree(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"), &source);
+    copy_tree(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"),
+        &source,
+    );
     let snapshot = inspect(&source).unwrap();
-    let before: BTreeMap<_, _> = snapshot.files()
-        .map(|(path, bytes)| (path.to_string(), bytes.to_vec())).collect();
+    let before: BTreeMap<_, _> = snapshot
+        .files()
+        .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
+        .collect();
     let identity = serde_json::to_value(snapshot.report()).unwrap();
     fs::write(source.join("package.yaml"), "not a declaration").unwrap();
-    assert!(matches!(inspect(&source), Err(InspectionError::DeclarationInvalid)));
+    assert!(matches!(
+        inspect(&source),
+        Err(InspectionError::DeclarationInvalid)
+    ));
     fs::remove_dir_all(source).unwrap();
-    let retained: BTreeMap<_, _> = snapshot.files()
-        .map(|(path, bytes)| (path.to_string(), bytes.to_vec())).collect();
+    let retained: BTreeMap<_, _> = snapshot
+        .files()
+        .map(|(path, bytes)| (path.to_string(), bytes.to_vec()))
+        .collect();
     assert_eq!(retained, before);
     assert_eq!(serde_json::to_value(snapshot.report()).unwrap(), identity);
     for entry in &snapshot.report.inventory {

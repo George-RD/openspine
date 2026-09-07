@@ -37,8 +37,12 @@ impl Fixture {
 
     pub(super) fn report(&self) -> Value {
         let output = self.run(true);
-        assert!(output.status.success(), "stdout={} stderr={}",
-            String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         assert!(output.stderr.is_empty());
         serde_json::from_slice(&output.stdout).unwrap()
     }
@@ -47,8 +51,11 @@ impl Fixture {
         let output = self.run(true);
         assert!(!output.status.success(), "invalid candidate was accepted");
         let report: Value = serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
-            panic!("not a JSON inspection failure: {error}; stdout={} stderr={}",
-                String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr))
+            panic!(
+                "not a JSON inspection failure: {error}; stdout={} stderr={}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            )
         });
         assert_eq!(report["schema_version"], 1);
         assert_eq!(report["valid"], false);
@@ -66,11 +73,15 @@ impl Fixture {
     }
 
     pub(super) fn artifact(&self, family: &str, id: &str) -> PathBuf {
-        fs::read_dir(self.source.join(family)).unwrap().map(|entry| entry.unwrap().path())
+        fs::read_dir(self.source.join(family))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
             .find(|path| {
-                let value: serde_yaml::Value = serde_yaml::from_slice(&fs::read(path).unwrap()).unwrap();
+                let value: serde_yaml::Value =
+                    serde_yaml::from_slice(&fs::read(path).unwrap()).unwrap();
                 value["id"].as_str() == Some(id)
-            }).expect("fixture artifact")
+            })
+            .expect("fixture artifact")
     }
 }
 
@@ -80,13 +91,21 @@ pub(super) fn bundled() -> PathBuf {
 
 pub(super) fn copy_tree(source: &Path, destination: &Path, reverse: bool) {
     fs::create_dir_all(destination).unwrap();
-    let mut paths: Vec<_> = fs::read_dir(source).unwrap().map(|entry| entry.unwrap().path()).collect();
+    let mut paths: Vec<_> = fs::read_dir(source)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
     paths.sort();
-    if reverse { paths.reverse(); }
+    if reverse {
+        paths.reverse();
+    }
     for path in paths {
         let output = destination.join(path.file_name().unwrap());
-        if path.is_dir() { copy_tree(&path, &output, reverse); }
-        else { fs::copy(path, output).unwrap(); }
+        if path.is_dir() {
+            copy_tree(&path, &output, reverse);
+        } else {
+            fs::copy(path, output).unwrap();
+        }
     }
 }
 
@@ -94,9 +113,17 @@ pub(super) fn file_bytes(root: &Path) -> BTreeMap<String, Vec<u8>> {
     fn collect(root: &Path, dir: &Path, result: &mut BTreeMap<String, Vec<u8>>) {
         for entry in fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
-            if path.is_dir() { collect(root, &path, result); }
-            else {
-                result.insert(path.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/"), fs::read(path).unwrap());
+            if path.is_dir() {
+                collect(root, &path, result);
+            } else {
+                result.insert(
+                    path.strip_prefix(root)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .replace('\\', "/"),
+                    fs::read(path).unwrap(),
+                );
             }
         }
     }

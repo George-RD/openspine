@@ -18,7 +18,11 @@ fn package_inspect_base_personas_fail() {
 #[test]
 fn package_inspect_executable_payload_fails() {
     let fixture = Fixture::new();
-    fs::write(fixture.source.join("install.sh"), "#!/bin/sh\necho never-run\n").unwrap();
+    fs::write(
+        fixture.source.join("install.sh"),
+        "#!/bin/sh\necho never-run\n",
+    )
+    .unwrap();
     fixture.rejected("payload-unsupported");
 }
 
@@ -87,7 +91,11 @@ fn package_inspect_socket_fails_without_reading_or_blocking() {
 #[test]
 fn package_inspect_path_diagnostics_do_not_echo_control_text() {
     let fixture = Fixture::new();
-    fs::write(fixture.source.join("\u{1b}[2JPUBLISHER-VERIFIED.md"), "hidden").unwrap();
+    fs::write(
+        fixture.source.join("\u{1b}[2JPUBLISHER-VERIFIED.md"),
+        "hidden",
+    )
+    .unwrap();
     for json in [true, false] {
         let output = fixture.run(json);
         assert!(!output.status.success());
@@ -111,6 +119,10 @@ fn package_inspect_root_symlink_fails() {
 #[test]
 fn package_inspect_hard_links_fail() {
     let fixture = Fixture::new();
-    fs::hard_link(fixture.source.join("README.md"), fixture.source.join("linked.md")).unwrap();
+    fs::hard_link(
+        fixture.source.join("README.md"),
+        fixture.source.join("linked.md"),
+    )
+    .unwrap();
     fixture.rejected("source-unavailable");
 }

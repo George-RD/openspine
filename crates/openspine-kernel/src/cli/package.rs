@@ -23,7 +23,8 @@ pub(crate) fn run(command: &PackageCommands) -> ExitCode {
             let output = if *json {
                 // The report contains only bounded ASCII paths/IDs, digests,
                 // fixed labels and numbers; no free-form package content.
-                serde_json::to_string(snapshot.report()).expect("inspection report is serializable") + "\n"
+                serde_json::to_string(snapshot.report()).expect("inspection report is serializable")
+                    + "\n"
             } else {
                 snapshot.summary()
             };
@@ -36,14 +37,20 @@ pub(crate) fn run(command: &PackageCommands) -> ExitCode {
                     "valid": false,
                     "provenance": "local-unverified",
                     "error": { "code": error.code(), "message": error.to_string() },
-                }).to_string() + "\n"
+                })
+                .to_string()
+                    + "\n"
             } else {
                 format!("Inspection failed [{}]: {error}\n", error.code())
             };
             (output, ExitCode::FAILURE)
         }
     };
-    if std::io::stdout().lock().write_all(output.as_bytes()).is_err() {
+    if std::io::stdout()
+        .lock()
+        .write_all(output.as_bytes())
+        .is_err()
+    {
         return ExitCode::FAILURE;
     }
     code

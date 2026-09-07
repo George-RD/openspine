@@ -1,6 +1,6 @@
 //! Exercise package inspection through the real executable, without runtime setup.
-use std::fs;
 use openspine_schemas::digest::{digest_of, digest_of_bytes};
+use std::fs;
 
 #[path = "package_inspect/support.rs"]
 mod support;
@@ -24,9 +24,13 @@ fn package_inspect_real_bundle_is_read_only_and_inventory_binds_every_file() {
         assert_eq!(entry["bytes"].as_u64().unwrap(), bytes.len() as u64);
         assert_eq!(entry["digest"], digest_of_bytes(bytes).to_string());
     }
-    assert_eq!(report["content_digest"], digest_of(&serde_json::json!({
-        "inventory_format_version": 1, "files": inventory
-    })).to_string());
+    assert_eq!(
+        report["content_digest"],
+        digest_of(&serde_json::json!({
+            "inventory_format_version": 1, "files": inventory
+        }))
+        .to_string()
+    );
     assert_eq!(before, file_bytes(&fixture.source));
     assert!(!fixture.root.path().join("home").exists());
     assert!(!fixture.root.path().join("application").exists());
@@ -45,10 +49,18 @@ fn package_inspect_identity_ignores_source_location_and_enumeration_order() {
 fn package_inspect_documentation_bytes_and_paths_change_identity() {
     let fixture = Fixture::new();
     let original = fixture.report()["content_digest"].clone();
-    fs::write(fixture.source.join("notes.md"), "Documentation, not authority.\n").unwrap();
+    fs::write(
+        fixture.source.join("notes.md"),
+        "Documentation, not authority.\n",
+    )
+    .unwrap();
     let added = fixture.report()["content_digest"].clone();
     assert_ne!(original, added);
-    fs::rename(fixture.source.join("notes.md"), fixture.source.join("other.md")).unwrap();
+    fs::rename(
+        fixture.source.join("notes.md"),
+        fixture.source.join("other.md"),
+    )
+    .unwrap();
     let renamed = fixture.report()["content_digest"].clone();
     assert_ne!(added, renamed);
     fs::write(fixture.source.join("other.md"), "Changed documentation.\n").unwrap();
@@ -114,7 +126,9 @@ fn package_inspect_missing_declared_artifact_fails() {
 fn package_inspect_undeclared_loadable_artifact_fails() {
     let fixture = Fixture::new();
     fixture.declaration(|value| {
-        value["artifacts"]["agents"].as_sequence_mut().unwrap()
+        value["artifacts"]["agents"]
+            .as_sequence_mut()
+            .unwrap()
             .retain(|id| id.as_str() != Some("main_assistant_agent"));
     });
     fixture.rejected("inventory-mismatch");
@@ -130,21 +144,33 @@ fn package_inspect_unknown_entry_agent_fails() {
 #[test]
 fn package_inspect_invalid_typed_artifact_fails() {
     let fixture = Fixture::new();
-    fs::write(fixture.artifact("agents", "main_assistant_agent"), "id: main_assistant_agent\nunknown: field\n").unwrap();
+    fs::write(
+        fixture.artifact("agents", "main_assistant_agent"),
+        "id: main_assistant_agent\nunknown: field\n",
+    )
+    .unwrap();
     fixture.rejected("artifact-invalid");
 }
 
 #[test]
 fn package_inspect_versioned_collision_fails() {
     let fixture = Fixture::new();
-    fs::copy(fixture.artifact("agents", "main_assistant_agent"), fixture.source.join("agents/duplicate.yaml")).unwrap();
+    fs::copy(
+        fixture.artifact("agents", "main_assistant_agent"),
+        fixture.source.join("agents/duplicate.yaml"),
+    )
+    .unwrap();
     fixture.rejected("artifact-collision");
 }
 
 #[test]
 fn package_inspect_unversioned_golden_set_collision_fails() {
     let fixture = Fixture::new();
-    fs::copy(fixture.artifact("golden_sets", "model_swap_default"), fixture.source.join("golden_sets/duplicate.yaml")).unwrap();
+    fs::copy(
+        fixture.artifact("golden_sets", "model_swap_default"),
+        fixture.source.join("golden_sets/duplicate.yaml"),
+    )
+    .unwrap();
     fixture.rejected("artifact-collision");
 }
 
@@ -178,7 +204,9 @@ fn package_inspect_untrusted_metadata_is_not_echoed_or_treated_as_verification()
         assert!(!text.contains('\u{1b}'));
         assert!(!text.contains('\u{202e}'));
         assert!(text.contains("local-unverified"));
-        if !json { assert!(text.len() < 2048); }
+        if !json {
+            assert!(text.len() < 2048);
+        }
     }
 }
 
@@ -188,7 +216,11 @@ fn package_inspect_does_not_load_existing_owner_configuration_or_environment() {
     let application = fixture.root.path().join("application");
     fs::create_dir(&application).unwrap();
     fs::write(application.join("openspine.yaml"), "not valid config\n").unwrap();
-    fs::write(application.join("openspine.env"), "KEY-MATERIAL-MUST-NOT-BE-READ\n").unwrap();
+    fs::write(
+        application.join("openspine.env"),
+        "KEY-MATERIAL-MUST-NOT-BE-READ\n",
+    )
+    .unwrap();
     fs::write(application.join("kernel.db"), "not a database\n").unwrap();
     let before = file_bytes(&application);
     fixture.report();
