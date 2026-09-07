@@ -19,12 +19,14 @@ const approvedPaths = new Set([
 // matching is essential: line-oriented grep silently misses multiline SQL.
 // The final boundary must not mistake an effect-named schema for the table.
 const trivia = String.raw`(?:\s|/\*[\s\S]*?\*/|--[^\r\n]*(?:\r?\n|$))`;
-const identifier = String.raw`(?:[\w$\u0080-\uFFFF]+|"(?:""|[^"])+"|'(?:''|[^'])+'|\x60(?:\x60\x60|[^\x60])+\x60|\[[^\]]+\])`;
+const identifierChar = String.raw`[\w$\u0080-\uFFFF]`;
+const identifier = String.raw`(?:${identifierChar}+|"(?:""|[^"])+"|'(?:''|[^'])+'|\x60(?:\x60\x60|[^\x60])+\x60|\[[^\]]+\])`;
 const names = '(?:pending_draft_writes|identities|principals)';
-const table = `(?:${names}|"${names}"|'${names}'|\x60${names}\x60|\\[${names}\\])`;
+// Unquoted names need a word boundary; a closing quote is already a delimiter.
+const table = String.raw`(?:${names}(?!${identifierChar})|"${names}"|'${names}'|\x60${names}\x60|\[${names}\])`;
 const effectInsert = new RegExp(
-  String.raw`(?<![\w$\u0080-\uFFFF])(?:INSERT(?:${trivia}+OR${trivia}+(?:ROLLBACK|ABORT|FAIL|IGNORE|REPLACE))?|REPLACE)` +
-  String.raw`${trivia}+INTO${trivia}+(?:${identifier}${trivia}*\.${trivia}*)?${table}(?![\w$\u0080-\uFFFF]|${trivia}*\.)`,
+  String.raw`(?<!${identifierChar})(?:INSERT(?:${trivia}+OR${trivia}+(?:ROLLBACK|ABORT|FAIL|IGNORE|REPLACE))?|REPLACE)` +
+  String.raw`${trivia}+INTO(?!${identifierChar})${trivia}*(?:${identifier}${trivia}*\.${trivia}*)?${table}(?!${trivia}*\.)`,
   'i',
 );
 
