@@ -30,8 +30,11 @@ pub struct PackageDeclaration {
     #[serde(deserialize_with = "deserialize_revision")]
     pub version: u32,
     /// Descriptive release label; never an artifact lifecycle transition.
+    #[serde(deserialize_with = "deserialize_string")]
     pub lifecycle_state: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub display_name: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub description: String,
     #[serde(deserialize_with = "deserialize_string")]
     pub entry_agent: ArtifactId,
@@ -39,6 +42,7 @@ pub struct PackageDeclaration {
     pub identity: PackageIdentity,
     pub memory: PackageMemory,
     pub installation: PackageInstallation,
+    #[serde(deserialize_with = "deserialize_strings")]
     pub security_invariants: Vec<String>,
 }
 
@@ -67,7 +71,9 @@ pub struct PackageArtifacts {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackageIdentity {
+    #[serde(deserialize_with = "deserialize_string")]
     pub persona: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub identity_document: String,
 }
 
@@ -75,10 +81,15 @@ pub struct PackageIdentity {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackageMemory {
+    #[serde(deserialize_with = "deserialize_string")]
     pub model: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub description: String,
+    #[serde(deserialize_with = "deserialize_strings")]
     pub readable_classes: Vec<String>,
+    #[serde(deserialize_with = "deserialize_strings")]
     pub readable_scopes: Vec<String>,
+    #[serde(deserialize_with = "deserialize_strings")]
     pub denied_classes: Vec<String>,
 }
 
@@ -87,8 +98,11 @@ pub struct PackageMemory {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PackageInstallation {
+    #[serde(deserialize_with = "deserialize_string")]
     pub current_source: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub config_key: String,
+    #[serde(deserialize_with = "deserialize_string")]
     pub planned_cli: String,
 }
 
@@ -135,7 +149,7 @@ where
 }
 
 // Serde YAML's ordinary String deserializer can coerce scalars such as null to
-// text. IDs must retain their actual string type, not acquire an implicit name.
+// text. Identifiers and metadata must retain their actual declared string type.
 fn deserialize_string<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -163,14 +177,21 @@ where
 
 #[derive(Deserialize)]
 #[serde(transparent)]
-struct DeclaredArtifactId(#[serde(deserialize_with = "deserialize_string")] ArtifactId);
+struct DeclaredString(#[serde(deserialize_with = "deserialize_string")] String);
+
+fn deserialize_strings<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let entries = Vec::<DeclaredString>::deserialize(deserializer)?;
+    Ok(entries.into_iter().map(|entry| entry.0).collect())
+}
 
 fn deserialize_artifact_ids<'de, D>(deserializer: D) -> Result<Vec<ArtifactId>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let entries = Vec::<DeclaredArtifactId>::deserialize(deserializer)?;
-    let ids: Vec<_> = entries.into_iter().map(|entry| entry.0).collect();
+    let ids = deserialize_strings(deserializer)?;
     if ids.iter().collect::<BTreeSet<_>>().len() != ids.len() {
         return Err(serde::de::Error::custom(
             "duplicate logical id in package artifact family",
