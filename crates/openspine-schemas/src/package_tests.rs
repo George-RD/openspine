@@ -140,7 +140,13 @@ fn missing_required_declaration_fields_are_rejected() {
     }
     for pointer in ["/artifacts", "/identity", "/memory", "/installation"] {
         let original = candidate();
-        for key in original.pointer(pointer).unwrap().as_object().unwrap().keys() {
+        for key in original
+            .pointer(pointer)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .keys()
+        {
             let mut value = candidate();
             value
                 .pointer_mut(pointer)
@@ -209,8 +215,14 @@ fn duplicate_yaml_mapping_keys_are_rejected_including_nested_fields() {
             "  persona: concise_practical_operator",
             "  persona: one\n  persona: concise_practical_operator",
         ),
-        ("  model: typed_overlay", "  model: one\n  model: typed_overlay"),
-        ("  config_key: lyra_dir", "  config_key: one\n  config_key: lyra_dir"),
+        (
+            "  model: typed_overlay",
+            "  model: one\n  model: typed_overlay",
+        ),
+        (
+            "  config_key: lyra_dir",
+            "  config_key: one\n  config_key: lyra_dir",
+        ),
     ] {
         assert!(LYRA.contains(field));
         let yaml = LYRA.replacen(field, replacement, 1);
