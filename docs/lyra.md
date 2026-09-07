@@ -26,7 +26,7 @@ The source package lives in [`artifacts/lyra`](../artifacts/lyra/). Its persiste
 
 A source checkout already uses Lyra by default because `Config::lyra_dir` defaults to `artifacts/lyra`.
 
-[`artifacts/lyra/package.yaml`](../artifacts/lyra/package.yaml) is the package declaration: it names Lyra, its entry agent, the artifact families the package contains, the memory contract, and the security invariants. It is metadata for operators and for the future installer. The kernel does not read it — loading is directory-driven, and `PERSONA.md` is likewise a human-readable identity contract rather than a file the kernel loads. Runtime personality is carried by typed persona overlay artifacts.
+[`artifacts/lyra/package.yaml`](../artifacts/lyra/package.yaml) is the package declaration: it names Lyra, its entry agent, the artifact families the package contains, the memory contract, and the security invariants. The read-only `openspine package inspect <directory>` command checks it against the captured artifacts and reports their exact content identity. Runtime loading remains directory-driven; inspection does not select or activate a package. `PERSONA.md` is still a human-readable identity contract rather than a privileged runtime input. See [package inspection](packages.md). Runtime personality is carried by typed persona overlay artifacts.
 
 ## How Lyra is meant to grow
 
@@ -110,6 +110,6 @@ openspine use lyra
 openspine run
 ```
 
-That native package store and resolver are not shipped yet. [Issue #117](https://github.com/George-RD/openspine/issues/117) tracks the transactional, versioned, and auditable installer required to make the product model match the architecture.
+Only read-only inspection is shipped. Inactive installation and receipts (#275) come next; they must not change the selected package. The native package store, selection transition and resolver shown above are not shipped yet. [Issue #117](https://github.com/George-RD/openspine/issues/117) tracks the transactional, versioned, and auditable installer required to make the product model match the architecture.
 
 Until then, the source package and `lyra_dir` configuration remain the implementation interface.

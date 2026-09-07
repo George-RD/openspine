@@ -33,6 +33,7 @@ mod overlay_export_restore;
 mod overlay_persona_admission;
 mod overlay_recovery;
 mod overlay_startup;
+mod package;
 mod pipeline;
 mod reflection_miner_runtime;
 use crate::reflection_miner_runtime::run_reflection_miner_driver;
@@ -185,6 +186,11 @@ pub(crate) enum Commands {
         #[arg(long)]
         once: Option<String>,
     },
+    /// Inspect local assistant packages without starting the runtime.
+    Package {
+        #[command(subcommand)]
+        command: cli::package::PackageCommands,
+    },
     /// Provider login via OAuth or API key
     Provider {
         #[command(subcommand)]
@@ -205,12 +211,20 @@ pub(crate) enum ProviderCommands {
     },
 }
 
+fn main() -> std::process::ExitCode {
+    let cli = Cli::parse();
+    // Offline inspection must not read keys, bootstrap state, or start services.
+    if let Some(Commands::Package { command }) = &cli.command {
+        return cli::package::run(command);
+    }
+    run_with_runtime(cli)
+}
+
 #[tokio::main]
-async fn main() -> std::process::ExitCode {
+async fn run_with_runtime(cli: Cli) -> std::process::ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
-    let cli = Cli::parse();
     let config_path = cli.config.clone();
     // Key material is read from the process environment, so the owner-only file
     // beside the configuration has to be exported before anything reads it.
