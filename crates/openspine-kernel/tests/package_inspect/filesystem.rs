@@ -235,3 +235,14 @@ fn package_inspect_exact_file_count_limit_is_accepted() {
         4096
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn package_inspect_operator_parent_alias_does_not_change_content_identity() {
+    let mut fixture = Fixture::new();
+    let expected = fixture.report();
+    let alias = fixture.root.path().join("parent-alias");
+    std::os::unix::fs::symlink(fixture.root.path(), &alias).unwrap();
+    fixture.source = alias.join("candidate");
+    assert_eq!(fixture.report(), expected);
+}

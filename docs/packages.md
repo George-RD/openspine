@@ -38,11 +38,16 @@ The root contains `package.yaml`, the supported artifact directories and ordinar
 files must use `.yaml` or `.yml`. Nested directories, unknown artifact families,
 base personas, hooks and other payloads are rejected rather than ignored.
 
-Files must be non-executable UTF-8 text without NUL bytes. Symbolic links, hard
-links and special files are rejected. Relative path components use ASCII letters,
-digits, underscores, hyphens or periods, up to 128 bytes; trailing periods,
-Windows device names and case-ambiguous file paths are rejected. These intake
-restrictions do not change the existing live loader's rules.
+Files must be non-executable UTF-8 text without NUL bytes. Symbolic links within
+the package or at its selected root, hard-linked files and special files are
+rejected. The operator's path may contain a parent-directory alias outside the
+package; that path is only a locator, never a trust or authority boundary. Once
+opened, the root directory descriptor anchors all captured member reads.
+
+Relative path components use ASCII letters, digits, underscores, hyphens or
+periods, up to 128 bytes; trailing periods, Windows device names and
+case-ambiguous file paths are rejected. These intake restrictions do not change
+the existing live loader's rules.
 
 Limits are enforced during enumeration and reading: 4,096 files, 8 MiB per file
 and 64 MiB total. Read/enumeration errors fail inspection. Diagnostics do not echo
