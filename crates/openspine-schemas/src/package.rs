@@ -98,7 +98,9 @@ where
 {
     let version = u32::deserialize(deserializer)?;
     if version != CURRENT_PACKAGE_SCHEMA_VERSION {
-        return Err(serde::de::Error::custom("unsupported package schema_version"));
+        return Err(serde::de::Error::custom(
+            "unsupported package schema_version",
+        ));
     }
     Ok(version)
 }
