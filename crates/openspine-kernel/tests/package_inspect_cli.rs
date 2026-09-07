@@ -1,110 +1,10 @@
 //! Exercise package inspection through the real executable, without runtime setup.
-use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-
 use openspine_schemas::digest::{digest_of, digest_of_bytes};
-use serde_json::Value;
 
-struct Fixture {
-    root: tempfile::TempDir,
-    source: PathBuf,
-}
-
-impl Fixture {
-    fn new() -> Self {
-        let root = tempfile::tempdir().unwrap();
-        let source = root.path().join("candidate");
-        copy_tree(&bundled(), &source, false);
-        Self { root, source }
-    }
-
-    fn run(&self, json: bool) -> Output {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_openspine"));
-        command
-            .env_clear()
-            .env("HOME", self.root.path().join("home"))
-            .current_dir(self.root.path())
-            .arg("--config")
-            .arg(self.root.path().join("application/openspine.yaml"))
-            .args(["package", "inspect"])
-            .arg(&self.source);
-        if json {
-            command.arg("--json");
-        }
-        command.output().unwrap()
-    }
-
-    fn report(&self) -> Value {
-        let output = self.run(true);
-        assert!(output.status.success(), "stdout={} stderr={}",
-            String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
-        assert!(output.stderr.is_empty());
-        serde_json::from_slice(&output.stdout).unwrap()
-    }
-
-    fn rejected(&self, code: &str) {
-        let output = self.run(true);
-        assert!(!output.status.success(), "invalid candidate was accepted");
-        let report: Value = serde_json::from_slice(&output.stdout).unwrap_or_else(|error| {
-            panic!("not a JSON inspection failure: {error}; stdout={} stderr={}",
-                String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr))
-        });
-        assert_eq!(report["schema_version"], 1);
-        assert_eq!(report["valid"], false);
-        assert_eq!(report["provenance"], "local-unverified");
-        assert_eq!(report["error"]["code"], code);
-        assert!(!self.root.path().join("home").exists());
-        assert!(!self.root.path().join("application").exists());
-    }
-
-    fn declaration(&self, edit: impl FnOnce(&mut serde_yaml::Value)) {
-        let path = self.source.join("package.yaml");
-        let mut value = serde_yaml::from_slice(&fs::read(&path).unwrap()).unwrap();
-        edit(&mut value);
-        fs::write(path, serde_yaml::to_string(&value).unwrap()).unwrap();
-    }
-
-    fn artifact(&self, family: &str, id: &str) -> PathBuf {
-        fs::read_dir(self.source.join(family)).unwrap().map(|entry| entry.unwrap().path())
-            .find(|path| {
-                let value: serde_yaml::Value = serde_yaml::from_slice(&fs::read(path).unwrap()).unwrap();
-                value["id"].as_str() == Some(id)
-            }).expect("fixture artifact")
-    }
-}
-
-fn bundled() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
-}
-
-fn copy_tree(source: &Path, destination: &Path, reverse: bool) {
-    fs::create_dir_all(destination).unwrap();
-    let mut paths: Vec<_> = fs::read_dir(source).unwrap().map(|entry| entry.unwrap().path()).collect();
-    paths.sort();
-    if reverse { paths.reverse(); }
-    for path in paths {
-        let output = destination.join(path.file_name().unwrap());
-        if path.is_dir() { copy_tree(&path, &output, reverse); }
-        else { fs::copy(path, output).unwrap(); }
-    }
-}
-
-fn file_bytes(root: &Path) -> BTreeMap<String, Vec<u8>> {
-    fn collect(root: &Path, dir: &Path, result: &mut BTreeMap<String, Vec<u8>>) {
-        for entry in fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() { collect(root, &path, result); }
-            else {
-                result.insert(path.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/"), fs::read(path).unwrap());
-            }
-        }
-    }
-    let mut result = BTreeMap::new();
-    collect(root, root, &mut result);
-    result
-}
+#[path = "package_inspect/support.rs"]
+mod support;
+use support::*;
 
 #[test]
 fn package_inspect_real_bundle_is_read_only_and_inventory_binds_every_file() {
@@ -257,66 +157,9 @@ fn package_inspect_highest_entry_agent_version_must_be_active() {
     let next = fixture.source.join("agents/newer.yaml");
     fs::write(&next, serde_yaml::to_string(&agent).unwrap()).unwrap();
     fixture.report();
-    agent["lifecycle_state"] = "draft".into();
+    agent["lifecycle_state"] = "retired".into();
     fs::write(next, serde_yaml::to_string(&agent).unwrap()).unwrap();
     fixture.rejected("entry-agent-invalid");
-}
-
-#[test]
-fn package_inspect_nested_artifact_directories_fail() {
-    let fixture = Fixture::new();
-    fs::create_dir(fixture.source.join("agents/nested")).unwrap();
-    fixture.rejected("payload-unsupported");
-}
-
-#[test]
-fn package_inspect_base_personas_fail() {
-    let fixture = Fixture::new();
-    fs::create_dir(fixture.source.join("personas")).unwrap();
-    fs::write(fixture.source.join("personas/hidden.yaml"), "id: hidden\n").unwrap();
-    fixture.rejected("payload-unsupported");
-}
-
-#[test]
-fn package_inspect_executable_payload_fails() {
-    let fixture = Fixture::new();
-    fs::write(fixture.source.join("install.sh"), "#!/bin/sh\necho never-run\n").unwrap();
-    fixture.rejected("payload-unsupported");
-}
-
-#[test]
-fn package_inspect_file_size_limit_fails() {
-    let fixture = Fixture::new();
-    let file = fs::File::create(fixture.source.join("huge.md")).unwrap();
-    file.set_len(8 * 1024 * 1024 + 1).unwrap();
-    fixture.rejected("limit-exceeded");
-}
-
-#[test]
-fn package_inspect_total_size_limit_fails() {
-    let fixture = Fixture::new();
-    let bytes = vec![b'x'; 8 * 1024 * 1024];
-    for index in 0..9 {
-        fs::write(fixture.source.join(format!("large-{index}.md")), &bytes).unwrap();
-    }
-    fixture.rejected("limit-exceeded");
-}
-
-#[test]
-fn package_inspect_file_count_limit_fails() {
-    let fixture = Fixture::new();
-    for index in 0..4097 {
-        fs::write(fixture.source.join(format!("note-{index}.md")), b"").unwrap();
-    }
-    fixture.rejected("limit-exceeded");
-}
-
-#[test]
-fn package_inspect_case_ambiguous_paths_fail() {
-    let fixture = Fixture::new();
-    fs::write(fixture.source.join("note.md"), "one").unwrap();
-    fs::write(fixture.source.join("NOTE.md"), "two").unwrap();
-    fixture.rejected("path-invalid");
 }
 
 #[test]
@@ -339,29 +182,29 @@ fn package_inspect_untrusted_metadata_is_not_echoed_or_treated_as_verification()
     }
 }
 
-#[cfg(unix)]
 #[test]
-fn package_inspect_symlink_file_fails() {
+fn package_inspect_does_not_load_existing_owner_configuration_or_environment() {
     let fixture = Fixture::new();
-    std::os::unix::fs::symlink("README.md", fixture.source.join("link.md")).unwrap();
-    fixture.rejected("source-unavailable");
+    let application = fixture.root.path().join("application");
+    fs::create_dir(&application).unwrap();
+    fs::write(application.join("openspine.yaml"), "not valid config\n").unwrap();
+    fs::write(application.join("openspine.env"), "KEY-MATERIAL-MUST-NOT-BE-READ\n").unwrap();
+    fs::write(application.join("kernel.db"), "not a database\n").unwrap();
+    let before = file_bytes(&application);
+    fixture.report();
+    assert_eq!(before, file_bytes(&application));
+    assert!(!fixture.root.path().join("home").exists());
 }
 
-#[cfg(unix)]
 #[test]
-fn package_inspect_symlink_directory_fails() {
+fn package_inspect_unversioned_golden_sets_reject_fabricated_versions() {
     let fixture = Fixture::new();
-    let agents = fixture.source.join("agents");
-    let outside = fixture.root.path().join("outside-agents");
-    fs::rename(&agents, &outside).unwrap();
-    std::os::unix::fs::symlink(outside, agents).unwrap();
-    fixture.rejected("source-unavailable");
+    let path = fixture.artifact("golden_sets", "model_swap_default");
+    let mut bytes = fs::read(&path).unwrap();
+    bytes.extend_from_slice(b"\nversion: 1\n");
+    fs::write(path, bytes).unwrap();
+    fixture.rejected("artifact-invalid");
 }
 
-#[cfg(unix)]
-#[test]
-fn package_inspect_socket_fails_without_reading_or_blocking() {
-    let fixture = Fixture::new();
-    let _socket = std::os::unix::net::UnixListener::bind(fixture.source.join("socket.md")).unwrap();
-    fixture.rejected("source-unavailable");
-}
+#[path = "package_inspect/filesystem.rs"]
+mod filesystem;

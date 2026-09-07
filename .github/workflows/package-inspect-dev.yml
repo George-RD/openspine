@@ -3,32 +3,58 @@ on:
   push:
     branches: [agent/package-inspect-274]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  source:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: git archive --format=tar HEAD | gzip > /tmp/openspine-source.tar.gz
-      - uses: actions/upload-artifact@v4
         with:
-          name: source
-          path: /tmp/openspine-source.tar.gz
-  red:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
+          ref: ${{ github.ref_name }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: '1.97.1'
           components: rustfmt, clippy
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
       - uses: Swatinem/rust-cache@v2
-      - name: Test-first CLI evidence
+      - name: Apply reviewed CLI wiring and format
+        run: |
+          if test -f .github/package-inspect-main.patch; then
+            git apply --check .github/package-inspect-main.patch
+            git apply .github/package-inspect-main.patch
+            git rm .github/package-inspect-main.patch
+          fi
+          cargo fmt --all
+          git add crates/openspine-kernel
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'style(packages): apply CLI wiring and rustfmt'
+            git push origin HEAD:${{ github.ref_name }}
+          fi
+          git rev-parse HEAD | tee /tmp/verified-head.txt
+      - name: Focused package tests
         run: |
           set -o pipefail
-          cargo test -p openspine-kernel --test package_inspect_cli 2>&1 | tee /tmp/package-inspect-red.log
+          cargo test -p openspine-kernel --test package_inspect_cli 2>&1 | tee /tmp/package-inspect-green.log
+          cargo test -p openspine-kernel package_snapshot 2>&1 | tee /tmp/package-snapshot.log
+      - run: npm ci
+      - name: Complete repository gate
+        run: |
+          set -o pipefail
+          ./scripts/check.sh 2>&1 | tee /tmp/package-inspect-gate.log
+      - name: Archive verified source
+        if: always()
+        run: git archive --format=tar HEAD | gzip > /tmp/openspine-verified-source.tar.gz
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: red-evidence
-          path: /tmp/package-inspect-red.log
+          name: verification
+          path: |
+            /tmp/verified-head.txt
+            /tmp/package-inspect-green.log
+            /tmp/package-snapshot.log
+            /tmp/package-inspect-gate.log
+            /tmp/openspine-verified-source.tar.gz

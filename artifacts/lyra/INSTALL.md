@@ -1,17 +1,22 @@
-# Install Lyra
+# Inspect and use the Lyra source package
 
-A source checkout already selects this package through the default `lyra_dir`.
-For external deployments, copy this immutable package directory to a versioned
-location and point `lyra_dir` at that path.
+A source checkout already selects this directory through the default `lyra_dir`.
+For an existing external deployment, `lyra_dir` continues to select its base
+artifact directory; the runtime startup path is unchanged.
 
-The planned native interface is:
+Inspect the package without owner keys, configuration or a running kernel:
 
-```text
-openspine install lyra
-openspine use lyra
+```sh
+openspine package inspect artifacts/lyra
+openspine package inspect /path/to/lyra --json
 ```
 
-The native installer is intentionally deferred until it can provide a versioned
-package store, atomic selection, rollback, integrity verification, and audit
-receipts. A simple recursive copy would not meet OpenSpine's authority and
-provenance model.
+This checks the declaration against the exact captured artifacts and reports a
+versioned inventory and content digest. It does not install, select, activate or
+publisher-verify the package. Explicit local paths are `local-unverified`.
+See [package inspection](../../docs/packages.md) for the accepted layout, limits
+and JSON contract.
+
+Native inactive installation and audit receipts are separate work (#275).
+Selection and signed distribution need further review. The eventual
+`install` / `use` flow is not a shipped interface.

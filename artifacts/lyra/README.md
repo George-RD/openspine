@@ -47,15 +47,16 @@ For an external deployment, set the same directory explicitly:
 lyra_dir: /opt/openspine/packages/lyra
 ```
 
-A native package command is the intended next interface:
+Inspect that directory without starting the runtime:
 
-```text
-openspine install lyra
+```sh
+openspine package inspect artifacts/lyra --json
 ```
 
-That command should install a versioned package into the local package store and
-update the selected configuration declaratively. Until that command lands, the
-package directory itself is the source of truth.
+Inspection validates the declaration and exact captured bytes. It does not
+install or select a package, and does not authenticate a publisher. Inactive
+installation and audit receipts are tracked separately in #275; activation is
+not part of that installation step. See [inspection](../../docs/packages.md).
 
 ## Memory and personality
 
