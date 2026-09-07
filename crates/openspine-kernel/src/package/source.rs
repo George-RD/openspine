@@ -6,11 +6,14 @@ use std::fs::{File, OpenOptions};
 use std::io::Read as _;
 use std::os::fd::{AsRawFd as _, FromRawFd as _};
 use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{InspectionError as Error, FAMILIES, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES};
 
 pub(super) fn capture(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    // Trailing '/' or '/.' otherwise makes the OS follow a final symlink even
+    // with O_NOFOLLOW. Remove redundant components without resolving '..'.
+    let directory: PathBuf = directory.components().collect();
     let root = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC)
