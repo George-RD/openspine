@@ -95,6 +95,8 @@ fn package_revision_is_a_positive_u32_not_semver() {
     for version in [json!(1), json!(u32::MAX)] {
         let mut value = candidate();
         value["version"] = version;
+        let yaml = serde_yaml::to_string(&value).unwrap();
+        assert!(serde_yaml::from_str::<PackageDeclaration>(&yaml).is_ok());
         assert!(serde_json::from_value::<PackageDeclaration>(value).is_ok());
     }
     for version in [
@@ -231,7 +233,7 @@ fn duplicate_yaml_mapping_keys_are_rejected_including_nested_fields() {
 }
 
 #[test]
-fn descriptive_metadata_does_not_become_authority_or_installation_behavior() {
+fn descriptive_metadata_is_preserved_without_interpreting_claims() {
     let mut value = candidate();
     value["lifecycle_state"] = json!("publisher-verified");
     value["identity"]["identity_document"] = json!("../../not-a-runtime-input");
@@ -252,4 +254,92 @@ fn malformed_empty_and_multiple_yaml_documents_are_rejected() {
     }
     let multiple = format!("{LYRA}\n---\n{LYRA}");
     assert!(serde_yaml::from_str::<PackageDeclaration>(&multiple).is_err());
+}
+
+#[test]
+fn identifiers_reject_non_string_scalars_without_coercion() {
+    for invalid in [Value::Null, json!(true), json!(false), json!(1), json!(1.5)] {
+        for field in ["id", "entry_agent"] {
+            let mut value = candidate();
+            value[field] = invalid.clone();
+            assert_rejected(value);
+        }
+        for family in FAMILIES {
+            let mut value = candidate();
+            value["artifacts"][family] = Value::Array(vec![invalid.clone()]);
+            assert_rejected(value);
+        }
+    }
+}
+
+#[test]
+fn explicitly_quoted_scalar_words_remain_valid_string_identifiers() {
+    for id in ["null", "true", "false"] {
+        let mut value = candidate();
+        value["id"] = json!(id);
+        value["entry_agent"] = json!(id);
+        for family in FAMILIES {
+            value["artifacts"][family] = json!([id]);
+        }
+        let yaml = serde_yaml::to_string(&value).unwrap();
+        let parsed: PackageDeclaration = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+    }
+}
+
+#[test]
+fn duplicate_json_mapping_keys_are_rejected_without_an_intermediate_map() {
+    let value = candidate();
+    let original = serde_json::to_string(&value).unwrap();
+    for pointer in ["", "/artifacts", "/identity", "/memory", "/installation"] {
+        let object = value.pointer(pointer).unwrap();
+        let object_json = serde_json::to_string(object).unwrap();
+        let (key, entry) = object.as_object().unwrap().iter().next().unwrap();
+        let duplicate = format!(
+            "{{{}:{},{}",
+            serde_json::to_string(key).unwrap(),
+            serde_json::to_string(entry).unwrap(),
+            &object_json[1..],
+        );
+        assert!(original.contains(&object_json));
+        let raw = original.replacen(&object_json, &duplicate, 1);
+        assert!(serde_json::from_str::<PackageDeclaration>(&raw).is_err());
+    }
+}
+
+#[test]
+fn duplicate_validation_preserves_declared_list_order() {
+    let mut value = candidate();
+    for family in FAMILIES {
+        value["artifacts"][family].as_array_mut().unwrap().reverse();
+    }
+    let yaml = serde_yaml::to_string(&value).unwrap();
+    let parsed: PackageDeclaration = serde_yaml::from_str(&yaml).unwrap();
+    assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+}
+
+#[test]
+fn package_id_grammar_checks_every_ascii_character_in_both_positions() {
+    for byte in 0..=127u8 {
+        let suffix_allowed =
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-');
+        for (id, expected) in [
+            (char::from(byte).to_string(), byte.is_ascii_lowercase()),
+            (format!("a{}", char::from(byte)), suffix_allowed),
+        ] {
+            let mut value = candidate();
+            value["id"] = json!(id);
+            let yaml = serde_yaml::to_string(&value).unwrap();
+            assert_eq!(
+                serde_yaml::from_str::<PackageDeclaration>(&yaml).is_ok(),
+                expected,
+                "YAML grammar mismatch for {id:?}"
+            );
+            assert_eq!(
+                serde_json::from_value::<PackageDeclaration>(value).is_ok(),
+                expected,
+                "JSON grammar mismatch for {id:?}"
+            );
+        }
+    }
 }
