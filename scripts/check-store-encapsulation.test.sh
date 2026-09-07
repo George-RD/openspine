@@ -94,6 +94,10 @@ fixture 0 pipeline/ordinary.rs 'INSERT INTO"identities_archive"AS row(id) VALUES
 fixture 0 pipeline/ordinary.rs 'INSERT INTO[identities].other(id) VALUES(1)' 'compact effect-named schema'
 fixture 0 pipeline/ordinary.rs 'INSERT INTO identitiesAS(id) VALUES(1)' 'unquoted table boundary'
 fixture 0 pipeline/ordinary.rs 'INSERT INTO "identitiesAS"(id) VALUES(1)' 'quoted table boundary'
+for target in '"identities""archive"' "'principals''archive'" \
+  '`pending_draft_writes``archive`' '"main"."identities""archive"'; do
+  fixture 0 pipeline/ordinary.rs "INSERT INTO $target(id) VALUES(1)" "escaped quote in non-effect name: $target"
+done
 fixture 1 pipeline/rogue.rs 'INSERT/**/INTO/* row */identities (id) VALUES (1)' 'block comments'
 fixture 1 pipeline/rogue.rs $'INSERT -- row\nINTO -- target\nprincipals (id) VALUES (1)' 'line comments'
 fixture 1 pipeline/rogue.rs $'INSERT\r\nOR\tIGNORE\r\nINTO identities (id) VALUES (1)' 'CRLF and tabs'
