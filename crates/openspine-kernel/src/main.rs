@@ -211,13 +211,17 @@ pub(crate) enum ProviderCommands {
     },
 }
 
-#[tokio::main]
-async fn main() -> std::process::ExitCode {
+fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
     // Offline inspection must not read keys, bootstrap state, or start services.
     if let Some(Commands::Package { command }) = &cli.command {
         return cli::package::run(command);
     }
+    run_with_runtime(cli)
+}
+
+#[tokio::main]
+async fn run_with_runtime(cli: Cli) -> std::process::ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
