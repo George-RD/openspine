@@ -1,0 +1,34 @@
+name: Package inspection development evidence
+on:
+  push:
+    branches: [agent/package-inspect-274]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: git archive --format=tar HEAD | gzip > /tmp/openspine-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source
+          path: /tmp/openspine-source.tar.gz
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.97.1'
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Test-first CLI evidence
+        run: |
+          set -o pipefail
+          cargo test -p openspine-kernel --test package_inspect_cli 2>&1 | tee /tmp/package-inspect-red.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: red-evidence
+          path: /tmp/package-inspect-red.log
