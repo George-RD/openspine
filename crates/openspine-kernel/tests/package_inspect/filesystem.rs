@@ -151,7 +151,7 @@ fn package_inspect_unreadable_source_entries_fail_closed() {
         let fixture = Fixture::new();
         let path = fixture.source.join(relative);
         let permissions = fs::metadata(&path).unwrap().permissions();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0)).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o0)).unwrap();
         let output = fixture.run(true);
         fs::set_permissions(path, permissions).unwrap();
         assert!(!output.status.success());
