@@ -86,7 +86,8 @@ fixture 1 pipeline/rogue.rs 'INSERT\nINTO\tidentities (id) VALUES (1)' 'Rust esc
 fixture 1 pipeline/rogue.rs $'INSERT \\\n    INTO identities (id) VALUES (1)' 'Rust line continuation' string
 fixture 1 pipeline/rogue.rs 'WITH data AS (SELECT 1) INSERT INTO identities SELECT * FROM data' 'CTE insert'
 for table in identity_identifiers identities_archive principals2 pending_draft_writes_backup \
-  'main.identities_archive' '"identities_archive"' 'identities$archive'; do
+  'main.identities_archive' '"identities_archive"' 'identities$archive' \
+  'identities.other' '"principals" /* schema */ . "other"' 'identitiesé'; do
   fixture 0 pipeline/ordinary.rs "INSERT INTO $table (id) VALUES (1)" "non-effect table: $table"
 done
 fixture 0 pipeline/ordinary.rs 'SELECT id FROM identities' 'read-only SQL'
