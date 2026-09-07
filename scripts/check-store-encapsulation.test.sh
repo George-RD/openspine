@@ -78,6 +78,22 @@ for target in '"identities"' '[identities]' '`identities`' "'identities'" \
   '[main].`pending_draft_writes`' "'main'.'identities'"; do
   fixture 1 pipeline/rogue.rs "INSERT INTO $target (id) VALUES (1)" "quoted/qualified: $target"
 done
+# Quotes delimit SQLite tokens without whitespace before the table or alias.
+for target in '"identities"' '[principals]' '`pending_draft_writes`' "'identities'" \
+  '"main".identities' '[main].principals' '`main`.`pending_draft_writes`' \
+  "'main'.'identities'"; do
+  fixture 1 pipeline/rogue.rs "INSERT INTO$target(id) VALUES(1)" "compact quoted target: $target"
+done
+for target in '"identities"' '[identities]' '`identities`' "'identities'"; do
+  fixture 1 pipeline/rogue.rs "INSERT INTO $target"'AS row(id) VALUES(1)' "quoted alias boundary: $target"
+done
+fixture 1 pipeline/rogue.rs 'REPLACE INTO[principals](id) VALUES(1)' 'compact replace target'
+fixture 1 pipeline/rogue.rs 'INSERT OR IGNORE INTO"main"."identities"(id) VALUES(1)' 'compact conflict target'
+fixture 0 pipeline/ordinary.rs 'INSERT INTOidentities(id) VALUES(1)' 'INTO keyword boundary'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO"identities_archive"AS row(id) VALUES(1)' 'compact non-effect target'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO[identities].other(id) VALUES(1)' 'compact effect-named schema'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO identitiesAS(id) VALUES(1)' 'unquoted table boundary'
+fixture 0 pipeline/ordinary.rs 'INSERT INTO "identitiesAS"(id) VALUES(1)' 'quoted table boundary'
 fixture 1 pipeline/rogue.rs 'INSERT/**/INTO/* row */identities (id) VALUES (1)' 'block comments'
 fixture 1 pipeline/rogue.rs $'INSERT -- row\nINTO -- target\nprincipals (id) VALUES (1)' 'line comments'
 fixture 1 pipeline/rogue.rs $'INSERT\r\nOR\tIGNORE\r\nINTO identities (id) VALUES (1)' 'CRLF and tabs'
