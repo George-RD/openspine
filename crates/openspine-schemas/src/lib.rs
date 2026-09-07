@@ -36,6 +36,7 @@ pub mod owner;
 pub mod owner_review;
 pub mod owner_surface;
 pub mod pack;
+pub mod package;
 pub mod persona;
 pub mod plan;
 pub mod policy;
