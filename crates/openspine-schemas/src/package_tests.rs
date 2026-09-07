@@ -343,3 +343,46 @@ fn package_id_grammar_checks_every_ascii_character_in_both_positions() {
         }
     }
 }
+
+const METADATA_STRINGS: [&str; 14] = [
+    "/lifecycle_state",
+    "/display_name",
+    "/description",
+    "/identity/persona",
+    "/identity/identity_document",
+    "/memory/model",
+    "/memory/description",
+    "/memory/readable_classes/0",
+    "/memory/readable_scopes/0",
+    "/memory/denied_classes/0",
+    "/installation/current_source",
+    "/installation/config_key",
+    "/installation/planned_cli",
+    "/security_invariants/0",
+];
+
+#[test]
+fn descriptive_metadata_rejects_non_string_scalars_without_coercion() {
+    for pointer in METADATA_STRINGS {
+        for invalid in [Value::Null, json!(true), json!(false), json!(1), json!(1.5)] {
+            let mut value = candidate();
+            *value.pointer_mut(pointer).unwrap() = invalid;
+            assert_rejected(value);
+        }
+    }
+}
+
+#[test]
+fn quoted_scalar_words_and_empty_metadata_remain_strings() {
+    for text in ["", "null", "true", "false", "1", "1.5"] {
+        let mut value = candidate();
+        for pointer in METADATA_STRINGS {
+            *value.pointer_mut(pointer).unwrap() = json!(text);
+        }
+        let yaml = serde_yaml::to_string(&value).unwrap();
+        let parsed: PackageDeclaration = serde_yaml::from_str(&yaml).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+        let parsed: PackageDeclaration = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+    }
+}
