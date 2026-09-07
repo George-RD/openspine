@@ -126,3 +126,95 @@ fn package_inspect_hard_links_fail() {
     .unwrap();
     fixture.rejected("source-unavailable");
 }
+
+#[cfg(unix)]
+#[test]
+fn package_inspect_root_symlink_with_trailing_separator_or_dot_fails() {
+    for suffix in ["/", "/."] {
+        let mut fixture = Fixture::new();
+        let link = fixture.root.path().join("linked-source");
+        std::os::unix::fs::symlink(&fixture.source, &link).unwrap();
+        fixture.source = format!("{}{suffix}", link.display()).into();
+        fixture.rejected("source-unavailable");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn package_inspect_unreadable_source_entries_fail_closed() {
+    use std::os::unix::fs::PermissionsExt as _;
+    // Root bypasses Unix permission bits; CI runs this as an ordinary user.
+    if unsafe { libc::geteuid() } == 0 { return; }
+    for relative in ["README.md", "agents"] {
+        let fixture = Fixture::new();
+        let path = fixture.source.join(relative);
+        let permissions = fs::metadata(&path).unwrap().permissions();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0)).unwrap();
+        let output = fixture.run(true);
+        fs::set_permissions(path, permissions).unwrap();
+        assert!(!output.status.success());
+        let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(report["error"]["code"], "source-unavailable");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn package_inspect_non_utf8_filename_fails_without_lossy_aliasing() {
+    use std::os::unix::ffi::OsStringExt as _;
+    let fixture = Fixture::new();
+    let name = std::ffi::OsString::from_vec(b"invalid-\xff.md".to_vec());
+    fs::write(fixture.source.join(name), "ordinary bytes").unwrap();
+    fixture.rejected("path-invalid");
+}
+
+#[cfg(unix)]
+#[test]
+fn package_inspect_executable_document_fails() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let fixture = Fixture::new();
+    fs::set_permissions(fixture.source.join("README.md"), fs::Permissions::from_mode(0o755)).unwrap();
+    fixture.rejected("payload-unsupported");
+}
+
+#[test]
+fn package_inspect_binary_document_fails() {
+    let fixture = Fixture::new();
+    fs::write(fixture.source.join("hidden.md"), [0, 0xff]).unwrap();
+    fixture.rejected("payload-unsupported");
+}
+
+#[test]
+fn package_inspect_exact_file_size_limit_is_accepted() {
+    let fixture = Fixture::new();
+    fs::write(fixture.source.join("large.md"), vec![b'x'; 8 * 1024 * 1024]).unwrap();
+    fixture.report();
+}
+
+#[test]
+fn package_inspect_exact_total_size_limit_is_accepted() {
+    let fixture = Fixture::new();
+    let current: usize = file_bytes(&fixture.source).values().map(Vec::len).sum();
+    let mut remaining = 64 * 1024 * 1024 - current;
+    let mut index = 0;
+    while remaining > 0 {
+        let bytes = remaining.min(8 * 1024 * 1024);
+        fs::write(fixture.source.join(format!("padding-{index}.md")), vec![b'x'; bytes]).unwrap();
+        remaining -= bytes;
+        index += 1;
+    }
+    let report = fixture.report();
+    let total: u64 = report["inventory"].as_array().unwrap().iter()
+        .map(|entry| entry["bytes"].as_u64().unwrap()).sum();
+    assert_eq!(total, 64 * 1024 * 1024);
+}
+
+#[test]
+fn package_inspect_exact_file_count_limit_is_accepted() {
+    let fixture = Fixture::new();
+    let existing = file_bytes(&fixture.source).len();
+    for index in existing..4096 {
+        fs::write(fixture.source.join(format!("padding-{index}.md")), "").unwrap();
+    }
+    assert_eq!(fixture.report()["inventory"].as_array().unwrap().len(), 4096);
+}
