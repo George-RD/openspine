@@ -50,7 +50,7 @@ lyra_dir: /opt/openspine/packages/lyra
 Inspect that directory without starting the runtime:
 
 ```sh
-openspine package inspect artifacts/lyra --json
+openspine package inspect /opt/openspine/packages/lyra --json
 ```
 
 Inspection validates the declaration and exact captured bytes. It does not
