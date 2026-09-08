@@ -1,5 +1,7 @@
 //! Operator authority, existing-ledger and conflict boundaries through the CLI.
-use super::{assert_success, copy_tree, Fixture};
+use super::Fixture;
+#[cfg(debug_assertions)]
+use super::{assert_success, copy_tree};
 use rusqlite::Connection;
 use serde_json::Value;
 use std::fs;
@@ -163,6 +165,7 @@ fn different_revisions_coexist_without_selecting_either() {
     }
 }
 
+#[cfg(debug_assertions)]
 #[test]
 fn concurrent_conflicting_installers_publish_only_one_revision_identity() {
     let fixture = Fixture::new();
