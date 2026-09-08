@@ -59,8 +59,8 @@ fn package_object_verification_binds_every_identity_field() {
     use openspine_schemas::digest::digest_of_bytes;
 
     let root = tempfile::tempdir().unwrap();
-    let snapshot = inspect(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"))
-        .unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
+    let snapshot = inspect(&source).unwrap();
     let data = root.path().join("data");
     fs::create_dir(&data).unwrap();
     let objects = PackageObjects::open(&data, &root.path().join("active")).unwrap();
@@ -79,9 +79,11 @@ fn package_object_verification_binds_every_identity_field() {
                 // Keep a readable object at the wrong content address so this
                 // case proves hashing, not merely missing-directory rejection.
                 let directory = data.join("packages/objects");
+                let original_digest = identity.content_digest.as_str();
+                let changed_digest = changed.content_digest.as_str();
                 copy(
-                    &directory.join(identity.content_digest.as_str().strip_prefix("sha256:").unwrap()),
-                    &directory.join(changed.content_digest.as_str().strip_prefix("sha256:").unwrap()),
+                    &directory.join(original_digest.strip_prefix("sha256:").unwrap()),
+                    &directory.join(changed_digest.strip_prefix("sha256:").unwrap()),
                 );
             }
             _ => unreachable!(),
