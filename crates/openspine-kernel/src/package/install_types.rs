@@ -135,3 +135,28 @@ pub(crate) fn crash_at(point: &str) {
     #[cfg(not(debug_assertions))]
     let _ = point;
 }
+
+/// Debug-only rendezvous in a test-owned directory. No release-mode I/O or
+/// environment switch; even an abandoned test cannot pause a command forever.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) fn test_barrier(point: &str) -> Result<(), InstallError> {
+    #[cfg(debug_assertions)]
+    if std::env::var("OPENSPINE_TEST_PACKAGE_PAUSE").as_deref() == Ok(point) {
+        use std::time::{Duration, Instant};
+        let directory = std::env::var_os("OPENSPINE_TEST_PACKAGE_BARRIER")
+            .map(std::path::PathBuf::from)
+            .ok_or(InstallError::Locked)?;
+        std::fs::File::create_new(directory.join(format!("{point}.ready")))
+            .map_err(|_| InstallError::Locked)?;
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !directory.join(format!("{point}.release")).is_file() {
+            if Instant::now() >= deadline {
+                return Err(InstallError::Locked);
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+    #[cfg(not(debug_assertions))]
+    let _ = point;
+    Ok(())
+}

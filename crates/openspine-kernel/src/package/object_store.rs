@@ -1,10 +1,21 @@
 //! Immutable, non-autoloaded package objects. Publication precedes indexing.
 use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
 use super::{object_fs as fs, PackageSnapshot};
+use openspine_schemas::digest::digest_of_bytes;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use ulid::Ulid;
+
+/// Inventory-v1 identity only, deliberately independent of today's declaration
+/// schema. Direct struct parsing rejects duplicate/missing identity fields;
+/// values preserve scalar kinds instead of coercing YAML null/bool into text.
+/// Other fields remain covered by the recorded manifest and inventory digests.
+#[derive(serde::Deserialize)]
+struct RetainedManifestIdentity {
+    id: serde_yaml::Value,
+    version: serde_yaml::Value,
+}
 
 pub(crate) struct PackageObjects {
     data_path: PathBuf,
@@ -97,13 +108,29 @@ impl PackageObjects {
         self.check_anchors()
     }
 
+    /// Verify recorded bytes and stable identity, not current runtime or
+    /// declaration compatibility. Success does not construct a trusted snapshot.
     pub(crate) fn verify(&self, identity: &PackageIdentity) -> Result<(), Error> {
         self.check_anchors()?;
         let name = object_name(identity)?;
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
         let files = super::source::capture_opened(&object).map_err(|_| Error::ObjectCorrupt)?;
-        let captured = super::from_files(files).map_err(|_| Error::ObjectCorrupt)?;
-        if captured.identity() != *identity {
+        // This identity came from an inspected snapshot or its durable receipt.
+        // Re-hash its complete inventory, but do not re-stage/revalidate it or
+        // manufacture a new validated snapshot from stored bytes.
+        let (_, content_digest) = super::inventory_of(&files);
+        let manifest = files.get("package.yaml").ok_or(Error::ObjectCorrupt)?;
+        if identity.inventory_format_version != super::INVENTORY_FORMAT_VERSION
+            || content_digest != identity.content_digest
+            || digest_of_bytes(manifest) != identity.manifest_digest
+        {
+            return Err(Error::ObjectCorrupt);
+        }
+        let declaration: RetainedManifestIdentity =
+            serde_yaml::from_slice(manifest).map_err(|_| Error::ObjectCorrupt)?;
+        if declaration.id.as_str() != Some(identity.package_id.as_str())
+            || declaration.version.as_u64() != Some(u64::from(identity.revision))
+        {
             return Err(Error::ObjectCorrupt);
         }
         fs::same(

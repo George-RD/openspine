@@ -26,7 +26,7 @@ The source package lives in [`artifacts/lyra`](../artifacts/lyra/). Its persiste
 
 A source checkout already uses Lyra by default because `Config::lyra_dir` defaults to `artifacts/lyra`.
 
-[`artifacts/lyra/package.yaml`](../artifacts/lyra/package.yaml) is the package declaration: it names Lyra, its entry agent, the artifact families the package contains, the memory contract, and the security invariants. The read-only `openspine package inspect <directory>` command checks it against the captured artifacts and reports their exact content identity. Runtime loading remains directory-driven; inspection does not select or activate a package. `PERSONA.md` is still a human-readable identity contract rather than a privileged runtime input. See [package inspection](packages.md). Runtime personality is carried by typed persona overlay artifacts.
+[`artifacts/lyra/package.yaml`](../artifacts/lyra/package.yaml) is the package declaration: it names Lyra, its entry agent, the artifact families the package contains, the memory contract, and the security invariants. The read-only `openspine package inspect <directory>` command checks it against the captured artifacts and reports their exact content identity. Native installation can retain those validated bytes as an inactive package with an audit-bound receipt. Runtime loading remains directory-driven; neither inspection nor installation selects or activates a package. `PERSONA.md` is still a human-readable identity contract rather than a privileged runtime input. See [package inspection](packages.md) and [inactive installation](package-installation.md). Runtime personality is carried by typed persona overlay artifacts.
 
 ## How Lyra is meant to grow
 
@@ -100,9 +100,19 @@ A `soul.md` can be a useful authoring surface, but it becomes dangerous when per
 
 A preference such as “keep replies brief” may become durable guidance. It may not become “send replies automatically.” Learning how the owner likes work done remains separate from permission to cause an effect.
 
-## Installation direction
+## Installation today and next
 
-The intended user-facing model is:
+Read-only inspection and native inactive installation are shipped. On Linux and macOS, use an existing initialized instance and stop its runtime before installation or package maintenance:
+
+```sh
+openspine install lyra --json
+openspine package list --json
+openspine package receipts --json
+```
+
+Installation retains an exact, validated package snapshot and a durable receipt. It does not change `lyra_dir`, activate artifacts, connect accounts, or grant permissions. See [inactive installation](package-installation.md) for configuration, retries, recovery and integrity checks.
+
+The intended complete product flow remains:
 
 ```text
 openspine install lyra
@@ -110,6 +120,6 @@ openspine use lyra
 openspine run
 ```
 
-Only read-only inspection is shipped. Inactive installation and receipts (#275) come next; they must not change the selected package. The native package store, selection transition and resolver shown above are not shipped yet. [Issue #117](https://github.com/George-RD/openspine/issues/117) tracks the transactional, versioned, and auditable installer required to make the product model match the architecture.
+Package selection (`use`), activation, the selected-package resolver and signed distribution are not shipped. [Issue #117](https://github.com/George-RD/openspine/issues/117) tracks the remaining lifecycle and review design. Installation success or a matching content digest is not activation approval.
 
-Until then, the source package and `lyra_dir` configuration remain the implementation interface.
+Until that work lands, the source package and `lyra_dir` configuration remain the runtime loading interface.

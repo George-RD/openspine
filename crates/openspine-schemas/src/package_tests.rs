@@ -33,7 +33,7 @@ fn bundled_lyra_declaration_round_trips_without_changing_metadata() {
     let declaration: PackageDeclaration = serde_yaml::from_str(LYRA).unwrap();
     assert_eq!(declaration.schema_version, 1);
     assert_eq!(declaration.id, "lyra");
-    assert_eq!(declaration.version, 1);
+    assert_eq!(declaration.version, 2);
     assert_eq!(declaration.lifecycle_state, "alpha");
     assert_eq!(declaration.entry_agent, "main_assistant_agent");
     assert_eq!(serde_json::to_value(&declaration).unwrap(), candidate());

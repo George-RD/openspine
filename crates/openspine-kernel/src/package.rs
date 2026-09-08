@@ -34,6 +34,7 @@ mod validation;
 pub(super) const MAX_FILES: usize = 4096;
 pub(super) const MAX_FILE_BYTES: usize = 8 * 1024 * 1024;
 pub(super) const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
+const INVENTORY_FORMAT_VERSION: u32 = 1;
 pub(super) const FAMILIES: [&str; 7] = [
     "agents",
     "routes",
@@ -73,6 +74,8 @@ pub(crate) struct PackageSnapshot {
 }
 
 impl PackageSnapshot {
+    /// Bind package metadata, manifest bytes and complete inventory to one identity.
+    /// This is a local integrity identity, not publisher or activation approval.
     pub(crate) fn identity(&self) -> install_types::PackageIdentity {
         install_types::PackageIdentity {
             package_id: self.report.package_id.clone(),
@@ -83,6 +86,7 @@ impl PackageSnapshot {
         }
     }
 
+    /// Borrow the report produced by validation without reopening source files.
     pub(crate) fn report(&self) -> &InspectionReport {
         &self.report
     }
@@ -94,6 +98,7 @@ impl PackageSnapshot {
             .map(|(path, bytes)| (path.as_str(), bytes.as_slice()))
     }
 
+    /// Render bounded inspection metadata without echoing candidate document text.
     pub(crate) fn summary(&self) -> String {
         let bytes: usize = self.files().map(|(_, bytes)| bytes.len()).sum();
         format!(
@@ -115,8 +120,27 @@ pub(crate) fn inspect(directory: &Path) -> Result<PackageSnapshot, InspectionErr
     from_files(source::capture(directory)?)
 }
 
+/// Validate captured files through the typed loader before constructing a snapshot.
+/// Failure, including unavailable private staging, never yields a validated value.
 fn from_files(files: BTreeMap<String, Vec<u8>>) -> Result<PackageSnapshot, InspectionError> {
     let declaration = validation::validate(&files)?;
+    let (inventory, content_digest) = inventory_of(&files);
+    let report = InspectionReport {
+        schema_version: 1,
+        inventory_format_version: INVENTORY_FORMAT_VERSION,
+        valid: true,
+        provenance: "local-unverified",
+        package_id: declaration.id,
+        revision: declaration.version,
+        content_digest,
+        inventory,
+    };
+    Ok(PackageSnapshot { files, report })
+}
+
+/// Byte identity only: no filesystem writes, loader validation, or trusted
+/// snapshot construction. Inspection and retained-object checks hash alike.
+fn inventory_of(files: &BTreeMap<String, Vec<u8>>) -> (Vec<InventoryFile>, Digest) {
     let inventory: Vec<_> = files
         .iter()
         .map(|(path, bytes)| InventoryFile {
@@ -126,20 +150,10 @@ fn from_files(files: BTreeMap<String, Vec<u8>>) -> Result<PackageSnapshot, Inspe
         })
         .collect();
     let content_digest = digest_of(&serde_json::json!({
-        "inventory_format_version": 1,
+        "inventory_format_version": INVENTORY_FORMAT_VERSION,
         "files": inventory,
     }));
-    let report = InspectionReport {
-        schema_version: 1,
-        inventory_format_version: 1,
-        valid: true,
-        provenance: "local-unverified",
-        package_id: declaration.id,
-        revision: declaration.version,
-        content_digest,
-        inventory,
-    };
-    Ok(PackageSnapshot { files, report })
+    (inventory, content_digest)
 }
 
 /// Deliberately bounded diagnostics. Never relay a parser's candidate text,

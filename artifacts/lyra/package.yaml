@@ -1,6 +1,6 @@
 schema_version: 1
 id: lyra
-version: 1
+version: 2
 lifecycle_state: alpha
 display_name: Lyra
 description: >-
@@ -11,8 +11,8 @@ description: >-
 entry_agent: main_assistant_agent
 
 # The typed artifact families the kernel loads from this package directory. The
-# kernel loads the directories themselves; this list is the human-readable
-# declaration of what the package is understood to contain.
+# kernel loads the directories themselves; inspection checks the declaration
+# against the complete captured artifact inventory.
 artifacts:
   agents:
     - main_assistant_agent
@@ -80,7 +80,7 @@ memory:
 installation:
   current_source: artifacts/lyra
   config_key: lyra_dir
-  planned_cli: openspine install lyra
+  planned_cli: openspine use lyra
 
 security_invariants:
   - The model reasons; the kernel decides.

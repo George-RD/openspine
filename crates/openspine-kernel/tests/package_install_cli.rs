@@ -45,7 +45,9 @@ impl Fixture {
             .env_remove("OPENSPINE_GRANT_HMAC_KEY")
             .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")
             .env_remove("OPENSPINE_LOCAL_API_KEY")
-            .env_remove("OPENSPINE_TEST_PACKAGE_CRASH");
+            .env_remove("OPENSPINE_TEST_PACKAGE_CRASH")
+            .env_remove("OPENSPINE_TEST_PACKAGE_PAUSE")
+            .env_remove("OPENSPINE_TEST_PACKAGE_BARRIER");
         command
     }
 
@@ -175,6 +177,67 @@ fn invalid_candidate_never_appears_in_installed_index() {
     assert!(fixture.list()["packages"].as_array().unwrap().is_empty());
 }
 
+#[test]
+fn installed_package_verification_does_not_require_temporary_storage() {
+    let fixture = Fixture::new();
+    let installed = fixture.install();
+    let not_a_directory = fixture.root.path().join("temp-file");
+    fs::write(&not_a_directory, b"not a directory").unwrap();
+    for temporary in [fixture.root.path().join("missing-temp"), not_a_directory] {
+        // Prove the child observes the unusable TMPDIR. New candidates still
+        // require full loader validation; listing a retained identity does not.
+        let inspection = fixture
+            .command(&["package", "inspect", "candidate", "--json"])
+            .env("TMPDIR", &temporary)
+            .output()
+            .unwrap();
+        assert!(!inspection.status.success());
+        let error: Value = serde_json::from_slice(&inspection.stdout).unwrap();
+        assert_eq!(error["error"]["code"], "staging-unavailable");
+        let output = fixture
+            .command(&["package", "list", "--json"])
+            .env("TMPDIR", &temporary)
+            .output()
+            .unwrap();
+        assert_success(&output);
+        let listed: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(listed["packages"].as_array().unwrap().len(), 1);
+        assert_eq!(listed["packages"][0]["receipt"], installed["receipt"]);
+        assert_eq!(listed["packages"][0]["availability"], "available");
+        assert_eq!(listed["packages"][0]["selected"], false);
+        assert_eq!(listed["packages"][0]["active"], false);
+    }
+}
+
+/// Production installation ignores debug fault controls and emits no test
+/// barrier signals, even when all three hook variables are explicitly supplied.
+#[cfg(not(debug_assertions))]
+#[test]
+fn release_install_ignores_debug_fault_environment() {
+    let fixture = Fixture::new();
+    let barrier = fixture.root.path().join("barrier");
+    fs::create_dir(&barrier).unwrap();
+    let output = fixture
+        .command(&["install", "--from", "candidate", "--json"])
+        .env("OPENSPINE_TEST_PACKAGE_CRASH", "after-prepared")
+        .env("OPENSPINE_TEST_PACKAGE_PAUSE", "lock-acquired")
+        .env("OPENSPINE_TEST_PACKAGE_BARRIER", &barrier)
+        .output()
+        .unwrap();
+    assert_success(&output);
+    assert_eq!(fs::read_dir(&barrier).unwrap().count(), 0);
+    let installed: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(installed["status"], "installed-inactive");
+    assert_eq!(installed["selected"], false);
+    assert_eq!(installed["active"], false);
+    let listed = fixture.list();
+    assert_eq!(listed["packages"][0]["receipt"], installed["receipt"]);
+    assert_eq!(listed["packages"][0]["availability"], "available");
+}
+
+#[cfg(debug_assertions)]
+#[path = "package_install/concurrency.rs"]
+mod concurrency;
 #[path = "package_install/faults.rs"]
 mod faults;
 #[path = "package_install/guardrails.rs"]

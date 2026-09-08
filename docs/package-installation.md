@@ -37,15 +37,17 @@ Objects live under the canonical data root at `packages/objects/<content-digest-
 
 Publication uses an owner-only staging directory on the same filesystem. Files and directories are synchronized before atomic no-overwrite publication. The installed-index row and successful audit event are then committed in one Store transaction. Directory presence alone never means installed.
 
-An exact ID/revision/digest retry verifies the retained object and returns the original receipt with `idempotent_retry: true`. Different bytes under an existing ID and revision produce `revision-conflict`; they never overwrite the installed object. Different revisions may coexist, still unselected and inactive.
+An exact ID/revision/digest retry verifies the retained object and returns the original receipt with `idempotent_retry: true`. Different bytes under an existing ID and revision produce `revision-conflict`; they never overwrite the installed object. Different revisions may coexist, still unselected and inactive. Changes to any bundled file, including documentation, require a new package revision to avoid this conflict. The corrected Lyra installation instructions ship as revision 2; existing revision-1 objects and receipts are unchanged.
 
-A process interrupted before the index/audit transaction commits leaves no successful installation. Recovery records the interrupted operation, removes only staging belonging to known attempts, and preserves published objects. A later matching retry may reuse an orphan only after complete validation and synchronization. An interruption after commit preserves the same installation identity and successful receipt.
+A process interrupted before the index/audit transaction commits leaves no successful installation. Recovery records the interrupted operation, removes only staging belonging to known attempts, and preserves published objects. A later matching retry may reuse an orphan only after validating the candidate, verifying the retained object's exact identity, and synchronizing it. An interruption after commit preserves the same installation identity and successful receipt.
 
 If post-commit staging cleanup fails, the successful result sets `cleanup_pending: true`. The installation remains committed; later maintenance retries cleanup. Unknown staging entries are not swept, and published objects and audit history are never garbage-collected by these commands.
 
 ## Missing or corrupt state
 
-Listing reads the durable index and verifies each retained object's full inventory. Missing, modified, appended, linked, or invalid payloads are reported as `unavailable-or-corrupt`. The receipt remains visible, but an exact installation retry refuses to repair or replace the object silently.
+Listing reads the durable index and verifies each retained object's full inventory against its recorded package ID, revision, inventory format, content digest and manifest digest. Missing, modified, appended, linked, or filesystem-invalid payloads are reported as `unavailable-or-corrupt`. The receipt remains visible, but an exact installation retry refuses to repair or replace the object silently.
+
+Retained-object verification does not create a temporary loader tree. An unavailable temporary directory therefore does not by itself mark intact retained bytes as corrupt. `available` means the recorded bytes are present and match their identity; it is not a fresh typed-artifact validation, current-runtime compatibility check, publisher verification or activation approval. Inspecting a new candidate still performs full typed loader validation and requires private temporary storage.
 
 An index/audit mismatch or broken audit chain refuses package maintenance. Missing, empty, and unrelated database files are not initialized by an install command. A pending export/restore is also refused: finish the normal runtime recovery procedure first, rather than applying it through an installation shortcut.
 
