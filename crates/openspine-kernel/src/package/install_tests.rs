@@ -52,3 +52,44 @@ fn package_install_uses_retained_validated_bytes_after_source_disappears() {
     }
     assert!(store.verify_audit_chain().unwrap());
 }
+
+#[test]
+fn package_object_verification_binds_every_identity_field() {
+    use super::install_types::InstallError;
+    use openspine_schemas::digest::digest_of_bytes;
+
+    let root = tempfile::tempdir().unwrap();
+    let snapshot = inspect(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"))
+        .unwrap();
+    let data = root.path().join("data");
+    fs::create_dir(&data).unwrap();
+    let objects = PackageObjects::open(&data, &root.path().join("active")).unwrap();
+    objects.publish(ulid::Ulid::new(), &snapshot).unwrap();
+    let identity = snapshot.identity();
+    objects.verify(&identity).unwrap();
+    for field in ["package", "revision", "format", "manifest", "content"] {
+        let mut changed = identity.clone();
+        match field {
+            "package" => changed.package_id.push_str("-other"),
+            "revision" => changed.revision += 1,
+            "format" => changed.inventory_format_version += 1,
+            "manifest" => changed.manifest_digest = digest_of_bytes(b"other manifest"),
+            "content" => {
+                changed.content_digest = digest_of_bytes(b"other inventory");
+                // Keep a readable object at the wrong content address so this
+                // case proves hashing, not merely missing-directory rejection.
+                let directory = data.join("packages/objects");
+                copy(
+                    &directory.join(identity.content_digest.as_str().strip_prefix("sha256:").unwrap()),
+                    &directory.join(changed.content_digest.as_str().strip_prefix("sha256:").unwrap()),
+                );
+            }
+            _ => unreachable!(),
+        }
+        assert!(
+            matches!(objects.verify(&changed), Err(InstallError::ObjectCorrupt)),
+            "{field}"
+        );
+    }
+    objects.verify(&identity).unwrap();
+}
