@@ -162,7 +162,10 @@ fn package_object_verification_ignores_current_declaration_compatibility() {
             serde_yaml::to_string(&changed).unwrap().into_bytes(),
         );
         assert!(
-            matches!(inspect(&object), Err(super::InspectionError::DeclarationInvalid)),
+            matches!(
+                inspect(&object),
+                Err(super::InspectionError::DeclarationInvalid)
+            ),
             "new candidate with {field} must still be rejected"
         );
         objects
@@ -171,23 +174,27 @@ fn package_object_verification_ignores_current_declaration_compatibility() {
     }
 }
 
-/// Ignoring non-identity fields must not admit ambiguous or absent identity
-/// fields, even when the complete recorded byte digests match the fixture.
+/// Ignoring non-identity fields must not admit ambiguous, absent or coerced
+/// identity fields, even when the complete recorded byte digests match.
 #[test]
 fn package_object_verification_rejects_malformed_retained_identity() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
     let snapshot = inspect(&source).unwrap();
-    for manifest in [
-        "id: lyra\nid: lyra\nversion: 2\n",
-        "id: lyra\nversion: 2\nversion: 2\n",
-        "version: 2\n",
-        "id: lyra\n",
-        "id: [lyra]\nversion: 2\n",
-        "id: lyra\nversion: 2.5\n",
+    for (manifest, expected_id) in [
+        ("id: lyra\nid: lyra\nversion: 2\n", "lyra"),
+        ("id: lyra\nversion: 2\nversion: 2\n", "lyra"),
+        ("version: 2\n", "lyra"),
+        ("id: lyra\n", "lyra"),
+        ("id: [lyra]\nversion: 2\n", "lyra"),
+        ("id: lyra\nversion: 2.5\n", "lyra"),
+        ("id: null\nversion: 2\n", "null"),
+        ("id: true\nversion: 2\n", "true"),
+        ("id: lyra\nversion: \"2\"\n", "lyra"),
     ] {
         let root = tempfile::tempdir().unwrap();
-        let (objects, identity, _) =
+        let (objects, mut identity, _) =
             retained_manifest(root.path(), &snapshot, manifest.as_bytes().to_vec());
+        identity.package_id = expected_id.to_owned();
         assert!(matches!(
             objects.verify(&identity),
             Err(super::install_types::InstallError::ObjectCorrupt)
