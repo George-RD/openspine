@@ -1,12 +1,22 @@
 //! Offline package commands. Dispatch before owner environment/config startup.
 use std::io::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum PackageCommands {
+    /// List retained installations, all explicitly inactive and unselected.
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Inspect content-free durable package operation receipts.
+    Receipts {
+        #[arg(long)]
+        json: bool,
+    },
     /// Inspect exact local package bytes without installation or activation.
     Inspect {
         directory: PathBuf,
@@ -16,8 +26,16 @@ pub(crate) enum PackageCommands {
     },
 }
 
-pub(crate) fn run(command: &PackageCommands) -> ExitCode {
-    let PackageCommands::Inspect { directory, json } = command;
+pub(crate) fn run(command: &PackageCommands, config: &Path) -> ExitCode {
+    let (directory, json) = match command {
+        PackageCommands::Inspect { directory, json } => (directory, json),
+        PackageCommands::List { json } => {
+            return super::package_install::list(config, *json, false)
+        }
+        PackageCommands::Receipts { json } => {
+            return super::package_install::list(config, *json, true)
+        }
+    };
     let (output, code) = match crate::package::inspect(directory) {
         Ok(snapshot) => {
             let output = if *json {

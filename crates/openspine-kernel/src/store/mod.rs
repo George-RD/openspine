@@ -310,39 +310,48 @@ fn hydrate_task_grant(
         owner_surface,
     ))
 }
+pub(crate) mod package_install;
+#[cfg(test)]
+mod package_install_tests;
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let mut conn = Connection::open(path)?;
-        conn.busy_timeout(std::time::Duration::from_secs(5))?;
-        migrations::apply_versioned_migrations(&mut conn)?;
-        nerve_schema::ensure_schema(&conn)?;
-        let store = Self {
-            conn: Arc::new(Mutex::new(conn)),
-            #[cfg(test)]
-            activation_tx_failure: Arc::new(AtomicBool::new(false)),
-            #[cfg(test)]
-            fault_init_tx: Arc::new(std::sync::Mutex::new(false)),
-            #[cfg(test)]
-            fail_next_skill_promotion_tx: Arc::new(AtomicBool::new(false)),
-            fail_next_owner_reconfirmation: Arc::new(AtomicBool::new(false)),
-            fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
-            fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
-            fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
-        };
-        // #135/D-162: the activation guard is not retroactive. A rule stored
-        // before it existed can still carry an ineligible dark-window Allow,
-        // and hydration re-reads it without re-checking. Converge the database
-        // on every open so the prohibition is true of what is stored, not only
-        // of what is newly activated.
+        let store = Self::from_connection(Connection::open(path)?)?;
+        // Normal runtime startup retains the retroactive dark-window guard.
         store.sweep_ineligible_dark_window_allow_rules(jiff::Timestamp::now())?;
         Ok(store)
     }
 
+    /// Offline maintenance opens only an existing ledger. It neither creates
+    /// owner state nor runs the serving path's authority-changing sweep.
+    pub(crate) fn open_for_package_management(path: &Path) -> Result<Self, StoreError> {
+        let conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+                | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )?;
+        let recognized: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audit_log')",
+            [], |row| row.get(0))?;
+        if !recognized {
+            return Err(StoreError::BadLedgerMeta(
+                "package maintenance requires an existing kernel ledger".into(),
+            ));
+        }
+        let store = Self::from_connection(conn)?;
+        store.validate_package_ledger()?;
+        Ok(store)
+    }
+
     pub fn open_in_memory() -> Result<Self, StoreError> {
-        let mut conn = Connection::open_in_memory()?;
+        Self::from_connection(Connection::open_in_memory()?)
+    }
+
+    fn from_connection(mut conn: Connection) -> Result<Self, StoreError> {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
         nerve_schema::ensure_schema(&conn)?;

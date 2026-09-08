@@ -1,0 +1,45 @@
+name: Native package checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/package-native.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "crates/openspine-kernel/**"
+      - "crates/openspine-schemas/**"
+      - "artifacts/lyra/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/package-native.yml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "crates/openspine-kernel/**"
+      - "crates/openspine-schemas/**"
+      - "artifacts/lyra/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-packages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-packages:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Rust 1.97.1
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97.1"
+      - uses: Swatinem/rust-cache@v2
+      - name: Exercise native package inspection and installation
+        run: |
+          cargo test -p openspine-kernel --test package_inspect_cli --test package_install_cli
+          cargo test -p openspine-kernel package::
+          cargo test -p openspine-kernel store::package_install_tests::

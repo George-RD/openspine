@@ -19,6 +19,16 @@ mod source {
         Err(InspectionError::SourceUnavailable)
     }
 }
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod install;
+#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
+#[path = "package/install_tests.rs"]
+mod install_tests;
+pub(crate) mod install_types;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod object_fs;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod object_store;
 mod validation;
 
 pub(super) const MAX_FILES: usize = 4096;
@@ -63,6 +73,16 @@ pub(crate) struct PackageSnapshot {
 }
 
 impl PackageSnapshot {
+    pub(crate) fn identity(&self) -> install_types::PackageIdentity {
+        install_types::PackageIdentity {
+            package_id: self.report.package_id.clone(),
+            revision: self.report.revision,
+            inventory_format_version: self.report.inventory_format_version,
+            content_digest: self.report.content_digest.clone(),
+            manifest_digest: digest_of_bytes(&self.files["package.yaml"]),
+        }
+    }
+
     pub(crate) fn report(&self) -> &InspectionReport {
         &self.report
     }
@@ -92,7 +112,10 @@ impl PackageSnapshot {
 /// Capture first, then validate and hash exactly that snapshot. The temporary
 /// loader tree contains only captured files; the live source is never reread.
 pub(crate) fn inspect(directory: &Path) -> Result<PackageSnapshot, InspectionError> {
-    let files = source::capture(directory)?;
+    from_files(source::capture(directory)?)
+}
+
+fn from_files(files: BTreeMap<String, Vec<u8>>) -> Result<PackageSnapshot, InspectionError> {
     let declaration = validation::validate(&files)?;
     let inventory: Vec<_> = files
         .iter()

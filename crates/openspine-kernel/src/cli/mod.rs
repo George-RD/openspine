@@ -4,6 +4,7 @@ pub mod init;
 pub mod login;
 pub mod onboarding;
 pub(crate) mod package;
+pub(crate) mod package_install;
 mod prompt;
 pub mod readiness;
 pub mod remedy;

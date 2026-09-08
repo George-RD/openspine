@@ -46,6 +46,11 @@ impl OverlayOperations {
         acquire(data_root, master_key)
     }
 
+    /// Maintenance refuses pending export/restore instead of applying it.
+    pub(crate) fn has_pending_operation(&self) -> Result<bool, ControlError> {
+        Ok(self.control.load_operation()?.is_some())
+    }
+
     pub(crate) fn canonical_data_root(&self) -> &Path {
         self.control.canonical_data_root()
     }
