@@ -57,8 +57,25 @@ fn package_inspect_file_count_limit_fails() {
 fn package_inspect_case_ambiguous_paths_fail() {
     let fixture = Fixture::new();
     fs::write(fixture.source.join("note.md"), "one").unwrap();
-    fs::write(fixture.source.join("NOTE.md"), "two").unwrap();
-    fixture.rejected("path-invalid");
+    let before = fixture.report();
+    // A case-insensitive filesystem cannot represent both directory entries.
+    // Exclusive creation must not silently replace the first test fixture.
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(fixture.source.join("NOTE.md"))
+    {
+        Ok(file) => {
+            drop(file);
+            fs::write(fixture.source.join("NOTE.md"), "two").unwrap();
+            fixture.rejected("path-invalid");
+        }
+        Err(error) => {
+            assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+            assert_eq!(fs::read(fixture.source.join("note.md")).unwrap(), b"one");
+            assert_eq!(fixture.report(), before);
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -165,9 +182,18 @@ fn package_inspect_unreadable_source_entries_fail_closed() {
 fn package_inspect_non_utf8_filename_fails_without_lossy_aliasing() {
     use std::os::unix::ffi::OsStringExt as _;
     let fixture = Fixture::new();
+    let before = fixture.report();
     let name = std::ffi::OsString::from_vec(b"invalid-\xff.md".to_vec());
-    fs::write(fixture.source.join(name), "ordinary bytes").unwrap();
-    fixture.rejected("path-invalid");
+    match fs::write(fixture.source.join(name), "ordinary bytes") {
+        Ok(()) => {
+            fixture.rejected("path-invalid");
+        }
+        Err(error) => {
+            // APFS can reject the name itself; no lossy replacement is made.
+            assert_eq!(error.raw_os_error(), Some(libc::EILSEQ));
+            assert_eq!(fixture.report(), before);
+        }
+    }
 }
 
 #[cfg(unix)]
