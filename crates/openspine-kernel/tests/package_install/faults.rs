@@ -135,27 +135,14 @@ fn destination_symlink_is_refused_without_writing_outside_data_root() {
 #[test]
 fn concurrent_exact_installers_share_one_identity_and_success_receipt() {
     let fixture = Fixture::new();
-    let command = ["install", "--from", "candidate", "--json"];
-    let first = fixture
-        .command(&command)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    let second = fixture
-        .command(&command)
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    let first = first.wait_with_output().unwrap();
-    let second = second.wait_with_output().unwrap();
+    let (first, second) = super::concurrency::contending_installers(&fixture, "candidate");
     assert_success(&first);
     assert_success(&second);
     let first: Value = serde_json::from_slice(&first.stdout).unwrap();
     let second: Value = serde_json::from_slice(&second.stdout).unwrap();
     assert_eq!(first["receipt"], second["receipt"]);
-    assert_ne!(first["idempotent_retry"], second["idempotent_retry"]);
+    assert_eq!(first["idempotent_retry"], false);
+    assert_eq!(second["idempotent_retry"], true);
     assert_eq!(committed(&fixture), 1);
 }
 
