@@ -209,6 +209,33 @@ fn installed_package_verification_does_not_require_temporary_storage() {
     }
 }
 
+/// Production installation ignores debug fault controls and emits no test
+/// barrier signals, even when all three hook variables are explicitly supplied.
+#[cfg(not(debug_assertions))]
+#[test]
+fn release_install_ignores_debug_fault_environment() {
+    let fixture = Fixture::new();
+    let barrier = fixture.root.path().join("barrier");
+    fs::create_dir(&barrier).unwrap();
+    let output = fixture
+        .command(&["install", "--from", "candidate", "--json"])
+        .env("OPENSPINE_TEST_PACKAGE_CRASH", "after-prepared")
+        .env("OPENSPINE_TEST_PACKAGE_PAUSE", "lock-acquired")
+        .env("OPENSPINE_TEST_PACKAGE_BARRIER", &barrier)
+        .output()
+        .unwrap();
+    assert_success(&output);
+    assert_eq!(fs::read_dir(&barrier).unwrap().count(), 0);
+    let installed: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(installed["status"], "installed-inactive");
+    assert_eq!(installed["selected"], false);
+    assert_eq!(installed["active"], false);
+    let listed = fixture.list();
+    assert_eq!(listed["packages"][0]["receipt"], installed["receipt"]);
+    assert_eq!(listed["packages"][0]["availability"], "available");
+}
+
+#[cfg(debug_assertions)]
 #[path = "package_install/concurrency.rs"]
 mod concurrency;
 #[path = "package_install/faults.rs"]
