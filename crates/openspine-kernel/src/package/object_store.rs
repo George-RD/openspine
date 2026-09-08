@@ -1,10 +1,10 @@
 //! Immutable, non-autoloaded package objects. Publication precedes indexing.
+use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
+use super::{object_fs as fs, PackageSnapshot};
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use ulid::Ulid;
-use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
-use super::{object_fs as fs, PackageSnapshot};
 
 pub(crate) struct PackageObjects {
     data_path: PathBuf,
@@ -27,16 +27,31 @@ impl PackageObjects {
         let namespace = fs::ensure_directory(&data, "packages")?;
         let objects = fs::ensure_directory(&namespace, "objects")?;
         let staging = fs::ensure_directory(&namespace, "staging")?;
-        let result = Self { data_path: data_path.to_owned(), data, namespace, objects, staging };
+        let result = Self {
+            data_path: data_path.to_owned(),
+            data,
+            namespace,
+            objects,
+            staging,
+        };
         result.check_anchors()?;
         Ok(result)
     }
 
     pub(crate) fn check_anchors(&self) -> Result<(), Error> {
         fs::same(&self.data, &fs::root(&self.data_path)?)?;
-        fs::same(&self.namespace, &fs::open_directory(&self.data, "packages")?)?;
-        fs::same(&self.objects, &fs::open_directory(&self.namespace, "objects")?)?;
-        fs::same(&self.staging, &fs::open_directory(&self.namespace, "staging")?)
+        fs::same(
+            &self.namespace,
+            &fs::open_directory(&self.data, "packages")?,
+        )?;
+        fs::same(
+            &self.objects,
+            &fs::open_directory(&self.namespace, "objects")?,
+        )?;
+        fs::same(
+            &self.staging,
+            &fs::open_directory(&self.namespace, "staging")?,
+        )
     }
 
     pub(crate) fn publish(&self, id: Ulid, snapshot: &PackageSnapshot) -> Result<(), Error> {
@@ -55,14 +70,21 @@ impl PackageObjects {
             }
             crash_at("during-staging");
         }
-        for directory in directories.values() { fs::sync(directory)?; }
+        for directory in directories.values() {
+            fs::sync(directory)?;
+        }
         fs::sync(&stage)?;
         fs::sync(&self.staging)?;
         crash_at("before-publish");
         self.check_anchors()?;
         fs::same(&stage, &fs::open_directory(&self.staging, &id.to_string())?)?;
         let identity = snapshot.identity();
-        let _published = fs::publish(&self.staging, &id.to_string(), &self.objects, object_name(&identity)?)?;
+        let _published = fs::publish(
+            &self.staging,
+            &id.to_string(),
+            &self.objects,
+            object_name(&identity)?,
+        )?;
         // Even an existing orphan must match the complete captured inventory.
         // Re-sync before committing a retry after a prior directory sync error.
         self.verify(&identity)?;
@@ -81,8 +103,13 @@ impl PackageObjects {
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
         let files = super::source::capture_opened(&object).map_err(|_| Error::ObjectCorrupt)?;
         let captured = super::from_files(files).map_err(|_| Error::ObjectCorrupt)?;
-        if captured.identity() != *identity { return Err(Error::ObjectCorrupt); }
-        fs::same(&object, &fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?)?;
+        if captured.identity() != *identity {
+            return Err(Error::ObjectCorrupt);
+        }
+        fs::same(
+            &object,
+            &fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?,
+        )?;
         self.check_anchors()
     }
 
@@ -93,7 +120,13 @@ impl PackageObjects {
 }
 
 fn object_name(identity: &PackageIdentity) -> Result<&str, Error> {
-    let name = identity.content_digest.as_str().strip_prefix("sha256:").ok_or(Error::ObjectCorrupt)?;
-    if name.len() != 64 || !name.bytes().all(|b| b.is_ascii_hexdigit()) { return Err(Error::ObjectCorrupt); }
+    let name = identity
+        .content_digest
+        .as_str()
+        .strip_prefix("sha256:")
+        .ok_or(Error::ObjectCorrupt)?;
+    if name.len() != 64 || !name.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(Error::ObjectCorrupt);
+    }
     Ok(name)
 }

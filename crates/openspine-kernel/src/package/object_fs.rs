@@ -9,9 +9,11 @@ use std::path::{Path, PathBuf};
 use super::install_types::InstallError as Error;
 
 pub(super) fn root(path: &Path) -> Result<File, Error> {
-    let file = OpenOptions::new().read(true)
+    let file = OpenOptions::new()
+        .read(true)
         .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path).map_err(|_| Error::Destination)?;
+        .open(path)
+        .map_err(|_| Error::Destination)?;
     check_directory(&file)?;
     Ok(file)
 }
@@ -50,9 +52,17 @@ pub(super) fn write_new(parent: &File, name: &str, bytes: &[u8]) -> Result<(), E
     let name = name_c(name)?;
     // SAFETY: the live parent descriptor and single-component name are valid;
     // O_EXCL refuses any existing file, hard link or symlink.
-    let fd = unsafe { libc::openat(parent.as_raw_fd(), name.as_ptr(),
-        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC, 0o600) };
-    if fd < 0 { return Err(Error::Publication); }
+    let fd = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            0o600,
+        )
+    };
+    if fd < 0 {
+        return Err(Error::Publication);
+    }
     // SAFETY: openat returned a unique owned descriptor.
     let mut file = unsafe { File::from_raw_fd(fd) };
     file.write_all(bytes).map_err(|_| Error::Publication)?;
@@ -66,7 +76,9 @@ pub(super) fn sync(file: &File) -> Result<(), Error> {
 pub(super) fn same(left: &File, right: &File) -> Result<(), Error> {
     let left = left.metadata().map_err(|_| Error::Destination)?;
     let right = right.metadata().map_err(|_| Error::Destination)?;
-    if (left.dev(), left.ino()) != (right.dev(), right.ino()) { return Err(Error::Destination); }
+    if (left.dev(), left.ino()) != (right.dev(), right.ino()) {
+        return Err(Error::Destination);
+    }
     Ok(())
 }
 
@@ -88,19 +100,42 @@ fn name_c(name: &str) -> Result<CString, Error> {
 
 /// True means published, false means a destination already exists. Never
 /// emulate no-replace with a racy exists() + overwriting rename().
-pub(super) fn publish(parent: &File, name: &str, objects: &File, digest: &str) -> Result<bool, Error> {
+pub(super) fn publish(
+    parent: &File,
+    name: &str,
+    objects: &File,
+    digest: &str,
+) -> Result<bool, Error> {
     let name = name_c(name)?;
     let digest = name_c(digest)?;
     #[cfg(target_os = "linux")]
     // SAFETY: both directory descriptors are live and both names are valid.
-    let result = unsafe { libc::renameat2(parent.as_raw_fd(), name.as_ptr(), objects.as_raw_fd(), digest.as_ptr(), libc::RENAME_NOREPLACE) };
+    let result = unsafe {
+        libc::renameat2(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            objects.as_raw_fd(),
+            digest.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    };
     #[cfg(target_os = "macos")]
     // SAFETY: as above. RENAME_EXCL is Darwin's atomic no-replace operation.
-    let result = unsafe { libc::renameatx_np(parent.as_raw_fd(), name.as_ptr(), objects.as_raw_fd(), digest.as_ptr(), libc::RENAME_EXCL) };
+    let result = unsafe {
+        libc::renameatx_np(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            objects.as_raw_fd(),
+            digest.as_ptr(),
+            libc::RENAME_EXCL,
+        )
+    };
     if result != 0 {
         return if io::Error::last_os_error().raw_os_error() == Some(libc::EEXIST) {
             Ok(false)
-        } else { Err(Error::Publication) };
+        } else {
+            Err(Error::Publication)
+        };
     }
     super::install_types::crash_at("after-rename-before-sync");
     sync(objects)?;
@@ -113,11 +148,19 @@ pub(super) fn remove_stage(parent: &File, name: &str) -> Result<(), Error> {
     // Open with no-follow. ENOENT is the post-publish/already-cleaned case;
     // every other error is refused, including symlinks and unexpected files.
     // SAFETY: descriptor and name valid; no creation or write access requested.
-    let fd = unsafe { libc::openat(parent.as_raw_fd(), c_name.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC) };
+    let fd = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            c_name.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+        )
+    };
     if fd < 0 {
         return if io::Error::last_os_error().raw_os_error() == Some(libc::ENOENT) {
             sync(parent)
-        } else { Err(Error::Destination) };
+        } else {
+            Err(Error::Destination)
+        };
     }
     // SAFETY: the successful openat descriptor is owned here.
     let directory = unsafe { File::from_raw_fd(fd) };
@@ -126,7 +169,9 @@ pub(super) fn remove_stage(parent: &File, name: &str) -> Result<(), Error> {
     for entry in super::source::names(&directory, &mut remaining).map_err(|_| Error::Destination)? {
         if super::FAMILIES.contains(&entry.as_str()) || entry == "docs" {
             let child = open_directory(&directory, &entry)?;
-            for file in super::source::names(&child, &mut remaining).map_err(|_| Error::Destination)? {
+            for file in
+                super::source::names(&child, &mut remaining).map_err(|_| Error::Destination)?
+            {
                 unlink(&child, &file, false)?;
             }
             unlink(&directory, &entry, true)?;
@@ -142,7 +187,14 @@ fn unlink(parent: &File, name: &str, directory: bool) -> Result<(), Error> {
     let name = name_c(name)?;
     // SAFETY: live descriptor, valid child name. unlinkat never follows the
     // final symlink, and AT_REMOVEDIR refuses links in place of directories.
-    if unsafe { libc::unlinkat(parent.as_raw_fd(), name.as_ptr(), if directory { libc::AT_REMOVEDIR } else { 0 }) } != 0 {
+    if unsafe {
+        libc::unlinkat(
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            if directory { libc::AT_REMOVEDIR } else { 0 },
+        )
+    } != 0
+    {
         return Err(Error::Publication);
     }
     Ok(())
@@ -155,7 +207,10 @@ pub(super) fn resolve(path: &Path) -> Result<PathBuf, Error> {
         Ok(path) => Ok(path),
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             let name = path.file_name().ok_or(Error::Destination)?;
-            let parent = path.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+            let parent = path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
             Ok(resolve(parent)?.join(name))
         }
         Err(_) => Err(Error::Destination),
@@ -179,6 +234,8 @@ pub(super) fn sync_snapshot(root: &File, snapshot: &super::PackageSnapshot) -> R
         let file = super::source::open_at(parent, file, false).map_err(|_| Error::ObjectCorrupt)?;
         sync(&file)?;
     }
-    for directory in directories.values() { sync(directory)?; }
+    for directory in directories.values() {
+        sync(directory)?;
+    }
     sync(root)
 }

@@ -22,11 +22,20 @@ impl Fixture {
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"),
             &fixture.root.path().join("candidate"),
         );
+        copy_tree(
+            &fixture.root.path().join("candidate"),
+            &fixture.root.path().join("artifacts/lyra"),
+        );
         fixture
     }
 
     fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_openspine"))
+        self.command(args).output().unwrap()
+    }
+
+    fn command(&self, args: &[&str]) -> Command {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_openspine"));
+        command
             .current_dir(self.root.path())
             .arg("--config")
             .arg(self.root.path().join("openspine.yaml"))
@@ -36,8 +45,8 @@ impl Fixture {
             .env_remove("OPENSPINE_GRANT_HMAC_KEY")
             .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")
             .env_remove("OPENSPINE_LOCAL_API_KEY")
-            .output()
-            .unwrap()
+            .env_remove("OPENSPINE_TEST_PACKAGE_CRASH");
+        command
     }
 
     fn json(&self, args: &[&str]) -> Value {
@@ -165,3 +174,8 @@ fn invalid_candidate_never_appears_in_installed_index() {
     assert!(!output.status.success());
     assert!(fixture.list()["packages"].as_array().unwrap().is_empty());
 }
+
+#[path = "package_install/faults.rs"]
+mod faults;
+#[path = "package_install/guardrails.rs"]
+mod guardrails;

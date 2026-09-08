@@ -161,6 +161,8 @@ pub(crate) struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub(crate) enum Commands {
+    /// Install an immutable package snapshot without selecting or activating it.
+    Install(cli::package_install::InstallArgs),
     /// Interactive onboarding setup wizard
     Setup {
         /// Print the readiness report and exit non-zero when anything blocks.
@@ -215,7 +217,10 @@ fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
     // Offline inspection must not read keys, bootstrap state, or start services.
     if let Some(Commands::Package { command }) = &cli.command {
-        return cli::package::run(command);
+        return cli::package::run(command, &cli.config);
+    }
+    if let Some(Commands::Install(args)) = &cli.command {
+        return cli::package_install::run(args, &cli.config);
     }
     run_with_runtime(cli)
 }

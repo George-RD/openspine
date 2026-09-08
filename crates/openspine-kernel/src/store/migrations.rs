@@ -38,6 +38,7 @@ fn add_column_if_missing(conn: &Connection, sql: &str) -> Result<(), StoreError>
 }
 
 pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreError> {
+    super::package_install::ensure_schema(conn)?;
     // D-040 follow-up: `action_requests.used` backs
     // `try_consume_action_request`'s single-approval guard, added after
     // this table first shipped.

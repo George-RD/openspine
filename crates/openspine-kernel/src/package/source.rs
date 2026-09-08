@@ -19,6 +19,12 @@ pub(super) fn capture(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Err
         .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC)
         .open(directory)
         .map_err(|_| Error::SourceUnavailable)?;
+    capture_opened(&root)
+}
+
+pub(super) fn capture_opened(root: &File) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    // Independent directory cursor: fdopendir's duplicate shares its offset.
+    let root = open_at(root, ".", true)?;
     let mut capture = Capture {
         files: BTreeMap::new(),
         aliases: BTreeSet::new(),
@@ -122,7 +128,7 @@ fn portable_name(name: &str) -> bool {
             && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
-fn open_at(parent: &File, name: &str, directory: bool) -> Result<File, Error> {
+pub(super) fn open_at(parent: &File, name: &str, directory: bool) -> Result<File, Error> {
     let name = CString::new(name).map_err(|_| Error::InvalidPath)?;
     let flags = libc::O_RDONLY
         | libc::O_NOFOLLOW
@@ -151,7 +157,7 @@ impl Drop for DirectoryStream {
     }
 }
 
-fn names(parent: &File, remaining: &mut usize) -> Result<Vec<String>, Error> {
+pub(super) fn names(parent: &File, remaining: &mut usize) -> Result<Vec<String>, Error> {
     // fdopendir takes ownership. Duplicate without leaking across exec.
     // SAFETY: parent is live; fcntl creates an independent owned descriptor.
     let duplicate = unsafe { libc::fcntl(parent.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 0) };

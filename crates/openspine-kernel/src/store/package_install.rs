@@ -205,13 +205,25 @@ impl Store {
         if !self.verify_audit_chain()? {
             return Err(inconsistent());
         }
-        if matches!(self.validate_boot_clock(Timestamp::now().as_millisecond())?, super::BootClockCheck::Regressed { .. }) {
+        if matches!(
+            self.validate_boot_clock(Timestamp::now().as_millisecond())?,
+            super::BootClockCheck::Regressed { .. }
+        ) {
             return Err(inconsistent());
         }
         self.with_deferred_read(|tx| {
-            let committed: i64 = tx.query_row("SELECT COUNT(*) FROM audit_log WHERE kind = 'package.install_committed'", [], |row| row.get(0))?;
-            let indexed: i64 = tx.query_row("SELECT COUNT(*) FROM installed_packages", [], |row| row.get(0))?;
-            if committed != indexed { return Err(inconsistent()); }
+            let committed: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM audit_log WHERE kind = 'package.install_committed'",
+                [],
+                |row| row.get(0),
+            )?;
+            let indexed: i64 =
+                tx.query_row("SELECT COUNT(*) FROM installed_packages", [], |row| {
+                    row.get(0)
+                })?;
+            if committed != indexed {
+                return Err(inconsistent());
+            }
             Ok(())
         })?;
         self.installed_packages()?;
@@ -222,13 +234,30 @@ impl Store {
 fn append(conn: &Connection, kind: &str, metadata: &InstallMetadata) -> Result<i64, StoreError> {
     let json = serde_json::to_string(metadata)?;
     let event = Store::append_audit_conn_with_options(
-        conn, kind, None, None, Some("Inactive package management; no selection or authority change."),
-        None, &[], &[], Some(&format!("package_install:{}", metadata.installation_id)), Some(&json),
+        conn,
+        kind,
+        None,
+        None,
+        Some("Inactive package management; no selection or authority change."),
+        None,
+        &[],
+        &[],
+        Some(&format!("package_install:{}", metadata.installation_id)),
+        Some(&json),
     )?;
-    Ok(conn.query_row("SELECT seq FROM audit_log WHERE id = ?1", [event.id.to_string()], |row| row.get(0))?)
+    Ok(conn.query_row(
+        "SELECT seq FROM audit_log WHERE id = ?1",
+        [event.id.to_string()],
+        |row| row.get(0),
+    )?)
 }
 
-fn insert_attempt(conn: &Connection, metadata: &InstallMetadata, state: &str, cleanup: bool) -> Result<(), StoreError> {
+fn insert_attempt(
+    conn: &Connection,
+    metadata: &InstallMetadata,
+    state: &str,
+    cleanup: bool,
+) -> Result<(), StoreError> {
     conn.execute(
         "INSERT INTO package_install_attempts (installation_id, metadata_json, state, cleanup_pending) VALUES (?1, ?2, ?3, ?4)",
         params![metadata.installation_id.to_string(), serde_json::to_string(metadata)?, state, cleanup],
@@ -243,32 +272,54 @@ fn transition(conn: &Connection, id: Ulid, state: &str) -> Result<(), StoreError
     Ok(())
 }
 
-fn load_receipt(conn: &Connection, identity: &PackageIdentity) -> Result<Option<InstallReceipt>, StoreError> {
+fn load_receipt(
+    conn: &Connection,
+    identity: &PackageIdentity,
+) -> Result<Option<InstallReceipt>, StoreError> {
     load_receipt_by_key(conn, &identity.package_id, identity.revision)
 }
 
-fn load_receipt_by_key(conn: &Connection, id: &str, revision: u32) -> Result<Option<InstallReceipt>, StoreError> {
-    let row: Option<(String, String, i64, Option<String>)> = conn.query_row(
-        "SELECT p.content_digest, p.installation_id, p.audit_seq, a.event_json
+fn load_receipt_by_key(
+    conn: &Connection,
+    id: &str,
+    revision: u32,
+) -> Result<Option<InstallReceipt>, StoreError> {
+    let row: Option<(String, String, i64, Option<String>)> = conn
+        .query_row(
+            "SELECT p.content_digest, p.installation_id, p.audit_seq, a.event_json
          FROM installed_packages p LEFT JOIN audit_log a ON a.seq = p.audit_seq
          WHERE p.package_id = ?1 AND p.revision = ?2",
-        params![id, revision], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-    ).optional()?;
-    let Some((digest, installation_id, audit_seq, event_json)) = row else { return Ok(None); };
+            params![id, revision],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .optional()?;
+    let Some((digest, installation_id, audit_seq, event_json)) = row else {
+        return Ok(None);
+    };
     let event: AuditEvent = serde_json::from_str(&event_json.ok_or_else(inconsistent)?)?;
-    let metadata: InstallMetadata = serde_json::from_str(event.payload_json.as_deref().ok_or_else(inconsistent)?)?;
+    let metadata: InstallMetadata =
+        serde_json::from_str(event.payload_json.as_deref().ok_or_else(inconsistent)?)?;
     if event.kind.as_str() != "package.install_committed"
         || metadata.installation_id.to_string() != installation_id
-        || metadata.identity.package_id != id || metadata.identity.revision != revision
+        || metadata.identity.package_id != id
+        || metadata.identity.revision != revision
         || metadata.identity.content_digest.as_str() != digest
-        || metadata.identity.inventory_format_version != 1 || audit_seq <= 0 {
+        || metadata.identity.inventory_format_version != 1
+        || audit_seq <= 0
+    {
         return Err(inconsistent());
     }
     Ok(Some(InstallReceipt {
-        installation_id: metadata.installation_id, package_id: metadata.identity.package_id,
-        revision: metadata.identity.revision, inventory_format_version: metadata.identity.inventory_format_version,
-        content_digest: metadata.identity.content_digest, manifest_digest: metadata.identity.manifest_digest,
-        provenance: metadata.provenance, installed_at: event.ts.to_string(), audit_id: event.id, audit_seq,
+        installation_id: metadata.installation_id,
+        package_id: metadata.identity.package_id,
+        revision: metadata.identity.revision,
+        inventory_format_version: metadata.identity.inventory_format_version,
+        content_digest: metadata.identity.content_digest,
+        manifest_digest: metadata.identity.manifest_digest,
+        provenance: metadata.provenance,
+        installed_at: event.ts.to_string(),
+        audit_id: event.id,
+        audit_seq,
     }))
 }
 
