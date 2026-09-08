@@ -101,6 +101,12 @@ s=s[:start]+'''    pub fn open(path: &Path) -> Result<Self, StoreError> {
             rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
             | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
             | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW)?;
+        let recognized: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audit_log')",
+            [], |row| row.get(0))?;
+        if !recognized {
+            return Err(StoreError::BadLedgerMeta("package maintenance requires an existing kernel ledger".into()));
+        }
         let store = Self::from_connection(conn)?;
         store.validate_package_ledger()?;
         Ok(store)
@@ -110,11 +116,12 @@ patch('src/store/mod.rs', '        let mut conn = Connection::open_in_memory()?;
     }
 
     fn from_connection(mut conn: Connection) -> Result<Self, StoreError> {''')
-patch('src/store/mod.rs', 'impl Store {', '''pub(crate) mod package_install;
+patch('src/store/mod.rs', 'impl Store {\n    pub fn open(path: &Path)', '''pub(crate) mod package_install;
 #[cfg(test)]
 mod package_install_tests;
 
-impl Store {''')
+impl Store {
+    pub fn open(path: &Path)''')
 patch('src/store/migrations.rs', 'pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreError> {', '''pub(super) fn apply_ad_hoc_migrations(conn: &Connection) -> Result<(), StoreError> {
     super::package_install::ensure_schema(conn)?;''')
 patch('src/overlay_export_restore/operation/mod.rs', '    pub(crate) fn canonical_data_root(&self) -> &Path {', '''    /// Maintenance refuses pending export/restore instead of applying it.
@@ -148,4 +155,4 @@ new='''            .env_remove("OPENSPINE_LOCAL_API_KEY")
             .env_remove("OPENSPINE_TEST_PACKAGE_CRASH");
         command'''
 assert s.count(old)==1;s=s.replace(old,new)
-s+='\n#[path = "package_install/faults.rs"]\nmod faults;\n';p.write_text(s)
+s+='\n#[path = "package_install/faults.rs"]\nmod faults;\n#[path = "package_install/guardrails.rs"]\nmod guardrails;\n';p.write_text(s)
