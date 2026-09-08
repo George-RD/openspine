@@ -15,7 +15,7 @@ fn package_inspect_real_bundle_is_read_only_and_inventory_binds_every_file() {
     assert_eq!(report["inventory_format_version"], 1);
     assert_eq!(report["valid"], true);
     assert_eq!(report["package_id"], "lyra");
-    assert_eq!(report["revision"], 1);
+    assert_eq!(report["revision"], 2);
     assert_eq!(report["provenance"], "local-unverified");
     let inventory = report["inventory"].as_array().unwrap();
     assert_eq!(inventory.len(), before.len());
