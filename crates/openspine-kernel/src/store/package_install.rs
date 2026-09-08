@@ -1,6 +1,7 @@
 //! Inactive package index and audit pairing. All SQL stays inside Store.
 use jiff::Timestamp;
 use openspine_schemas::audit::AuditEvent;
+use openspine_schemas::event_bus::EventSubscriptionFilter;
 use rusqlite::{params, Connection, OptionalExtension};
 use ulid::Ulid;
 
@@ -205,6 +206,10 @@ impl Store {
         if !self.verify_audit_chain()? {
             return Err(inconsistent());
         }
+        // Chain verification authenticates meta_json, not the redundant
+        // event_json projection used by receipts. Reuse the existing replay
+        // validator to bind every delivered field to that hashed metadata.
+        self.replay_audit(&EventSubscriptionFilter::all(), 0)?;
         if matches!(
             self.validate_boot_clock(Timestamp::now().as_millisecond())?,
             super::BootClockCheck::Regressed { .. }
