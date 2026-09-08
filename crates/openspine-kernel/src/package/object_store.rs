@@ -1,6 +1,8 @@
 //! Immutable, non-autoloaded package objects. Publication precedes indexing.
 use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
 use super::{object_fs as fs, PackageSnapshot};
+use openspine_schemas::digest::digest_of_bytes;
+use openspine_schemas::package::PackageDeclaration;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -102,8 +104,20 @@ impl PackageObjects {
         let name = object_name(identity)?;
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
         let files = super::source::capture_opened(&object).map_err(|_| Error::ObjectCorrupt)?;
-        let captured = super::from_files(files).map_err(|_| Error::ObjectCorrupt)?;
-        if captured.identity() != *identity {
+        // This identity came from an inspected snapshot or its durable receipt.
+        // Re-hash its complete inventory, but do not re-stage/revalidate it or
+        // manufacture a new validated snapshot from stored bytes.
+        let (_, content_digest) = super::inventory_of(&files);
+        let manifest = files.get("package.yaml").ok_or(Error::ObjectCorrupt)?;
+        if identity.inventory_format_version != super::INVENTORY_FORMAT_VERSION
+            || content_digest != identity.content_digest
+            || digest_of_bytes(manifest) != identity.manifest_digest
+        {
+            return Err(Error::ObjectCorrupt);
+        }
+        let declaration: PackageDeclaration =
+            serde_yaml::from_slice(manifest).map_err(|_| Error::ObjectCorrupt)?;
+        if declaration.id != identity.package_id || declaration.version != identity.revision {
             return Err(Error::ObjectCorrupt);
         }
         fs::same(
