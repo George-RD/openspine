@@ -5,6 +5,9 @@ use std::path::Path;
 use std::process::{Child, Output, Stdio};
 use std::time::{Duration, Instant};
 
+/// Run two real installers with witnessed lock overlap, returning A then B.
+/// A holds the lock until B reports contention; B resumes after A completes.
+/// Missing signals, early exits and completion timeouts fail the test.
 pub(super) fn contending_installers(fixture: &Fixture, second_source: &str) -> (Output, Output) {
     let barrier = tempfile::tempdir_in(fixture.root.path()).unwrap();
     let root = barrier.path();
@@ -24,6 +27,8 @@ pub(super) fn contending_installers(fixture: &Fixture, second_source: &str) -> (
 struct Installer(Option<Child>);
 
 impl Installer {
+    /// Spawn the fixture CLI with a child-local debug barrier and captured output.
+    /// Ownership stays in this guard so a failed test kills and reaps the child.
     fn spawn(fixture: &Fixture, source: &str, barrier: &Path, point: &str) -> Self {
         Self(Some(
             fixture
@@ -37,6 +42,7 @@ impl Installer {
         ))
     }
 
+    /// Reject an early child exit instead of treating its signal file as proof.
     fn assert_running(&mut self) {
         assert!(
             self.0.as_mut().unwrap().try_wait().unwrap().is_none(),
@@ -44,6 +50,7 @@ impl Installer {
         );
     }
 
+    /// Wait at most ten seconds for readiness while requiring a live child.
     fn wait_ready(&mut self, path: &Path) {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
@@ -59,6 +66,8 @@ impl Installer {
         }
     }
 
+    /// Require exit within ten seconds, then consume the child and its output.
+    /// A timeout panics before ownership is taken, preserving guard cleanup.
     fn output(mut self) -> Output {
         let deadline = Instant::now() + Duration::from_secs(10);
         while self.0.as_mut().unwrap().try_wait().unwrap().is_none() {
@@ -70,6 +79,7 @@ impl Installer {
 }
 
 impl Drop for Installer {
+    /// Kill and reap an unconsumed child, including during assertion unwinding.
     fn drop(&mut self) {
         // A failed assertion must not leave a child or data-directory lock behind.
         if let Some(child) = self.0.as_mut() {
