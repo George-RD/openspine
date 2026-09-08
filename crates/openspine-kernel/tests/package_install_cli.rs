@@ -45,7 +45,9 @@ impl Fixture {
             .env_remove("OPENSPINE_GRANT_HMAC_KEY")
             .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")
             .env_remove("OPENSPINE_LOCAL_API_KEY")
-            .env_remove("OPENSPINE_TEST_PACKAGE_CRASH");
+            .env_remove("OPENSPINE_TEST_PACKAGE_CRASH")
+            .env_remove("OPENSPINE_TEST_PACKAGE_PAUSE")
+            .env_remove("OPENSPINE_TEST_PACKAGE_BARRIER");
         command
     }
 
@@ -207,6 +209,8 @@ fn installed_package_verification_does_not_require_temporary_storage() {
     }
 }
 
+#[path = "package_install/concurrency.rs"]
+mod concurrency;
 #[path = "package_install/faults.rs"]
 mod faults;
 #[path = "package_install/guardrails.rs"]
