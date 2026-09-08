@@ -175,6 +175,38 @@ fn invalid_candidate_never_appears_in_installed_index() {
     assert!(fixture.list()["packages"].as_array().unwrap().is_empty());
 }
 
+#[test]
+fn installed_package_verification_does_not_require_temporary_storage() {
+    let fixture = Fixture::new();
+    let installed = fixture.install();
+    let not_a_directory = fixture.root.path().join("temp-file");
+    fs::write(&not_a_directory, b"not a directory").unwrap();
+    for temporary in [fixture.root.path().join("missing-temp"), not_a_directory] {
+        // Prove the child observes the unusable TMPDIR. New candidates still
+        // require full loader validation; listing a retained identity does not.
+        let inspection = fixture
+            .command(&["package", "inspect", "candidate", "--json"])
+            .env("TMPDIR", &temporary)
+            .output()
+            .unwrap();
+        assert!(!inspection.status.success());
+        let error: Value = serde_json::from_slice(&inspection.stdout).unwrap();
+        assert_eq!(error["error"]["code"], "staging-unavailable");
+        let output = fixture
+            .command(&["package", "list", "--json"])
+            .env("TMPDIR", &temporary)
+            .output()
+            .unwrap();
+        assert_success(&output);
+        let listed: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(listed["packages"].as_array().unwrap().len(), 1);
+        assert_eq!(listed["packages"][0]["receipt"], installed["receipt"]);
+        assert_eq!(listed["packages"][0]["availability"], "available");
+        assert_eq!(listed["packages"][0]["selected"], false);
+        assert_eq!(listed["packages"][0]["active"], false);
+    }
+}
+
 #[path = "package_install/faults.rs"]
 mod faults;
 #[path = "package_install/guardrails.rs"]
