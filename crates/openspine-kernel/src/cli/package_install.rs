@@ -89,12 +89,16 @@ impl Context {
                     if crate::overlay_export_restore::is_already_locked(&error)
                         && attempts < 50 =>
                 {
+                    if attempts == 0 {
+                        crate::package::install_types::test_barrier("lock-contended")?;
+                    }
                     attempts += 1;
                     std::thread::sleep(std::time::Duration::from_millis(20));
                 }
                 Err(_) => return Err(Error::Locked),
             }
         };
+        crate::package::install_types::test_barrier("lock-acquired")?;
         if lock.has_pending_operation().map_err(|_| Error::Ledger)? {
             return Err(Error::PendingOperation);
         }
