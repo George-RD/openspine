@@ -1,5 +1,7 @@
 //! Crash and tamper proofs through separate invocations of the real binary.
-use super::{assert_success, Fixture};
+#[cfg(debug_assertions)]
+use super::assert_success;
+use super::Fixture;
 use serde_json::Value;
 use std::fs;
 use std::os::unix::fs::symlink;
@@ -13,6 +15,7 @@ fn committed(fixture: &Fixture) -> usize {
         .count()
 }
 
+#[cfg(debug_assertions)]
 #[test]
 fn every_crash_boundary_recovers_without_a_false_or_duplicate_install() {
     for point in [
@@ -132,6 +135,7 @@ fn destination_symlink_is_refused_without_writing_outside_data_root() {
     assert_eq!(fs::read_dir(outside.path()).unwrap().count(), 0);
 }
 
+#[cfg(debug_assertions)]
 #[test]
 fn concurrent_exact_installers_share_one_identity_and_success_receipt() {
     let fixture = Fixture::new();
