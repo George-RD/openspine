@@ -2,11 +2,20 @@
 use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
 use super::{object_fs as fs, PackageSnapshot};
 use openspine_schemas::digest::digest_of_bytes;
-use openspine_schemas::package::PackageDeclaration;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use ulid::Ulid;
+
+/// Inventory-v1 identity only, deliberately independent of today's declaration
+/// schema. Direct struct parsing rejects duplicate/missing identity fields;
+/// values preserve scalar kinds instead of coercing YAML null/bool into text.
+/// Other fields remain covered by the recorded manifest and inventory digests.
+#[derive(serde::Deserialize)]
+struct RetainedManifestIdentity {
+    id: serde_yaml::Value,
+    version: serde_yaml::Value,
+}
 
 pub(crate) struct PackageObjects {
     data_path: PathBuf,
@@ -99,6 +108,8 @@ impl PackageObjects {
         self.check_anchors()
     }
 
+    /// Verify recorded bytes and stable identity, not current runtime or
+    /// declaration compatibility. Success does not construct a trusted snapshot.
     pub(crate) fn verify(&self, identity: &PackageIdentity) -> Result<(), Error> {
         self.check_anchors()?;
         let name = object_name(identity)?;
@@ -115,9 +126,11 @@ impl PackageObjects {
         {
             return Err(Error::ObjectCorrupt);
         }
-        let declaration: PackageDeclaration =
+        let declaration: RetainedManifestIdentity =
             serde_yaml::from_slice(manifest).map_err(|_| Error::ObjectCorrupt)?;
-        if declaration.id != identity.package_id || declaration.version != identity.revision {
+        if declaration.id.as_str() != Some(identity.package_id.as_str())
+            || declaration.version.as_u64() != Some(u64::from(identity.revision))
+        {
             return Err(Error::ObjectCorrupt);
         }
         fs::same(
