@@ -51,7 +51,10 @@ impl Installer {
             if path.is_file() {
                 return;
             }
-            assert!(Instant::now() < deadline, "missing installer readiness signal");
+            assert!(
+                Instant::now() < deadline,
+                "missing installer readiness signal"
+            );
             std::thread::sleep(Duration::from_millis(10));
         }
     }
