@@ -4,7 +4,6 @@ use rusqlite::Connection;
 use serde_json::Value;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::process::Stdio;
 
 fn error_code(output: &std::process::Output) -> String {
     assert!(!output.status.success());
@@ -176,27 +175,9 @@ fn concurrent_conflicting_installers_publish_only_one_revision_identity() {
         "Different bytes.\n",
     )
     .unwrap();
-    let a = fixture
-        .command(&["install", "--from", "candidate", "--json"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let b = fixture
-        .command(&["install", "--from", "different", "--json"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let a = a.wait_with_output().unwrap();
-    let b = b.wait_with_output().unwrap();
-    let (success, conflict) = if a.status.success() {
-        (&a, &b)
-    } else {
-        (&b, &a)
-    };
-    assert_success(success);
-    assert_eq!(error_code(conflict), "revision-conflict");
+    let (success, conflict) = super::concurrency::contending_installers(&fixture, "different");
+    assert_success(&success);
+    assert_eq!(error_code(&conflict), "revision-conflict");
     let success: Value = serde_json::from_slice(&success.stdout).unwrap();
     let listed = fixture.list();
     assert_eq!(listed["packages"].as_array().unwrap().len(), 1);
