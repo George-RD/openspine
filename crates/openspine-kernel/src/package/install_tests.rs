@@ -95,3 +95,102 @@ fn package_object_verification_binds_every_identity_field() {
     }
     objects.verify(&identity).unwrap();
 }
+
+/// Build historical-byte fixtures with matching recorded digests, not a new
+/// validated snapshot. This deliberately bypasses installation only in tests.
+fn retained_manifest(
+    root: &Path,
+    snapshot: &super::PackageSnapshot,
+    manifest: Vec<u8>,
+) -> (
+    PackageObjects,
+    super::install_types::PackageIdentity,
+    std::path::PathBuf,
+) {
+    let data = root.join("data");
+    fs::create_dir(&data).unwrap();
+    let objects = PackageObjects::open(&data, &root.join("active")).unwrap();
+    let mut identity = snapshot.identity();
+    identity.manifest_digest = openspine_schemas::digest::digest_of_bytes(&manifest);
+    let mut files = snapshot
+        .files()
+        .map(|(path, bytes)| (path.to_owned(), bytes.to_vec()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    files.insert("package.yaml".into(), manifest);
+    identity.content_digest = super::inventory_of(&files).1;
+    let object = data.join("packages/objects").join(
+        identity
+            .content_digest
+            .as_str()
+            .strip_prefix("sha256:")
+            .unwrap(),
+    );
+    for (path, bytes) in files {
+        let path = object.join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, bytes).unwrap();
+    }
+    (objects, identity, object)
+}
+
+/// Availability checks recorded identity, not today's unrelated declaration
+/// fields. The same bytes must still fail inspection as a new candidate.
+#[test]
+fn package_object_verification_ignores_current_declaration_compatibility() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
+    let snapshot = inspect(&source).unwrap();
+    let manifest = snapshot
+        .files()
+        .find(|(path, _)| *path == "package.yaml")
+        .unwrap()
+        .1;
+    let original: serde_yaml::Value = serde_yaml::from_slice(manifest).unwrap();
+    for (field, value) in [
+        ("schema_version", serde_yaml::Value::from(999)),
+        ("display_name", serde_yaml::Value::Sequence(Vec::new())),
+        ("future_metadata", serde_yaml::Value::from(true)),
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        let mut changed = original.clone();
+        changed
+            .as_mapping_mut()
+            .unwrap()
+            .insert(serde_yaml::Value::from(field), value);
+        let (objects, identity, object) = retained_manifest(
+            root.path(),
+            &snapshot,
+            serde_yaml::to_string(&changed).unwrap().into_bytes(),
+        );
+        assert!(
+            matches!(inspect(&object), Err(super::InspectionError::DeclarationInvalid)),
+            "new candidate with {field} must still be rejected"
+        );
+        objects
+            .verify(&identity)
+            .unwrap_or_else(|error| panic!("retained {field}: {error}"));
+    }
+}
+
+/// Ignoring non-identity fields must not admit ambiguous or absent identity
+/// fields, even when the complete recorded byte digests match the fixture.
+#[test]
+fn package_object_verification_rejects_malformed_retained_identity() {
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
+    let snapshot = inspect(&source).unwrap();
+    for manifest in [
+        "id: lyra\nid: lyra\nversion: 2\n",
+        "id: lyra\nversion: 2\nversion: 2\n",
+        "version: 2\n",
+        "id: lyra\n",
+        "id: [lyra]\nversion: 2\n",
+        "id: lyra\nversion: 2.5\n",
+    ] {
+        let root = tempfile::tempdir().unwrap();
+        let (objects, identity, _) =
+            retained_manifest(root.path(), &snapshot, manifest.as_bytes().to_vec());
+        assert!(matches!(
+            objects.verify(&identity),
+            Err(super::install_types::InstallError::ObjectCorrupt)
+        ));
+    }
+}
