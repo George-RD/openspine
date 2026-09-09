@@ -39,4 +39,5 @@ jobs:
           fi
           git rev-parse HEAD
       - name: Execute comparison regressions before implementation
-        run: cargo test -p openspine-kernel --test package_install_cli compare:: -- --nocapture
+        run: |
+          cargo test -p openspine-kernel --test package_install_cli compare:: -- --nocapture
