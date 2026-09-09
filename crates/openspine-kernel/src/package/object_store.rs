@@ -134,7 +134,10 @@ impl PackageObjects {
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
         let files = super::source::capture_opened(&object).map_err(|_| Error::ObjectCorrupt)?;
         let capture = PackageCapture::new(files);
-        let manifest = capture.files.get("package.yaml").ok_or(Error::ObjectCorrupt)?;
+        let manifest = capture
+            .files
+            .get("package.yaml")
+            .ok_or(Error::ObjectCorrupt)?;
         if identity.inventory_format_version != super::INVENTORY_FORMAT_VERSION
             || capture.content_digest != identity.content_digest
             || digest_of_bytes(manifest) != identity.manifest_digest
