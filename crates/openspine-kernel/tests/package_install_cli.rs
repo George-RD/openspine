@@ -81,7 +81,7 @@ fn copy_tree(source: &Path, destination: &Path) {
         let entry = entry.unwrap();
         let target = destination.join(entry.file_name());
         if entry.file_type().unwrap().is_dir() {
-            copy_tree(&entry.path(), target);
+            copy_tree(&entry.path(), &target);
         } else {
             fs::copy(entry.path(), target).unwrap();
         }
@@ -235,6 +235,8 @@ fn release_install_ignores_debug_fault_environment() {
     assert_eq!(listed["packages"][0]["availability"], "available");
 }
 
+#[path = "package_install/compare.rs"]
+mod compare;
 #[cfg(debug_assertions)]
 #[path = "package_install/concurrency.rs"]
 mod concurrency;
@@ -242,5 +244,3 @@ mod concurrency;
 mod faults;
 #[path = "package_install/guardrails.rs"]
 mod guardrails;
-#[path = "package_install/compare.rs"]
-mod compare;
