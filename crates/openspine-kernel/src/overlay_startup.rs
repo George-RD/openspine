@@ -155,63 +155,16 @@ pub(crate) fn load(
             }
         }
     }
-    let overlay_artifact_ids = artifact_loader::artifact_identity_pairs(&overlay_registry);
-    let collisions = overlay_artifact_ids
-        .intersection(&base_artifact_ids)
-        .cloned()
-        .collect::<HashSet<_>>();
-    let collision_orphans: Vec<crate::overlay_compat::OrphanedArtifact> = collisions
-        .iter()
-        .filter_map(|(kind, artifact_id)| {
-            let version = artifact_loader::artifact_version(&overlay_registry, kind, artifact_id)?;
-            learned
-                .iter()
-                .find(|item| {
-                    item.kind == *kind
-                        && item.artifact_id == *artifact_id
-                        && item.version == version
-                })
-                .map(|_| crate::overlay_compat::OrphanedArtifact {
-                    kind: kind.clone(),
-                    artifact_id: artifact_id.clone(),
-                    version,
-                    dangling_references: vec!["base_overlay_collision".into()],
-                })
-        })
-        .collect();
-    let digest_invalid: Vec<crate::overlay_compat::OrphanedArtifact> = learned
-        .iter()
-        .filter(|item| {
-            matches!(
-                item.compatibility,
-                crate::store::learned_artifacts::CompatibilityStatus::Compatible
-                    | crate::store::learned_artifacts::CompatibilityStatus::OwnerAccepted
-            ) && artifact_loader::artifact_version(&overlay_registry, &item.kind, &item.artifact_id)
-                == Some(item.version)
-        })
-        .filter_map(|item| {
-            let source = overlay_registry.sources.get(&(
-                item.kind.clone(),
-                item.artifact_id.clone(),
-                item.version,
-            ))?;
-            let Some(expected) = item.pending_yaml_digest.as_deref() else {
-                return Some(crate::overlay_compat::OrphanedArtifact {
-                    kind: item.kind.clone(),
-                    artifact_id: item.artifact_id.clone(),
-                    version: item.version,
-                    dangling_references: vec!["approved_overlay_digest_missing".into()],
-                });
-            };
-            let actual = openspine_schemas::digest::digest_of_bytes(&source.bytes);
-            (expected != actual.as_str()).then(|| crate::overlay_compat::OrphanedArtifact {
-                kind: item.kind.clone(),
-                artifact_id: item.artifact_id.clone(),
-                version: item.version,
-                dangling_references: vec!["approved_overlay_digest_mismatch".into()],
-            })
-        })
-        .collect();
+    let crate::overlay_compat::overlay_admission::AdmissionFindings {
+        collisions,
+        collision_orphans,
+        digest_invalid,
+        missing,
+    } = crate::overlay_compat::overlay_admission::evaluate(
+        &overlay_registry,
+        &learned,
+        &base_artifact_ids,
+    );
     artifact_loader::exclude_identity_pairs(
         &mut overlay_registry,
         &digest_invalid
@@ -219,7 +172,6 @@ pub(crate) fn load(
             .map(|item| (item.kind.clone(), item.artifact_id.clone()))
             .collect(),
     );
-    let missing = crate::overlay_compat::missing_provenance(&overlay_registry, &learned);
     for artifact in &missing {
         let source = overlay_registry
             .sources
@@ -280,7 +232,10 @@ pub(crate) fn load(
         tracing::warn!(kind = %kind, artifact_id = %id,
             "overlay collision excluded pending owner review");
     }
-    artifact_loader::exclude_identity_pairs(&mut overlay_registry, &collisions);
+    artifact_loader::exclude_identity_pairs(
+        &mut overlay_registry,
+        &collisions.iter().cloned().collect(),
+    );
     crate::overlay_compat::exclude_orphans(&mut overlay_registry, &missing);
     artifact_loader::merge_registry(&mut registry, std::mem::take(&mut overlay_registry));
     for artifact in &missing {
@@ -347,13 +302,12 @@ pub(crate) fn load(
     orphans.extend(missing.iter().cloned());
     review_ids.extend(owner_accepted_invalid.iter().map(|_| ulid::Ulid::new()));
     orphans.extend(owner_accepted_invalid.clone());
-    review_ids.extend(collisions.iter().filter_map(|(kind, artifact_id)| {
-        learned
-            .iter()
-            .find(|item| item.kind == *kind && item.artifact_id == *artifact_id)
-            .and_then(|item| item.pending_reconfirmation_id)
-            .or_else(|| Some(ulid::Ulid::new()))
-    }));
+    // Allocate from the exact consequences, not the larger collision set:
+    // legacy collisions have no prior row and stale versions own different IDs.
+    review_ids.extend(crate::overlay_compat::reconfirmation_ids(
+        &collision_orphans,
+        &learned,
+    ));
     orphans.extend(collision_orphans);
     review_ids.extend(digest_invalid.iter().map(|_| ulid::Ulid::new()));
     orphans.extend(digest_invalid.clone());
