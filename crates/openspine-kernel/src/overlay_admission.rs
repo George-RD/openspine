@@ -58,11 +58,11 @@ pub(crate) fn evaluate(
                 == Some(item.version)
         })
         .filter_map(|item| {
-            let Some(source) = overlay.sources.get(&(
-                item.kind.clone(),
-                item.artifact_id.clone(),
-                item.version,
-            )) else {
+            let Some(source) =
+                overlay
+                    .sources
+                    .get(&(item.kind.clone(), item.artifact_id.clone(), item.version))
+            else {
                 return Some(finding(item, "approved_overlay_source_missing"));
             };
             let Some(expected) = item.pending_yaml_digest.as_deref() else {
