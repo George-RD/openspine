@@ -1,5 +1,5 @@
 //! Captured version-admission contracts, distinct from full overlay admission.
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::digest::digest_of_bytes;
@@ -29,10 +29,12 @@ fn routes(versions: &[(&str, u32)]) -> (TempDir, ArtifactRegistry) {
     (directory, registry)
 }
 
-/// Load real persona sources without manufacturing a proposal lifecycle.
+/// Parse real persona bytes through the dedicated loader. This map selects
+/// fixture sources only; each test separately supplies durable provenance.
 fn personas(versions: &[u32]) -> (TempDir, ArtifactRegistry) {
     let directory = tempdir().unwrap();
     std::fs::create_dir(directory.path().join("personas")).unwrap();
+    let mut sources = HashMap::new();
     for version in versions {
         let persona = PersonaElement {
             id: "style".into(),
@@ -45,10 +47,15 @@ fn personas(versions: &[u32]) -> (TempDir, ArtifactRegistry) {
             .path()
             .join("personas")
             .join(artifact_loader::overlay_filename("style", *version));
-        std::fs::write(path, serde_yaml::to_string(&persona).unwrap()).unwrap();
+        let yaml = serde_yaml::to_string(&persona).unwrap();
+        sources.insert(
+            ("style".into(), *version),
+            digest_of_bytes(yaml.as_bytes()).to_string(),
+        );
+        std::fs::write(path, yaml).unwrap();
     }
     let mut registry = ArtifactRegistry::default();
-    artifact_loader::load_registry_into(&mut registry, directory.path()).unwrap();
+    artifact_loader::load_admitted_personas(&mut registry, directory.path(), &sources).unwrap();
     (directory, registry)
 }
 
@@ -239,7 +246,9 @@ fn evaluation_preserves_learned_rows_and_control_state() {
     let store = Store::open_in_memory().unwrap();
     let (_directory, registry) = personas(&[1, 2]);
     back_persona(&store, &registry, 1);
-    store.set_kv("version-admission-control", "unchanged").unwrap();
+    store
+        .set_kv("version-admission-control", "unchanged")
+        .unwrap();
     let learned = store.list_learned_artifacts().unwrap();
     let captured = CapturedVersionAdmission::capture(&registry, &store).unwrap();
 
@@ -247,10 +256,16 @@ fn evaluation_preserves_learned_rows_and_control_state() {
     assert_eq!(admitted.registry.personas["style"].version, 1);
     assert_eq!(store.list_learned_artifacts().unwrap(), learned);
     assert_eq!(
-        store.get_kv("version-admission-control").unwrap().as_deref(),
+        store
+            .get_kv("version-admission-control")
+            .unwrap()
+            .as_deref(),
         Some("unchanged")
     );
-    assert_eq!(store.highest_active_version("persona", "style").unwrap(), None);
+    assert_eq!(
+        store.highest_active_version("persona", "style").unwrap(),
+        None
+    );
 }
 
 /// Invalid retained rehydration bytes fail rather than falling back to a path.
