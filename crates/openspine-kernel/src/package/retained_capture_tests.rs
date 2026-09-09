@@ -1,9 +1,8 @@
-//! Baseline seam: compose today's identity verification with a later inspection.
-//! This is test-only, not an assertion that a shipped command uses this sequence.
+//! Retained identity and current typed validation share one owned byte capture.
 use super::{copy_tree, source_bytes};
 use crate::package::{
     inspect, install_types::InstallError, install_types::PackageIdentity,
-    object_store::PackageObjects, InspectionError, PackageSnapshot,
+    object_store::PackageObjects, InspectionError, PackageCapture, PackageSnapshot,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -15,15 +14,6 @@ struct Fixture {
     identity: PackageIdentity,
     path: PathBuf,
     expected: BTreeMap<String, Vec<u8>>,
-}
-
-// RED adapter: metadata verification cannot retain bytes for later validation.
-struct PathCapture(PathBuf);
-
-impl PathCapture {
-    fn validate(self) -> Result<PackageSnapshot, InspectionError> {
-        inspect(&self.0)
-    }
 }
 
 impl Fixture {
@@ -53,9 +43,8 @@ impl Fixture {
         }
     }
 
-    fn capture(&self) -> Result<PathCapture, InstallError> {
-        self.objects.verify(&self.identity)?;
-        Ok(PathCapture(self.path.clone()))
+    fn capture(&self) -> Result<PackageCapture, InstallError> {
+        self.objects.capture(&self.identity)
     }
 
     fn assert_original(&self, snapshot: PackageSnapshot) {
@@ -68,6 +57,23 @@ impl Fixture {
     }
 
     // Historical recorded bytes, not a newly installable/validated snapshot.
+    fn rewrite_retained(&mut self, member: &str, bytes: Vec<u8>) {
+        self.expected.insert(member.to_owned(), bytes);
+        self.identity.manifest_digest =
+            openspine_schemas::digest::digest_of_bytes(&self.expected["package.yaml"]);
+        self.identity.content_digest = crate::package::inventory_of(&self.expected).1;
+        let old_path = self.path.clone();
+        self.path = old_path.parent().unwrap().join(
+            self.identity
+                .content_digest
+                .as_str()
+                .strip_prefix("sha256:")
+                .unwrap(),
+        );
+        fs::rename(old_path, &self.path).unwrap();
+        fs::write(self.path.join(member), &self.expected[member]).unwrap();
+    }
+
     fn incompatible() -> Self {
         let mut fixture = Self::new();
         let mut manifest: serde_yaml::Value =
@@ -76,25 +82,10 @@ impl Fixture {
             serde_yaml::Value::from("schema_version"),
             serde_yaml::Value::from(999),
         );
-        let bytes = serde_yaml::to_string(&manifest).unwrap().into_bytes();
-        fixture.identity.manifest_digest = openspine_schemas::digest::digest_of_bytes(&bytes);
-        fixture.expected.insert("package.yaml".into(), bytes);
-        fixture.identity.content_digest = crate::package::inventory_of(&fixture.expected).1;
-        let old_path = fixture.path.clone();
-        fixture.path = old_path.parent().unwrap().join(
-            fixture
-                .identity
-                .content_digest
-                .as_str()
-                .strip_prefix("sha256:")
-                .unwrap(),
+        fixture.rewrite_retained(
+            "package.yaml",
+            serde_yaml::to_string(&manifest).unwrap().into_bytes(),
         );
-        fs::rename(old_path, &fixture.path).unwrap();
-        fs::write(
-            fixture.path.join("package.yaml"),
-            &fixture.expected["package.yaml"],
-        )
-        .unwrap();
         fixture
     }
 }
@@ -219,4 +210,98 @@ fn retained_capture_rejects_mutation_before_capture() {
             "{mutation}"
         );
     }
+}
+
+#[test]
+fn retained_capture_rejects_replaced_namespace_anchors() {
+    let fixture = Fixture::new();
+    let namespace = fixture.path.parent().unwrap().parent().unwrap();
+    let moved = namespace.with_file_name("saved-packages");
+    fs::rename(namespace, &moved).unwrap();
+    copy_tree(&moved, namespace);
+    assert!(fixture.capture().is_err());
+}
+
+#[test]
+fn retained_capture_checks_current_typed_artifacts_not_just_declaration() {
+    let mut fixture = Fixture::new();
+    let member = fixture
+        .expected
+        .keys()
+        .find(|path| path.starts_with("agents/"))
+        .unwrap()
+        .clone();
+    fixture.rewrite_retained(&member, b"not an artifact".to_vec());
+    let capture = fixture.capture().unwrap();
+    assert!(matches!(
+        capture.validate(),
+        Err(InspectionError::ArtifactInvalid)
+    ));
+    fixture.objects.verify(&fixture.identity).unwrap();
+    assert_eq!(source_bytes(&fixture.path), fixture.expected);
+}
+
+#[test]
+fn retained_capture_staging_failure_is_not_corruption() {
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    const ROOT_ENV: &str = "OPENSPINE_TEST_RETAINED_CAPTURE_ROOT";
+    const CASE: &str =
+        "package::tests::retained_capture::retained_capture_staging_failure_is_not_corruption";
+    // Isolate TMPDIR in a subprocess; never mutate the parallel test process.
+    if let Some(root) = std::env::var_os(ROOT_ENV) {
+        let root = PathBuf::from(root);
+        let identity: PackageIdentity =
+            serde_json::from_slice(&fs::read(root.join("identity.json")).unwrap()).unwrap();
+        let objects = PackageObjects::open(&root.join("data"), &root.join("active")).unwrap();
+        let capture = objects.capture(&identity).unwrap();
+        objects.verify(&identity).unwrap();
+        assert!(matches!(
+            capture.validate(),
+            Err(InspectionError::StagingUnavailable)
+        ));
+        objects.verify(&identity).unwrap();
+        return;
+    }
+
+    let fixture = Fixture::new();
+    let root = fixture._root.path();
+    let bad_temp = root.join("not-a-directory");
+    fs::write(&bad_temp, "ordinary file").unwrap();
+    fs::write(
+        root.join("identity.json"),
+        serde_json::to_vec(&fixture.identity).unwrap(),
+    )
+    .unwrap();
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", CASE])
+        .env(ROOT_ENV, root)
+        .env("TMPDIR", bad_temp)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            result => {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!("isolated retained-capture test did not finish: {result:?}");
+            }
+        }
+    }
+    let output = child.wait_with_output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success() && stdout.contains("1 passed; 0 failed"),
+        "isolated retained-capture test failed: {stdout}\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(source_bytes(&fixture.path), fixture.expected);
 }
