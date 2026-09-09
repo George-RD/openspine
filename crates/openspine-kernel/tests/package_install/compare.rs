@@ -377,3 +377,6 @@ fn comparison_does_not_recover_an_unrelated_interrupted_installation() {
     compare(&fixture, &installed, &installed);
     assert_eq!(snapshot(), before);
 }
+
+#[path = "compare_guardrails.rs"]
+mod guardrails;
