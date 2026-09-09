@@ -1,0 +1,42 @@
+name: Package comparison workbench
+
+on:
+  push:
+    branches: [agent/package-compare-282]
+    paths: [.github/workflows/package-compare-workbench.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/agent/package-compare-282'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: agent/package-compare-282
+      - uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0
+        with:
+          toolchain: "1.97.1"
+          components: rustfmt
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Normalize test formatting on this work branch only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('crates/openspine-kernel/tests/package_install_cli.rs')
+          text = path.read_text()
+          path.write_text(text.replace('copy_tree(&entry.path(), target);', 'copy_tree(&entry.path(), &target);'))
+          PY
+          cargo fmt --all
+          git diff --stat
+          git add crates/openspine-kernel/tests/package_install_cli.rs crates/openspine-kernel/tests/package_install/compare.rs
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'test(packages): format comparison regressions and preserve fixture helper'
+            git push origin HEAD:refs/heads/agent/package-compare-282
+          fi
+          git rev-parse HEAD
+      - name: Execute comparison regressions before implementation
+        run: cargo test -p openspine-kernel --test package_install_cli compare:: -- --nocapture
