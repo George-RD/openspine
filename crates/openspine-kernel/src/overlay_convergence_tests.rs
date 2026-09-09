@@ -62,7 +62,10 @@ fn captured_dependency_evaluation_does_not_reread_changed_source_path() {
     let (ordinary, invalid) =
         evaluate_captured_dependencies(&mut view, &[item], &HashSet::new(), &[], &capture);
     assert!(ordinary.is_empty());
-    assert!(invalid.is_empty(), "must use the supplied capture: {invalid:?}");
+    assert!(
+        invalid.is_empty(),
+        "must use the supplied capture: {invalid:?}"
+    );
     assert_eq!(view.routes.len(), 1);
 }
 
@@ -84,7 +87,10 @@ fn captured_dependency_evaluation_cannot_replace_tampered_capture_with_disk() {
         &sources("r", &changed),
     );
     assert_eq!(invalid.len(), 1);
-    assert_eq!(invalid[0].dangling_references, ["owner_accepted_digest_tampered"]);
+    assert_eq!(
+        invalid[0].dangling_references,
+        ["owner_accepted_digest_tampered"]
+    );
     assert!(view.routes.is_empty());
 }
 
@@ -97,13 +103,8 @@ fn captured_dependency_evaluation_missing_capture_does_not_fall_back_to_path() {
     let mut item = accepted("r", &yaml);
     item.source_path = Some(path.to_string_lossy().into_owned());
     let mut view = registry(&yaml);
-    let (_, invalid) = evaluate_captured_dependencies(
-        &mut view,
-        &[item],
-        &HashSet::new(),
-        &[],
-        &BTreeMap::new(),
-    );
+    let (_, invalid) =
+        evaluate_captured_dependencies(&mut view, &[item], &HashSet::new(), &[], &BTreeMap::new());
     assert_eq!(invalid.len(), 1);
     assert!(view.routes.is_empty());
 }
@@ -157,5 +158,9 @@ fn captured_dependency_evaluation_invalidates_new_dangling_without_removing_base
     );
     assert_eq!(invalid.len(), 1);
     assert_eq!(invalid[0].dangling_references, ["agent:newly-missing"]);
-    assert_eq!(view.routes.len(), 1, "a base collision must never be removed");
+    assert_eq!(
+        view.routes.len(),
+        1,
+        "a base collision must never be removed"
+    );
 }
