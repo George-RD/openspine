@@ -25,6 +25,21 @@ pub(crate) fn list(config: &Path, json: bool, receipts: bool) -> ExitCode {
     emit(list_inner(config, receipts), json)
 }
 
+pub(crate) fn compare(config: &Path, from: &str, to: &str, json: bool) -> ExitCode {
+    emit(compare_inner(config, from, to), json)
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn compare_inner(config: &Path, from: &str, to: &str) -> Result<serde_json::Value, Error> {
+    use crate::package::compare::{compare, installation_id};
+    // Reject selectors before opening any configuration or maintenance state.
+    let from = installation_id(from)?;
+    let to = installation_id(to)?;
+    let context = Context::open(config)?;
+    let report = compare(&context.store, &context.objects, from, to)?;
+    serde_json::to_value(report).map_err(|_| Error::Ledger)
+}
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn execute(args: &InstallArgs, config: &Path) -> Result<serde_json::Value, Error> {
     use crate::package::{install, install_types::PackageProvenance};
@@ -64,6 +79,10 @@ fn execute(_: &InstallArgs, _: &Path) -> Result<serde_json::Value, Error> {
 }
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn list_inner(_: &Path, _: bool) -> Result<serde_json::Value, Error> {
+    Err(Error::UnsupportedPlatform)
+}
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn compare_inner(_: &Path, _: &str, _: &str) -> Result<serde_json::Value, Error> {
     Err(Error::UnsupportedPlatform)
 }
 

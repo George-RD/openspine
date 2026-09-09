@@ -103,8 +103,12 @@ pub(crate) enum InstallError {
     RevisionConflict,
     #[error("The retained package object is missing or corrupt. It was not repaired or replaced from the candidate.")]
     ObjectCorrupt,
+    #[error("Use exact canonical installation IDs from package list or installation receipts.")]
+    InvalidInstallationId,
+    #[error("No committed installation matches one of those IDs. Use package list to find exact installation IDs.")]
+    InstallationNotFound,
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    #[error("Native package installation is supported only on Linux and macOS.")]
+    #[error("Native package maintenance is supported only on Linux and macOS.")]
     UnsupportedPlatform,
 }
 
@@ -120,6 +124,8 @@ impl InstallError {
             Self::Publication => "publication-failed",
             Self::RevisionConflict => "revision-conflict",
             Self::ObjectCorrupt => "object-corrupt",
+            Self::InvalidInstallationId => "installation-id-invalid",
+            Self::InstallationNotFound => "installation-not-found",
             #[cfg(not(any(target_os = "linux", target_os = "macos")))]
             Self::UnsupportedPlatform => "unsupported-platform",
         }

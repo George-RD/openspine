@@ -235,6 +235,8 @@ fn release_install_ignores_debug_fault_environment() {
     assert_eq!(listed["packages"][0]["availability"], "available");
 }
 
+#[path = "package_install/compare.rs"]
+mod compare;
 #[cfg(debug_assertions)]
 #[path = "package_install/concurrency.rs"]
 mod concurrency;

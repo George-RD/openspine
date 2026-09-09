@@ -111,6 +111,15 @@ impl PackageObjects {
     /// Verify recorded bytes and stable identity, not current runtime or
     /// declaration compatibility. Success does not construct a trusted snapshot.
     pub(crate) fn verify(&self, identity: &PackageIdentity) -> Result<(), Error> {
+        self.inventory(identity).map(|_| ())
+    }
+
+    /// Return metadata from the exact capture whose integrity was verified.
+    /// Consumers must not reopen the path or treat this as loader validation.
+    pub(crate) fn inventory(
+        &self,
+        identity: &PackageIdentity,
+    ) -> Result<Vec<super::InventoryFile>, Error> {
         self.check_anchors()?;
         let name = object_name(identity)?;
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
@@ -118,7 +127,7 @@ impl PackageObjects {
         // This identity came from an inspected snapshot or its durable receipt.
         // Re-hash its complete inventory, but do not re-stage/revalidate it or
         // manufacture a new validated snapshot from stored bytes.
-        let (_, content_digest) = super::inventory_of(&files);
+        let (inventory, content_digest) = super::inventory_of(&files);
         let manifest = files.get("package.yaml").ok_or(Error::ObjectCorrupt)?;
         if identity.inventory_format_version != super::INVENTORY_FORMAT_VERSION
             || content_digest != identity.content_digest
@@ -137,7 +146,8 @@ impl PackageObjects {
             &object,
             &fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?,
         )?;
-        self.check_anchors()
+        self.check_anchors()?;
+        Ok(inventory)
     }
 
     pub(crate) fn cleanup(&self, id: Ulid) -> Result<(), Error> {
