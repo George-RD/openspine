@@ -65,3 +65,7 @@ fn package_snapshot_retains_exact_validated_bytes_after_source_mutation_and_remo
         assert_eq!(entry.bytes, retained[&entry.path].len());
     }
 }
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[path = "retained_capture_tests.rs"]
+mod retained_capture;

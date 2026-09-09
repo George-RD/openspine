@@ -1,8 +1,9 @@
 //! Read-only local package inspection (#273/#274).
 //!
-//! Only `inspect` constructs a validated snapshot. Its bytes and report are
-//! immutable to callers: a later installer must use these bytes, not reopen the
-//! candidate directory. Validation is not publisher authentication or authority.
+//! Only current typed validation constructs a validated snapshot. Its bytes and
+//! report are immutable to callers: installers and reviewers use those bytes,
+//! not a reopened source path. Byte integrity alone never implies compatibility,
+//! publisher authentication or authority.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -70,6 +71,49 @@ pub(crate) struct InspectionReport {
     inventory: Vec<InventoryFile>,
 }
 
+/// Owned, bounded source bytes and their inventory; not a validated package.
+/// The constructor is private to package capture code. No path, mutable byte
+/// access or deserialization interface escapes to consumers.
+pub(crate) struct PackageCapture {
+    files: BTreeMap<String, Vec<u8>>,
+    inventory: Vec<InventoryFile>,
+    content_digest: Digest,
+}
+
+impl PackageCapture {
+    /// Call only with the output of the bounded, no-link source capture.
+    fn new(files: BTreeMap<String, Vec<u8>>) -> Self {
+        let (inventory, content_digest) = inventory_of(&files);
+        Self {
+            files,
+            inventory,
+            content_digest,
+        }
+    }
+
+    /// Consume only these captured bytes through the current typed loader.
+    /// Private staging failures are compatibility-assessment failures, not proof
+    /// of corrupt retained bytes. This structural report does not replace the
+    /// installation receipt's provenance or authorize selection/activation.
+    pub(crate) fn validate(self) -> Result<PackageSnapshot, InspectionError> {
+        let declaration = validation::validate(&self.files)?;
+        let report = InspectionReport {
+            schema_version: 1,
+            inventory_format_version: INVENTORY_FORMAT_VERSION,
+            valid: true,
+            provenance: "local-unverified",
+            package_id: declaration.id,
+            revision: declaration.version,
+            content_digest: self.content_digest,
+            inventory: self.inventory,
+        };
+        Ok(PackageSnapshot {
+            files: self.files,
+            report,
+        })
+    }
+}
+
 pub(crate) struct PackageSnapshot {
     files: BTreeMap<String, Vec<u8>>,
     report: InspectionReport,
@@ -116,28 +160,10 @@ impl PackageSnapshot {
     }
 }
 
-/// Capture first, then validate and hash exactly that snapshot. The temporary
+/// Capture first, then hash and validate exactly those bytes. The temporary
 /// loader tree contains only captured files; the live source is never reread.
 pub(crate) fn inspect(directory: &Path) -> Result<PackageSnapshot, InspectionError> {
-    from_files(source::capture(directory)?)
-}
-
-/// Validate captured files through the typed loader before constructing a snapshot.
-/// Failure, including unavailable private staging, never yields a validated value.
-fn from_files(files: BTreeMap<String, Vec<u8>>) -> Result<PackageSnapshot, InspectionError> {
-    let declaration = validation::validate(&files)?;
-    let (inventory, content_digest) = inventory_of(&files);
-    let report = InspectionReport {
-        schema_version: 1,
-        inventory_format_version: INVENTORY_FORMAT_VERSION,
-        valid: true,
-        provenance: "local-unverified",
-        package_id: declaration.id,
-        revision: declaration.version,
-        content_digest,
-        inventory,
-    };
-    Ok(PackageSnapshot { files, report })
+    PackageCapture::new(source::capture(directory)?).validate()
 }
 
 /// Byte identity only: no filesystem writes, loader validation, or trusted

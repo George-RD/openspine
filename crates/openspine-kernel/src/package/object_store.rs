@@ -1,6 +1,6 @@
 //! Immutable, non-autoloaded package objects. Publication precedes indexing.
 use super::install_types::{crash_at, InstallError as Error, PackageIdentity};
-use super::{object_fs as fs, PackageSnapshot};
+use super::{object_fs as fs, PackageCapture, PackageSnapshot};
 use openspine_schemas::digest::digest_of_bytes;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -120,17 +120,26 @@ impl PackageObjects {
         &self,
         identity: &PackageIdentity,
     ) -> Result<Vec<super::InventoryFile>, Error> {
+        self.capture(identity).map(|capture| capture.inventory)
+    }
+
+    /// Retain the exact bytes verified against the supplied recorded identity.
+    /// The caller establishes receipt trust and keeps its provenance separately.
+    /// Capture performs no loader staging or current-schema validation. A later
+    /// `validate` consumes these bytes, not the object's possibly changed path.
+    /// Selection must still recheck current state; this value grants no approval.
+    pub(crate) fn capture(&self, identity: &PackageIdentity) -> Result<PackageCapture, Error> {
         self.check_anchors()?;
         let name = object_name(identity)?;
         let object = fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?;
         let files = super::source::capture_opened(&object).map_err(|_| Error::ObjectCorrupt)?;
-        // This identity came from an inspected snapshot or its durable receipt.
-        // Re-hash its complete inventory, but do not re-stage/revalidate it or
-        // manufacture a new validated snapshot from stored bytes.
-        let (inventory, content_digest) = super::inventory_of(&files);
-        let manifest = files.get("package.yaml").ok_or(Error::ObjectCorrupt)?;
+        let capture = PackageCapture::new(files);
+        let manifest = capture
+            .files
+            .get("package.yaml")
+            .ok_or(Error::ObjectCorrupt)?;
         if identity.inventory_format_version != super::INVENTORY_FORMAT_VERSION
-            || content_digest != identity.content_digest
+            || capture.content_digest != identity.content_digest
             || digest_of_bytes(manifest) != identity.manifest_digest
         {
             return Err(Error::ObjectCorrupt);
@@ -147,7 +156,7 @@ impl PackageObjects {
             &fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?,
         )?;
         self.check_anchors()?;
-        Ok(inventory)
+        Ok(capture)
     }
 
     pub(crate) fn cleanup(&self, id: Ulid) -> Result<(), Error> {
