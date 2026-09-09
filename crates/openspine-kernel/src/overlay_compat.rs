@@ -428,6 +428,8 @@ pub fn missing_provenance(
         .collect()
 }
 
+// Retain the ordinary-phase adapter for existing regression tests only.
+#[cfg(test)]
 pub fn apply_compatibility(
     registry: &mut ArtifactRegistry,
     learned: &[LearnedArtifact],
