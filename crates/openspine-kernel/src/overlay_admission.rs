@@ -97,3 +97,6 @@ fn finding(item: &LearnedArtifact, reason: &str) -> OrphanedArtifact {
 #[cfg(test)]
 #[path = "overlay_admission_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "overlay_admission_startup_tests.rs"]
+mod startup_tests;
