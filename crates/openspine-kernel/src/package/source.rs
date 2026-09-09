@@ -94,6 +94,8 @@ impl Capture {
         if bytes.contains(&0) || std::str::from_utf8(&bytes).is_err() {
             return Err(Error::UnsupportedPayload);
         }
+        #[cfg(test)]
+        tests::after_read();
         self.total_bytes += bytes.len();
         if self.files.insert(path, bytes).is_some() {
             return Err(Error::InvalidPath);
@@ -219,3 +221,7 @@ unsafe fn errno_pointer() -> *mut libc::c_int {
         unsafe { libc::__error() }
     }
 }
+
+#[cfg(test)]
+#[path = "source_tests.rs"]
+mod tests;
