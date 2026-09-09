@@ -22,16 +22,24 @@ jobs:
           toolchain: "1.97.1"
           components: rustfmt
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-      - name: Format the comparison implementation on this work branch only
+      - name: Wire and format the additional guardrail tests on this work branch
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('crates/openspine-kernel/tests/package_install/compare.rs')
+          text = path.read_text()
+          declaration = '#[path = "compare_guardrails.rs"]\nmod guardrails;\n'
+          if declaration not in text:
+              path.write_text(text + '\n' + declaration)
+          PY
           cargo fmt --all
           git diff --stat
-          git add crates/openspine-kernel/src/cli/package.rs crates/openspine-kernel/src/cli/package_install.rs crates/openspine-kernel/src/package.rs crates/openspine-kernel/src/package/compare.rs crates/openspine-kernel/src/package/object_store.rs crates/openspine-kernel/src/package/install_types.rs crates/openspine-kernel/tests/package_install_cli.rs crates/openspine-kernel/tests/package_install/compare.rs
+          git add crates/openspine-kernel/tests/package_install/compare.rs crates/openspine-kernel/tests/package_install/compare_guardrails.rs
           if ! git diff --cached --quiet; then
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'style(packages): format comparison implementation'
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'test(packages): wire and format comparison guardrail regressions'
             git push origin HEAD:refs/heads/agent/package-compare-282
           fi
           git rev-parse HEAD
-      - name: Execute comparison regressions after implementation
+      - name: Execute all comparison regressions
         run: |
           cargo test -p openspine-kernel --test package_install_cli compare:: -- --nocapture
