@@ -201,7 +201,8 @@ fn captured_missing_source_cannot_fall_back_to_registry_bytes() {
 fn captured_sources_are_exact_version_bound() {
     let yaml = route("r", None, None);
     let mut view = registry(&yaml);
-    let wrong_version = BTreeMap::from([(("route".into(), "r".into(), 2), yaml.as_bytes().to_vec())]);
+    let wrong_version =
+        BTreeMap::from([(("route".into(), "r".into(), 2), yaml.as_bytes().to_vec())]);
     let (_, invalid) = evaluate_captured_dependencies(
         &mut view,
         &[accepted("r", &yaml)],
@@ -254,7 +255,10 @@ fn canonical_ordinary_results_keep_review_ids_bound_to_exact_version() {
     assert_eq!(ordinary.len(), 2);
     assert_eq!(ordinary[0].artifact_id, "a");
     assert_eq!(ordinary[1].artifact_id, "z");
-    assert_eq!(requests, [ulid::Ulid::from(1_u128), ulid::Ulid::from(2_u128)]);
+    assert_eq!(
+        requests,
+        [ulid::Ulid::from(1_u128), ulid::Ulid::from(2_u128)]
+    );
     assert_eq!((ordinary, requests), evaluate(&[a, z, stale_a]));
 }
 
@@ -294,7 +298,10 @@ fn captured_dependencies_converge_through_ordinary_accepted_ordinary_chain() {
     assert_eq!(result.0[1].artifact_id, "r");
     assert_eq!(result.1.len(), 1);
     assert_eq!(result.1[0].artifact_id, "b");
-    assert_eq!(result.1[0].dangling_references, ["agent:main_assistant_agent"]);
+    assert_eq!(
+        result.1[0].dangling_references,
+        ["agent:main_assistant_agent"]
+    );
     assert_eq!(result, evaluate(&[trigger, middle, dependent]));
 }
 
@@ -347,6 +354,9 @@ fn captured_malformed_bytes_with_matching_digest_remain_invalid() {
         &sources("r", malformed),
     );
     assert_eq!(invalid.len(), 1);
-    assert_eq!(invalid[0].dangling_references, ["owner_accepted_parse_failed"]);
+    assert_eq!(
+        invalid[0].dangling_references,
+        ["owner_accepted_parse_failed"]
+    );
     assert!(view.routes.is_empty());
 }

@@ -31,7 +31,12 @@ pub fn converge_owner_accepted_dependencies(
             .source_path
             .as_deref()
             .and_then(|path| std::fs::read(path).ok())
-            .or_else(|| registry.sources.get(&key).map(|source| source.bytes.clone()));
+            .or_else(|| {
+                registry
+                    .sources
+                    .get(&key)
+                    .map(|source| source.bytes.clone())
+            });
         if let Some(bytes) = bytes {
             sources.insert(key, bytes);
         }
