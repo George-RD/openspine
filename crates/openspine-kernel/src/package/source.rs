@@ -1,8 +1,12 @@
 //! Bounded descriptor-relative capture. No symlink-following, lossy names,
 //! recursive traversal, unchecked second reads, or unbounded directory lists.
+//! Recheck observed path, directory and file state before returning owned bytes.
+//! This detects observed substitutions; it is not an atomic filesystem snapshot
+//! against arbitrary concurrent writers. Review callers must exclude runtime
+//! writers with the maintenance lifetime lock and recheck before acceptance.
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::{CStr, CString};
-use std::fs::{File, OpenOptions};
+use std::fs::{File, Metadata, OpenOptions};
 use std::io::Read as _;
 use std::os::fd::{AsRawFd as _, FromRawFd as _};
 use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
@@ -14,47 +18,107 @@ pub(super) fn capture(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Err
     // Trailing '/' or '/.' otherwise makes the OS follow a final symlink even
     // with O_NOFOLLOW. Remove redundant components without resolving '..'.
     let directory: PathBuf = directory.components().collect();
-    let root = OpenOptions::new()
+    let resolved = directory
+        .canonicalize()
+        .map_err(|_| Error::SourceUnavailable)?;
+    let root = open_root(&directory)?;
+    let metadata = root.metadata().map_err(|_| Error::SourceUnavailable)?;
+    check_metadata(&metadata, &open_root(&resolved)?)?;
+    let files = capture_opened(&root)?;
+    // A stable ancestor alias is allowed, but retargeting it is not. Comparing
+    // only root inodes misses an alias retargeted to the same moved directory.
+    if directory
+        .canonicalize()
+        .map_err(|_| Error::SourceUnavailable)?
+        != resolved
+    {
+        return Err(Error::SourceUnavailable);
+    }
+    check_metadata(&metadata, &open_root(&directory)?)?;
+    Ok(files)
+}
+
+fn open_root(directory: &Path) -> Result<File, Error> {
+    OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY | libc::O_CLOEXEC)
         .open(directory)
-        .map_err(|_| Error::SourceUnavailable)?;
-    capture_opened(&root)
+        .map_err(|_| Error::SourceUnavailable)
 }
 
 pub(super) fn capture_opened(root: &File) -> Result<BTreeMap<String, Vec<u8>>, Error> {
-    // Independent directory cursor: fdopendir's duplicate shares its offset.
-    let root = open_at(root, ".", true)?;
     let mut capture = Capture {
         files: BTreeMap::new(),
         aliases: BTreeSet::new(),
         total_bytes: 0,
         remaining_entries: MAX_FILES + FAMILIES.len() + 1,
     };
-    for name in names(&root, &mut capture.remaining_entries)? {
+    // Independent directory cursor: fdopendir's duplicate shares its offset.
+    let root = DirectoryCapture::new(open_at(root, ".", true)?, &mut capture.remaining_entries)?;
+    let mut directories = Vec::new();
+    for name in &root.entries {
         if FAMILIES.contains(&name.as_str()) || name == "docs" {
-            let child = open_at(&root, &name, true)?;
-            for file in names(&child, &mut capture.remaining_entries)? {
+            let child = DirectoryCapture::new(
+                open_at(&root.file, name, true)?,
+                &mut capture.remaining_entries,
+            )?;
+            for file in &child.entries {
                 if name == "docs" {
-                    if !is_document(&file) {
+                    if !is_document(file) {
                         return Err(Error::UnsupportedPayload);
                     }
                 } else if !matches!(
-                    Path::new(&file).extension().and_then(|e| e.to_str()),
+                    Path::new(file).extension().and_then(|e| e.to_str()),
                     Some("yaml" | "yml")
                 ) {
                     return Err(Error::UnsupportedPayload);
                 }
-                capture.file(&child, &file, format!("{name}/{file}"))?;
+                capture.file(&child.file, file, format!("{name}/{file}"))?;
             }
+            // At most eight family/document directories, not one fd per file.
+            directories.push((name, child));
         } else {
-            if name != "package.yaml" && !is_document(&name) {
+            if name != "package.yaml" && !is_document(name) {
                 return Err(Error::UnsupportedPayload);
             }
-            capture.file(&root, &name, name.clone())?;
+            capture.file(&root.file, name, name.clone())?;
         }
     }
+    for (name, child) in directories {
+        child.check(&open_at(&root.file, name, true)?)?;
+    }
+    root.check(&root.file)?;
     Ok(capture.files)
+}
+
+struct DirectoryCapture {
+    file: File,
+    metadata: Metadata,
+    entries: Vec<String>,
+}
+
+impl DirectoryCapture {
+    fn new(file: File, remaining: &mut usize) -> Result<Self, Error> {
+        let metadata = file.metadata().map_err(|_| Error::SourceUnavailable)?;
+        let entries = names(&file, remaining)?;
+        Ok(Self {
+            file,
+            metadata,
+            entries,
+        })
+    }
+
+    fn check(&self, anchored: &File) -> Result<(), Error> {
+        check_metadata(&self.metadata, anchored)?;
+        // Bound re-enumeration to the already observed entry count. A new or
+        // missing entry is a source change, not a partially accepted inventory.
+        let cursor = open_at(anchored, ".", true)?;
+        let mut remaining = self.entries.len();
+        if names(&cursor, &mut remaining).map_err(|_| Error::SourceUnavailable)? != self.entries {
+            return Err(Error::SourceUnavailable);
+        }
+        check_metadata(&self.metadata, anchored)
+    }
 }
 
 struct Capture {
@@ -85,7 +149,8 @@ impl Capture {
             return Err(Error::LimitExceeded);
         }
         let mut bytes = Vec::new();
-        file.take(allowance as u64 + 1)
+        (&file)
+            .take(allowance as u64 + 1)
             .read_to_end(&mut bytes)
             .map_err(|_| Error::SourceUnavailable)?;
         if bytes.len() > allowance {
@@ -96,12 +161,40 @@ impl Capture {
         }
         #[cfg(test)]
         tests::after_read();
+        if bytes.len() != metadata.len() as usize {
+            return Err(Error::SourceUnavailable);
+        }
+        // Keep the read descriptor alive so an unlinked file cannot have its
+        // inode recycled into an apparently matching replacement. Reopen only
+        // for identity/metadata checks; payload bytes are never reread.
+        check_metadata(&metadata, &file)?;
+        check_metadata(&metadata, &open_at(parent, name, false)?)?;
         self.total_bytes += bytes.len();
         if self.files.insert(path, bytes).is_some() {
             return Err(Error::InvalidPath);
         }
         Ok(())
     }
+}
+
+/// Deliberately excludes atime: reading the source can update access time.
+fn check_metadata(expected: &Metadata, file: &File) -> Result<(), Error> {
+    let actual = file.metadata().map_err(|_| Error::SourceUnavailable)?;
+    if expected.dev() != actual.dev()
+        || expected.ino() != actual.ino()
+        || expected.nlink() != actual.nlink()
+        || expected.mode() != actual.mode()
+        || expected.uid() != actual.uid()
+        || expected.gid() != actual.gid()
+        || expected.len() != actual.len()
+        || expected.mtime() != actual.mtime()
+        || expected.mtime_nsec() != actual.mtime_nsec()
+        || expected.ctime() != actual.ctime()
+        || expected.ctime_nsec() != actual.ctime_nsec()
+    {
+        return Err(Error::SourceUnavailable);
+    }
+    Ok(())
 }
 
 fn is_document(name: &str) -> bool {
