@@ -113,3 +113,23 @@ pub fn converge_owner_accepted_dependencies(
     }
     (ordinary, requests, invalid)
 }
+
+// RED characterization adapter: the existing startup engine cannot implement
+// captured-state preview. This test-only adapter deliberately delegates to it
+// so the new tests exercise its actual rereads, fallback and result ordering.
+#[cfg(test)]
+fn evaluate_captured_dependencies(
+    registry: &mut ArtifactRegistry,
+    learned: &[LearnedArtifact],
+    base_ids: &HashSet<(String, String)>,
+    existing_invalid: &[OrphanedArtifact],
+    _sources: &std::collections::BTreeMap<(String, String, u32), Vec<u8>>,
+) -> (Vec<OrphanedArtifact>, Vec<OrphanedArtifact>) {
+    let (ordinary, _, invalid) =
+        converge_owner_accepted_dependencies(registry, learned, base_ids, existing_invalid);
+    (ordinary, invalid)
+}
+
+#[cfg(test)]
+#[path = "overlay_convergence_tests.rs"]
+mod tests;
