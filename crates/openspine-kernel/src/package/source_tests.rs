@@ -8,7 +8,7 @@ use std::io::Write as _;
 use std::os::unix::fs::{symlink, PermissionsExt as _};
 
 thread_local! {
-    static AFTER_READ: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+    static AFTER_READ: RefCell<Option<Box<dyn FnOnce()>>> = const { RefCell::new(None) };
 }
 
 pub(super) fn after_read() {
@@ -21,7 +21,7 @@ pub(super) fn after_read() {
 struct ResetHook;
 impl Drop for ResetHook {
     fn drop(&mut self) {
-        AFTER_READ.with(|slot| slot.borrow_mut().take());
+        let _ = AFTER_READ.with(|slot| slot.borrow_mut().take());
     }
 }
 
@@ -221,7 +221,10 @@ fn source_stable_ancestor_symlink_remains_supported() {
     let (root, source, _) = fixture(false);
     let alias = root.path().join("selected");
     symlink(root.path(), &alias).unwrap();
-    assert_eq!(capture(&source).unwrap(), capture(&alias.join("source")).unwrap());
+    assert_eq!(
+        capture(&source).unwrap(),
+        capture(&alias.join("source")).unwrap()
+    );
 }
 
 #[test]
