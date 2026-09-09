@@ -1,3 +1,6 @@
+#[cfg(test)]
+#[path = "overlay_admission.rs"]
+pub(crate) mod overlay_admission;
 #[path = "overlay_compat_runtime.rs"]
 mod overlay_compat_runtime;
 #[path = "overlay_convergence.rs"]
