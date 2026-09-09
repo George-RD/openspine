@@ -20,6 +20,8 @@ mod source {
     }
 }
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod compare;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod install;
 #[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
 #[path = "package/install_tests.rs"]

@@ -17,6 +17,15 @@ pub(crate) enum PackageCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Compare two exact installed inventories without selecting or approving them.
+    Compare {
+        #[arg(allow_hyphen_values = true)]
+        from_installation_id: String,
+        #[arg(allow_hyphen_values = true)]
+        to_installation_id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Inspect exact local package bytes without installation or activation.
     Inspect {
         directory: PathBuf,
@@ -34,6 +43,18 @@ pub(crate) fn run(command: &PackageCommands, config: &Path) -> ExitCode {
         }
         PackageCommands::Receipts { json } => {
             return super::package_install::list(config, *json, true)
+        }
+        PackageCommands::Compare {
+            from_installation_id,
+            to_installation_id,
+            json,
+        } => {
+            return super::package_install::compare(
+                config,
+                from_installation_id,
+                to_installation_id,
+                *json,
+            )
         }
     };
     let (output, code) = match crate::package::inspect(directory) {
