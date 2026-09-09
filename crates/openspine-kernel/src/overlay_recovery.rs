@@ -6,6 +6,9 @@ use crate::artifact_store::ArtifactStore;
 use crate::store::learned_artifacts::LearnedArtifact;
 use crate::store::Store;
 
+#[path = "overlay_version_admission.rs"]
+pub(crate) mod version_admission;
+
 fn activate_overlay_yaml(
     registry: &mut ArtifactRegistry,
     kind: &str,
@@ -204,98 +207,22 @@ pub(crate) fn republish_missing_committed(
     Ok(recovered_reconfirmations)
 }
 
-/// Drop any overlay version that is loaded on disk but is NOT the DB-highest
-/// Active version for its identity, so a stale on-disk version (e.g. v1) can
-/// never be merged live when the durable record says v2 is active (AD-070).
-/// Versions whose proposal is not `active` at all are also dropped: an on-disk
-/// artifact with only a `proposed`/`approved` row has no live authority.
-/// Returns the excluded identity pairs so the caller can flag them.
+/// Apply the shared version-admission phase immediately at startup. The
+/// captured evaluator never republishes missing bytes or falls back to an
+/// older version when the DB-highest Active version is absent (AD-070).
+/// Preserve the existing identity-pair return shape for startup callers.
 pub(crate) fn prune_non_highest_active(
     overlay_registry: &mut ArtifactRegistry,
     store: &Store,
 ) -> anyhow::Result<HashSet<(String, String)>> {
-    let learned = store.list_learned_artifacts()?;
-    let eligible_personas: HashSet<(String, u32)> = overlay_registry
-        .sources
-        .iter()
-        .filter_map(|((kind, id, version), source)| {
-            if kind != "persona" {
-                return None;
-            }
-            learned
-                .iter()
-                .any(|row| {
-                    row.kind == "persona"
-                        && row.artifact_id == *id
-                        && row.version == *version
-                        && matches!(
-                            &row.provenance,
-                            crate::store::learned_artifacts::Provenance::ProducedBy { .. }
-                        )
-                        && row.pending_yaml_digest.as_deref()
-                            == Some(
-                                openspine_schemas::digest::digest_of_bytes(&source.bytes).as_str(),
-                            )
-                })
-                .then_some((id.clone(), *version))
-        })
-        .collect();
-    let mut excluded: HashSet<(String, String)> =
-        crate::artifact_loader::exclude_unbacked_persona_versions(
-            overlay_registry,
-            &eligible_personas,
-        )?
+    let admitted = version_admission::CapturedVersionAdmission::capture(overlay_registry, store)?
+        .evaluate()?;
+    *overlay_registry = admitted.registry;
+    Ok(admitted
+        .excluded
         .into_iter()
-        .map(|(id, _version)| ("persona".to_string(), id))
-        .collect();
-    let identities: HashSet<(String, String)> = overlay_registry
-        .sources
-        .keys()
-        .map(|(k, id, _v)| (k.clone(), id.clone()))
-        .collect();
-    for (kind, artifact_id) in identities {
-        if kind == "persona" {
-            // Valid persona versions are retained by the row-and-digest
-            // admission pass above; personas have no proposal lifecycle.
-            continue;
-        }
-        let highest = store.highest_active_version(&kind, &artifact_id)?;
-        let loaded: Vec<u32> = overlay_registry
-            .sources
-            .iter()
-            .filter(|((k, id, _v), _)| k == &kind && id == &artifact_id)
-            .map(|((_k, _id, v), _)| *v)
-            .collect();
-        match highest {
-            // No active proposal: every loaded version is stale, drop all.
-            None => {
-                for v in loaded {
-                    remove_loaded_version(overlay_registry, &kind, &artifact_id, v);
-                }
-                excluded.insert((kind, artifact_id));
-            }
-            Some(highest) => {
-                for v in loaded {
-                    if v != highest {
-                        remove_loaded_version(overlay_registry, &kind, &artifact_id, v);
-                        excluded.insert((kind.clone(), artifact_id.clone()));
-                    }
-                }
-                if crate::artifact_loader::artifact_version(overlay_registry, &kind, &artifact_id)
-                    != Some(highest)
-                {
-                    if let Some(source) = overlay_registry
-                        .sources
-                        .get(&(kind.clone(), artifact_id.clone(), highest))
-                        .cloned()
-                    {
-                        crate::artifact_loader::rehydrate_source(overlay_registry, &kind, &source)?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(excluded)
+        .map(|(kind, id, _version)| (kind, id))
+        .collect())
 }
 
 /// Remove a specific `(kind, id, version)` from both the versioned `sources`
