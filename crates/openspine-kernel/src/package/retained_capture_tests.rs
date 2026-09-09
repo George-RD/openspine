@@ -17,6 +17,7 @@ struct Fixture {
 }
 
 impl Fixture {
+    /// Publish a real validated Lyra package into an isolated object store.
     fn new() -> Self {
         let root = tempfile::tempdir().unwrap();
         let data = root.path().join("data");
@@ -43,10 +44,12 @@ impl Fixture {
         }
     }
 
+    /// Exercise the production capture against the fixture's recorded identity.
     fn capture(&self) -> Result<PackageCapture, InstallError> {
         self.objects.capture(&self.identity)
     }
 
+    /// Require both the complete byte inventory and package identity to survive.
     fn assert_original(&self, snapshot: PackageSnapshot) {
         assert_eq!(snapshot.identity(), self.identity);
         let actual: BTreeMap<_, _> = snapshot
@@ -56,7 +59,7 @@ impl Fixture {
         assert_eq!(actual, self.expected);
     }
 
-    // Historical recorded bytes, not a newly installable/validated snapshot.
+    /// Model historical recorded bytes, not a newly installable/validated snapshot.
     fn rewrite_retained(&mut self, member: &str, bytes: Vec<u8>) {
         self.expected.insert(member.to_owned(), bytes);
         self.identity.manifest_digest =
@@ -74,6 +77,7 @@ impl Fixture {
         fs::write(self.path.join(member), &self.expected[member]).unwrap();
     }
 
+    /// Retain a matching raw identity whose schema the current loader rejects.
     fn incompatible() -> Self {
         let mut fixture = Self::new();
         let mut manifest: serde_yaml::Value =
@@ -90,6 +94,7 @@ impl Fixture {
     }
 }
 
+/// Validation must preserve both stored bytes and inspection metadata.
 #[test]
 fn retained_capture_validates_original_bytes_without_mutating_object() {
     let fixture = Fixture::new();
@@ -103,6 +108,7 @@ fn retained_capture_validates_original_bytes_without_mutating_object() {
     );
 }
 
+/// A prior capture remains usable after removal; a new capture detects the loss.
 #[test]
 fn retained_capture_survives_object_removal_before_validation() {
     let fixture = Fixture::new();
@@ -115,6 +121,7 @@ fn retained_capture_survives_object_removal_before_validation() {
     );
 }
 
+/// Structurally valid replacement bytes must not inherit the earlier identity.
 #[test]
 fn retained_capture_does_not_validate_later_valid_substitution() {
     let fixture = Fixture::new();
@@ -132,6 +139,7 @@ fn retained_capture_does_not_validate_later_valid_substitution() {
     assert!(fixture.capture().is_err());
 }
 
+/// A later corrupt manifest cannot replace already captured validation inputs.
 #[test]
 fn retained_capture_does_not_validate_later_corrupt_manifest() {
     let fixture = Fixture::new();
@@ -141,6 +149,7 @@ fn retained_capture_does_not_validate_later_corrupt_manifest() {
     assert!(fixture.capture().is_err());
 }
 
+/// Replacing the directory path must not redirect validation to another object.
 #[test]
 fn retained_capture_does_not_follow_replaced_object_directory() {
     let fixture = Fixture::new();
@@ -153,6 +162,7 @@ fn retained_capture_does_not_follow_replaced_object_directory() {
     assert!(fixture.capture().is_err());
 }
 
+/// Validation stays path-free even when the original name becomes a symlink.
 #[test]
 fn retained_capture_does_not_follow_later_object_symlink() {
     let fixture = Fixture::new();
@@ -164,6 +174,7 @@ fn retained_capture_does_not_follow_later_object_symlink() {
     assert!(fixture.capture().is_err());
 }
 
+/// Schema rejection must not relabel identity-matching retained bytes as corrupt.
 #[test]
 fn retained_capture_keeps_historical_incompatibility_separate_from_integrity() {
     let fixture = Fixture::incompatible();
@@ -176,6 +187,7 @@ fn retained_capture_keeps_historical_incompatibility_separate_from_integrity() {
     assert_eq!(source_bytes(&fixture.path), fixture.expected);
 }
 
+/// A compatible replacement cannot conceal incompatibility in the captured bytes.
 #[test]
 fn retained_capture_cannot_hide_incompatibility_with_later_compatible_bytes() {
     let fixture = Fixture::incompatible();
@@ -190,6 +202,7 @@ fn retained_capture_cannot_hide_incompatibility_with_later_compatible_bytes() {
     assert!(fixture.capture().is_err());
 }
 
+/// Capture must reject preexisting additions, missing files and linked members.
 #[test]
 fn retained_capture_rejects_mutation_before_capture() {
     for mutation in ["append", "missing", "symlink"] {
@@ -212,6 +225,7 @@ fn retained_capture_rejects_mutation_before_capture() {
     }
 }
 
+/// Identical copied content cannot bypass the opened namespace's anchor checks.
 #[test]
 fn retained_capture_rejects_replaced_namespace_anchors() {
     let fixture = Fixture::new();
@@ -222,6 +236,7 @@ fn retained_capture_rejects_replaced_namespace_anchors() {
     assert!(fixture.capture().is_err());
 }
 
+/// Raw identity verification does not substitute for current typed artifact checks.
 #[test]
 fn retained_capture_checks_current_typed_artifacts_not_just_declaration() {
     let mut fixture = Fixture::new();
@@ -241,6 +256,7 @@ fn retained_capture_checks_current_typed_artifacts_not_just_declaration() {
     assert_eq!(source_bytes(&fixture.path), fixture.expected);
 }
 
+/// An isolated unavailable TMPDIR blocks validation, never retained integrity.
 #[test]
 fn retained_capture_staging_failure_is_not_corruption() {
     use std::process::{Command, Stdio};
