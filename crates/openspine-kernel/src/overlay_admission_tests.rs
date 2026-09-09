@@ -110,7 +110,7 @@ fn captured_admission_distinguishes_missing_digest_and_changed_bytes() {
 }
 
 #[test]
-fn captured_admission_ignores_superseded_learned_digest_but_reports_missing_provenance() {
+fn captured_admission_does_not_use_another_learned_version_as_provenance() {
     let mut view = ArtifactRegistry::default();
     let mut item = fixture(&mut view, "r");
     item.version = 2;
@@ -217,17 +217,17 @@ fn captured_admission_never_reopens_paths_or_changes_captured_inputs() {
     std::fs::write(&path, b"changed on disk, not a review input").unwrap();
     let sources = view.sources.clone();
     let routes = serde_json::to_value(&view.routes).unwrap();
-    let learned = serde_json::to_value(&item).unwrap();
-    let first = assess(&view, &[item.clone()]);
+    let learned = item.clone();
+    let first = assess(&view, std::slice::from_ref(&item));
     assert!(first.digest_invalid.is_empty());
     assert_eq!(
         std::fs::read(&path).unwrap(),
         b"changed on disk, not a review input"
     );
     std::fs::remove_file(&path).unwrap();
-    assert_eq!(first, assess(&view, &[item.clone()]));
+    assert_eq!(first, assess(&view, std::slice::from_ref(&item)));
     assert_eq!(view.sources, sources);
     assert_eq!(serde_json::to_value(&view.routes).unwrap(), routes);
-    assert_eq!(serde_json::to_value(&item).unwrap(), learned);
+    assert_eq!(item, learned);
     assert!(!path.exists());
 }
