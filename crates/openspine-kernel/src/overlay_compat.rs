@@ -1,7 +1,8 @@
-// openspine:allow-large-module reason: overlay compatibility checks (dangling reference detection, version resolution)
+#[path = "overlay_compat_runtime.rs"]
+mod overlay_compat_runtime;
 #[path = "overlay_convergence.rs"]
-mod overlay_convergence;
-pub use overlay_convergence::converge_owner_accepted_dependencies;
+pub(crate) mod overlay_convergence;
+pub use overlay_compat_runtime::converge_owner_accepted_dependencies;
 
 use std::collections::HashSet;
 
@@ -431,74 +432,8 @@ pub fn apply_compatibility(
     registry: &mut ArtifactRegistry,
     learned: &[LearnedArtifact],
 ) -> (Vec<OrphanedArtifact>, Vec<Ulid>) {
-    let mut all = Vec::new();
-    let pending: Vec<_> = learned
-        .iter()
-        .filter(|item| {
-            item.compatibility == CompatibilityStatus::ReconfirmationRequired
-                && registry_entry_active_at(registry, &item.kind, &item.artifact_id, item.version)
-        })
-        .map(|item| OrphanedArtifact {
-            kind: item.kind.clone(),
-            artifact_id: item.artifact_id.clone(),
-            version: item.version,
-            dangling_references: vec!["reconfirmation_required".into()],
-        })
-        .collect();
-    exclude_orphans(registry, &pending);
-    all.extend(pending);
-    loop {
-        let next = find_orphans(registry, learned)
-            .into_iter()
-            .filter(|candidate| {
-                // Never re-orphan a durably owner-accepted artifact; the owner's
-                // single tap endures even with dangling references (AD-070).
-                let owner_accepted = learned.iter().any(|item| {
-                    item.kind == candidate.kind
-                        && item.artifact_id == candidate.artifact_id
-                        && item.version == candidate.version
-                        && item.compatibility == CompatibilityStatus::OwnerAccepted
-                });
-                if owner_accepted {
-                    return false;
-                }
-                // Version cutover: a stale learned row for a superseded version
-                // must not exclude the active higher version.
-                if !registry_entry_active_at(
-                    registry,
-                    &candidate.kind,
-                    &candidate.artifact_id,
-                    candidate.version,
-                ) {
-                    return false;
-                }
-                !all.iter().any(|existing| {
-                    existing.kind == candidate.kind
-                        && existing.artifact_id == candidate.artifact_id
-                        && existing.version == candidate.version
-                })
-            })
-            .collect::<Vec<_>>();
-        if next.is_empty() {
-            break;
-        }
-        exclude_orphans(registry, &next);
-        all.extend(next);
-    }
-    let requests = all
-        .iter()
-        .map(|item| {
-            learned
-                .iter()
-                .find(|candidate| {
-                    candidate.kind == item.kind
-                        && candidate.artifact_id == item.artifact_id
-                        && candidate.version == item.version
-                })
-                .and_then(|candidate| candidate.pending_reconfirmation_id)
-                .unwrap_or_else(Ulid::new)
-        })
-        .collect();
+    let all = overlay_convergence::evaluate_compatibility(registry, learned);
+    let requests = overlay_compat_runtime::reconfirmation_ids(&all, learned);
     (all, requests)
 }
 /// cannot silently point at stale bytes.

@@ -40,11 +40,12 @@ jobs:
         with:
           toolchain: "1.97.1"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - name: Exercise native package inspection and installation
+      - name: Exercise native package inspection, installation and dependencies
         run: |
           cargo test -p openspine-kernel --test package_inspect_cli --test package_install_cli
           cargo test -p openspine-kernel package::
           cargo test -p openspine-kernel store::package_install_tests::
+          cargo test -p openspine-kernel --bin openspine overlay_compat::
   release-packages:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -57,5 +58,7 @@ jobs:
         with:
           toolchain: "1.97.1"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - name: Exercise installation with production debug hooks disabled
-        run: cargo test --release -p openspine-kernel --test package_install_cli
+      - name: Exercise installation and dependencies with production debug hooks disabled
+        run: |
+          cargo test --release -p openspine-kernel --test package_install_cli
+          cargo test --release -p openspine-kernel --bin openspine overlay_compat::
