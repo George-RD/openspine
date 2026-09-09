@@ -1,4 +1,3 @@
-#[cfg(test)]
 #[path = "overlay_admission.rs"]
 pub(crate) mod overlay_admission;
 #[path = "overlay_compat_runtime.rs"]
@@ -6,6 +5,7 @@ mod overlay_compat_runtime;
 #[path = "overlay_convergence.rs"]
 pub(crate) mod overlay_convergence;
 pub use overlay_compat_runtime::converge_owner_accepted_dependencies;
+pub(crate) use overlay_compat_runtime::reconfirmation_ids;
 
 use std::collections::HashSet;
 

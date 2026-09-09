@@ -19,6 +19,7 @@ pub(crate) struct AdmissionFindings {
 
 /// Evaluate without reopening sources or mutating the supplied inputs.
 /// The caller supplies the overlay registry before merging with the base.
+/// It must come from the same validated capture as its source bytes.
 /// Source paths and learned-row paths are not trusted byte fallbacks.
 pub(crate) fn evaluate(
     overlay: &ArtifactRegistry,
@@ -26,8 +27,9 @@ pub(crate) fn evaluate(
     base_ids: &HashSet<(String, String)>,
 ) -> AdmissionFindings {
     let overlay_ids = artifact_loader::artifact_identity_pairs(overlay);
-    let collisions: Vec<_> = overlay_ids.intersection(base_ids).cloned().collect();
-    let collision_orphans = collisions
+    let mut collisions: Vec<_> = overlay_ids.intersection(base_ids).cloned().collect();
+    collisions.sort();
+    let mut collision_orphans: Vec<_> = collisions
         .iter()
         .filter_map(|(kind, artifact_id)| {
             let version = artifact_loader::artifact_version(overlay, kind, artifact_id)?;
@@ -46,7 +48,7 @@ pub(crate) fn evaluate(
                 })
         })
         .collect();
-    let digest_invalid: Vec<_> = learned
+    let mut digest_invalid: Vec<_> = learned
         .iter()
         .filter(|item| {
             matches!(
@@ -56,11 +58,13 @@ pub(crate) fn evaluate(
                 == Some(item.version)
         })
         .filter_map(|item| {
-            let source = overlay.sources.get(&(
+            let Some(source) = overlay.sources.get(&(
                 item.kind.clone(),
                 item.artifact_id.clone(),
                 item.version,
-            ))?;
+            )) else {
+                return Some(finding(item, "approved_overlay_source_missing"));
+            };
             let Some(expected) = item.pending_yaml_digest.as_deref() else {
                 return Some(finding(item, "approved_overlay_digest_missing"));
             };
@@ -68,15 +72,29 @@ pub(crate) fn evaluate(
             (expected != actual.as_str()).then(|| finding(item, "approved_overlay_digest_mismatch"))
         })
         .collect();
-    // Match startup's existing order: integrity exclusion precedes provenance
-    // discovery, while collision exclusion remains after legacy recovery.
-    let invalid_ids = digest_invalid
+    // Match startup's existing order without cloning the entire registry:
+    // integrity exclusion precedes provenance discovery; collisions stay until
+    // legacy recovery. Filter the same identities that startup will exclude.
+    let invalid_ids: HashSet<_> = digest_invalid
         .iter()
         .map(|item| (item.kind.clone(), item.artifact_id.clone()))
         .collect();
-    let mut scratch = overlay.clone();
-    artifact_loader::exclude_identity_pairs(&mut scratch, &invalid_ids);
-    let missing = missing_provenance(&scratch, learned);
+    let mut missing: Vec<_> = missing_provenance(overlay, learned)
+        .into_iter()
+        .filter(|item| !invalid_ids.contains(&(item.kind.clone(), item.artifact_id.clone())))
+        .collect();
+    // Canonical order is independent of registry/learned-row enumeration.
+    // Keep duplicate evidence rather than concealing damaged capture inputs.
+    for findings in [&mut collision_orphans, &mut digest_invalid, &mut missing] {
+        findings.sort_by(|a, b| {
+            (&a.kind, &a.artifact_id, a.version, &a.dangling_references).cmp(&(
+                &b.kind,
+                &b.artifact_id,
+                b.version,
+                &b.dangling_references,
+            ))
+        });
+    }
     AdmissionFindings {
         collisions,
         collision_orphans,
@@ -95,8 +113,8 @@ fn finding(item: &LearnedArtifact, reason: &str) -> OrphanedArtifact {
 }
 
 #[cfg(test)]
-#[path = "overlay_admission_tests.rs"]
-mod tests;
-#[cfg(test)]
 #[path = "overlay_admission_startup_tests.rs"]
 mod startup_tests;
+#[cfg(test)]
+#[path = "overlay_admission_tests.rs"]
+mod tests;

@@ -47,7 +47,7 @@ pub fn converge_owner_accepted_dependencies(
     (ordinary, requests, invalid)
 }
 
-pub(super) fn reconfirmation_ids(
+pub(crate) fn reconfirmation_ids(
     orphans: &[OrphanedArtifact],
     learned: &[LearnedArtifact],
 ) -> Vec<Ulid> {
