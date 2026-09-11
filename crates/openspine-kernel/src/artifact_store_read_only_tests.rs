@@ -91,8 +91,13 @@ fn read_only_scoped_read_does_not_upgrade_recovered_blob() {
     let store = ArtifactStore::open(dir.path().join("artifacts"), key()).unwrap();
     let scope = Ulid::new();
     let raw_key = store.keys.get_or_create_key(scope).unwrap();
-    let (artifact_ref, blob_path, blob_before) =
-        write_blob(&store, scope, b"recovered review evidence", raw_key, RECOVERED_FORMAT);
+    let (artifact_ref, blob_path, blob_before) = write_blob(
+        &store,
+        scope,
+        b"recovered review evidence",
+        raw_key,
+        RECOVERED_FORMAT,
+    );
 
     assert_eq!(
         store
