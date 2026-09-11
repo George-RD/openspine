@@ -1,7 +1,5 @@
 use super::*;
-use crate::store::learned_artifacts::{
-    CompatibilityStatus, NominationStatus, Provenance,
-};
+use crate::store::learned_artifacts::{CompatibilityStatus, NominationStatus, Provenance};
 use crate::store::proposed_artifacts::ProposedArtifact;
 use jiff::Timestamp;
 use openspine_schemas::artifact::{ArtifactNamespace, ArtifactRef};
@@ -114,8 +112,8 @@ fn capture_uses_the_configured_nondefault_base_and_owns_its_typed_state() {
     let (root, data_root, store, artifacts) = fixture();
     let base = configured_base(root.path());
 
-    let captured = CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts)
-        .unwrap();
+    let captured =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
     assert_eq!(captured.base.configured_path, base);
     assert_eq!(captured.base.identity.package_id, "lyra");
     assert!(captured
@@ -163,13 +161,9 @@ fn capture_marks_a_committed_active_overlay_whose_file_is_missing() {
         .record_learned_artifact(&learned_route("missing-active", 1, &digest))
         .unwrap();
 
-    let captured = CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts)
-        .unwrap();
-    let control = &captured.overlay.controls[&(
-        "route".into(),
-        "missing-active".into(),
-        1,
-    )];
+    let captured =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
+    let control = &captured.overlay.controls[&("route".into(), "missing-active".into(), 1)];
     assert_eq!(control.lifecycle, Some(Lifecycle::Active));
     assert_eq!(control.highest_active_version, Some(1));
     assert!(!control.source_present);
@@ -195,15 +189,14 @@ fn captured_overlay_controls_do_not_adopt_later_activation() {
         .record_learned_artifact(&learned_route("stable", 1, &digest))
         .unwrap();
 
-    let captured = CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts)
-        .unwrap();
+    let captured =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
     let v2 = route_yaml("stable", 2);
     let d2 = digest_of_bytes(&v2).to_string();
     active_route(&store, "stable", 2, &d2);
 
     assert_eq!(
-        captured.overlay.controls[&("route".into(), "stable".into(), 1)]
-            .highest_active_version,
+        captured.overlay.controls[&("route".into(), "stable".into(), 1)].highest_active_version,
         Some(1)
     );
 }
