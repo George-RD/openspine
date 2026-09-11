@@ -70,3 +70,7 @@ pub(crate) fn admit(
     artifact_loader::load_admitted_personas(registry, overlay_dir, &admitted)
         .context("admitting provenance-backed persona overlays")
 }
+
+#[cfg(test)]
+#[path = "overlay_persona_admission_tests.rs"]
+mod tests;
