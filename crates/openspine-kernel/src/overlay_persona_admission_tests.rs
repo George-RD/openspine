@@ -69,7 +69,8 @@ impl Fixture {
             source_exchange: exchange,
             source_scope: ProvenanceOrigin::system(),
         };
-        row.pending_yaml_digest = Some(digest_of_bytes(persona_yaml(id, version).as_bytes()).to_string());
+        row.pending_yaml_digest =
+            Some(digest_of_bytes(persona_yaml(id, version).as_bytes()).to_string());
         row
     }
 
@@ -142,8 +143,14 @@ fn captured_persona_provenance_preserves_exact_version_digests() {
     let v1 = fixture.produced("persona", 1);
     let v2 = fixture.produced("persona", 2);
     let expected = BTreeMap::from([
-        (("persona".into(), 1), v1.pending_yaml_digest.clone().unwrap()),
-        (("persona".into(), 2), v2.pending_yaml_digest.clone().unwrap()),
+        (
+            ("persona".into(), 1),
+            v1.pending_yaml_digest.clone().unwrap(),
+        ),
+        (
+            ("persona".into(), 2),
+            v2.pending_yaml_digest.clone().unwrap(),
+        ),
     ]);
     let findings = fixture.findings(&[v1, v2]);
     assert_eq!(findings.expected_digests, expected);
@@ -206,18 +213,32 @@ fn captured_persona_provenance_erasure_precedes_unavailable_producing_event() {
 fn captured_persona_provenance_distinguishes_missing_and_unbound_event() {
     let fixture = Fixture::new();
     let mut missing = fixture.produced("persona", 1);
-    let Provenance::ProducedBy { source_event_id, .. } = &mut missing.provenance else {
+    let Provenance::ProducedBy {
+        source_event_id, ..
+    } = &mut missing.provenance
+    else {
         panic!("produced fixture");
     };
     *source_event_id = Ulid::new();
-    assert_excluded(&fixture, missing, PersonaProvenanceExclusion::EventUnavailable);
+    assert_excluded(
+        &fixture,
+        missing,
+        PersonaProvenanceExclusion::EventUnavailable,
+    );
 
     let mut unbound = fixture.produced("persona", 2);
-    let Provenance::ProducedBy { source_exchange, .. } = &mut unbound.provenance else {
+    let Provenance::ProducedBy {
+        source_exchange, ..
+    } = &mut unbound.provenance
+    else {
         panic!("produced fixture");
     };
     *source_exchange = fixture.artifacts.put(b"unrelated exchange").unwrap();
-    assert_excluded(&fixture, unbound, PersonaProvenanceExclusion::ExchangeNotBound);
+    assert_excluded(
+        &fixture,
+        unbound,
+        PersonaProvenanceExclusion::ExchangeNotBound,
+    );
 }
 
 #[test]
@@ -228,18 +249,29 @@ fn captured_persona_provenance_requires_the_recorded_scope_not_any_matching_blob
         panic!("produced fixture");
     };
     *source_scope = origin_from_producing_scope(Ulid::new());
-    assert_excluded(&fixture, row, PersonaProvenanceExclusion::ExchangeUnavailable);
+    assert_excluded(
+        &fixture,
+        row,
+        PersonaProvenanceExclusion::ExchangeUnavailable,
+    );
 }
 
 #[test]
 fn captured_persona_provenance_requires_a_readable_exchange() {
     let fixture = Fixture::new();
     let row = fixture.produced("persona", 1);
-    let Provenance::ProducedBy { source_exchange, .. } = &row.provenance else {
+    let Provenance::ProducedBy {
+        source_exchange, ..
+    } = &row.provenance
+    else {
         panic!("produced fixture");
     };
     std::fs::remove_file(fixture.artifacts.blob_path_for_test(source_exchange)).unwrap();
-    assert_excluded(&fixture, row, PersonaProvenanceExclusion::ExchangeUnavailable);
+    assert_excluded(
+        &fixture,
+        row,
+        PersonaProvenanceExclusion::ExchangeUnavailable,
+    );
 }
 
 #[test]
@@ -296,6 +328,10 @@ fn persona_admission_still_requires_exact_yaml_after_provenance_succeeds() {
     std::fs::write(&path, persona_yaml("persona", 1)).unwrap();
     let admitted = fixture.admit(std::slice::from_ref(&row)).unwrap();
     assert_eq!(admitted.personas["persona"].version, 1);
-    std::fs::write(&path, persona_yaml("persona", 1).replace("practical", "different")).unwrap();
+    std::fs::write(
+        &path,
+        persona_yaml("persona", 1).replace("practical", "different"),
+    )
+    .unwrap();
     assert!(fixture.admit(&[row]).unwrap().personas.is_empty());
 }

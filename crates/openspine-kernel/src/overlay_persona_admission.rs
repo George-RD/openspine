@@ -175,8 +175,8 @@ pub(crate) fn admit(
     learned: &[LearnedArtifact],
     registry: &mut ArtifactRegistry,
 ) -> anyhow::Result<()> {
-    let findings = CapturedPersonaProvenance::capture_for_startup(store, artifacts, learned)?
-        .evaluate();
+    let findings =
+        CapturedPersonaProvenance::capture_for_startup(store, artifacts, learned)?.evaluate();
     for ((id, version), reason) in findings.excluded {
         if reason != PersonaProvenanceExclusion::Erased {
             tracing::warn!(artifact_id = %id, version, ?reason,
