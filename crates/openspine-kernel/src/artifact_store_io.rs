@@ -1,5 +1,11 @@
 use super::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScopedReadMode {
+    Recover,
+    Observe,
+}
+
 impl ArtifactStore {
     /// Store `plaintext` under the reserved `SYSTEM_SCOPE` (owner-authored
     /// and internal payloads). Identical to
@@ -87,6 +93,26 @@ impl ArtifactStore {
         scope: Ulid,
         artifact_ref: &ArtifactRef,
     ) -> Result<Vec<u8>, ArtifactStoreError> {
+        self.get_scoped_inner(scope, artifact_ref, ScopedReadMode::Recover)
+    }
+
+    /// Read and validate an existing scoped payload without repairing legacy
+    /// key/blob formats or consuming pending recovery markers. This is for
+    /// inspection paths that must not turn observation into mutation.
+    pub(crate) fn get_scoped_without_recovery(
+        &self,
+        scope: Ulid,
+        artifact_ref: &ArtifactRef,
+    ) -> Result<Vec<u8>, ArtifactStoreError> {
+        self.get_scoped_inner(scope, artifact_ref, ScopedReadMode::Observe)
+    }
+
+    fn get_scoped_inner(
+        &self,
+        scope: Ulid,
+        artifact_ref: &ArtifactRef,
+        mode: ScopedReadMode,
+    ) -> Result<Vec<u8>, ArtifactStoreError> {
         self.keys.with_scope_lock(scope, || {
             let hex = Self::digest_hex(&artifact_ref.digest);
             let path = self.blob_path(scope, hex);
@@ -116,10 +142,11 @@ impl ArtifactStore {
             let (nonce_bytes, ciphertext) = rest.split_at(NONCE_LEN);
             let nonce = Nonce::try_from(nonce_bytes)
                 .map_err(|_| ArtifactStoreError::Truncated(path.clone()))?;
-            let key = self
-                .keys
-                .get_key_locked(scope)?
-                .ok_or(ArtifactStoreError::Decrypt)?;
+            let key = match mode {
+                ScopedReadMode::Recover => self.keys.get_key_locked(scope)?,
+                ScopedReadMode::Observe => self.keys.get_key_locked_without_recovery(scope)?,
+            }
+            .ok_or(ArtifactStoreError::Decrypt)?;
             let cipher = Aes256Gcm::new_from_slice(&key).expect("key is exactly 32 bytes");
 
             let plaintext = if tag == CURRENT_FORMAT {
@@ -141,12 +168,14 @@ impl ArtifactStore {
             if digest_of_bytes(&plaintext) != artifact_ref.digest {
                 return Err(ArtifactStoreError::DigestMismatch);
             }
-            if tag == RECOVERED_FORMAT {
-                self.persist_upgrade_pending(&path)?;
-                self.write_current_blob(&path, scope, &plaintext, &key)?;
-                self.clear_upgrade_pending(&path)?;
-            } else {
-                self.recover_pending_upgrade(&path)?;
+            if mode == ScopedReadMode::Recover {
+                if tag == RECOVERED_FORMAT {
+                    self.persist_upgrade_pending(&path)?;
+                    self.write_current_blob(&path, scope, &plaintext, &key)?;
+                    self.clear_upgrade_pending(&path)?;
+                } else {
+                    self.recover_pending_upgrade(&path)?;
+                }
             }
             Ok(plaintext)
         })
