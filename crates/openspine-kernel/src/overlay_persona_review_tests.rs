@@ -79,12 +79,9 @@ fn review_capture_rejects_duplicate_identity_before_audit_reads() {
     let row = produced_persona(&store, &artifacts, "persona", 1);
     store.break_audit_for_test();
 
-    let error = CapturedPersonaProvenance::capture_for_review(
-        &store,
-        &artifacts,
-        &[row.clone(), row],
-    )
-    .err()
-    .unwrap();
+    let error =
+        CapturedPersonaProvenance::capture_for_review(&store, &artifacts, &[row.clone(), row])
+            .err()
+            .unwrap();
     assert!(error.to_string().contains("duplicate persona provenance"));
 }
