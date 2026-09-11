@@ -160,6 +160,27 @@ impl CounterpartyKeyRing {
         Ok(())
     }
 
+    /// Read an existing scope key exactly as stored, without migrating a
+    /// legacy key file or consuming a pending-durability marker. Callers must
+    /// already hold the scope lock. Intended for read-only inspection paths
+    /// such as package review where observation must not repair state.
+    pub(crate) fn get_key_locked_without_recovery(
+        &self,
+        counterparty_id: Ulid,
+    ) -> Result<Option<[u8; KEY_LEN]>, CounterpartyKeyError> {
+        if self.scope_is_closed(counterparty_id)
+            || self.require_regular_file_or_absent(&self.tombstone_path(counterparty_id))?
+        {
+            return Ok(None);
+        }
+        let path = self.key_path(counterparty_id);
+        if !self.require_regular_file_or_absent(&path)? {
+            return Ok(None);
+        }
+        let (key, _) = self.unwrap_file(&path, counterparty_id)?;
+        Ok(Some(key))
+    }
+
     pub(crate) fn get_key_locked(
         &self,
         counterparty_id: Ulid,
