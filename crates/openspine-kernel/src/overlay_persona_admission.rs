@@ -191,3 +191,7 @@ pub(crate) fn admit(
 #[cfg(test)]
 #[path = "overlay_persona_admission_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "overlay_persona_review_tests.rs"]
+mod review_tests;
