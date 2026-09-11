@@ -8,11 +8,16 @@ use openspine_schemas::artifact::Lifecycle;
 use openspine_schemas::package::PackageDeclaration;
 
 use super::InspectionError;
-use crate::artifact_loader::{load_base_registry, ArtifactLoadError};
+use crate::artifact_loader::{load_base_registry, ArtifactLoadError, ArtifactRegistry};
+
+pub(super) struct ValidatedPackage {
+    pub declaration: PackageDeclaration,
+    pub registry: ArtifactRegistry,
+}
 
 pub(super) fn validate(
     files: &BTreeMap<String, Vec<u8>>,
-) -> Result<PackageDeclaration, InspectionError> {
+) -> Result<ValidatedPackage, InspectionError> {
     let bytes = files
         .get("package.yaml")
         .ok_or(InspectionError::DeclarationMissing)?;
@@ -83,7 +88,10 @@ pub(super) fn validate(
     {
         return Err(InspectionError::EntryAgentInvalid);
     }
-    Ok(declaration)
+    Ok(ValidatedPackage {
+        declaration,
+        registry,
+    })
 }
 
 fn check(declared: &[String], actual: impl Iterator<Item = String>) -> Result<(), InspectionError> {
