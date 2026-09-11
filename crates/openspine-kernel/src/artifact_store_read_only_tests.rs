@@ -1,5 +1,7 @@
 use super::*;
 
+const MASTER_KEY: [u8; 32] = [29; 32];
+
 fn write_legacy_wrapped_key(
     path: &std::path::Path,
     master_key: [u8; 32],
@@ -66,7 +68,7 @@ fn write_blob(
 #[test]
 fn read_only_scoped_read_does_not_migrate_legacy_key() {
     let dir = tempfile::tempdir().unwrap();
-    let master_key = key();
+    let master_key = MASTER_KEY;
     let store = ArtifactStore::open(dir.path().join("artifacts"), master_key).unwrap();
     let scope = Ulid::new();
     let raw_key = [17u8; 32];
@@ -88,7 +90,7 @@ fn read_only_scoped_read_does_not_migrate_legacy_key() {
 #[test]
 fn read_only_scoped_read_does_not_upgrade_recovered_blob() {
     let dir = tempfile::tempdir().unwrap();
-    let store = ArtifactStore::open(dir.path().join("artifacts"), key()).unwrap();
+    let store = ArtifactStore::open(dir.path().join("artifacts"), MASTER_KEY).unwrap();
     let scope = Ulid::new();
     let raw_key = store.keys.get_or_create_key(scope).unwrap();
     let (artifact_ref, blob_path, blob_before) = write_blob(
