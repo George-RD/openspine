@@ -37,6 +37,7 @@ pub(crate) struct CapturedPersonaProvenance {
 #[derive(Clone, Copy)]
 enum PersonaCaptureMode {
     Startup,
+    #[allow(dead_code)] // wired by the next #285 package-review slice; exercised here by tests
     Review,
 }
 
@@ -66,6 +67,7 @@ impl CapturedPersonaProvenance {
     /// legacy ArtifactStore key/blob formats or consuming pending recovery
     /// markers. The caller still owns writer exclusion and consistency across
     /// Store, artifact storage and the supplied learned rows.
+    #[allow(dead_code)] // precursor API for #285; the production caller is the next bounded slice
     pub(crate) fn capture_for_review(
         store: &Store,
         artifacts: &ArtifactStore,
