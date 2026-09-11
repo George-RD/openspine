@@ -34,6 +34,13 @@ pub(crate) struct CapturedPersonaProvenance {
     evidence: Vec<PersonaEvidence>,
 }
 
+#[derive(Clone, Copy)]
+enum PersonaCaptureMode {
+    Startup,
+    #[allow(dead_code)] // wired by the next #285 package-review slice; exercised here by tests
+    Review,
+}
+
 struct PersonaEvidence {
     row: LearnedArtifact,
     event_payload_refs: Option<Vec<ArtifactRef>>,
@@ -45,13 +52,35 @@ impl CapturedPersonaProvenance {
     /// concurrent writers and supply consistent learned rows. This is not an
     /// exhaustive overlay snapshot or an atomic cross-store transaction.
     ///
-    /// This adapter is intentionally startup-only: ArtifactStore reads can
-    /// recover legacy key/blob formats. A read-only package review needs a
-    /// non-mutating capture adapter before it can use the same evaluator.
+    /// Startup reads may recover legacy key/blob formats. Package review must
+    /// use [`Self::capture_for_review`] instead so observation cannot mutate
+    /// artifact storage.
     pub(crate) fn capture_for_startup(
         store: &Store,
         artifacts: &ArtifactStore,
         learned: &[LearnedArtifact],
+    ) -> anyhow::Result<Self> {
+        Self::capture(store, artifacts, learned, PersonaCaptureMode::Startup)
+    }
+
+    /// Capture the same provenance evidence as startup without repairing
+    /// legacy ArtifactStore key/blob formats or consuming pending recovery
+    /// markers. The caller still owns writer exclusion and consistency across
+    /// Store, artifact storage and the supplied learned rows.
+    #[allow(dead_code)] // precursor API for #285; the production caller is the next bounded slice
+    pub(crate) fn capture_for_review(
+        store: &Store,
+        artifacts: &ArtifactStore,
+        learned: &[LearnedArtifact],
+    ) -> anyhow::Result<Self> {
+        Self::capture(store, artifacts, learned, PersonaCaptureMode::Review)
+    }
+
+    fn capture(
+        store: &Store,
+        artifacts: &ArtifactStore,
+        learned: &[LearnedArtifact],
+        mode: PersonaCaptureMode,
     ) -> anyhow::Result<Self> {
         let mut rows = BTreeMap::new();
         // Check every persona identity, including erased rows, before any
@@ -68,7 +97,7 @@ impl CapturedPersonaProvenance {
         }
         let evidence = rows
             .into_values()
-            .map(|row| PersonaEvidence::capture(store, artifacts, row))
+            .map(|row| PersonaEvidence::capture(store, artifacts, row, mode))
             .collect::<anyhow::Result<Vec<_>>>()?;
         Ok(Self { evidence })
     }
@@ -100,6 +129,7 @@ impl PersonaEvidence {
         store: &Store,
         artifacts: &ArtifactStore,
         row: &LearnedArtifact,
+        mode: PersonaCaptureMode,
     ) -> anyhow::Result<Self> {
         let mut evidence = Self {
             row: row.clone(),
@@ -127,9 +157,15 @@ impl PersonaEvidence {
                 // Preserve startup's short circuit: an unbound event never
                 // causes an exchange read, including a legacy-format repair.
                 if event.payload_refs.contains(source_exchange) {
-                    evidence.exchange_readable = artifacts
-                        .get_scoped(source_scope.producing_scope(), source_exchange)
-                        .is_ok();
+                    let scope = source_scope.producing_scope();
+                    evidence.exchange_readable = match mode {
+                        PersonaCaptureMode::Startup => {
+                            artifacts.get_scoped(scope, source_exchange).is_ok()
+                        }
+                        PersonaCaptureMode::Review => artifacts
+                            .get_scoped_without_recovery(scope, source_exchange)
+                            .is_ok(),
+                    };
                 }
                 evidence.event_payload_refs = Some(event.payload_refs);
             }
@@ -191,3 +227,7 @@ pub(crate) fn admit(
 #[cfg(test)]
 #[path = "overlay_persona_admission_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "overlay_persona_review_tests.rs"]
+mod review_tests;
