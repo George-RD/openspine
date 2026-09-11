@@ -18,9 +18,7 @@ use crate::artifact_loader::{self, ArtifactRegistry};
 use crate::artifact_store::ArtifactStore;
 use crate::counterparty_keys::SYSTEM_SCOPE;
 use crate::overlay_compat;
-use crate::overlay_persona_admission::{
-    CapturedPersonaProvenance, PersonaProvenanceFindings,
-};
+use crate::overlay_persona_admission::{CapturedPersonaProvenance, PersonaProvenanceFindings};
 use crate::store::learned_artifacts::LearnedArtifact;
 use crate::store::Store;
 
@@ -200,31 +198,24 @@ fn capture_overlay_controls(
         let source_present = registry
             .sources
             .contains_key(&(kind.clone(), id.clone(), version));
-        let recoverable_blob_present = if source_present {
-            true
-        } else {
-            reviewed_digest.is_some_and(|digest| {
-                Digest::parse(digest.to_owned()).is_ok_and(|digest| {
-                    artifacts
-                        .get_scoped_without_recovery(
-                            SYSTEM_SCOPE,
-                            &ArtifactRef {
-                                digest,
-                                schema_version: 1,
-                            },
-                        )
-                        .is_ok()
-                })
+        let recoverable_blob_present = reviewed_digest.is_some_and(|digest| {
+            Digest::parse(digest.to_owned()).is_ok_and(|digest| {
+                artifacts
+                    .get_scoped_without_recovery(
+                        SYSTEM_SCOPE,
+                        &ArtifactRef {
+                            digest,
+                            schema_version: 1,
+                        },
+                    )
+                    .is_ok()
             })
-        };
+        });
         controls.insert(
             (kind.clone(), id.clone(), version),
             CapturedOverlayControl {
                 lifecycle,
-                highest_active_version: highest_active
-                    .get(&(kind, id))
-                    .copied()
-                    .flatten(),
+                highest_active_version: highest_active.get(&(kind, id)).copied().flatten(),
                 source_present,
                 recoverable_blob_present,
             },
