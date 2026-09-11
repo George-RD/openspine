@@ -47,6 +47,7 @@ jobs:
           cargo test -p openspine-kernel store::package_install_tests::
           cargo test -p openspine-kernel --bin openspine overlay_compat::
           cargo test -p openspine-kernel --bin openspine overlay_recovery::
+          cargo test -p openspine-kernel --bin openspine overlay_persona_admission::
   release-packages:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -65,3 +66,4 @@ jobs:
           cargo test --release -p openspine-kernel --bin openspine package::
           cargo test --release -p openspine-kernel --bin openspine overlay_compat::
           cargo test --release -p openspine-kernel --bin openspine overlay_recovery::
+          cargo test --release -p openspine-kernel --bin openspine overlay_persona_admission::

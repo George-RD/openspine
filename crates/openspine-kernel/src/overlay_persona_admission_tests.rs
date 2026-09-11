@@ -40,7 +40,10 @@ fn admit_rows(rows: &[LearnedArtifact]) -> anyhow::Result<()> {
 fn persona_admission_rejects_duplicate_exact_version_provenance() {
     let row = learned("persona", 1);
     let result = admit_rows(&[row.clone(), row]);
-    assert!(result.is_err(), "duplicate evidence must not be silently collapsed");
+    assert!(
+        result.is_err(),
+        "duplicate evidence must not be silently collapsed"
+    );
 }
 
 #[test]
