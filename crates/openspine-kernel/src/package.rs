@@ -11,6 +11,8 @@ use std::path::Path;
 use openspine_schemas::digest::{digest_of, digest_of_bytes, Digest};
 use serde::Serialize;
 
+use crate::artifact_loader::ArtifactRegistry;
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod source;
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -98,7 +100,8 @@ impl PackageCapture {
     /// of corrupt retained bytes. This structural report does not replace the
     /// installation receipt's provenance or authorize selection/activation.
     pub(crate) fn validate(self) -> Result<PackageSnapshot, InspectionError> {
-        let declaration = validation::validate(&self.files)?;
+        let validated = validation::validate(&self.files)?;
+        let declaration = validated.declaration;
         let report = InspectionReport {
             schema_version: 1,
             inventory_format_version: INVENTORY_FORMAT_VERSION,
@@ -112,6 +115,7 @@ impl PackageCapture {
         Ok(PackageSnapshot {
             files: self.files,
             report,
+            registry: validated.registry,
         })
     }
 }
@@ -119,6 +123,7 @@ impl PackageCapture {
 pub(crate) struct PackageSnapshot {
     files: BTreeMap<String, Vec<u8>>,
     report: InspectionReport,
+    registry: ArtifactRegistry,
 }
 
 impl PackageSnapshot {
@@ -137,6 +142,11 @@ impl PackageSnapshot {
     /// Borrow the report produced by validation without reopening source files.
     pub(crate) fn report(&self) -> &InspectionReport {
         &self.report
+    }
+
+    /// Borrow the typed registry produced from these exact captured bytes.
+    pub(crate) fn registry(&self) -> &ArtifactRegistry {
+        &self.registry
     }
 
     /// The exact validated bytes. No source path or mutable access escapes.
