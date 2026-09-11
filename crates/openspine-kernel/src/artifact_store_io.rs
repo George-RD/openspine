@@ -199,3 +199,7 @@ impl ArtifactStore {
         Ok(self.keys.erase_locked(counterparty_id)?)
     }
 }
+
+#[cfg(test)]
+#[path = "artifact_store_read_only_tests.rs"]
+mod read_only_tests;
