@@ -14,8 +14,8 @@
 #   4. Every `INSERT INTO` an effect table (pending_draft_writes / identities /
 #      principals) appears ONLY in an EXACT file allowlist: the store modules
 #      that route through the audit-paired combinators (`with_audited_effect` /
-#      `begin_effect` / `settle_effect`), plus the one known cfg(test) fixture
-#      that seeds an effect row. Any other placement — including a look-alike
+#      `begin_effect` / `settle_effect`), plus explicitly named cfg(test) fixtures
+#      that seed effect rows. Any other placement — including a look-alike
 #      `*_tests.rs` name — fails CI (ticket #262). This bounds PLACEMENT, not
 #      pairing: Rust cannot forbid a raw `tx.execute` SQL string, so the net
 #      does not prove the pairing at compile time — the with_audited_effect
