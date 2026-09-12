@@ -376,17 +376,20 @@ pub(crate) async fn run_task_deadline_consumer(state: &AppState) -> ! {
                     match dispatch_task_timer_event(state, &entry.event).await {
                         Ok(TimerDispatchOutcome::Delivered { .. })
                         | Ok(TimerDispatchOutcome::AckSkip) => {
-                            checkpoint.last_acked_global_seq = entry.global_seq;
+                            let mut next_checkpoint = checkpoint.clone();
+                            next_checkpoint.last_acked_global_seq = entry.global_seq;
                             if let Err(err) = state.store.save_consumer_checkpoint(
                                 consumer_id,
                                 &crate::store::event_bus::PersistedConsumerState {
                                     schema_version: 1,
-                                    checkpoint: checkpoint.clone(),
+                                    checkpoint: next_checkpoint.clone(),
                                     filter: filter.clone(),
                                 },
                             ) {
                                 tracing::error!(error = %err, "task-board timer checkpoint save failed");
+                                break;
                             }
+                            checkpoint = next_checkpoint;
                         }
                         Ok(TimerDispatchOutcome::Retry) => {
                             // Withhold the checkpoint; retry the same event
