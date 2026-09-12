@@ -7,31 +7,41 @@
 pub(crate) enum OutstandingWorkSource {
     TaskGrants,
     WorkflowSteps,
-    WorkerDispatches,
     WorkflowTimers,
+    TaskBoard,
     TaskDispatchQueue,
     DependencyWaiters,
-    StandingRulePendingActions,
-    StandingRuleReservations,
+    WorkerDispatches,
+    ConversationInFlight,
     WorkerResultRelays,
     OwnerNotificationQueue,
+    SpendAlerts,
+    StandingRulePendingActions,
+    StandingRuleReservations,
+    OwnerReviews,
     ActionRequests,
+    ProposedArtifacts,
     EffectFences,
 }
 
 impl OutstandingWorkSource {
-    pub(crate) const ALL: [Self; 12] = [
+    pub(crate) const ALL: [Self; 17] = [
         Self::TaskGrants,
         Self::WorkflowSteps,
-        Self::WorkerDispatches,
         Self::WorkflowTimers,
+        Self::TaskBoard,
         Self::TaskDispatchQueue,
         Self::DependencyWaiters,
-        Self::StandingRulePendingActions,
-        Self::StandingRuleReservations,
+        Self::WorkerDispatches,
+        Self::ConversationInFlight,
         Self::WorkerResultRelays,
         Self::OwnerNotificationQueue,
+        Self::SpendAlerts,
+        Self::StandingRulePendingActions,
+        Self::StandingRuleReservations,
+        Self::OwnerReviews,
         Self::ActionRequests,
+        Self::ProposedArtifacts,
         Self::EffectFences,
     ];
 
@@ -39,15 +49,20 @@ impl OutstandingWorkSource {
         match self {
             Self::TaskGrants => "task_grants",
             Self::WorkflowSteps => "workflow_step_registry",
-            Self::WorkerDispatches => "worker_dispatch",
             Self::WorkflowTimers => "workflow_timers",
+            Self::TaskBoard => "task_board",
             Self::TaskDispatchQueue => "dispatch_state",
             Self::DependencyWaiters => "task_dependency_waiters",
-            Self::StandingRulePendingActions => "standing_rule_pending_actions",
-            Self::StandingRuleReservations => "standing_rule_usage",
+            Self::WorkerDispatches => "worker_dispatch",
+            Self::ConversationInFlight => "conversation_in_flight",
             Self::WorkerResultRelays => "worker_result_relays",
             Self::OwnerNotificationQueue => "notify_dead_letters",
+            Self::SpendAlerts => "daily_spend.alert_state",
+            Self::StandingRulePendingActions => "standing_rule_pending_actions",
+            Self::StandingRuleReservations => "standing_rule_usage",
+            Self::OwnerReviews => "owner_reviews",
             Self::ActionRequests => "action_requests",
+            Self::ProposedArtifacts => "proposed_artifacts",
             Self::EffectFences => "pending_draft_writes",
         }
     }
@@ -149,14 +164,6 @@ fn source_counts(
             [],
             count_row,
         )?,
-        OutstandingWorkSource::WorkerDispatches => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN state = 'dispatched' THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN state = 'terminal' THEN 1 ELSE 0 END), 0)
-             FROM worker_dispatch",
-            [],
-            count_row,
-        )?,
         OutstandingWorkSource::WorkflowTimers => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0),
@@ -165,6 +172,13 @@ fn source_counts(
             [],
             count_row,
         )?,
+        // RED placeholders: these persisted families were present in the
+        // issue-level census but omitted from the first implementation pass.
+        OutstandingWorkSource::TaskBoard
+        | OutstandingWorkSource::ConversationInFlight
+        | OutstandingWorkSource::SpendAlerts
+        | OutstandingWorkSource::OwnerReviews
+        | OutstandingWorkSource::ProposedArtifacts => (0, 0, 0),
         OutstandingWorkSource::TaskDispatchQueue => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN state IN ('pending', 'handed_off') THEN 1 ELSE 0 END), 0),
@@ -178,6 +192,30 @@ fn source_counts(
                     COALESCE(SUM(CASE WHEN state IN ('waiting', 'ready') THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN state = 'consumed' THEN 1 ELSE 0 END), 0)
              FROM task_dependency_waiters",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::WorkerDispatches => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN state = 'dispatched' THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN state = 'terminal' THEN 1 ELSE 0 END), 0)
+             FROM worker_dispatch",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::WorkerResultRelays => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN state IN ('attempting', 'pending') THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN state IN ('delivered', 'skipped', 'dead_letter') THEN 1 ELSE 0 END), 0)
+             FROM worker_result_relays",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::OwnerNotificationQueue => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN state IN ('pending', 'in_progress') THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN state = 'resolved' THEN 1 ELSE 0 END), 0)
+             FROM notify_dead_letters",
             [],
             count_row,
         )?,
@@ -203,22 +241,6 @@ fn source_counts(
                     COALESCE(SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN status IN ('committed', 'waiver') THEN 1 ELSE 0 END), 0)
              FROM standing_rule_usage",
-            [],
-            count_row,
-        )?,
-        OutstandingWorkSource::WorkerResultRelays => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN state IN ('attempting', 'pending') THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN state IN ('delivered', 'skipped', 'dead_letter') THEN 1 ELSE 0 END), 0)
-             FROM worker_result_relays",
-            [],
-            count_row,
-        )?,
-        OutstandingWorkSource::OwnerNotificationQueue => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN state IN ('pending', 'in_progress') THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN state = 'resolved' THEN 1 ELSE 0 END), 0)
-             FROM notify_dead_letters",
             [],
             count_row,
         )?,
