@@ -147,4 +147,5 @@ fn checked_add_i64(left: i64, right: i64) -> Result<i64, StoreError> {
 #[cfg(test)]
 mod continuation_tests {
     include!("package_work_continuation_tests.rs");
+    include!("package_task_checkpoint_tests.rs");
 }
