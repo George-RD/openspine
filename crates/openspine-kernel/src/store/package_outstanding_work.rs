@@ -110,11 +110,14 @@ impl Store {
         &self,
         as_of: Timestamp,
     ) -> Result<PackageOutstandingWork, StoreError> {
-        let as_of = super::sql_timestamp(as_of);
+        let as_of_nanos =
+            i64::try_from(as_of.as_nanosecond()).map_err(|_| StoreError::NumericRange)?;
+        let as_of_text = super::sql_timestamp(as_of);
         self.with_deferred_read(|tx| {
             let mut entries = Vec::with_capacity(OutstandingWorkSource::ALL.len());
             for source in OutstandingWorkSource::ALL {
-                let (total, outstanding, terminal) = source_counts(tx, source, &as_of)?;
+                let (total, outstanding, terminal) =
+                    source_counts(tx, source, &as_of_text, as_of_nanos)?;
                 let total = u64::try_from(total).map_err(|_| StoreError::NumericRange)?;
                 let outstanding =
                     u64::try_from(outstanding).map_err(|_| StoreError::NumericRange)?;
@@ -145,7 +148,8 @@ impl Store {
 fn source_counts(
     tx: &rusqlite::Transaction<'_>,
     source: OutstandingWorkSource,
-    as_of: &str,
+    as_of_text: &str,
+    as_of_nanos: i64,
 ) -> Result<(i64, i64, i64), StoreError> {
     let counts = match source {
         OutstandingWorkSource::TaskGrants => tx.query_row(
@@ -153,12 +157,12 @@ fn source_counts(
                     COALESCE(SUM(CASE WHEN expires_at > ?1 THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN expires_at <= ?1 THEN 1 ELSE 0 END), 0)
              FROM task_grants",
-            [as_of],
+            [as_of_text],
             count_row,
         )?,
         OutstandingWorkSource::WorkflowSteps => tx.query_row(
             "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN completed_seq IS NULL OR completed_seq = -1 THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN completed_seq IS NULL OR completed_seq < 0 THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN completed_seq >= 0 THEN 1 ELSE 0 END), 0)
              FROM workflow_step_registry",
             [],
@@ -172,13 +176,14 @@ fn source_counts(
             [],
             count_row,
         )?,
-        // RED placeholders: these persisted families were present in the
-        // issue-level census but omitted from the first implementation pass.
-        OutstandingWorkSource::TaskBoard
-        | OutstandingWorkSource::ConversationInFlight
-        | OutstandingWorkSource::SpendAlerts
-        | OutstandingWorkSource::OwnerReviews
-        | OutstandingWorkSource::ProposedArtifacts => (0, 0, 0),
+        OutstandingWorkSource::TaskBoard => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN status IN ('open', 'blocked') THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN status IN ('done', 'cancelled') THEN 1 ELSE 0 END), 0)
+             FROM task_board",
+            [],
+            count_row,
+        )?,
         OutstandingWorkSource::TaskDispatchQueue => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN state IN ('pending', 'handed_off') THEN 1 ELSE 0 END), 0),
@@ -203,6 +208,11 @@ fn source_counts(
             [],
             count_row,
         )?,
+        OutstandingWorkSource::ConversationInFlight => tx.query_row(
+            "SELECT COUNT(*), COUNT(*), 0 FROM conversation_in_flight",
+            [],
+            count_row,
+        )?,
         OutstandingWorkSource::WorkerResultRelays => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN state IN ('attempting', 'pending') THEN 1 ELSE 0 END), 0),
@@ -216,6 +226,14 @@ fn source_counts(
                     COALESCE(SUM(CASE WHEN state IN ('pending', 'in_progress') THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN state = 'resolved' THEN 1 ELSE 0 END), 0)
              FROM notify_dead_letters",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::SpendAlerts => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN alert_state <> 0 THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN alert_state = 0 THEN 1 ELSE 0 END), 0)
+             FROM daily_spend",
             [],
             count_row,
         )?,
@@ -244,11 +262,34 @@ fn source_counts(
             [],
             count_row,
         )?,
+        OutstandingWorkSource::OwnerReviews => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE WHEN state = 'pending' AND expires_at > ?1 THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE
+                        WHEN state = 'pending' AND expires_at <= ?1 THEN 1
+                        WHEN state IN ('approved', 'rejected', 'narrowed', 'revoked', 'expired') THEN 1
+                        ELSE 0 END), 0)
+             FROM owner_reviews",
+            [as_of_nanos],
+            count_row,
+        )?,
         OutstandingWorkSource::ActionRequests => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN used = 1 THEN 1 ELSE 0 END), 0)
              FROM action_requests",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::ProposedArtifacts => tx.query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(CASE
+                        WHEN state IN ('proposed', 'validated', 'review_required', 'approved') THEN 1
+                        ELSE 0 END), 0),
+                    COALESCE(SUM(CASE
+                        WHEN state IN ('active', 'quarantined', 'retired') THEN 1
+                        ELSE 0 END), 0)
+             FROM proposed_artifacts",
             [],
             count_row,
         )?,
