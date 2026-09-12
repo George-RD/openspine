@@ -65,25 +65,12 @@ pub(crate) async fn run_standing_rule_dark_window_consumer(state: &AppState) -> 
         {
             Ok(entries) => {
                 for entry in entries {
-                    // `claim_standing_rule_dark_window` returns `Ok(Some(..))`
-                    // only when this timer fresh-applies a standing rule's
-                    // `Allow` default; non-standing-rule timers and
-                    // already-claimed timers yield `Ok(None)` and are safely
-                    // acknowledged. There is no transient retry path here: a
-                    // default is either applied (idempotently) or N/A, and a
-                    // store error is logged and the event withheld by breaking
-                    // the loop.
-                    let timer_id = standing_rule_timer_id_from_event(&entry.event);
-                    let Some(timer_id) = timer_id else {
-                        // Not a timer we own (e.g. a task deadline): skip
-                        // without acknowledgement break. The task consumer
-                        // handles its own dispatch state.
-                        checkpoint.last_acked_global_seq = entry.global_seq;
-                        continue;
-                    };
-                    match claim_and_redispatch(state, &timer_id, entry.event.ts).await {
-                        Ok(()) => {}
-                        Err(err) => {
+                    // Claim/dispatch is idempotent. An application error
+                    // withholds this acknowledgement and all later ones.
+                    if let Some(timer_id) = standing_rule_timer_id_from_event(&entry.event) {
+                        if let Err(err) =
+                            claim_and_redispatch(state, &timer_id, entry.event.ts).await
+                        {
                             tracing::error!(
                                 error = %err,
                                 global_seq = entry.global_seq,
@@ -92,17 +79,26 @@ pub(crate) async fn run_standing_rule_dark_window_consumer(state: &AppState) -> 
                             break;
                         }
                     }
-                    checkpoint.last_acked_global_seq = entry.global_seq;
+                    // Skipped events need durable acknowledgements too;
+                    // otherwise a stopped consumer leaves false work blockers.
+                    let next_checkpoint = ConsumerCheckpoint {
+                        schema_version: 1,
+                        last_acked_global_seq: entry.global_seq,
+                    };
                     if let Err(err) = state.store.save_consumer_checkpoint(
                         consumer_id,
                         &PersistedConsumerState {
                             schema_version: 1,
-                            checkpoint: checkpoint.clone(),
+                            checkpoint: next_checkpoint.clone(),
                             filter: filter.clone(),
                         },
                     ) {
                         tracing::error!(error = %err, "standing-rule dark-window checkpoint save failed");
+                        break;
                     }
+                    // Retry from the last durable position on write failure,
+                    // even when no new event arrives and this process lives on.
+                    checkpoint = next_checkpoint;
                 }
             }
             Err(err) => tracing::error!(error = %err, "standing-rule dark-window replay failed"),
@@ -246,10 +242,9 @@ async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> 
     }
     Ok(())
 }
-/// Shared by the consumer and the replay test so the parser is exercised
-/// exactly once. Returns `None` for events that are not standing-rule timers
-/// (e.g. task deadlines), so the consumer can skip them without disturbing
-/// its own checkpoint.
+/// Decode a timer ID when the event carries one. Store correlation establishes
+/// ownership; events without an ID are skipped and durably acknowledged by
+/// the consumer.
 pub fn standing_rule_timer_id_from_event(
     event: &openspine_schemas::audit::AuditEvent,
 ) -> Option<String> {
