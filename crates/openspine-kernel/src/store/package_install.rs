@@ -342,4 +342,9 @@ pub(crate) mod outstanding_work {
     mod tests {
         include!("package_outstanding_work_tests.rs");
     }
+
+    #[cfg(test)]
+    mod regression_tests {
+        include!("package_outstanding_work_regression_tests.rs");
+    }
 }
