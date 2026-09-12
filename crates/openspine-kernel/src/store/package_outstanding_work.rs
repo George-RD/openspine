@@ -1,7 +1,8 @@
 // Store-owned read-only census for package-transition quiescence (#285).
 //
-// This file is included from `package_install.rs` so package maintenance owns
-// the boundary without exposing a raw SQLite connection outside Store.
+// This file is included inside package maintenance so the Store owns the
+// boundary without exposing a raw SQLite connection or inventing a runtime
+// caller before the package-review model is wired.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum OutstandingWorkSource {
@@ -112,7 +113,7 @@ impl Store {
     ) -> Result<PackageOutstandingWork, StoreError> {
         let as_of_nanos =
             i64::try_from(as_of.as_nanosecond()).map_err(|_| StoreError::NumericRange)?;
-        let as_of_text = super::sql_timestamp(as_of);
+        let as_of_text = crate::store::sql_timestamp(as_of);
         self.with_deferred_read(|tx| {
             let mut entries = Vec::with_capacity(OutstandingWorkSource::ALL.len());
             for source in OutstandingWorkSource::ALL {
@@ -308,7 +309,3 @@ fn source_counts(
 fn count_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(i64, i64, i64)> {
     Ok((row.get(0)?, row.get(1)?, row.get(2)?))
 }
-
-#[cfg(test)]
-#[path = "package_outstanding_work_tests.rs"]
-mod tests;
