@@ -23,10 +23,14 @@ pub(crate) enum OutstandingWorkSource {
     ActionRequests,
     ProposedArtifacts,
     EffectFences,
+    DisclosurePendingQuestions,
+    NerveInterjectionDeliveries,
+    EventConsumerBacklog,
+    SecretIntakePending,
 }
 
 impl OutstandingWorkSource {
-    pub(crate) const ALL: [Self; 17] = [
+    pub(crate) const ALL: [Self; 21] = [
         Self::TaskGrants,
         Self::WorkflowSteps,
         Self::WorkflowTimers,
@@ -44,6 +48,10 @@ impl OutstandingWorkSource {
         Self::ActionRequests,
         Self::ProposedArtifacts,
         Self::EffectFences,
+        Self::DisclosurePendingQuestions,
+        Self::NerveInterjectionDeliveries,
+        Self::EventConsumerBacklog,
+        Self::SecretIntakePending,
     ];
 
     pub(crate) const fn as_str(self) -> &'static str {
@@ -65,6 +73,10 @@ impl OutstandingWorkSource {
             Self::ActionRequests => "action_requests",
             Self::ProposedArtifacts => "proposed_artifacts",
             Self::EffectFences => "pending_draft_writes",
+            Self::DisclosurePendingQuestions => "disclosure_pending_questions",
+            Self::NerveInterjectionDeliveries => "nerve_interjection_deliveries",
+            Self::EventConsumerBacklog => "audit_event_consumer_backlog",
+            Self::SecretIntakePending => "kv_state.secret.intake.pending",
         }
     }
 }
@@ -302,9 +314,27 @@ fn source_counts(
             [],
             count_row,
         )?,
+        OutstandingWorkSource::DisclosurePendingQuestions => tx.query_row(
+            "SELECT COUNT(*), COUNT(*), 0 FROM disclosure_pending_questions",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::NerveInterjectionDeliveries => tx.query_row(
+            "SELECT COUNT(*), COUNT(*), 0 FROM nerve_interjection_deliveries",
+            [],
+            count_row,
+        )?,
+        OutstandingWorkSource::EventConsumerBacklog => event_consumer_backlog_counts(tx)?,
+        OutstandingWorkSource::SecretIntakePending => tx.query_row(
+            "SELECT COUNT(*), COUNT(*), 0 FROM kv_state WHERE key = 'secret.intake.pending'",
+            [],
+            count_row,
+        )?,
     };
     Ok(counts)
 }
+
+include!("package_event_consumer_backlog.rs");
 
 fn count_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(i64, i64, i64)> {
     Ok((row.get(0)?, row.get(1)?, row.get(2)?))
