@@ -45,6 +45,8 @@ jobs:
           cargo test -p openspine-kernel --test package_inspect_cli --test package_install_cli
           cargo test -p openspine-kernel package::
           cargo test -p openspine-kernel store::package_install_tests::
+          cargo test -p openspine-kernel --bin openspine store::package_install::outstanding_work::
+          cargo test -p openspine-kernel --bin openspine pipeline::standing_rule_timer::
           cargo test -p openspine-kernel --bin openspine overlay_compat::
           cargo test -p openspine-kernel --bin openspine overlay_recovery::
           cargo test -p openspine-kernel --bin openspine overlay_persona_admission::
@@ -64,6 +66,8 @@ jobs:
         run: |
           cargo test --release -p openspine-kernel --test package_install_cli
           cargo test --release -p openspine-kernel --bin openspine package::
+          cargo test --release -p openspine-kernel --bin openspine store::package_install::outstanding_work::
+          cargo test --release -p openspine-kernel --bin openspine pipeline::standing_rule_timer::
           cargo test --release -p openspine-kernel --bin openspine overlay_compat::
           cargo test --release -p openspine-kernel --bin openspine overlay_recovery::
           cargo test --release -p openspine-kernel --bin openspine overlay_persona_admission::
