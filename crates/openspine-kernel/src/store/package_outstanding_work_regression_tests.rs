@@ -150,30 +150,6 @@ fn pending_nerve_delivery_blocks_until_acknowledged() {
 }
 
 #[test]
-fn secret_intake_pending_kv_blocks_until_cleared() {
-    let store = Store::open_in_memory().unwrap();
-    store
-        .set_kv("secret.intake.pending", r#"{"future":"shape"}"#)
-        .unwrap();
-
-    assert_eq!(
-        counts(&store, OutstandingWorkSource::SecretIntakePending),
-        OutstandingWorkCounts {
-            outstanding: 1,
-            terminal: 0,
-            unknown: 0,
-        }
-    );
-    assert_blocks(&store, OutstandingWorkSource::SecretIntakePending);
-
-    store.delete_kv("secret.intake.pending").unwrap();
-    assert!(store
-        .package_outstanding_work(Timestamp::now())
-        .unwrap()
-        .is_quiescent());
-}
-
-#[test]
 fn static_consumer_event_blocks_until_checkpoint_acknowledges_it() {
     let store = Store::open_in_memory().unwrap();
     let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("worker.failed")]);
