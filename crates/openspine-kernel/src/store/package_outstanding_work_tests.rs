@@ -10,6 +10,19 @@ fn insert_task_row(conn: &rusqlite::Connection, id: &str, status: &str) {
     .unwrap();
 }
 
+fn insert_standing_rule(conn: &rusqlite::Connection, id: &str) {
+    conn.execute(
+        "INSERT INTO standing_rules
+         (rule_id, artifact_id, version, action_id, rule_json,
+          quota_max, quota_window_secs, rate_max, rate_window_secs,
+          expires_after_secs, status, activated_at)
+         VALUES (?1, 'artifact-test', 1, 'email.create_draft', '{}',
+                 1, 60, 1, 60, 60, 'active', 1)",
+        [id],
+    )
+    .unwrap();
+}
+
 fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Timestamp) {
     store.with_conn_for_test(|conn| match source {
         OutstandingWorkSource::TaskGrants => {
@@ -106,6 +119,7 @@ fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Times
             .unwrap();
         }
         OutstandingWorkSource::StandingRulePendingActions => {
+            insert_standing_rule(conn, "rule-live");
             conn.execute(
                 "INSERT INTO standing_rule_pending_actions
                  (pending_id, rule_id, rule_version, task_grant_id, action_id,
@@ -118,6 +132,7 @@ fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Times
             .unwrap();
         }
         OutstandingWorkSource::StandingRuleReservations => {
+            insert_standing_rule(conn, "rule-res-live");
             conn.execute(
                 "INSERT INTO standing_rule_usage
                  (rule_id, version, kind, used_at, status, reservation_id)
@@ -259,6 +274,7 @@ fn insert_terminal(store: &Store, source: OutstandingWorkSource, as_of: Timestam
             .unwrap();
         }
         OutstandingWorkSource::StandingRulePendingActions => {
+            insert_standing_rule(conn, "rule-old");
             conn.execute(
                 "INSERT INTO standing_rule_pending_actions
                  (pending_id, rule_id, rule_version, task_grant_id, action_id,
@@ -271,6 +287,7 @@ fn insert_terminal(store: &Store, source: OutstandingWorkSource, as_of: Timestam
             .unwrap();
         }
         OutstandingWorkSource::StandingRuleReservations => {
+            insert_standing_rule(conn, "rule-res-old");
             conn.execute(
                 "INSERT INTO standing_rule_usage
                  (rule_id, version, kind, used_at, status, reservation_id)
