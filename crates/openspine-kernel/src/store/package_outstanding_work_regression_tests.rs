@@ -58,10 +58,10 @@ fn register_test_nerve(store: &Store, kind: &'static str) -> (Ulid, EventSubscri
     let declaration = NerveDeclaration {
         id: Ulid::new(),
         schema_version: 1,
-        nerve_type: NerveType::Advisor,
+        nerve_type: NerveType::Screener,
         advisee_id: "agent:census".into(),
         subscription_filter: filter.clone(),
-        measure: NerveMeasure::Legibility,
+        measure: NerveMeasure::ManipulationTag,
         speak_threshold: SpeakThreshold {
             severity_min: Severity::Warn,
             min_confidence: 0.5,
