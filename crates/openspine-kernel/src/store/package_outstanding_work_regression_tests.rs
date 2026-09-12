@@ -157,6 +157,14 @@ fn static_consumer_event_blocks_until_checkpoint_acknowledges_it() {
         .append_audit("worker.failed", None, None, None, None, &[], &[])
         .unwrap();
 
+    assert_eq!(
+        counts(&store, OutstandingWorkSource::EventConsumerBacklog),
+        OutstandingWorkCounts {
+            outstanding: 1,
+            terminal: 0,
+            unknown: 0,
+        }
+    );
     assert_blocks(&store, OutstandingWorkSource::EventConsumerBacklog);
     let entry = store.replay_audit(&filter, 0).unwrap().pop().unwrap();
     checkpoint(&store, "worker_failed_consumer", filter, entry.global_seq);
