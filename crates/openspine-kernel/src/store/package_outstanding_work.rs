@@ -26,11 +26,10 @@ pub(crate) enum OutstandingWorkSource {
     DisclosurePendingQuestions,
     NerveInterjectionDeliveries,
     EventConsumerBacklog,
-    SecretIntakePending,
 }
 
 impl OutstandingWorkSource {
-    pub(crate) const ALL: [Self; 21] = [
+    pub(crate) const ALL: [Self; 20] = [
         Self::TaskGrants,
         Self::WorkflowSteps,
         Self::WorkflowTimers,
@@ -51,7 +50,6 @@ impl OutstandingWorkSource {
         Self::DisclosurePendingQuestions,
         Self::NerveInterjectionDeliveries,
         Self::EventConsumerBacklog,
-        Self::SecretIntakePending,
     ];
 
     pub(crate) const fn as_str(self) -> &'static str {
@@ -76,7 +74,6 @@ impl OutstandingWorkSource {
             Self::DisclosurePendingQuestions => "disclosure_pending_questions",
             Self::NerveInterjectionDeliveries => "nerve_interjection_deliveries",
             Self::EventConsumerBacklog => "audit_event_consumer_backlog",
-            Self::SecretIntakePending => "kv_state.secret.intake.pending",
         }
     }
 }
@@ -325,11 +322,6 @@ fn source_counts(
             count_row,
         )?,
         OutstandingWorkSource::EventConsumerBacklog => event_consumer_backlog_counts(tx)?,
-        OutstandingWorkSource::SecretIntakePending => tx.query_row(
-            "SELECT COUNT(*), COUNT(*), 0 FROM kv_state WHERE key = 'secret.intake.pending'",
-            [],
-            count_row,
-        )?,
     };
     Ok(counts)
 }
