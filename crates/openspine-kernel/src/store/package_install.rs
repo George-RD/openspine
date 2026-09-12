@@ -331,3 +331,5 @@ fn load_receipt_by_key(
 fn inconsistent() -> StoreError {
     StoreError::BadLedgerMeta("inactive package index/audit mismatch".into())
 }
+
+include!("package_outstanding_work.rs");
