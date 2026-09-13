@@ -46,11 +46,12 @@ fn event_consumer_backlog_counts(
         }
     }
 
-    let registrations = tx
-        .prepare("SELECT nerve_id, declaration_json FROM nerve_registrations")?
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
-    for (nerve_id, declaration_json) in registrations {
+    let mut statement =
+        tx.prepare("SELECT nerve_id, declaration_json FROM nerve_registrations")?;
+    let mut registrations = statement.query([])?;
+    while let Some(row) = registrations.next()? {
+        let nerve_id: String = row.get(0)?;
+        let declaration_json: String = row.get(1)?;
         let declaration: NerveDeclaration = match serde_json::from_str(&declaration_json) {
             Ok(value) => value,
             Err(_) => {
@@ -136,8 +137,7 @@ fn matching_backlog(
     after: u64,
 ) -> Result<i64, StoreError> {
     let after = i64::try_from(after).map_err(|_| StoreError::NumericRange)?;
-    let count = Store::replay_audit_conn(tx, filter, after)?.len();
-    i64::try_from(count).map_err(|_| StoreError::NumericRange)
+    Store::count_audit_conn(tx, filter, after)
 }
 
 fn checked_add_i64(left: i64, right: i64) -> Result<i64, StoreError> {
