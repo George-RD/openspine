@@ -24,18 +24,12 @@ fn insert_standing_rule(conn: &rusqlite::Connection, id: &str) {
 }
 
 fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Timestamp) {
+    if source == OutstandingWorkSource::TaskGrants {
+        grant_expiry_tests::insert_grant(store, as_of + std::time::Duration::from_secs(60));
+        return;
+    }
     store.with_conn_for_test(|conn| match source {
-        OutstandingWorkSource::TaskGrants => {
-            conn.execute(
-                "INSERT INTO task_grants
-                 (id, task_token, expires_at, grant_json, pending_message_digest, owner_surface_json)
-                 VALUES ('grant-live', 'token-live', ?1, '{}', 'sha256:00', '{}')",
-                [crate::store::sql_timestamp(
-                    as_of + std::time::Duration::from_secs(60),
-                )],
-            )
-            .unwrap();
-        }
+        OutstandingWorkSource::TaskGrants => unreachable!("typed grant inserted above"),
         OutstandingWorkSource::WorkflowSteps => {
             conn.execute(
                 "INSERT INTO workflow_step_registry
@@ -187,18 +181,12 @@ fn insert_terminal(store: &Store, source: OutstandingWorkSource, as_of: Timestam
     if source == OutstandingWorkSource::ConversationInFlight {
         return false;
     }
+    if source == OutstandingWorkSource::TaskGrants {
+        grant_expiry_tests::insert_grant(store, as_of - std::time::Duration::from_secs(60));
+        return true;
+    }
     store.with_conn_for_test(|conn| match source {
-        OutstandingWorkSource::TaskGrants => {
-            conn.execute(
-                "INSERT INTO task_grants
-                 (id, task_token, expires_at, grant_json, pending_message_digest, owner_surface_json)
-                 VALUES ('grant-old', 'token-old', ?1, '{}', 'sha256:00', '{}')",
-                [crate::store::sql_timestamp(
-                    as_of - std::time::Duration::from_secs(60),
-                )],
-            )
-            .unwrap();
-        }
+        OutstandingWorkSource::TaskGrants => unreachable!("typed grant inserted above"),
         OutstandingWorkSource::WorkflowSteps => {
             conn.execute(
                 "INSERT INTO workflow_step_registry
@@ -488,4 +476,8 @@ fn census_does_not_consume_or_resolve_effect_work() {
         assert_eq!(used, 0);
         assert_eq!(state, "pending");
     });
+}
+
+mod grant_expiry_tests {
+    include!("package_grant_expiry_tests.rs");
 }
