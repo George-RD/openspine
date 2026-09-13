@@ -12,6 +12,7 @@ const approvedPaths = new Set([
   'store/effect_settlement.rs',
   'store/pending_draft.rs',
   'failure_surfacing/tests.rs',
+  'store/package_outstanding_work_tests.rs',
 ]);
 
 // Match ordinary literal SQLite INSERT [OR ...] / REPLACE forms. SQL comments
