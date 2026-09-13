@@ -17,6 +17,9 @@ use std::collections::HashSet;
 use std::fmt;
 use ulid::Ulid;
 
+#[path = "event_bus_scan.rs"]
+mod scan;
+
 /// One ledger row as seen by a bus consumer: global sequence + event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 // AD-105 substrate type; re-exported for kernel consumers.
@@ -26,17 +29,6 @@ pub struct LedgerEntry {
     pub global_seq: u64,
     pub event: AuditEvent,
 }
-type ReplayRow = (
-    i64,
-    String,
-    String,
-    String,
-    String,
-    String,
-    i64,
-    String,
-    String,
-);
 
 /// Errors from idempotent consumer replay.
 #[derive(Debug, thiserror::Error)]
@@ -99,145 +91,33 @@ impl Store {
     /// the same row/event coordinate and consistency validation as
     /// [`Self::replay_audit`]. Exposed so callers that already hold the lock
     /// (e.g. an atomic verify+replay snapshot) reuse the exact same path.
-    // AD-105: substrate entry point; domain consumers land in later changes.
     #[allow(dead_code)]
     pub(crate) fn replay_audit_conn(
         conn: &Connection,
         filter: &EventSubscriptionFilter,
         after_global_seq: i64,
     ) -> Result<Vec<LedgerEntry>, StoreError> {
-        let (sql, bind_agg): (&str, Option<&str>) = match filter.aggregate_id.as_deref() {
-            Some(agg) => (
-                "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash FROM audit_log \
-                 WHERE seq > ?1 AND aggregate_id = ?2 \
-                 ORDER BY seq ASC",
-                Some(agg),
-            ),
-            None => (
-                "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash FROM audit_log \
-                 WHERE seq > ?1 \
-                 ORDER BY seq ASC",
-                None,
-            ),
-        };
-
-        let mut stmt = conn.prepare(sql)?;
-        let map_row = |row: &rusqlite::Row<'_>| -> rusqlite::Result<ReplayRow> {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get(3)?,
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-                row.get(7)?,
-                row.get(8)?,
-            ))
-        };
-        let rows: Vec<ReplayRow> = match bind_agg {
-            Some(agg) => {
-                let mapped = stmt.query_map(params![after_global_seq, agg], map_row)?;
-                mapped.collect::<Result<Vec<_>, _>>()?
-            }
-            None => {
-                let mapped = stmt.query_map(params![after_global_seq], map_row)?;
-                mapped.collect::<Result<Vec<_>, _>>()?
-            }
-        };
-
-        let mut out = Vec::with_capacity(rows.len());
-        for (
-            seq,
-            event_json,
-            meta_json,
-            row_id,
-            row_kind,
-            row_aggregate,
-            row_aggregate_seq,
-            row_prev_hash,
-            row_hash,
-        ) in rows
-        {
-            let meta: serde_json::Value = serde_json::from_str(&meta_json)?;
-            let meta_id = meta.get("id").and_then(|v| v.as_str()).unwrap_or_default();
-            let meta_kind = meta
-                .get("kind")
-                .and_then(|v| v.as_str())
-                .unwrap_or_default();
-            let meta_aggregate = meta
-                .get("aggregate_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("system");
-            let meta_seq = meta
-                .get("aggregate_seq")
-                .and_then(|v| v.as_u64())
-                .unwrap_or_default();
-            if meta_id != row_id
-                || meta_kind != row_kind
-                || meta_aggregate != row_aggregate
-                || meta_seq != row_aggregate_seq as u64
-            {
-                return Err(StoreError::BadLedgerMeta(format!(
-                    "ledger row {seq} metadata mismatch"
-                )));
-            }
-            let event: AuditEvent = serde_json::from_str(&event_json)?;
-            if event.schema_version != 1
-                || event.id.to_string() != row_id
-                || event.kind.as_str() != row_kind
-                || event.aggregate_id != row_aggregate
-                || event.aggregate_seq != row_aggregate_seq as u64
-                || event.prev_hash.as_str() != row_prev_hash
-                || event.hash.as_str() != row_hash
-            {
-                return Err(StoreError::BadLedgerMeta(format!(
-                    "ledger row {seq} event_json mismatch"
-                )));
-            }
-            // Every delivered field that exists in hashed metadata must agree;
-            // event_json is a redundant cache, never an authority.
-            let event_value = serde_json::to_value(&event)?;
-            for field in [
-                "id",
-                "ts",
-                "kind",
-                "action",
-                "decision",
-                "reason",
-                "task_grant_id",
-                "target_refs",
-                "payload_refs",
-                "aggregate_id",
-                "aggregate_seq",
-                "payload_json",
-                "actor",
-            ] {
-                let normalized = match field {
-                    "aggregate_id" => meta
-                        .get(field)
-                        .cloned()
-                        .unwrap_or_else(|| serde_json::json!("system")),
-                    "aggregate_seq" => meta
-                        .get(field)
-                        .cloned()
-                        .unwrap_or_else(|| serde_json::json!(0)),
-                    _ => meta.get(field).cloned().unwrap_or(serde_json::Value::Null),
-                };
-                if event_value.get(field) != Some(&normalized) {
-                    return Err(StoreError::BadLedgerMeta(format!(
-                        "ledger row {seq} event_json field {field} mismatch"
-                    )));
-                }
-            }
-            if filter.matches(&event.kind, &event.aggregate_id) {
-                out.push(LedgerEntry {
-                    global_seq: seq as u64,
-                    event,
-                });
-            }
-        }
+        let mut out = Vec::new();
+        scan::visit(conn, filter, after_global_seq, |entry| {
+            out.push(entry);
+            Ok(())
+        })?;
         Ok(out)
+    }
+
+    /// Count the same validated stream without retaining its events. This is
+    /// still a validating scan, not an unchecked SQL kind-filtered COUNT.
+    pub(crate) fn count_audit_conn(
+        conn: &Connection,
+        filter: &EventSubscriptionFilter,
+        after_global_seq: i64,
+    ) -> Result<i64, StoreError> {
+        let mut count = 0_i64;
+        scan::visit(conn, filter, after_global_seq, |_| {
+            count = count.checked_add(1).ok_or(StoreError::NumericRange)?;
+            Ok(())
+        })?;
+        Ok(count)
     }
 
     // AD-105: substrate entry point; domain consumers land in later changes.
