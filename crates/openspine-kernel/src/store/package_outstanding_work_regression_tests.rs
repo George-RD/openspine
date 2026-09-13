@@ -238,3 +238,7 @@ fn registered_nerve_event_blocks_and_missing_checkpoint_is_unknown() {
     );
     assert_blocks(&store, OutstandingWorkSource::EventConsumerBacklog);
 }
+
+mod action_request_tests {
+    include!("package_action_request_tests.rs");
+}
