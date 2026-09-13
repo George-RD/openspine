@@ -1,4 +1,5 @@
 use super::*;
+use crate::store::package_install::outstanding_work::{OutstandingWorkCounts, OutstandingWorkSource};
 
 #[tokio::test]
 async fn asymmetric_rows_prove_context_grouping() {
@@ -319,8 +320,8 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
         .package_outstanding_work_with_reviews(now, &harness.state.artifacts)
         .unwrap();
     assert_eq!(
-        snapshot.source(crate::store::OutstandingWorkSource::ProposedArtifacts),
-        crate::store::OutstandingWorkCounts {
+        snapshot.source(OutstandingWorkSource::ProposedArtifacts),
+        OutstandingWorkCounts {
             outstanding: 1,
             terminal: 0,
             unknown: 0,
