@@ -22,7 +22,10 @@ fn census_request(id: &str, json: &str, catalog: &ActionCatalog) -> Option<Actio
     (request.schema_version == 1
         && request.id.to_string() == id
         && catalog.contains(&request.action)
-        && request.payload_ref.as_ref().is_some_and(|payload| payload.schema_version == 1)
+        && request
+            .payload_ref
+            .as_ref()
+            .is_some_and(|payload| payload.schema_version == 1)
         && request.target_digest.is_some())
         .then_some(request)
 }
@@ -101,4 +104,5 @@ include!("package_review_work.rs");
 #[cfg(test)]
 mod review_work_tests {
     include!("package_review_work_tests.rs");
+    include!("package_review_guard_tests.rs");
 }
