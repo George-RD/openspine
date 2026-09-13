@@ -119,9 +119,10 @@ impl Store {
     /// terminal history, or unknown. Unknown is intentionally not normalized
     /// away: callers treat it as non-quiescent so schema/state drift cannot
     /// silently make a package transition look safe.
-    pub(crate) fn package_outstanding_work(
+    fn capture_package_outstanding_work(
         &self,
         as_of: Timestamp,
+        artifacts: Option<&ArtifactStore>,
     ) -> Result<PackageOutstandingWork, StoreError> {
         let as_of_nanos =
             i64::try_from(as_of.as_nanosecond()).map_err(|_| StoreError::NumericRange)?;
@@ -129,7 +130,7 @@ impl Store {
             let mut entries = Vec::with_capacity(OutstandingWorkSource::ALL.len());
             for source in OutstandingWorkSource::ALL {
                 let (total, outstanding, terminal) =
-                    source_counts(tx, source, as_of, as_of_nanos)?;
+                    source_counts(tx, source, as_of, as_of_nanos, artifacts)?;
                 let total = u64::try_from(total).map_err(|_| StoreError::NumericRange)?;
                 let outstanding =
                     u64::try_from(outstanding).map_err(|_| StoreError::NumericRange)?;
@@ -162,6 +163,7 @@ fn source_counts(
     source: OutstandingWorkSource,
     as_of: Timestamp,
     as_of_nanos: i64,
+    artifacts: Option<&ArtifactStore>,
 ) -> Result<(i64, i64, i64), StoreError> {
     let counts = match source {
         OutstandingWorkSource::TaskGrants => task_grant_counts(tx, as_of)?,
@@ -279,18 +281,7 @@ fn source_counts(
             count_row,
         )?,
         OutstandingWorkSource::ActionRequests => action_request_counts(tx, as_of)?,
-        OutstandingWorkSource::ProposedArtifacts => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE
-                        WHEN state IN ('proposed', 'validated', 'review_required', 'approved') THEN 1
-                        ELSE 0 END), 0),
-                    COALESCE(SUM(CASE
-                        WHEN state IN ('active', 'quarantined', 'retired') THEN 1
-                        ELSE 0 END), 0)
-             FROM proposed_artifacts",
-            [],
-            count_row,
-        )?,
+        OutstandingWorkSource::ProposedArtifacts => proposal_work_counts(tx, as_of, artifacts)?,
         OutstandingWorkSource::EffectFences => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN state = 'pending' THEN 1 ELSE 0 END), 0),
