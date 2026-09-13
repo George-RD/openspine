@@ -278,14 +278,7 @@ fn source_counts(
             [as_of_nanos],
             count_row,
         )?,
-        OutstandingWorkSource::ActionRequests => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN used = 0 THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN used = 1 THEN 1 ELSE 0 END), 0)
-             FROM action_requests",
-            [],
-            count_row,
-        )?,
+        OutstandingWorkSource::ActionRequests => action_request_counts(tx, as_of)?,
         OutstandingWorkSource::ProposedArtifacts => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE
@@ -326,43 +319,30 @@ fn source_counts(
     Ok(counts)
 }
 
-// Runtime lookups hydrate grant_json, not the expiry index. Require both
-// representations to agree before classifying expiry; malformed or mismatched
-// rows remain in total only and therefore block as unknown. Compare instants,
-// not timestamp spellings, and share delegated-caveat expiry with the runtime.
+// Runtime lookups hydrate grant_json, not the expiry index. The same parser
+// protects both the grant census and approval expiry from inconsistent rows.
 fn task_grant_counts(
     tx: &rusqlite::Transaction<'_>,
     as_of: Timestamp,
 ) -> Result<(i64, i64, i64), StoreError> {
     let mut statement = tx.prepare("SELECT id, expires_at, grant_json FROM task_grants")?;
     let mut rows = statement.query([])?;
-    let (mut total, mut outstanding, mut terminal) = (0_i64, 0_i64, 0_i64);
+    let mut counts = (0_i64, 0_i64, 0_i64);
     while let Some(row) = rows.next()? {
-        total = checked_add_i64(total, 1)?;
         let id: String = row.get(0)?;
         let index: String = row.get(1)?;
         let json: String = row.get(2)?;
-        let Ok(indexed_expiry) = index.parse::<Timestamp>() else {
-            continue;
+        let disposition = match census_grant(&id, &index, &json) {
+            Some(grant) if grant.is_expired(as_of) => WorkDisposition::Terminal,
+            Some(_) => WorkDisposition::Outstanding,
+            None => WorkDisposition::Unknown,
         };
-        let Ok(grant) = serde_json::from_str::<openspine_schemas::grant::TaskGrant>(&json) else {
-            continue;
-        };
-        if grant.schema_version != 1
-            || grant.id.to_string() != id
-            || grant.expires_at != indexed_expiry
-        {
-            continue;
-        }
-        if grant.is_expired(as_of) {
-            terminal = checked_add_i64(terminal, 1)?;
-        } else {
-            outstanding = checked_add_i64(outstanding, 1)?;
-        }
+        count_disposition(&mut counts, disposition)?;
     }
-    Ok((total, outstanding, terminal))
+    Ok(counts)
 }
 
+include!("package_approval_work.rs");
 include!("package_event_consumer_backlog.rs");
 
 fn count_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(i64, i64, i64)> {
