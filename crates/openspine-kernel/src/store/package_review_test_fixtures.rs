@@ -7,6 +7,7 @@ use openspine_schemas::digest::digest_of_bytes;
 use openspine_schemas::event::{AccountRole, TargetRef, TargetRefKind};
 use openspine_schemas::identity::RelationshipKind;
 use openspine_schemas::owner_review::*;
+use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use openspine_schemas::resolved_context::{ResolvedActionContext, ResolvedActionContextInput};
 use openspine_schemas::reviewed_scope::ReviewedActionScope;
 use openspine_schemas::standing_rule::{BudgetWindow, ReviewedScopeBinding, StandingRuleManifest};
@@ -28,6 +29,7 @@ struct ReviewHarness {
 fn fixture(expires_at: Timestamp) -> ReviewHarness {
     let state = crate::test_support::fixtures::test_state();
     let principal = state.owner.principal_id.as_ulid();
+    let surface = OwnerSurfaceRef::authenticated_terminal(principal);
     let action = ActionId::new("email.create_draft");
     let context = ResolvedActionContext::try_new(
         &state.action_catalog,
@@ -80,7 +82,7 @@ fn fixture(expires_at: Timestamp) -> ReviewHarness {
     grant.issued_at = at() - Duration::from_secs(120);
     grant.expires_at = at() - Duration::from_secs(60);
     grant.seal_root(b"openspine-test-grant-hmac-key-v1");
-    state.store.insert_task_grant(&grant, &payload, &state.owner_surface).unwrap();
+    state.store.insert_task_grant(&grant, &payload, &surface).unwrap();
     let request = ActionRequest {
         id: Ulid::new(),
         task_grant_id: grant.id,
@@ -96,7 +98,7 @@ fn fixture(expires_at: Timestamp) -> ReviewHarness {
     };
     state.store.insert_action_request(&request).unwrap();
     // Seed the result of evaluation; production rejection/expiry is exercised
-    // below through the actual owner-decision handler, not a simulated outcome.
+    // through the actual owner-decision handler, not a simulated outcome.
     state.store.with_conn_for_test(|conn| {
         conn.execute(
             "INSERT INTO proposed_artifacts
@@ -152,8 +154,9 @@ fn persist(state: &AppState, review: &OwnerReviewRequest, expiry: Timestamp) -> 
 }
 
 fn decide(h: &ReviewHarness, intent: DecisionIntent, now: Timestamp) -> Result<crate::pipeline::owner_review_decision::OwnerReviewDecisionOutcome, crate::pipeline::owner_review_decision::OwnerReviewDecisionError> {
+    let surface = OwnerSurfaceRef::authenticated_terminal(h.state.owner.principal_id.as_ulid());
     crate::pipeline::owner_review_decision::submit_owner_review_decision(
-        &h.state, &h.state.owner_surface, h.review.id, h.review.binding_digest(), intent, None, now,
+        &h.state, &surface, h.review.id, h.review.binding_digest(), intent, None, now,
     )
 }
 
