@@ -125,12 +125,11 @@ impl Store {
     ) -> Result<PackageOutstandingWork, StoreError> {
         let as_of_nanos =
             i64::try_from(as_of.as_nanosecond()).map_err(|_| StoreError::NumericRange)?;
-        let as_of_text = crate::store::sql_timestamp(as_of);
         self.with_deferred_read(|tx| {
             let mut entries = Vec::with_capacity(OutstandingWorkSource::ALL.len());
             for source in OutstandingWorkSource::ALL {
                 let (total, outstanding, terminal) =
-                    source_counts(tx, source, &as_of_text, as_of_nanos)?;
+                    source_counts(tx, source, as_of, as_of_nanos)?;
                 let total = u64::try_from(total).map_err(|_| StoreError::NumericRange)?;
                 let outstanding =
                     u64::try_from(outstanding).map_err(|_| StoreError::NumericRange)?;
@@ -161,18 +160,11 @@ impl Store {
 fn source_counts(
     tx: &rusqlite::Transaction<'_>,
     source: OutstandingWorkSource,
-    as_of_text: &str,
+    as_of: Timestamp,
     as_of_nanos: i64,
 ) -> Result<(i64, i64, i64), StoreError> {
     let counts = match source {
-        OutstandingWorkSource::TaskGrants => tx.query_row(
-            "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN expires_at > ?1 THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(CASE WHEN expires_at <= ?1 THEN 1 ELSE 0 END), 0)
-             FROM task_grants",
-            [as_of_text],
-            count_row,
-        )?,
+        OutstandingWorkSource::TaskGrants => task_grant_counts(tx, as_of)?,
         OutstandingWorkSource::WorkflowSteps => tx.query_row(
             "SELECT COUNT(*),
                     COALESCE(SUM(CASE WHEN completed_seq IS NULL OR completed_seq < 0 THEN 1 ELSE 0 END), 0),
@@ -332,6 +324,43 @@ fn source_counts(
         )?,
     };
     Ok(counts)
+}
+
+// Runtime lookups hydrate grant_json, not the expiry index. Require both
+// representations to agree before classifying expiry; malformed or mismatched
+// rows remain in total only and therefore block as unknown. Compare instants,
+// not timestamp spellings, and share delegated-caveat expiry with the runtime.
+fn task_grant_counts(
+    tx: &rusqlite::Transaction<'_>,
+    as_of: Timestamp,
+) -> Result<(i64, i64, i64), StoreError> {
+    let mut statement = tx.prepare("SELECT id, expires_at, grant_json FROM task_grants")?;
+    let mut rows = statement.query([])?;
+    let (mut total, mut outstanding, mut terminal) = (0_i64, 0_i64, 0_i64);
+    while let Some(row) = rows.next()? {
+        total = checked_add_i64(total, 1)?;
+        let id: String = row.get(0)?;
+        let index: String = row.get(1)?;
+        let json: String = row.get(2)?;
+        let Ok(indexed_expiry) = index.parse::<Timestamp>() else {
+            continue;
+        };
+        let Ok(grant) = serde_json::from_str::<openspine_schemas::grant::TaskGrant>(&json) else {
+            continue;
+        };
+        if grant.schema_version != 1
+            || grant.id.to_string() != id
+            || grant.expires_at != indexed_expiry
+        {
+            continue;
+        }
+        if grant.is_expired(as_of) {
+            terminal = checked_add_i64(terminal, 1)?;
+        } else {
+            outstanding = checked_add_i64(outstanding, 1)?;
+        }
+    }
+    Ok((total, outstanding, terminal))
 }
 
 include!("package_event_consumer_backlog.rs");
