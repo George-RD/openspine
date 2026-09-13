@@ -28,6 +28,10 @@ fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Times
         grant_expiry_tests::insert_grant(store, as_of + std::time::Duration::from_secs(60));
         return;
     }
+    if source == OutstandingWorkSource::ActionRequests {
+        insert_reconfirmation(store, as_of);
+        return;
+    }
     store.with_conn_for_test(|conn| match source {
         OutstandingWorkSource::TaskGrants => unreachable!("typed grant inserted above"),
         OutstandingWorkSource::WorkflowSteps => {
@@ -146,14 +150,7 @@ fn insert_outstanding(store: &Store, source: OutstandingWorkSource, as_of: Times
             )
             .unwrap();
         }
-        OutstandingWorkSource::ActionRequests => {
-            conn.execute(
-                "INSERT INTO action_requests (id, request_json, used)
-                 VALUES ('request-live', '{}', 0)",
-                [],
-            )
-            .unwrap();
-        }
+        OutstandingWorkSource::ActionRequests => unreachable!("typed request inserted above"),
         OutstandingWorkSource::ProposedArtifacts => {
             conn.execute(
                 "INSERT INTO proposed_artifacts
@@ -460,11 +457,7 @@ fn census_does_not_consume_or_resolve_effect_work() {
 
     store.with_conn_for_test(|conn| {
         let used: i64 = conn
-            .query_row(
-                "SELECT used FROM action_requests WHERE id = 'request-live'",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT used FROM action_requests", [], |row| row.get(0))
             .unwrap();
         let state: String = conn
             .query_row(
@@ -477,6 +470,8 @@ fn census_does_not_consume_or_resolve_effect_work() {
         assert_eq!(state, "pending");
     });
 }
+
+include!("package_work_test_fixtures.rs");
 
 mod grant_expiry_tests {
     include!("package_grant_expiry_tests.rs");
