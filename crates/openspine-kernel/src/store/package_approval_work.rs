@@ -1,6 +1,5 @@
 use openspine_schemas::action::{ActionCatalog, ActionRequest};
 use openspine_schemas::grant::TaskGrant;
-use rusqlite::OptionalExtension;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WorkDisposition {
