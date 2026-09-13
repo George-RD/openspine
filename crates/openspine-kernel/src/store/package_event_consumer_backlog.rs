@@ -149,3 +149,8 @@ mod continuation_tests {
     include!("package_work_continuation_tests.rs");
     include!("package_task_checkpoint_tests.rs");
 }
+
+#[cfg(test)]
+mod backlog_count_tests {
+    include!("package_backlog_count_tests.rs");
+}
