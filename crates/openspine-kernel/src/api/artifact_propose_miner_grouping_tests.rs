@@ -1,5 +1,7 @@
 use super::*;
-use crate::store::package_install::outstanding_work::{OutstandingWorkCounts, OutstandingWorkSource};
+use crate::store::package_install::outstanding_work::{
+    OutstandingWorkCounts, OutstandingWorkSource,
+};
 
 #[tokio::test]
 async fn asymmetric_rows_prove_context_grouping() {
