@@ -38,6 +38,31 @@ pub(super) fn visit(
     Ok(())
 }
 
+impl super::Store {
+    /// Check an exact nonzero acknowledgement against the same projection
+    /// validator as replay. A point lookup rejects future coordinates and
+    /// gaps without scanning or retaining the preceding ledger history.
+    pub(crate) fn audit_checkpoint_matches_conn(
+        conn: &Connection,
+        filter: &EventSubscriptionFilter,
+        global_seq: i64,
+    ) -> Result<bool, StoreError> {
+        if global_seq <= 0 {
+            return Ok(false);
+        }
+        let mut statement = conn.prepare(
+            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash
+             FROM audit_log WHERE seq = ?1",
+        )?;
+        let mut rows = statement.query([global_seq])?;
+        let Some(row) = rows.next()? else {
+            return Ok(false);
+        };
+        let entry = validated_entry(row)?;
+        Ok(filter.matches(&entry.event.kind, &entry.event.aggregate_id))
+    }
+}
+
 fn validated_entry(row: &rusqlite::Row<'_>) -> Result<LedgerEntry, StoreError> {
     let seq: i64 = row.get(0)?;
     let event_json: String = row.get(1)?;
