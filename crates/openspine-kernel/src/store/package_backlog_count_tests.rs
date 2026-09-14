@@ -133,15 +133,6 @@ fn checkpoint_coordinate_must_match_both_kind_and_aggregate() {
     for (kind, aggregate) in [("worker.result", "a"), ("worker.failed", "b")] {
         let store = Store::open_in_memory().unwrap();
         append_coordinate(&store, "worker.failed", "a");
-        append_coordinate(&store, "worker.failed", "a");
-        store.with_conn_for_test(|conn| {
-            // Replace the second event through the normal append helper below instead.
-            let _ = conn;
-        });
-        // Each fixture needs one valid event, the nonmatching coordinate,
-        // and a later valid event. Use a fresh store to keep the coordinate exact.
-        let store = Store::open_in_memory().unwrap();
-        append_coordinate(&store, "worker.failed", "a");
         append_coordinate(&store, kind, aggregate);
         append_coordinate(&store, "worker.failed", "a");
         let filter = EventSubscriptionFilter {
