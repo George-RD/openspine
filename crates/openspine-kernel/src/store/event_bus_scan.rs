@@ -27,6 +27,17 @@ pub(super) fn visit(
 }
 
 impl super::Store {
+    /// Inspect evidence within the caller's Store transaction without
+    /// materializing the ledger or bypassing replay's projection checks.
+    pub(in crate::store) fn visit_audit_conn(
+        conn: &Connection,
+        filter: &EventSubscriptionFilter,
+        after_global_seq: i64,
+        emit: impl FnMut(LedgerEntry) -> Result<(), StoreError>,
+    ) -> Result<(), StoreError> {
+        visit(conn, filter, after_global_seq, emit)
+    }
+
     /// Check an exact nonzero acknowledgement against the same projection
     /// validator as replay. A point lookup rejects future coordinates and
     /// gaps without scanning or retaining the preceding ledger history.
