@@ -1,34 +1,22 @@
 use super::{LedgerEntry, StoreError};
 use openspine_schemas::audit::AuditEvent;
 use openspine_schemas::event_bus::EventSubscriptionFilter;
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 /// One shared validator for materialized replay and count-only observation.
-/// Kind filtering deliberately follows validation: a corrupted nonmatching
-/// event must not disappear merely because the caller only needs a count.
+/// Both kind and aggregate filtering follow validation: a drifted redundant
+/// projection must not hide a corrupt event from a filtered reader.
 pub(super) fn visit(
     conn: &Connection,
     filter: &EventSubscriptionFilter,
     after_global_seq: i64,
     mut emit: impl FnMut(LedgerEntry) -> Result<(), StoreError>,
 ) -> Result<(), StoreError> {
-    let (sql, aggregate) = match filter.aggregate_id.as_deref() {
-        Some(aggregate) => (
-            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts FROM audit_log \
-             WHERE seq > ?1 AND aggregate_id = ?2 ORDER BY seq ASC",
-            Some(aggregate),
-        ),
-        None => (
-            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts FROM audit_log \
-             WHERE seq > ?1 ORDER BY seq ASC",
-            None,
-        ),
-    };
-    let mut statement = conn.prepare(sql)?;
-    let mut rows = match aggregate {
-        Some(aggregate) => statement.query(params![after_global_seq, aggregate])?,
-        None => statement.query(params![after_global_seq])?,
-    };
+    let mut statement = conn.prepare(
+        "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts
+         FROM audit_log WHERE seq > ?1 ORDER BY seq ASC",
+    )?;
+    let mut rows = statement.query([after_global_seq])?;
     while let Some(row) = rows.next()? {
         let entry = validated_entry(row)?;
         if filter.matches(&entry.event.kind, &entry.event.aggregate_id) {
