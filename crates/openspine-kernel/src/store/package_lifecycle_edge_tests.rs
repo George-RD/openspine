@@ -150,3 +150,64 @@ async fn ordinary_proposal_approval_path_survives_the_grant_sweep() {
     assert_eq!(state.store.find_action_request(request).unwrap(), request_before);
     assert_eq!(state.store.all_audit_event_jsons().unwrap(), audit);
 }
+
+fn recorded_proof(store: &Store) -> (openspine_schemas::audit::AuditEvent, ProposalApprovalEvidence) {
+    let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("artifact.proposed")]);
+    let entries = store.replay_audit(&filter, 0).unwrap();
+    assert_eq!(entries.len(), 1);
+    let event = entries.into_iter().next().unwrap().event;
+    let proof = serde_json::from_str(event.payload_json.as_deref().unwrap()).unwrap();
+    (event, proof)
+}
+
+#[tokio::test]
+async fn ordinary_proposal_audit_evidence_binds_exact_persisted_identities() {
+    let (state, grant, request_id, _server) = ordinary_proposal().await;
+    let (event, proof) = recorded_proof(&state.store);
+    let proposal = state.store.find_proposed_artifact_by_action_request(request_id).unwrap().unwrap();
+    assert_eq!(proof, ProposalApprovalEvidence {
+        schema_version: 1,
+        proposal_id: proposal.id,
+        artifact_kind: proposal.kind,
+        artifact_id: proposal.artifact_id,
+        artifact_version: proposal.version,
+        task_grant_id: grant.id,
+        action_request_id: request_id,
+        proposal_digest: Digest::parse(proposal.yaml_digest).unwrap(),
+        approval_path: ProposalApprovalPath::GrantBoundCallback,
+    });
+    assert_eq!(event.task_grant_id, Some(grant.id));
+    assert_eq!(event.payload_refs[0].digest, proof.proposal_digest);
+    assert!(state.store.verify_audit_chain().unwrap());
+}
+
+#[tokio::test]
+async fn malformed_or_conflicting_approval_evidence_cannot_clear_a_proposal() {
+    for axis in ["duplicate", "schema", "proposal", "request", "grant", "kind", "artifact", "version", "digest", "path", "malformed"] {
+        let (state, grant, _, _server) = ordinary_proposal().await;
+        let (event, mut proof) = recorded_proof(&state.store);
+        match axis {
+            "schema" => proof.schema_version = 2,
+            "proposal" => proof.proposal_id = ulid::Ulid::new(),
+            "request" => proof.action_request_id = ulid::Ulid::new(),
+            "grant" => proof.task_grant_id = ulid::Ulid::new(),
+            "kind" => proof.artifact_kind = "workflow".into(),
+            "artifact" => proof.artifact_id = "another-artifact".into(),
+            "version" => proof.artifact_version = 2,
+            "digest" => proof.proposal_digest = openspine_schemas::digest::digest_of_bytes(b"different"),
+            "path" => proof.approval_path = ProposalApprovalPath::EvaluatedOwnerReview,
+            _ => {}
+        }
+        let json = if axis == "malformed" { "{}".into() } else { serde_json::to_string(&proof).unwrap() };
+        state.store.append_audit_with_payload_json(
+            "artifact.proposed", event.action.as_ref(), None, None, event.task_grant_id,
+            &[], &event.payload_refs, Some(&json),
+        ).unwrap();
+        assert!(state.store.verify_audit_chain().unwrap(), "fixture retains a valid chain");
+        let before = state.store.all_audit_event_jsons().unwrap();
+        let snapshot = state.store.package_outstanding_work_with_reviews(grant.expires_at, &state.artifacts).unwrap();
+        assert_eq!(snapshot.source(OutstandingWorkSource::ProposedArtifacts), OutstandingWorkCounts { outstanding: 0, terminal: 0, unknown: 1 }, "{axis}");
+        assert!(!snapshot.is_quiescent());
+        assert_eq!(state.store.all_audit_event_jsons().unwrap(), before);
+    }
+}
