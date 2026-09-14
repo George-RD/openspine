@@ -232,3 +232,8 @@ fn read_canonical_review(
         && review.binding_is_valid())
         .then_some(review)
 }
+
+#[cfg(test)]
+mod lifecycle_edge_tests {
+    include!("package_lifecycle_edge_tests.rs");
+}
