@@ -128,6 +128,18 @@ fn checkpoint_state(
     {
         return Ok(CheckpointState::Invalid);
     }
+    // Zero is the initial cursor. Every positive acknowledgement must name
+    // an existing, valid ledger event in this consumer's exact subscription.
+    // Agreement between two persisted cursor copies alone proves neither.
+    if stored_seq != 0
+        && !Store::audit_checkpoint_matches_conn(
+            tx,
+            expected_filter,
+            i64::try_from(stored_seq).map_err(|_| StoreError::NumericRange)?,
+        )?
+    {
+        return Ok(CheckpointState::Invalid);
+    }
     Ok(CheckpointState::Valid(stored_seq))
 }
 
