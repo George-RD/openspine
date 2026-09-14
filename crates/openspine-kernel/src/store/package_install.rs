@@ -331,3 +331,20 @@ fn load_receipt_by_key(
 fn inconsistent() -> StoreError {
     StoreError::BadLedgerMeta("inactive package index/audit mismatch".into())
 }
+
+#[allow(dead_code)] // staged #285 census; production review wiring follows after this contract is green
+pub(crate) mod outstanding_work {
+    use super::{Store, StoreError, Timestamp};
+
+    include!("package_outstanding_work.rs");
+
+    #[cfg(test)]
+    mod tests {
+        include!("package_outstanding_work_tests.rs");
+    }
+
+    #[cfg(test)]
+    mod regression_tests {
+        include!("package_outstanding_work_regression_tests.rs");
+    }
+}

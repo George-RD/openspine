@@ -13,7 +13,7 @@ use super::actions::DispatchError;
 use super::connector_breaker::call_with_connector;
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, ActionRequest};
-use openspine_schemas::artifact::Lifecycle;
+use openspine_schemas::artifact::{Lifecycle, ProposalApprovalEvidence, ProposalApprovalPath};
 use openspine_schemas::digest::{digest_of, Digest};
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::lineage::ArtifactLineage;
@@ -384,9 +384,28 @@ pub(crate) async fn dispatch_artifact_propose_core(
         .store
         .set_proposed_artifact_state(proposal_id, Lifecycle::Proposed, Lifecycle::Validated)
         .map_err(|err| DispatchError::Resource(err.into()))?;
+    // Only the direct path creates an ordinary callback. The miner's
+    // non-notifying path requires a separate evaluated owner review.
+    // This choice is kernel-owned, never accepted from the proposal payload.
+    let approval_evidence = serde_json::to_string(&ProposalApprovalEvidence {
+        schema_version: 1,
+        proposal_id,
+        artifact_kind: kind.clone(),
+        artifact_id: artifact_id.clone(),
+        artifact_version: version,
+        task_grant_id: grant.id,
+        action_request_id,
+        proposal_digest: yaml_ref.digest.clone(),
+        approval_path: if notify_owner {
+            ProposalApprovalPath::GrantBoundCallback
+        } else {
+            ProposalApprovalPath::EvaluatedOwnerReview
+        },
+    })
+    .map_err(|err| DispatchError::Resource(err.into()))?;
     state
         .store
-        .append_audit(
+        .append_audit_with_payload_json(
             "artifact.proposed",
             Some(&ActionId::new("artifact.propose")),
             None,
@@ -394,6 +413,7 @@ pub(crate) async fn dispatch_artifact_propose_core(
             Some(grant.id),
             &[],
             std::slice::from_ref(&yaml_ref),
+            Some(&approval_evidence),
         )
         .map_err(|err| DispatchError::Resource(err.into()))?;
 
