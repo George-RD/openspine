@@ -188,10 +188,13 @@ fn matching_review_disposition(
             continue;
         }
         match state.as_str() {
-            "pending" | "narrowed" => {
+            "pending" => {
                 live |= i128::from(expires_at) > as_of.as_nanosecond();
             }
-            "rejected" | "revoked" | "expired" => {}
+            // Evaluated activation commits require a pending review. A
+            // narrowed original is superseded; its replacement proposal and
+            // any other live exact review are counted independently.
+            "narrowed" | "rejected" | "revoked" | "expired" => {}
             // An approved review with an unactivated proposal is not proof
             // that activation work is finished; preserve the inconsistency.
             _ => unknown = true,
