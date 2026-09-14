@@ -238,7 +238,7 @@ fn source_counts(
         )?,
         OutstandingWorkSource::SpendAlerts => tx.query_row(
             "SELECT COUNT(*),
-                    COALESCE(SUM(CASE WHEN alert_state <> 0 THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(CASE WHEN alert_state IN (1, 2) THEN 1 ELSE 0 END), 0),
                     COALESCE(SUM(CASE WHEN alert_state = 0 THEN 1 ELSE 0 END), 0)
              FROM daily_spend",
             [],
