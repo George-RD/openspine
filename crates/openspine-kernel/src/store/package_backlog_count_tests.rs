@@ -283,7 +283,7 @@ fn screener_census_detects_aggregate_drift_after_static_consumers_catch_up() {
     let filter = EventSubscriptionFilter {
         schema_version: 1,
         kinds: Some(vec![AuditKind::from_static("census.signal")]),
-        aggregate_id: Some("a".into()),
+        aggregate_id: Some("system".into()),
     };
     let declaration = NerveDeclaration {
         id: ulid::Ulid::new(), schema_version: 1, nerve_type: NerveType::Screener,
@@ -294,7 +294,7 @@ fn screener_census_detects_aggregate_drift_after_static_consumers_catch_up() {
         model_tier: ModelTier::Cheap, scope,
     };
     store.register_nerve(&declaration).unwrap();
-    append_coordinate(&store, "census.signal", "a");
+    append_coordinate(&store, "census.signal", "system");
     let signal = store.replay_audit(&filter, 0).unwrap().pop().unwrap();
     for (consumer, kind) in [
         ("worker_result_consumer", "worker.result"),
