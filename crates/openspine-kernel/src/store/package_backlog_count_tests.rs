@@ -133,6 +133,15 @@ fn checkpoint_coordinate_must_match_both_kind_and_aggregate() {
     for (kind, aggregate) in [("worker.result", "a"), ("worker.failed", "b")] {
         let store = Store::open_in_memory().unwrap();
         append_coordinate(&store, "worker.failed", "a");
+        append_coordinate(&store, "worker.failed", "a");
+        store.with_conn_for_test(|conn| {
+            // Replace the second event through the normal append helper below instead.
+            let _ = conn;
+        });
+        // Each fixture needs one valid event, the nonmatching coordinate,
+        // and a later valid event. Use a fresh store to keep the coordinate exact.
+        let store = Store::open_in_memory().unwrap();
+        append_coordinate(&store, "worker.failed", "a");
         append_coordinate(&store, kind, aggregate);
         append_coordinate(&store, "worker.failed", "a");
         let filter = EventSubscriptionFilter {
@@ -249,4 +258,78 @@ fn audit_timestamp_equivalent_encoding_preserves_the_validated_instant() {
     assert_eq!(store.replay_audit(&filter, 0).unwrap().remove(0).event.ts, original);
     assert_eq!(store.with_deferred_read(|tx| matching_backlog(tx, &filter, 0)).unwrap(), 1);
     assert!(store.with_deferred_read(|tx| Store::audit_checkpoint_matches_conn(tx, &filter, 1)).unwrap());
+}
+
+#[test]
+fn aggregate_projection_cannot_hide_corruption_from_replay_or_count() {
+    for selected in ["a", "b", "unrelated"] {
+        let store = Store::open_in_memory().unwrap();
+        append_coordinate(&store, "census.signal", "a");
+        store.with_conn_for_test(|conn| {
+            conn.execute("UPDATE audit_log SET aggregate_id = 'b' WHERE seq = 1", []).unwrap();
+        });
+        let filter = EventSubscriptionFilter {
+            schema_version: 1,
+            kinds: Some(vec![AuditKind::from_static("census.signal")]),
+            aggregate_id: Some(selected.into()),
+        };
+        assert!(store.replay_audit(&filter, 0).is_err(), "{selected}");
+        assert!(store.with_deferred_read(|tx| matching_backlog(tx, &filter, 0)).is_err(), "{selected}");
+        assert_eq!(store.with_deferred_read(|tx| matching_backlog(tx, &filter, 1)).unwrap(), 0);
+        store.with_conn_for_test(|conn| {
+            let aggregate: String = conn.query_row("SELECT aggregate_id FROM audit_log WHERE seq = 1", [], |row| row.get(0)).unwrap();
+            assert_eq!(aggregate, "b", "validation must not repair the projection");
+        });
+    }
+}
+
+#[test]
+fn screener_census_detects_aggregate_drift_after_static_consumers_catch_up() {
+    use openspine_schemas::nerve::{ModelTier, NerveBudget, NerveMeasure, NerveScope, Severity, SpeakThreshold};
+    let store = Store::open_in_memory().unwrap();
+    let scope = NerveScope { data_classes: vec!["census".into()], data_scopes: vec!["system".into()] };
+    store.register_advisee_limits("agent:aggregate-census", &scope, ModelTier::Standard).unwrap();
+    let filter = EventSubscriptionFilter {
+        schema_version: 1,
+        kinds: Some(vec![AuditKind::from_static("census.signal")]),
+        aggregate_id: Some("a".into()),
+    };
+    let declaration = NerveDeclaration {
+        id: ulid::Ulid::new(), schema_version: 1, nerve_type: NerveType::Screener,
+        advisee_id: "agent:aggregate-census".into(), subscription_filter: filter.clone(),
+        measure: NerveMeasure::ManipulationTag,
+        speak_threshold: SpeakThreshold { severity_min: Severity::Warn, min_confidence: 0.5 },
+        budget: NerveBudget { window_kind: "task".into(), window_seconds: 3600, suggestions_max: 1 },
+        model_tier: ModelTier::Cheap, scope,
+    };
+    store.register_nerve(&declaration).unwrap();
+    append_coordinate(&store, "census.signal", "a");
+    let signal = store.replay_audit(&filter, 0).unwrap().pop().unwrap();
+    for (consumer, kind) in [
+        ("worker_result_consumer", "worker.result"),
+        ("worker_failed_consumer", "worker.failed"),
+        ("task_board_timer_consumer", "workflow.timer_fired"),
+        ("standing_rule_dark_window_consumer", "workflow.timer_fired"),
+    ] {
+        if consumer != "standing_rule_dark_window_consumer" {
+            append_coordinate(&store, kind, "system");
+        }
+        let filter = EventSubscriptionFilter::kinds([AuditKind::from_static(kind)]);
+        let after = store.replay_audit(&filter, 0).unwrap().pop().unwrap().global_seq;
+        store.save_consumer_checkpoint(consumer, &PersistedConsumerState {
+            schema_version: 1,
+            checkpoint: openspine_schemas::event_bus::ConsumerCheckpoint { schema_version: 1, last_acked_global_seq: after },
+            filter,
+        }).unwrap();
+    }
+    let before = store.package_outstanding_work(Timestamp::now()).unwrap();
+    assert_eq!(before.source(OutstandingWorkSource::EventConsumerBacklog), OutstandingWorkCounts { outstanding: 1, terminal: 0, unknown: 0 });
+    store.with_conn_for_test(|conn| {
+        conn.execute("UPDATE audit_log SET aggregate_id = 'b' WHERE id = ?1", [signal.event.id.to_string()]).unwrap();
+    });
+    let checkpoint_before = store.load_consumer_checkpoint(&format!("nerve:{}", declaration.id)).unwrap();
+    let audit_before = store.all_audit_event_jsons().unwrap();
+    assert!(store.package_outstanding_work(Timestamp::now()).is_err());
+    assert_eq!(store.load_consumer_checkpoint(&format!("nerve:{}", declaration.id)).unwrap(), checkpoint_before);
+    assert_eq!(store.all_audit_event_jsons().unwrap(), audit_before);
 }
