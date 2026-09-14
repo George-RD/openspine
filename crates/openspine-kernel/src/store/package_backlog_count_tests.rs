@@ -183,3 +183,70 @@ fn zero_and_real_matching_checkpoints_remain_valid_across_unrelated_events() {
         assert_eq!(store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, true)).unwrap(), CheckpointState::Valid(seq));
     }
 }
+
+#[test]
+fn spend_alert_census_distinguishes_live_terminal_and_unknown_states() {
+    for alert_state in [0_i64, 1, 2, -1, 3, i64::MAX] {
+        let store = Store::open_in_memory().unwrap();
+        store.with_conn_for_test(|conn| {
+            conn.execute(
+                "INSERT INTO daily_spend (day, model_calls, connector_calls, alert_state) VALUES ('2099-01-01', 0, 0, ?1)",
+                [alert_state],
+            ).unwrap();
+        });
+        let expected = match alert_state {
+            0 => OutstandingWorkCounts { outstanding: 0, terminal: 1, unknown: 0 },
+            1 | 2 => OutstandingWorkCounts { outstanding: 1, terminal: 0, unknown: 0 },
+            _ => OutstandingWorkCounts { outstanding: 0, terminal: 0, unknown: 1 },
+        };
+        let snapshot = store.package_outstanding_work(Timestamp::now()).unwrap();
+        assert_eq!(snapshot.source(OutstandingWorkSource::SpendAlerts), expected, "{alert_state}");
+        assert_eq!(snapshot.is_quiescent(), alert_state == 0);
+        store.with_conn_for_test(|conn| {
+            let stored: i64 = conn.query_row("SELECT alert_state FROM daily_spend", [], |row| row.get(0)).unwrap();
+            assert_eq!(stored, alert_state, "review must not normalize drift");
+        });
+    }
+}
+
+#[test]
+fn audit_timestamp_projection_drift_is_rejected_by_replay_count_and_checkpoint() {
+    for timestamp in ["not-a-time", "1900-01-01T00:00:00Z"] {
+        let store = Store::open_in_memory().unwrap();
+        append_coordinate(&store, "worker.failed", "a");
+        store.with_conn_for_test(|conn| {
+            conn.execute("UPDATE audit_log SET ts = ?1 WHERE seq = 1", [timestamp]).unwrap();
+        });
+        for aggregate_id in [None, Some("a".to_string())] {
+            for kind in ["worker.failed", "census.nonmatching"] {
+                let filter = EventSubscriptionFilter {
+                    schema_version: 1,
+                    kinds: Some(vec![AuditKind::from_static(kind)]),
+                    aggregate_id: aggregate_id.clone(),
+                };
+                assert!(store.replay_audit(&filter, 0).is_err());
+                assert!(store.with_deferred_read(|tx| matching_backlog(tx, &filter, 0)).is_err());
+                assert!(store.with_deferred_read(|tx| Store::audit_checkpoint_matches_conn(tx, &filter, 1)).is_err());
+            }
+        }
+        store.with_conn_for_test(|conn| {
+            let stored: String = conn.query_row("SELECT ts FROM audit_log WHERE seq = 1", [], |row| row.get(0)).unwrap();
+            assert_eq!(stored, timestamp, "validation must not repair the projection");
+        });
+    }
+}
+
+#[test]
+fn audit_timestamp_equivalent_encoding_preserves_the_validated_instant() {
+    let store = Store::open_in_memory().unwrap();
+    append_coordinate(&store, "worker.failed", "a");
+    let filter = EventSubscriptionFilter::all();
+    let original = store.replay_audit(&filter, 0).unwrap().remove(0).event.ts;
+    let equivalent = format!("{}+00:00", original.to_string().trim_end_matches('Z'));
+    store.with_conn_for_test(|conn| {
+        conn.execute("UPDATE audit_log SET ts = ?1 WHERE seq = 1", [&equivalent]).unwrap();
+    });
+    assert_eq!(store.replay_audit(&filter, 0).unwrap().remove(0).event.ts, original);
+    assert_eq!(store.with_deferred_read(|tx| matching_backlog(tx, &filter, 0)).unwrap(), 1);
+    assert!(store.with_deferred_read(|tx| Store::audit_checkpoint_matches_conn(tx, &filter, 1)).unwrap());
+}
