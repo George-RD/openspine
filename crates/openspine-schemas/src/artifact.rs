@@ -17,6 +17,33 @@ pub struct ArtifactRef {
     pub schema_version: u32,
 }
 
+/// The kernel-selected decision path for a proposed artifact. This is
+/// historical evidence, not permission to approve or activate anything.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProposalApprovalPath {
+    GrantBoundCallback,
+    EvaluatedOwnerReview,
+}
+
+/// Identity-bound audit metadata retained after the original grant is swept.
+/// It distinguishes an ordinary callback from a review that can mint fresh
+/// authority. A missing legacy record must not be invented from a digest
+/// match or from the absence of an owner-review row.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProposalApprovalEvidence {
+    pub schema_version: u32,
+    pub proposal_id: ulid::Ulid,
+    pub artifact_kind: String,
+    pub artifact_id: String,
+    pub artifact_version: u32,
+    pub task_grant_id: ulid::Ulid,
+    pub action_request_id: ulid::Ulid,
+    pub proposal_digest: Digest,
+    pub approval_path: ProposalApprovalPath,
+}
+
 /// Default content version for a versioned declarative artifact (D-028:
 /// "monotonically increasing `v<N>` per artifact id"). Distinct from
 /// `schema_version`, which versions the *shape*, not the *content*.
