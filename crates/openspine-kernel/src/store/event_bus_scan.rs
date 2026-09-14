@@ -14,12 +14,12 @@ pub(super) fn visit(
 ) -> Result<(), StoreError> {
     let (sql, aggregate) = match filter.aggregate_id.as_deref() {
         Some(aggregate) => (
-            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash FROM audit_log \
+            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts FROM audit_log \
              WHERE seq > ?1 AND aggregate_id = ?2 ORDER BY seq ASC",
             Some(aggregate),
         ),
         None => (
-            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash FROM audit_log \
+            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts FROM audit_log \
              WHERE seq > ?1 ORDER BY seq ASC",
             None,
         ),
@@ -51,7 +51,7 @@ impl super::Store {
             return Ok(false);
         }
         let mut statement = conn.prepare(
-            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash
+            "SELECT seq, event_json, meta_json, id, kind, aggregate_id, aggregate_seq, prev_hash, hash, ts
              FROM audit_log WHERE seq = ?1",
         )?;
         let mut rows = statement.query([global_seq])?;
@@ -73,6 +73,7 @@ fn validated_entry(row: &rusqlite::Row<'_>) -> Result<LedgerEntry, StoreError> {
     let row_aggregate_seq: i64 = row.get(6)?;
     let row_prev_hash: String = row.get(7)?;
     let row_hash: String = row.get(8)?;
+    let row_ts: String = row.get(9)?;
     let meta: serde_json::Value = serde_json::from_str(&meta_json)?;
     let meta_id = meta.get("id").and_then(|v| v.as_str()).unwrap_or_default();
     let meta_kind = meta
@@ -104,6 +105,7 @@ fn validated_entry(row: &rusqlite::Row<'_>) -> Result<LedgerEntry, StoreError> {
         || event.aggregate_seq != row_aggregate_seq as u64
         || event.prev_hash.as_str() != row_prev_hash
         || event.hash.as_str() != row_hash
+        || row_ts.parse::<jiff::Timestamp>().ok() != Some(event.ts)
     {
         return Err(StoreError::BadLedgerMeta(format!(
             "ledger row {seq} event_json mismatch"
