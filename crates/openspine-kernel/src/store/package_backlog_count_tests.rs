@@ -63,3 +63,123 @@ fn backlog_watermark_outside_sql_range_fails_closed() {
         Err(StoreError::NumericRange)
     ));
 }
+
+fn save_test_checkpoint(store: &Store, filter: &EventSubscriptionFilter, seq: u64) {
+    store.save_consumer_checkpoint(
+        "worker_failed_consumer",
+        &PersistedConsumerState {
+            schema_version: 1,
+            checkpoint: openspine_schemas::event_bus::ConsumerCheckpoint {
+                schema_version: 1,
+                last_acked_global_seq: seq,
+            },
+            filter: filter.clone(),
+        },
+    ).unwrap();
+}
+
+fn append_coordinate(store: &Store, kind: &str, aggregate: &str) {
+    store.with_immediate_tx(|tx| {
+        Store::append_audit_conn_with_options(
+            tx, kind, None, None, None, None, &[], &[], Some(aggregate), None,
+        )?;
+        Ok(())
+    }).unwrap();
+}
+
+#[test]
+fn checkpoint_beyond_empty_or_populated_ledger_blocks_as_unknown_without_repair() {
+    for populated in [false, true] {
+        let store = Store::open_in_memory().unwrap();
+        if populated {
+            append_coordinate(&store, "worker.failed", "system");
+        }
+        let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("worker.failed")]);
+        save_test_checkpoint(&store, &filter, 9);
+        let checkpoint_before = store.load_consumer_checkpoint("worker_failed_consumer").unwrap();
+        let audit_before = store.all_audit_event_jsons().unwrap();
+        let snapshot = store.package_outstanding_work(Timestamp::now()).unwrap();
+        assert_eq!(
+            snapshot.source(OutstandingWorkSource::EventConsumerBacklog),
+            OutstandingWorkCounts { outstanding: 0, terminal: 0, unknown: 1 },
+        );
+        assert!(!snapshot.is_quiescent());
+        assert_eq!(store.load_consumer_checkpoint("worker_failed_consumer").unwrap(), checkpoint_before);
+        assert_eq!(store.all_audit_event_jsons().unwrap(), audit_before);
+    }
+}
+
+#[test]
+fn checkpoint_must_name_an_existing_coordinate_not_only_be_below_the_maximum() {
+    let store = Store::open_in_memory().unwrap();
+    for _ in 0..3 {
+        append_coordinate(&store, "worker.failed", "system");
+    }
+    let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("worker.failed")]);
+    save_test_checkpoint(&store, &filter, 2);
+    store.with_conn_for_test(|conn| {
+        assert_eq!(conn.execute("DELETE FROM audit_log WHERE seq = 2", []).unwrap(), 1);
+    });
+    for required in [false, true] {
+        assert_eq!(
+            store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, required)).unwrap(),
+            CheckpointState::Invalid,
+        );
+    }
+}
+
+#[test]
+fn checkpoint_coordinate_must_match_both_kind_and_aggregate() {
+    for (kind, aggregate) in [("worker.result", "a"), ("worker.failed", "b")] {
+        let store = Store::open_in_memory().unwrap();
+        append_coordinate(&store, "worker.failed", "a");
+        append_coordinate(&store, kind, aggregate);
+        append_coordinate(&store, "worker.failed", "a");
+        let filter = EventSubscriptionFilter {
+            schema_version: 1,
+            kinds: Some(vec![AuditKind::from_static("worker.failed")]),
+            aggregate_id: Some("a".into()),
+        };
+        save_test_checkpoint(&store, &filter, 2);
+        for required in [false, true] {
+            assert_eq!(
+                store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, required)).unwrap(),
+                CheckpointState::Invalid,
+                "{kind}:{aggregate}",
+            );
+        }
+    }
+}
+
+#[test]
+fn checkpoint_coordinate_reuses_audit_projection_validation() {
+    for column in ["event_json", "meta_json"] {
+        let store = Store::open_in_memory().unwrap();
+        append_coordinate(&store, "worker.failed", "system");
+        let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("worker.failed")]);
+        save_test_checkpoint(&store, &filter, 1);
+        store.with_conn_for_test(|conn| {
+            conn.execute(&format!("UPDATE audit_log SET {column} = '{{}}' WHERE seq = 1"), []).unwrap();
+        });
+        assert!(store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, false)).is_err());
+    }
+}
+
+#[test]
+fn zero_and_real_matching_checkpoints_remain_valid_across_unrelated_events() {
+    let store = Store::open_in_memory().unwrap();
+    let filter = EventSubscriptionFilter {
+        schema_version: 1,
+        kinds: Some(vec![AuditKind::from_static("worker.failed")]),
+        aggregate_id: Some("a".into()),
+    };
+    save_test_checkpoint(&store, &filter, 0);
+    assert_eq!(store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, true)).unwrap(), CheckpointState::Valid(0));
+    append_coordinate(&store, "worker.failed", "a");
+    append_coordinate(&store, "worker.result", "b");
+    append_coordinate(&store, "worker.failed", "a");
+    for seq in [1, 3] {
+        save_test_checkpoint(&store, &filter, seq);
+        assert_eq!(store.with_deferred_read(|tx| checkpoint_state(tx, "worker_failed_consumer", &filter, true)).unwrap(), CheckpointState::Valid(seq));
+    }
+}
