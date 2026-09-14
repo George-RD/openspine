@@ -27,6 +27,7 @@ impl Store {
 }
 
 struct ReviewProposal {
+    id: String,
     kind: String,
     artifact_id: String,
     version: i64,
@@ -42,7 +43,7 @@ fn proposal_work_counts(
 ) -> Result<(i64, i64, i64), StoreError> {
     let mut statement = tx.prepare(
         "SELECT state, kind, artifact_id, version, yaml_digest,
-                task_grant_id, action_request_id FROM proposed_artifacts",
+                task_grant_id, action_request_id, id FROM proposed_artifacts",
     )?;
     let mut rows = statement.query([])?;
     let mut counts = (0_i64, 0_i64, 0_i64);
@@ -55,6 +56,7 @@ fn proposal_work_counts(
                 Some(artifacts) => review_required_disposition(
                     tx,
                     &ReviewProposal {
+                        id: row.get(7)?,
                         kind: row.get(1)?,
                         artifact_id: row.get(2)?,
                         version: row.get(3)?,
@@ -200,13 +202,15 @@ fn matching_review_disposition(
             _ => unknown = true,
         }
     }
-    Ok(if unknown {
-        WorkDisposition::Unknown
-    } else if live || !matched {
-        WorkDisposition::Outstanding
+    if unknown {
+        Ok(WorkDisposition::Unknown)
+    } else if live {
+        Ok(WorkDisposition::Outstanding)
+    } else if matched {
+        Ok(WorkDisposition::Terminal)
     } else {
-        WorkDisposition::Terminal
-    })
+        unmatched_proposal_disposition(tx, proposal)
+    }
 }
 
 fn read_canonical_review(
@@ -232,6 +236,8 @@ fn read_canonical_review(
         && review.binding_is_valid())
         .then_some(review)
 }
+
+include!("package_proposal_callback.rs");
 
 #[cfg(test)]
 mod lifecycle_edge_tests {
