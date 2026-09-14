@@ -159,3 +159,83 @@ fn replace_review(h: &ReviewHarness, review: &OwnerReviewRequest) {
         ).unwrap();
     });
 }
+
+// Seed the separately evaluated replacement, then use the real atomic
+// supersession operation. This tests census lifecycle accounting, not the
+// miner's replay/judge evaluation, which has its own production-path test.
+fn supersede_with_replacement(h: &ReviewHarness, expiry: Timestamp) -> OwnerReviewRequest {
+    let mut manifest: StandingRuleManifest = serde_yaml::from_slice(
+        &h.state.artifacts.get(h.request.payload_ref.as_ref().unwrap()).unwrap(),
+    ).unwrap();
+    manifest.id = "census-rule-narrowed".into();
+    manifest.quota.max = 1;
+    let payload = h.state.artifacts.put(serde_yaml::to_string(&manifest).unwrap().as_bytes()).unwrap();
+    let mut request = h.request.clone();
+    request.id = Ulid::new();
+    request.payload_ref = Some(payload.clone());
+    request.target_digest = Some(digest_of_bytes(b"census-rule-narrowed-v1"));
+    h.state.store.insert_action_request(&request).unwrap();
+    h.state.store.with_conn_for_test(|conn| {
+        conn.execute(
+            "INSERT INTO proposed_artifacts
+             (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, action_request_id, proposed_at)
+             VALUES (?1, 'standing_rule', 'census-rule-narrowed', 1, 'review_required', ?2, ?3, ?4, ?5)",
+            rusqlite::params![Ulid::new().to_string(), payload.digest.as_str(), request.task_grant_id.to_string(), request.id.to_string(), at().to_string()],
+        ).unwrap();
+    });
+    let mut replacement = h.review.clone();
+    replacement.id = Ulid::new();
+    replacement.limits.quota.max = 1;
+    replacement.proposal_digest = payload.digest.clone();
+    let mut binding = replacement.evaluation_binding.clone().unwrap();
+    binding.artifact_id = manifest.id;
+    binding.action_request_id = request.id;
+    binding.proposal_digest = payload.digest.clone();
+    binding.epochs.proposal_digest = Some(payload.digest);
+    replacement = replacement.with_evaluation_binding(binding);
+    let artifact = h.state.artifacts.put(&serde_json::to_vec(&replacement).unwrap()).unwrap();
+    h.state.store.insert_narrowed_owner_review(
+        (h.review.id, h.review.binding_digest()), replacement.id, &artifact,
+        h.state.owner.principal_id.as_ulid(), expiry, at(),
+    ).unwrap();
+    replacement
+}
+
+#[test]
+fn narrowed_review_is_terminal_only_for_the_superseded_proposal() {
+    let expiry = at() + Duration::from_secs(30 * 86400);
+    let h = fixture(expiry);
+    let replacement = supersede_with_replacement(&h, expiry);
+    assert_eq!(h.state.store.owner_review_row(h.review.id).unwrap().unwrap().state, OwnerReviewState::Narrowed);
+    assert_eq!(h.state.store.owner_review_row(replacement.id).unwrap().unwrap().state, OwnerReviewState::Pending);
+    assert_eq!(proposal_counts(&h, at()), expected(1, 1, 0));
+    assert!(!h.state.store.package_outstanding_work_with_reviews(at(), &h.state.artifacts).unwrap().is_quiescent());
+}
+
+#[test]
+fn rejecting_the_narrowed_replacement_does_not_wait_for_original_review_expiry() {
+    let expiry = at() + Duration::from_secs(30 * 86400);
+    let h = fixture(expiry);
+    let replacement = supersede_with_replacement(&h, expiry);
+    let surface = OwnerSurfaceRef::authenticated_terminal(h.state.owner.principal_id.as_ulid());
+    crate::pipeline::owner_review_decision::submit_owner_review_decision(
+        &h.state, &surface, replacement.id, replacement.binding_digest(),
+        DecisionIntent::Reject, None, at(),
+    ).unwrap();
+    assert_eq!(proposal_counts(&h, at()), expected(0, 2, 0));
+    assert!(h.state.store.package_outstanding_work_with_reviews(at(), &h.state.artifacts).unwrap().is_quiescent());
+    assert_eq!(h.state.store.owner_review_row(h.review.id).unwrap().unwrap().state, OwnerReviewState::Narrowed);
+}
+
+#[test]
+fn narrowed_review_cannot_hide_another_live_review_of_the_original_proposal() {
+    let expiry = at() + Duration::from_secs(30 * 86400);
+    let h = fixture(expiry);
+    supersede_with_replacement(&h, expiry);
+    let mut competing = h.review.clone();
+    competing.id = Ulid::new();
+    let binding = competing.evaluation_binding.clone().unwrap();
+    competing = competing.with_evaluation_binding(binding);
+    persist(&h.state, &competing, expiry);
+    assert_eq!(proposal_counts(&h, at()), expected(2, 0, 0));
+}
