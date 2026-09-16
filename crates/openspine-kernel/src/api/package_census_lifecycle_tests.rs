@@ -17,9 +17,7 @@ use crate::store::package_install::outstanding_work::{
 };
 use crate::store::Store;
 use crate::telegram::TelegramConnector;
-use crate::test_support::fixtures::{
-    owner_update, seed_owner_history, test_state_with_telegram,
-};
+use crate::test_support::fixtures::{owner_update, seed_owner_history, test_state_with_telegram};
 
 const OWNER_CHAT_ID: i64 = 555;
 const TOKEN: &str = "test-token";
@@ -94,7 +92,10 @@ async fn ordinary_proposal() -> (AppState, TaskGrant, ulid::Ulid, MockServer) {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM owner_reviews", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 0, "ordinary proposal uses only its digest-bound callback");
+        assert_eq!(
+            count, 0,
+            "ordinary proposal uses only its digest-bound callback"
+        );
     });
     (state, grant, request_id, server)
 }
@@ -148,7 +149,10 @@ async fn ordinary_proposal_becomes_terminal_when_its_delivered_callback_grant_ex
             unknown: 0,
         }
     );
-    assert_eq!(state.store.find_action_request(request).unwrap(), request_before);
+    assert_eq!(
+        state.store.find_action_request(request).unwrap(),
+        request_before
+    );
     assert_eq!(state.store.all_audit_event_jsons().unwrap(), audit);
     assert_eq!(
         state
@@ -166,7 +170,11 @@ async fn ordinary_proposal_approval_path_survives_the_grant_sweep() {
     let (state, grant, request, _server) = ordinary_proposal().await;
     let as_of = grant.expires_at + Duration::from_secs(172800);
     state.store.sweep_expired_grants(as_of).unwrap();
-    assert!(state.store.find_task_grant_by_id(grant.id).unwrap().is_none());
+    assert!(state
+        .store
+        .find_task_grant_by_id(grant.id)
+        .unwrap()
+        .is_none());
     let audit = state.store.all_audit_event_jsons().unwrap();
     let request_before = state.store.find_action_request(request).unwrap();
     let snapshot = state
@@ -181,7 +189,10 @@ async fn ordinary_proposal_approval_path_survives_the_grant_sweep() {
             unknown: 0,
         }
     );
-    assert_eq!(state.store.find_action_request(request).unwrap(), request_before);
+    assert_eq!(
+        state.store.find_action_request(request).unwrap(),
+        request_before
+    );
     assert_eq!(state.store.all_audit_event_jsons().unwrap(), audit);
 }
 
