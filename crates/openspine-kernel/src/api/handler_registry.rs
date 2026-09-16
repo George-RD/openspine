@@ -273,7 +273,8 @@ fn handle_artifact_propose<'a>(
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
     Box::pin(async move {
-        let result = dispatch_artifact_propose(state, grant, action, owner_surface, payload).await?;
+        let result =
+            dispatch_artifact_propose(state, grant, action, owner_surface, payload).await?;
         let request_id = result
             .get("action_request_id")
             .and_then(Value::as_str)
