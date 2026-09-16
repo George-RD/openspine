@@ -1,4 +1,7 @@
 use super::*;
+use crate::store::package_install::outstanding_work::{
+    OutstandingWorkCounts, OutstandingWorkSource,
+};
 
 #[tokio::test]
 async fn asymmetric_rows_prove_context_grouping() {
@@ -298,6 +301,35 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
         .unwrap()
         .expect("proposal activation request must persist");
     let proposal_grant_id = proposal_request.task_grant_id;
+    // Ordinary callback authority expires, but the reviewed proposal can still
+    // mint fresh owner-bound activation authority. Prove both sides through
+    // the real miner/evaluation/decision path, not only raw census fixtures.
+    let now = Timestamp::now();
+    let mut source = harness
+        .state
+        .store
+        .find_task_grant_by_id(proposal_grant_id)
+        .unwrap()
+        .unwrap()
+        .0;
+    source.expires_at = now - jiff::SignedDuration::from_secs(1);
+    source.seal_root(&crate::grant_hmac_key().unwrap());
+    harness.state.store.refresh_task_grant(&source).unwrap();
+    assert!(source.is_expired(now));
+    let snapshot = harness
+        .state
+        .store
+        .package_outstanding_work_with_reviews(now, &harness.state.artifacts)
+        .unwrap();
+    assert_eq!(
+        snapshot.source(OutstandingWorkSource::ProposedArtifacts),
+        OutstandingWorkCounts {
+            outstanding: 1,
+            terminal: 0,
+            unknown: 0,
+        }
+    );
+    assert!(!snapshot.is_quiescent());
     let binding_digest = review.binding_digest();
     let outcome = crate::pipeline::owner_review_decision::submit_owner_review_decision_async(
         &harness.state,
@@ -306,7 +338,7 @@ async fn approval_does_not_reuse_the_proposal_task_grant() {
         binding_digest,
         openspine_schemas::owner_review::DecisionIntent::Approve,
         None,
-        Timestamp::now(),
+        now,
     )
     .await
     .expect("owner approval must activate the evaluated proposal");

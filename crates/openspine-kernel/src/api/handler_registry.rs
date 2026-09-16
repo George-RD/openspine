@@ -14,6 +14,8 @@ use std::future::Future;
 use std::pin::Pin;
 
 use openspine_schemas::action::ActionId;
+use openspine_schemas::artifact::{ArtifactRef, ProposalApprovalEvidence, ProposalApprovalPath};
+use openspine_schemas::digest::Digest;
 use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use serde_json::{json, Value};
@@ -270,13 +272,73 @@ fn handle_artifact_propose<'a>(
     owner_surface: &'a OwnerSurfaceRef,
     payload: Option<&'a Value>,
 ) -> HandlerFuture<'a> {
-    Box::pin(dispatch_artifact_propose(
-        state,
-        grant,
-        action,
-        owner_surface,
-        payload,
-    ))
+    Box::pin(async move {
+        let result =
+            dispatch_artifact_propose(state, grant, action, owner_surface, payload).await?;
+        let request_id = result
+            .get("action_request_id")
+            .and_then(Value::as_str)
+            .and_then(|value| value.parse::<ulid::Ulid>().ok())
+            .ok_or_else(|| {
+                DispatchError::Resource(anyhow::anyhow!(
+                    "artifact.propose returned no valid action_request_id"
+                ))
+            })?;
+        let proposal = state
+            .store
+            .find_proposed_artifact_by_action_request(request_id)
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?
+            .ok_or_else(|| {
+                DispatchError::Resource(anyhow::anyhow!(
+                    "artifact.propose callback delivered without persisted proposal"
+                ))
+            })?;
+        if proposal.task_grant_id != grant.id {
+            return Err(DispatchError::Resource(anyhow::anyhow!(
+                "artifact.propose callback grant/proposal mismatch"
+            )));
+        }
+        let proposal_digest = Digest::parse(proposal.yaml_digest.clone()).map_err(|err| {
+            DispatchError::Resource(anyhow::anyhow!(
+                "invalid persisted artifact.propose digest: {err}"
+            ))
+        })?;
+        let proof = ProposalApprovalEvidence {
+            schema_version: 1,
+            proposal_id: proposal.id,
+            artifact_kind: proposal.kind,
+            artifact_id: proposal.artifact_id,
+            artifact_version: proposal.version,
+            task_grant_id: grant.id,
+            action_request_id: request_id,
+            proposal_digest: proposal_digest.clone(),
+            approval_path: ProposalApprovalPath::GrantBoundCallback,
+        };
+        let proof_json = serde_json::to_string(&proof)
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        let payload_ref = ArtifactRef {
+            digest: proposal_digest,
+            schema_version: 1,
+        };
+        // This is post-effect evidence: it is appended only after the owner
+        // surface confirms the approval callback was delivered. If recording
+        // this receipt fails, the action fails closed and the package census
+        // keeps the proposal blocking rather than inferring delivery.
+        state
+            .store
+            .append_audit_with_payload_json(
+                "artifact.proposal_callback_delivered",
+                Some(action),
+                None,
+                None,
+                Some(grant.id),
+                &[],
+                &[payload_ref],
+                Some(&proof_json),
+            )
+            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+        Ok(result)
+    })
 }
 
 fn handle_artifact_nominate<'a>(

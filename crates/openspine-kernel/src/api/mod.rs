@@ -72,6 +72,9 @@ mod preview_tests;
 mod artifact_propose_tests;
 
 #[cfg(test)]
+mod package_census_lifecycle_tests;
+
+#[cfg(test)]
 mod eval_gate_tests;
 
 #[cfg(test)]
