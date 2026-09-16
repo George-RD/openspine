@@ -20,8 +20,12 @@ fn unmatched_proposal_disposition(
         return Ok(WorkDisposition::Unknown);
     };
     let mut evidence = None;
+    let mut callback_delivered = false;
     let mut unknown = false;
-    let filter = EventSubscriptionFilter::kinds([AuditKind::from_static("artifact.proposed")]);
+    let filter = EventSubscriptionFilter::kinds([
+        AuditKind::from_static("artifact.proposed"),
+        AuditKind::from_static("artifact.proposal_callback_delivered"),
+    ]);
     Store::visit_audit_conn(tx, &filter, 0, |entry| {
         let event = entry.event;
         let Some(json) = event.payload_json.as_deref() else {
@@ -33,7 +37,10 @@ fn unmatched_proposal_disposition(
             Ok(proof) => proof,
             Err(_) => {
                 if event.task_grant_id == Some(grant_id)
-                    && event.payload_refs.iter().any(|value| value.digest.as_str() == proposal.yaml_digest)
+                    && event
+                        .payload_refs
+                        .iter()
+                        .any(|value| value.digest.as_str() == proposal.yaml_digest)
                 {
                     unknown = true;
                 }
@@ -43,8 +50,7 @@ fn unmatched_proposal_disposition(
         if proof.proposal_id != proposal_id && proof.action_request_id != request_id {
             return Ok(());
         }
-        if evidence.is_some()
-            || proof.schema_version != 1
+        if proof.schema_version != 1
             || proof.proposal_id != proposal_id
             || proof.action_request_id != request_id
             || proof.task_grant_id != grant_id
@@ -59,14 +65,41 @@ fn unmatched_proposal_disposition(
             || event.payload_refs[0].digest != proof.proposal_digest
         {
             unknown = true;
+            return Ok(());
         }
-        evidence = Some(proof.approval_path);
+        match event.kind.as_str() {
+            "artifact.proposed" => {
+                if evidence.is_some() {
+                    unknown = true;
+                } else {
+                    evidence = Some(proof.approval_path);
+                }
+            }
+            "artifact.proposal_callback_delivered" => {
+                // Delivery evidence is meaningful only for the ordinary
+                // callback path and only after its exact proposed receipt.
+                if callback_delivered
+                    || proof.approval_path != ProposalApprovalPath::GrantBoundCallback
+                    || evidence != Some(ProposalApprovalPath::GrantBoundCallback)
+                {
+                    unknown = true;
+                }
+                callback_delivered = true;
+            }
+            _ => unreachable!("filter admits only proposal lifecycle evidence"),
+        }
         Ok(())
     })?;
     Ok(if unknown {
         WorkDisposition::Unknown
     } else if evidence == Some(ProposalApprovalPath::GrantBoundCallback) {
-        WorkDisposition::Terminal
+        if callback_delivered {
+            WorkDisposition::Terminal
+        } else {
+            // A persisted callback request that was never proven delivered
+            // cannot be silently cleared merely because its grant expired.
+            WorkDisposition::Unknown
+        }
     } else {
         // An evaluated path can still issue fresh authority, even after
         // losing the ordinary grant. Missing legacy evidence stays blocking.
