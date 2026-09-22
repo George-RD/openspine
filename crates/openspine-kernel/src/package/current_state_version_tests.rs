@@ -41,7 +41,9 @@ fn captured_version_review_ignores_later_activation_and_source_removal() {
     let digest = digest_of_bytes(&route_yaml("version-review", 2)).to_string();
     active_route(&store, "version-review", 2, &digest);
     assert_eq!(
-        store.highest_active_version("route", "version-review").unwrap(),
+        store
+            .highest_active_version("route", "version-review")
+            .unwrap(),
         Some(2)
     );
     drop(store);
@@ -53,7 +55,10 @@ fn captured_version_review_ignores_later_activation_and_source_removal() {
         Some(1)
     );
     assert_eq!(admitted.excluded, BTreeSet::from([key(2)]));
-    assert_eq!(admitted.registry.sources[&key(1)].bytes, route_yaml("version-review", 1));
+    assert_eq!(
+        admitted.registry.sources[&key(1)].bytes,
+        route_yaml("version-review", 1)
+    );
 }
 
 #[test]
@@ -64,14 +69,25 @@ fn captured_version_review_is_repeatable_and_preserves_inputs() {
     let first = captured.overlay.evaluate_versions().unwrap();
     let second = captured.overlay.evaluate_versions().unwrap();
     assert_eq!(first.excluded, second.excluded);
-    assert_eq!(first.registry.sources[&key(1)].bytes, second.registry.sources[&key(1)].bytes);
+    assert_eq!(
+        first.registry.sources[&key(1)].bytes,
+        second.registry.sources[&key(1)].bytes
+    );
     assert_eq!(captured.overlay.controls, controls);
     assert_eq!(
-        captured.overlay.registry.sources.keys().cloned().collect::<BTreeSet<_>>(),
+        captured
+            .overlay
+            .registry
+            .sources
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>(),
         sources
     );
     assert_eq!(
-        store.highest_active_version("route", "version-review").unwrap(),
+        store
+            .highest_active_version("route", "version-review")
+            .unwrap(),
         Some(1)
     );
 }
@@ -120,13 +136,53 @@ fn captured_version_review_rejects_missing_exact_version_control() {
 #[test]
 fn captured_version_review_rejects_conflicting_highest_version_controls() {
     let (_root, _store, mut captured) = captured_versions();
-    captured.overlay.controls.get_mut(&key(2)).unwrap().highest_active_version = Some(2);
+    captured
+        .overlay
+        .controls
+        .get_mut(&key(2))
+        .unwrap()
+        .highest_active_version = Some(2);
     assert!(captured.overlay.evaluate_versions().is_err());
 }
 
 #[test]
 fn captured_version_review_rejects_source_presence_drift() {
     let (_root, _store, mut captured) = captured_versions();
-    captured.overlay.controls.get_mut(&key(1)).unwrap().source_present = false;
+    captured
+        .overlay
+        .controls
+        .get_mut(&key(1))
+        .unwrap()
+        .source_present = false;
     assert!(captured.overlay.evaluate_versions().is_err());
+}
+
+#[test]
+fn captured_version_review_rejects_a_falsely_present_missing_source() {
+    let (_root, _store, mut captured) = captured_versions();
+    let control = captured.overlay.controls[&key(1)].clone();
+    captured.overlay.controls.insert(key(3), control);
+    assert!(captured.overlay.evaluate_versions().is_err());
+}
+
+#[test]
+fn captured_version_constructor_rejects_absent_control_instead_of_assuming_inactive() {
+    let (_root, _store, captured) = captured_versions();
+    assert!(CapturedVersionAdmission::from_captured(
+        captured.overlay.registry,
+        captured.overlay.learned,
+        BTreeMap::new(),
+    )
+    .is_err());
+}
+
+#[test]
+fn captured_version_constructor_does_not_apply_proposal_controls_to_personas() {
+    let highest = BTreeMap::from([(("persona".into(), "test-persona".into()), Some(1))]);
+    assert!(CapturedVersionAdmission::from_captured(
+        ArtifactRegistry::default(),
+        Vec::new(),
+        highest,
+    )
+    .is_err());
 }
