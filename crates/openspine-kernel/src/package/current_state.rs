@@ -19,6 +19,7 @@ use crate::artifact_store::ArtifactStore;
 use crate::counterparty_keys::SYSTEM_SCOPE;
 use crate::overlay_compat;
 use crate::overlay_persona_admission::{CapturedPersonaProvenance, PersonaProvenanceFindings};
+use crate::overlay_recovery::version_admission::{AdmittedOverlay, CapturedVersionAdmission};
 use crate::store::learned_artifacts::LearnedArtifact;
 use crate::store::Store;
 
@@ -43,6 +44,48 @@ pub(crate) struct CapturedOverlayState {
     pub learned: Vec<LearnedArtifact>,
     pub controls: BTreeMap<ArtifactVersion, CapturedOverlayControl>,
     pub persona_findings: PersonaProvenanceFindings,
+}
+
+impl CapturedOverlayState {
+    /// Run only the shared version-admission phase over this captured state.
+    /// No Store reads, source reopening or recovery occur here. Keep the full
+    /// capture intact: a missing highest source still needs an explicit blocker
+    /// in the eventual package review, even when this phase excludes old bytes.
+    /// This result does not establish compatibility, quiescence or activation.
+    pub(crate) fn evaluate_versions(&self) -> anyhow::Result<AdmittedOverlay> {
+        for key in self.registry.sources.keys() {
+            anyhow::ensure!(
+                self.controls.contains_key(key),
+                "captured overlay exact-version control is missing"
+            );
+        }
+        let mut highest_active = BTreeMap::new();
+        for (key, control) in &self.controls {
+            anyhow::ensure!(
+                control.source_present == self.registry.sources.contains_key(key),
+                "captured overlay source-presence evidence disagrees"
+            );
+            let (kind, id, _) = key;
+            if kind == "persona" {
+                continue;
+            }
+            if let Some(previous) = highest_active.insert(
+                (kind.clone(), id.clone()),
+                control.highest_active_version,
+            ) {
+                anyhow::ensure!(
+                    previous == control.highest_active_version,
+                    "captured overlay highest-version controls disagree"
+                );
+            }
+        }
+        CapturedVersionAdmission::from_captured(
+            self.registry.clone(),
+            self.learned.clone(),
+            highest_active,
+        )?
+        .evaluate()
+    }
 }
 
 pub(crate) struct CapturedCurrentState {
