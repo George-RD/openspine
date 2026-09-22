@@ -69,10 +69,9 @@ impl CapturedOverlayState {
             if kind == "persona" {
                 continue;
             }
-            if let Some(previous) = highest_active.insert(
-                (kind.clone(), id.clone()),
-                control.highest_active_version,
-            ) {
+            if let Some(previous) =
+                highest_active.insert((kind.clone(), id.clone()), control.highest_active_version)
+            {
                 anyhow::ensure!(
                     previous == control.highest_active_version,
                     "captured overlay highest-version controls disagree"
