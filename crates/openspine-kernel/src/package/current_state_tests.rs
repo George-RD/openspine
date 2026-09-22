@@ -200,3 +200,6 @@ fn captured_overlay_controls_do_not_adopt_later_activation() {
         Some(1)
     );
 }
+
+#[path = "current_state_version_tests.rs"]
+mod version_tests;
