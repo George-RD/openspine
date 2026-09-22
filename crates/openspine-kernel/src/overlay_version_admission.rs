@@ -53,6 +53,28 @@ impl CapturedVersionAdmission {
             // Keep absence explicit: a later activation cannot fill it in.
             highest_active.insert((kind, id), highest);
         }
+        Self::from_captured(registry, learned, highest_active)
+    }
+
+    /// Reuse already captured controls without consulting a later Store state.
+    /// Every non-persona source needs an explicit highest-version entry; None
+    /// means captured absence, whereas a missing entry is damaged evidence.
+    /// Personas use their separate provenance admission, not proposal controls.
+    pub(crate) fn from_captured(
+        registry: ArtifactRegistry,
+        learned: Vec<LearnedArtifact>,
+        highest_active: BTreeMap<(String, String), Option<u32>>,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            highest_active.keys().all(|(kind, _)| kind != "persona"),
+            "persona version admission must use captured provenance"
+        );
+        for (kind, id, _) in registry.sources.keys().filter(|(kind, _, _)| kind != "persona") {
+            anyhow::ensure!(
+                highest_active.contains_key(&(kind.clone(), id.clone())),
+                "captured overlay highest-version control is missing"
+            );
+        }
         Ok(Self {
             registry,
             learned,
