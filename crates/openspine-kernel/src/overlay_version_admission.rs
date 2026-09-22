@@ -69,7 +69,11 @@ impl CapturedVersionAdmission {
             highest_active.keys().all(|(kind, _)| kind != "persona"),
             "persona version admission must use captured provenance"
         );
-        for (kind, id, _) in registry.sources.keys().filter(|(kind, _, _)| kind != "persona") {
+        for (kind, id, _) in registry
+            .sources
+            .keys()
+            .filter(|(kind, _, _)| kind != "persona")
+        {
             anyhow::ensure!(
                 highest_active.contains_key(&(kind.clone(), id.clone())),
                 "captured overlay highest-version control is missing"
