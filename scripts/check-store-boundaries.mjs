@@ -53,6 +53,11 @@ function lexicalView(source) {
         } else if (escape === 'x' && /^[0-9a-f]{2}/i.test(source.slice(end))) {
           value += String.fromCharCode(parseInt(source.slice(end, end + 2), 16));
           end += 2;
+        } else if (escape === 'u') {
+          const unicode = /^\{([0-9a-f_]+)\}/i.exec(source.slice(end));
+          if (!unicode) throw new Error('invalid Unicode string escape');
+          value += String.fromCodePoint(parseInt(unicode[1].replaceAll('_', ''), 16));
+          end += unicode[0].length;
         } else {
           value += ({ n: '\n', r: '\r', t: '\t', '"': '"', '\\': '\\' })[escape] ?? escape;
         }
@@ -120,7 +125,7 @@ function transactionOffenses(path, { code, strings }) {
     /\b(?:Transaction|Savepoint)\s*(?:::\s*<[^;{}]*>)?\s*::\s*(?:r#)?(?:new|with_name)\b/g,
     /<\s*(?:\w+\s*::\s*)*(?:Transaction|Savepoint)(?:\s*<[^;{}]*>)?\s*>\s*::\s*(?:r#)?(?:new|with_name)\b/g,
     /\b(?:Transaction|Savepoint)\s+as\s+\w+/g,
-    /\btype\s+\w+(?:\s*<[^;={}]*>)?\s*=\s*(?:\w+\s*::\s*)*(?:Transaction|Savepoint)\b/g,
+    /\btype\s+\w+(?:\s*<[^;={}]*>)?\s*=\s*(?:::\s*)?(?:\w+\s*::\s*)*(?:Transaction|Savepoint)\b/g,
   ]) {
     for (const match of code.matchAll(pattern)) {
       offenses.push({ index: match.index, reason: 'transaction constructor or type alias' });
