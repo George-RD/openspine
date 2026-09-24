@@ -192,14 +192,14 @@ fn view(
             if !rows.contains_key(key) {
                 blockers.push(consequence(key, "missing_provenance", vec![]));
             }
-            if overlay.sources.contains_key(key) {
-                if !overlay_compat::registry_entry_active_at(&overlay, &key.0, &key.1, key.2) {
-                    blockers.push(consequence(
-                        key,
-                        "active_source_lifecycle_disagrees",
-                        vec![],
-                    ));
-                }
+            if overlay.sources.contains_key(key)
+                && !overlay_compat::registry_entry_active_at(&overlay, &key.0, &key.1, key.2)
+            {
+                blockers.push(consequence(
+                    key,
+                    "active_source_lifecycle_disagrees",
+                    vec![],
+                ));
             }
         }
     }
