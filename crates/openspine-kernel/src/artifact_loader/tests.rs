@@ -140,6 +140,26 @@ fn kind_table_accepts_personas() {
 }
 
 #[test]
+fn standing_rule_registry_bookkeeping_survives_merge_and_exclusion() {
+    let yaml = "id: appointment_booking\nschema_version: 1\nversion: 2\nlifecycle_state: active\naction_id: calendar.book_appointment\ndescription: Approve appointment bookings\nquota: {max: 5, window_secs: 604800}\nrate: {max: 1, window_secs: 3600}\nexpires_after_secs: 7776000\n";
+    let mut overlay = ArtifactRegistry::default();
+    parse_proposal("standing_rule", yaml)
+        .unwrap()
+        .insert_into(&mut overlay)
+        .unwrap();
+    let identity = ("standing_rule".to_owned(), "appointment_booking".to_owned());
+    assert!(artifact_identity_pairs(&overlay).contains(&identity));
+    assert_eq!(artifact_version(&overlay, &identity.0, &identity.1), Some(2));
+
+    let mut merged = ArtifactRegistry::default();
+    merge_registry(&mut merged, overlay);
+    assert_eq!(artifact_version(&merged, &identity.0, &identity.1), Some(2));
+    exclude_identity_pairs(&mut merged, &HashSet::from([identity.clone()]));
+    assert_eq!(artifact_version(&merged, &identity.0, &identity.1), None);
+    assert!(!merged.standing_rules.contains_key(&identity.1));
+}
+
+#[test]
 fn generic_overlay_loader_excludes_persona_and_base_loader_rejects_fixture() {
     let dir = tempfile::tempdir().unwrap();
     let personas_dir = dir.path().join("personas");

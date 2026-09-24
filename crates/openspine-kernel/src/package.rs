@@ -36,6 +36,14 @@ pub(crate) mod install_types;
 mod object_fs;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod object_store;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod review_overlay;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+mod overlay_capture;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod review_report;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod review_semantics;
 mod validation;
 
 pub(super) const MAX_FILES: usize = 4096;
