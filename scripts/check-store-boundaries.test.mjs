@@ -48,6 +48,11 @@ const txCases = [
   ['unicode escaped BEGIN', String.raw`fn rogue() { conn.execute_batch("\u{42}EGIN IMMEDIATE;"); }`],
   ['commented SQL BEGIN', 'fn rogue() { conn.execute_batch(r#"/* start */ BEGIN;"#); }'],
   ['later statement BEGIN', 'fn rogue() { conn.execute_batch("SELECT 1; BEGIN EXCLUSIVE;"); }'],
+  ['quoted SQL line comment before BEGIN', `fn rogue() { conn.execute_batch("SELECT '--'; BEGIN IMMEDIATE; SELECT 1; COMMIT"); }`],
+  ['quoted SQL block comment before BEGIN', `fn rogue() { conn.execute_batch("SELECT '/*'; BEGIN; SELECT '*/'; COMMIT"); }`],
+  ['escaped SQL quote before BEGIN', `fn rogue() { conn.execute_batch("SELECT 'it''s --'; BEGIN IMMEDIATE;"); }`],
+  ['quoted SQL identifier before BEGIN', String.raw`fn rogue() { conn.execute_batch("SELECT \"--\"; BEGIN;"); }`],
+  ['quoted SAVEPOINT name', String.raw`fn rogue() { conn.execute_batch("SAVEPOINT \"--\";"); }`],
   ['raw SAVEPOINT', 'fn rogue() { conn.execute_batch("SAVEPOINT isolated;"); }'],
 ];
 for (const [label, source] of txCases) {
@@ -82,6 +87,11 @@ test('transaction guard ignores documentation and non-transaction SQL', () => {
 test('transaction guard ignores a direct expect diagnostic', () => {
   const result = run('check-store-encapsulation.sh', 'store/read.rs',
     'fn read() { operation().expect("begin"); operation().expect_err("begin"); }');
+  assert.equal(result.status, 0, result.output);
+});
+test('transaction guard ignores transaction words inside SQL quoted values and comments', () => {
+  const result = run('check-store-encapsulation.sh', 'store/read.rs',
+    `fn read() { conn.execute_batch("SELECT '; BEGIN;', '--', '/*'; -- BEGIN;\\n/* SAVEPOINT x; */ SELECT 1;"); }`);
   assert.equal(result.status, 0, result.output);
 });
 

@@ -108,6 +108,36 @@ const transactionBoundaries = {
   'store/learned_artifacts.rs': [['migrate_provenance_column', 'unchecked_transaction']],
 };
 
+// SQLite quotes and comments must be scanned together: a comment marker in a
+// quoted value is data, and a semicolon in that value is not a statement edge.
+function sqlCode(sql) {
+  let code = '';
+  let i = 0;
+  while (i < sql.length) {
+    if (sql.startsWith('--', i)) {
+      while (i < sql.length && sql[i] !== '\n' && sql[i] !== '\r') i++;
+      code += ' ';
+    } else if (sql.startsWith('/*', i)) {
+      const end = sql.indexOf('*/', i + 2);
+      i = end < 0 ? sql.length : end + 2;
+      code += ' ';
+    } else if (["'", '"', '`', '['].includes(sql[i])) {
+      const open = sql[i++];
+      const close = open === '[' ? ']' : open;
+      // Preserve the presence of an argument, e.g. SAVEPOINT "quoted name".
+      code += '?';
+      while (i < sql.length) {
+        if (sql[i++] !== close) continue;
+        if (open !== '[' && sql[i] === close) { i++; continue; }
+        break;
+      }
+    } else {
+      code += sql[i++];
+    }
+  }
+  return code;
+}
+
 function transactionOffenses(path, { code, strings }) {
   const allowed = (transactionBoundaries[path] ?? []).flatMap(([name, api]) =>
     functionRanges(code, name).map((range) => ({ ...range, api })));
@@ -135,7 +165,7 @@ function transactionOffenses(path, { code, strings }) {
     // A direct Result diagnostic is never the SQL argument. In particular,
     // `.expect("begin")` occurs in unrelated OAuth tests.
     if (/\.\s*(?:expect|expect_err)\s*\(\s*$/.test(code.slice(0, literal.index))) continue;
-    const sql = literal.value.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\r\n]*/g, ' ');
+    const sql = sqlCode(literal.value);
     if (/(?:^|;)\s*(?:BEGIN(?:\s+(?:DEFERRED|IMMEDIATE|EXCLUSIVE))?(?:\s+TRANSACTION)?\s*(?:;|$)|SAVEPOINT\s+\S)/i.test(sql)) {
       offenses.push({ index: literal.index, reason: 'literal SQL transaction opening' });
     }
