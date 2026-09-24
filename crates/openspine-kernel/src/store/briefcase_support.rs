@@ -5,12 +5,30 @@
 use jiff::Timestamp;
 use openspine_schemas::action::{ActionId, GateDecision};
 use openspine_schemas::artifact::ArtifactRef;
-use openspine_schemas::briefcase::{Briefcase, LearnedSource, WorkerVisibility};
+use openspine_schemas::briefcase::{Briefcase, LearnedSource, SectionKind, WorkerVisibility};
 use openspine_schemas::grant::TaskGrant;
+use openspine_schemas::provenance::ProvenanceOrigin;
 use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
 use super::{Store, StoreError};
+
+/// #251 and current packs both use schema 1, but the former stamped owner
+/// sections as System. Those labels are not evidence of a system source and
+/// cannot safely be rewritten into a guessed owner identity. Refuse every
+/// read/mutation entry before the legacy context can reach a worker or egress.
+fn decode_briefcase(json: &str) -> Result<Briefcase, StoreError> {
+    let briefcase: Briefcase = serde_json::from_str(json)?;
+    if briefcase.sections.iter().any(|section| {
+        matches!(
+            section.kind,
+            SectionKind::Grant | SectionKind::Preference | SectionKind::Skill
+        ) && matches!(section.origin, Some(ProvenanceOrigin::System {}))
+    }) {
+        return Err(StoreError::LegacyBriefcaseProvenance);
+    }
+    Ok(briefcase)
+}
 
 pub(super) fn ensure_schema(conn: &rusqlite::Connection) -> Result<(), StoreError> {
     conn.execute_batch(
@@ -124,8 +142,7 @@ impl Store {
                 |row| row.get(0),
             )
             .optional()?;
-        json.map(|value| serde_json::from_str(&value).map_err(StoreError::from))
-            .transpose()
+        json.map(|value| decode_briefcase(&value)).transpose()
     }
 
     /// Return the independently minted worker identity for a grant, creating
@@ -190,7 +207,7 @@ impl Store {
                 params![task_grant_id.to_string()],
                 |row| row.get(0),
             )?;
-            let mut briefcase: Briefcase = serde_json::from_str(&json)?;
+            let mut briefcase = decode_briefcase(&json)?;
             let result = match mutate(&mut briefcase) {
                 Ok(res) => res,
                 Err(err) => {
@@ -244,7 +261,7 @@ impl Store {
                 params![task_grant_id.to_string()],
                 |row| row.get(0),
             )?;
-            let mut briefcase: Briefcase = serde_json::from_str(&json)?;
+            let mut briefcase = decode_briefcase(&json)?;
             let (value, audit) = match mutate(&mut briefcase) {
                 Ok(res) => res,
                 Err(err) => {

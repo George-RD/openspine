@@ -210,6 +210,8 @@ pub enum StoreError {
     NotOwner(String),
     #[error("inconsistent artifact lineage: {0}")]
     InconsistentLineage(String),
+    #[error("stored briefcase has legacy owner provenance; compose a new task")]
+    LegacyBriefcaseProvenance,
     #[error("timestamp out of representable range: {0}")]
     TimestampRange(String),
     #[error("invalid audit kind: {0}")]
@@ -838,6 +840,8 @@ mod audited_effect;
 pub use audited_effect::AuditDescriptor;
 pub(crate) mod boot_clock;
 pub(crate) use boot_clock::BootClockCheck;
+#[cfg(test)]
+mod briefcase_legacy_provenance_tests;
 pub(crate) mod briefcase_support;
 #[cfg(test)]
 mod briefcase_support_tests;

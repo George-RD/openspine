@@ -18,6 +18,26 @@ Neither target is a security boundary. The NixOS module is packaging and supervi
 
 ## First-run and restart sequence
 
+### In-flight briefcases across provenance upgrades (#220)
+
+The intermediate provenance implementation (#251) wrote schema-1 briefcases
+whose owner grant, preferences, and skills carried a `System` placeholder.
+Current packs use the owner's typed `PrincipalId`, but still use schema 1, so
+the version number alone cannot distinguish these records. A placeholder is
+not evidence that the owner's content was system-generated.
+
+The kernel refuses to load or mutate a briefcase containing those placeholders.
+Worker projections, top-ups, and rated egress stop with
+`stored briefcase has legacy owner provenance; compose a new task`. Existing
+briefcase bytes and provenance remain unchanged; restart does not repair them.
+Compose a new task through the normal authenticated owner flow so the current
+packer derives labels from trusted sources. Do not relabel the old JSON or
+replay a potentially completed external effect as an upgrade recovery step.
+Older sections with an absent origin retain their existing fail-closed rated
+egress behavior and likewise need fresh context.
+
+### Startup
+
 Run these steps in order; each boundary is retryable only as described:
 
 1. **Load config and artifact key.** A missing or invalid config/key is a pre-store failure. Fix the inputs and retry; no database mutation is attempted.

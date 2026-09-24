@@ -146,6 +146,62 @@ async fn owner_origin_blocked_from_a_counterparty_recipient() {
     );
 }
 
+/// The intermediate schema-1 pack used System for owner context. Even an
+/// already-prepared System-labelled request must not use that legacy pack to
+/// bypass the strict closure after upgrade.
+#[tokio::test]
+async fn legacy_system_owner_briefcase_blocks_shared_egress_before_reservation() {
+    use openspine_schemas::briefcase::{BriefcaseSection, SectionKind, VisibilityClass};
+    let telegram = wiremock::MockServer::start().await;
+    let state = test_state_with_telegram(crate::telegram::TelegramConnector::with_api_url(
+        "legacy-test-token".into(),
+        telegram.uri().parse().unwrap(),
+    ));
+    let mut grant = seed(&state).await;
+    narrow_to(&mut grant, vec![]);
+    let mut briefcase = state.store.find_briefcase(grant.id).unwrap().unwrap();
+    briefcase.sections.push(BriefcaseSection {
+        key: "preference:legacy".into(),
+        kind: SectionKind::Preference,
+        visibility: VisibilityClass::WorkerScratch,
+        depth: 1,
+        disclosure_class: Some(DisclosureClass::Internal),
+        origin: Some(ProvenanceOrigin::System {}),
+        payload: serde_json::json!({"owner_context": "internal"}),
+    });
+    state.store.update_briefcase(grant.id, &briefcase).unwrap();
+    let action = action_for_scope(
+        DisclosurePolicyKey {
+            relationship: RelationshipKind::Client,
+            disclosure_class: DisclosureClass::Internal,
+        },
+        EgressClass::Search,
+    );
+    let rule = state
+        .store
+        .active_standing_rule_for_action(&action, Timestamp::now())
+        .unwrap()
+        .unwrap();
+    let before = state
+        .store
+        .standing_rule_remaining(&rule.rule_id, Timestamp::now())
+        .unwrap();
+    let result =
+        enforce_disclosure_egress(&state, &grant, request(ProvenanceOrigin::System {})).await;
+    assert!(
+        matches!(result, Err(DisclosureError::Store(_))),
+        "ambiguous owner provenance must block"
+    );
+    assert_eq!(
+        state
+            .store
+            .standing_rule_remaining(&rule.rule_id, Timestamp::now())
+            .unwrap(),
+        before
+    );
+    assert!(telegram.received_requests().await.unwrap().is_empty());
+}
+
 /// A counterparty's own datum reaches that same bound counterparty recipient.
 #[tokio::test]
 async fn counterparty_origin_reaches_its_own_recipient() {
