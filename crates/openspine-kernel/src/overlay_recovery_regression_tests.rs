@@ -11,6 +11,35 @@ use tempfile::tempdir;
 use ulid::Ulid;
 
 #[test]
+fn version_admission_removes_an_inactive_standing_rule_from_the_typed_registry() {
+    let yaml = "id: appointment_booking\nschema_version: 1\nversion: 1\nlifecycle_state: active\naction_id: calendar.book_appointment\ndescription: Approve appointment bookings\nquota: {max: 5, window_secs: 604800}\nrate: {max: 1, window_secs: 3600}\nexpires_after_secs: 7776000\n";
+    let mut registry = crate::artifact_loader::ArtifactRegistry::default();
+    crate::artifact_loader::parse_proposal("standing_rule", yaml)
+        .unwrap()
+        .insert_into(&mut registry)
+        .unwrap();
+    registry.sources.insert(
+        ("standing_rule".into(), "appointment_booking".into(), 1),
+        crate::artifact_loader::ArtifactSource {
+            path: "standing_rules/captured.yaml".into(),
+            bytes: yaml.as_bytes().to_vec(),
+        },
+    );
+    let captured = super::version_admission::CapturedVersionAdmission::from_captured(
+        registry,
+        Vec::new(),
+        std::collections::BTreeMap::from([(
+            ("standing_rule".into(), "appointment_booking".into()),
+            None,
+        )]),
+    )
+    .unwrap();
+    let admitted = captured.evaluate().unwrap();
+    assert!(admitted.registry.standing_rules.is_empty());
+    assert!(admitted.registry.sources.is_empty());
+}
+
+#[test]
 fn highest_active_prunes_stale_loaded_lower_version() {
     let (store, artifacts, data_dir, overlay_dir) = fixture();
     let lyra_dir = tempdir().unwrap().keep();

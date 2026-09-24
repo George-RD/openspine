@@ -254,6 +254,12 @@ fn remove_loaded_version(registry: &mut ArtifactRegistry, kind: &str, id: &str, 
         "model_swap" => registry
             .model_swaps
             .retain(|k, m| !(k == id && m.version == version)),
+        "standing_rule" => registry
+            .standing_rules
+            .retain(|k, r| !(k == id && r.version == version)),
+        "persona" => registry
+            .personas
+            .retain(|k, p| !(k == id && p.version == version)),
         _ => {}
     }
 }

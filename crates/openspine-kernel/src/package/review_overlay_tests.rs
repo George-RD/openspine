@@ -21,6 +21,10 @@ fn state() -> CapturedCurrentState {
         base_artifact_ids: ids,
         base: CapturedCurrentBase {
             configured_path: "/not-a-live-input".into(),
+            declaration: serde_yaml::from_str(include_str!(
+                "../../../../artifacts/lyra/package.yaml"
+            ))
+            .unwrap(),
             identity: PackageIdentity {
                 package_id: "test".into(),
                 revision: 1,
@@ -34,6 +38,8 @@ fn state() -> CapturedCurrentState {
             registry: ArtifactRegistry::default(),
             learned: Vec::new(),
             controls: BTreeMap::new(),
+            source_inventory_digest: digest_of_bytes(b"test-overlay-inventory"),
+            ignored_persona_files: Vec::new(),
             persona_findings: PersonaProvenanceFindings {
                 expected_digests: BTreeMap::new(),
                 excluded: BTreeMap::new(),
@@ -82,6 +88,7 @@ fn overlay(current: &mut CapturedCurrentState, kind: &str, id: &str, yaml: &str)
         CapturedOverlayControl {
             lifecycle: Some(Lifecycle::Active),
             highest_active_version: Some(1),
+            approved_yaml_digest: Some(digest_of_bytes(yaml.as_bytes()).to_string()),
             source_present: true,
             recoverable_blob_present: true,
         },
@@ -144,6 +151,7 @@ fn captured_overlay_review_missing_highest_source_blocks_even_if_blob_recoverabl
         CapturedOverlayControl {
             lifecycle: Some(Lifecycle::Active),
             highest_active_version: Some(2),
+            approved_yaml_digest: None,
             source_present: false,
             recoverable_blob_present: true,
         },
@@ -242,4 +250,69 @@ fn captured_overlay_review_rejects_duplicate_provenance_and_missing_control() {
     current.overlay.learned.pop();
     current.overlay.controls.clear();
     assert!(assess(&current, &current.base.registry).is_err());
+}
+
+#[test]
+fn captured_overlay_review_accepts_committed_activation_serialization() {
+    let reviewed = route("r").replace("lifecycle_state: active", "lifecycle_state: proposed");
+    let mut parsed = artifact_loader::parse_proposal("route", &reviewed).unwrap();
+    parsed.activate();
+    let published = parsed.to_yaml().unwrap();
+    let mut current = state();
+    overlay(&mut current, "route", "r", &published);
+    let key = ("route".into(), "r".into(), 1);
+    current
+        .overlay
+        .controls
+        .get_mut(&key)
+        .unwrap()
+        .approved_yaml_digest = Some(digest_of_bytes(reviewed.as_bytes()).to_string());
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.blockers.is_empty(), "{:#?}", result.blockers);
+    assert_eq!(result.after.effective_artifacts, vec![key]);
+}
+
+#[test]
+fn captured_overlay_review_reports_inactive_persona_lifecycle() {
+    let mut current = state();
+    let yaml = "id: persona\nschema_version: 1\nversion: 1\nlifecycle_state: retired\nguidance: old guidance\n";
+    overlay(&mut current, "persona", "persona", yaml);
+    current.overlay.learned[0].provenance = Provenance::ProducedBy {
+        source_event_id: ulid::Ulid::from(1_u128),
+        source_exchange: openspine_schemas::artifact::ArtifactRef {
+            digest: digest_of_bytes(b"captured exchange"),
+            schema_version: 1,
+        },
+        source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
+    };
+    current.overlay.persona_findings.expected_digests.insert(
+        ("persona".into(), 1),
+        digest_of_bytes(yaml.as_bytes()).to_string(),
+    );
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.after.effective_artifacts.is_empty());
+    assert!(reasons(&result.after, "persona").contains(&"inactive_lifecycle"));
+}
+
+#[test]
+fn captured_overlay_review_blocks_unresolved_typed_semantics() {
+    let mut current = state();
+    let workflow = "id: w\nschema_version: 1\nversion: 1\nlifecycle_state: active\npurpose: p\nrequired_agent: missing\nrequired_capability_pack: missing\nstates:\n- id: waiting\n  approval: required\n";
+    overlay(&mut current, "workflow", "w", workflow);
+    overlay(
+        &mut current,
+        "route",
+        "r",
+        &(route("r") + "when:\n  actor:\n    identity_confidence_min: .nan\n"),
+    );
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result
+        .blockers
+        .iter()
+        .any(|item| item.artifact_id == "w" && item.reason == "invalid-workflow-semantics"));
+    assert!(result
+        .blockers
+        .iter()
+        .any(|item| item.artifact_id == "r" && item.reason == "unrenderable-typed-value"));
+    assert!(result.after.effective_artifacts.is_empty());
 }

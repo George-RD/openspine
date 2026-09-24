@@ -30,7 +30,6 @@ impl Fixture {
             .arg("--config")
             .arg(self.root.path().join("openspine.yaml"))
             .args(args)
-            .env("HOME", self.root.path())
             .env_remove("OPENSPINE_ARTIFACT_KEY")
             .env_remove("OPENSPINE_GRANT_HMAC_KEY")
             .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")

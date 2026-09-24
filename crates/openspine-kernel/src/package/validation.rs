@@ -23,20 +23,7 @@ pub(super) fn validate(
         .ok_or(InspectionError::DeclarationMissing)?;
     let declaration: PackageDeclaration =
         serde_yaml::from_slice(bytes).map_err(|_| InspectionError::DeclarationInvalid)?;
-    let staging = tempfile::tempdir().map_err(|_| InspectionError::StagingUnavailable)?;
-    for (path, bytes) in files {
-        let destination = staging.path().join(path);
-        let parent = destination
-            .parent()
-            .ok_or(InspectionError::StagingUnavailable)?;
-        fs::create_dir_all(parent).map_err(|_| InspectionError::StagingUnavailable)?;
-        OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(destination)
-            .and_then(|mut file| file.write_all(bytes))
-            .map_err(|_| InspectionError::StagingUnavailable)?;
-    }
+    let staging = stage_captured(files)?;
     let registry = load_base_registry(staging.path()).map_err(|error| match error {
         ArtifactLoadError::Collision { .. } => InspectionError::ArtifactCollision,
         ArtifactLoadError::Read { .. } => InspectionError::StagingUnavailable,
@@ -92,6 +79,33 @@ pub(super) fn validate(
         declaration,
         registry,
     })
+}
+
+/// A private loader tree from paths and bytes supplied by the bounded capture.
+/// Neither caller may pass a live source path or arbitrary unvalidated names.
+pub(super) fn stage_captured(
+    files: &BTreeMap<String, Vec<u8>>,
+) -> Result<tempfile::TempDir, InspectionError> {
+    let staging = tempfile::tempdir().map_err(|_| InspectionError::StagingUnavailable)?;
+    for (path, bytes) in files {
+        let destination = staging.path().join(path);
+        let parent = destination
+            .parent()
+            .ok_or(InspectionError::StagingUnavailable)?;
+        fs::create_dir_all(parent).map_err(|_| InspectionError::StagingUnavailable)?;
+        let mut options = OpenOptions::new();
+        options.create_new(true).write(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        options
+            .open(destination)
+            .and_then(|mut file| file.write_all(bytes))
+            .map_err(|_| InspectionError::StagingUnavailable)?;
+    }
+    Ok(staging)
 }
 
 fn check(declared: &[String], actual: impl Iterator<Item = String>) -> Result<(), InspectionError> {

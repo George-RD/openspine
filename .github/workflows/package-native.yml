@@ -42,7 +42,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Exercise native package inspection, installation and dependencies
         run: |
-          cargo test -p openspine-kernel --test package_inspect_cli --test package_install_cli
+          cargo test -p openspine-kernel --test package_inspect_cli --test package_install_cli --test package_review_cli
           cargo test -p openspine-kernel package::
           cargo test -p openspine-kernel store::package_install_tests::
           cargo test -p openspine-kernel --bin openspine store::package_install::outstanding_work::
@@ -66,7 +66,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Exercise installation, capture and dependencies with production debug hooks disabled
         run: |
-          cargo test --release -p openspine-kernel --test package_install_cli
+          cargo test --release -p openspine-kernel --test package_install_cli --test package_review_cli
           cargo test --release -p openspine-kernel --bin openspine package::
           cargo test --release -p openspine-kernel --bin openspine store::package_install::outstanding_work::
           cargo test --release -p openspine-kernel --bin openspine store::event_bus::

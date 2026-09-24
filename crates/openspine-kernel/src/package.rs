@@ -37,9 +37,9 @@ mod object_fs;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod object_store;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-pub(crate) mod review_overlay;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod overlay_capture;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod review_overlay;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod review_report;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -115,7 +115,7 @@ impl PackageCapture {
             inventory_format_version: INVENTORY_FORMAT_VERSION,
             valid: true,
             provenance: "local-unverified",
-            package_id: declaration.id,
+            package_id: declaration.id.clone(),
             revision: declaration.version,
             content_digest: self.content_digest,
             inventory: self.inventory,
@@ -123,6 +123,7 @@ impl PackageCapture {
         Ok(PackageSnapshot {
             files: self.files,
             report,
+            declaration,
             registry: validated.registry,
         })
     }
@@ -131,10 +132,16 @@ impl PackageCapture {
 pub(crate) struct PackageSnapshot {
     files: BTreeMap<String, Vec<u8>>,
     report: InspectionReport,
+    declaration: openspine_schemas::package::PackageDeclaration,
     registry: ArtifactRegistry,
 }
 
 impl PackageSnapshot {
+    /// Typed declaration validated from the same captured bytes as the registry.
+    pub(crate) fn declaration(&self) -> &openspine_schemas::package::PackageDeclaration {
+        &self.declaration
+    }
+
     /// Bind package metadata, manifest bytes and complete inventory to one identity.
     /// This is a local integrity identity, not publisher or activation approval.
     pub(crate) fn identity(&self) -> install_types::PackageIdentity {

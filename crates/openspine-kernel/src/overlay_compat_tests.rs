@@ -58,6 +58,49 @@ fn dangling_learned_route_is_orphaned_and_excluded() {
 }
 
 #[test]
+fn reconfirmation_excludes_only_active_versions_for_every_supported_family() {
+    let fixtures = [
+        ("model_swap", "id: base\nversion: 1\nlifecycle_state: active\nrole: base\ntarget_provider_id: test-provider\ngolden_set_id: model_swap_default\ngolden_set_result: null\n"),
+        ("standing_rule", "id: base\nschema_version: 1\nversion: 1\nlifecycle_state: active\naction_id: calendar.book_appointment\ndescription: Approve appointment bookings\nquota: {max: 5, window_secs: 604800}\nrate: {max: 1, window_secs: 3600}\nexpires_after_secs: 7776000\n"),
+        ("persona", "id: base\nschema_version: 1\nversion: 1\nlifecycle_state: active\nguidance: Present a compact decision brief\n"),
+        ("template", "id: base\nschema_version: 1\nversion: 1\nlifecycle_state: active\nsystem_preamble: Present a compact decision brief\n"),
+    ];
+    for (kind, yaml) in fixtures {
+        for active in [true, false] {
+            let yaml = if active {
+                yaml.to_owned()
+            } else {
+                yaml.replace("lifecycle_state: active", "lifecycle_state: retired")
+            };
+            let mut registry = ArtifactRegistry::default();
+            if kind == "template" {
+                registry
+                    .templates
+                    .insert("base".into(), serde_yaml::from_str(&yaml).unwrap());
+            } else {
+                crate::artifact_loader::parse_proposal(kind, &yaml)
+                    .unwrap()
+                    .insert_into(&mut registry)
+                    .unwrap();
+            }
+            let mut row = learned(kind, "base");
+            row.compatibility = CompatibilityStatus::ReconfirmationRequired;
+            let (excluded, _) = apply_compatibility(&mut registry, &[row]);
+            assert_eq!(
+                excluded.len(),
+                usize::from(active),
+                "{kind}, active={active}"
+            );
+            assert_eq!(
+                crate::artifact_loader::artifact_version(&registry, kind, "base"),
+                (!active).then_some(1),
+                "{kind}, active={active}"
+            );
+        }
+    }
+}
+
+#[test]
 fn reconfirm_request_reuses_unchanged_and_rotates_changed_payload() {
     let store = crate::store::Store::open_in_memory().unwrap();
     let request_id = Ulid::new();

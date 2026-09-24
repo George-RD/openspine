@@ -15,6 +15,50 @@ use std::path::{Path, PathBuf};
 use super::{InspectionError as Error, FAMILIES, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES};
 
 pub(super) fn capture(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    capture_layout(directory, Layout::Package)
+}
+
+/// Overlay review uses the same protected filesystem capture with its exact
+/// existing family layout. No package declaration or documentation is implied.
+pub(super) fn capture_overlay(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    capture_layout(directory, Layout::Overlay)
+}
+
+#[derive(Clone, Copy)]
+enum Layout {
+    Package,
+    Overlay,
+}
+
+impl Layout {
+    fn families(self) -> &'static [&'static str] {
+        match self {
+            Self::Package => &FAMILIES,
+            Self::Overlay => &[
+                "agents",
+                "routes",
+                "workflows",
+                "packs",
+                "templates",
+                "policies",
+                "golden_sets",
+                "model_swaps",
+                "standing_rules",
+                "personas",
+            ],
+        }
+    }
+
+    fn documents(self) -> bool {
+        matches!(self, Self::Package)
+    }
+
+    fn name(self, name: &str) -> bool {
+        portable_name(name) || (matches!(self, Self::Overlay) && generated_overlay_name(name))
+    }
+}
+
+fn capture_layout(directory: &Path, layout: Layout) -> Result<BTreeMap<String, Vec<u8>>, Error> {
     // Trailing '/' or '/.' otherwise makes the OS follow a final symlink even
     // with O_NOFOLLOW. Remove redundant components without resolving '..'.
     let directory: PathBuf = directory.components().collect();
@@ -24,7 +68,7 @@ pub(super) fn capture(directory: &Path) -> Result<BTreeMap<String, Vec<u8>>, Err
     let root = open_root(&directory)?;
     let metadata = root.metadata().map_err(|_| Error::SourceUnavailable)?;
     check_metadata(&metadata, &open_root(&resolved)?)?;
-    let files = capture_opened(&root)?;
+    let files = capture_opened_layout(&root, layout)?;
     // A stable ancestor alias is allowed, but retargeting it is not. Comparing
     // only root inodes misses an alias retargeted to the same moved directory.
     if directory
@@ -47,20 +91,29 @@ fn open_root(directory: &Path) -> Result<File, Error> {
 }
 
 pub(super) fn capture_opened(root: &File) -> Result<BTreeMap<String, Vec<u8>>, Error> {
+    capture_opened_layout(root, Layout::Package)
+}
+
+fn capture_opened_layout(root: &File, layout: Layout) -> Result<BTreeMap<String, Vec<u8>>, Error> {
     let mut capture = Capture {
         files: BTreeMap::new(),
         aliases: BTreeSet::new(),
         total_bytes: 0,
-        remaining_entries: MAX_FILES + FAMILIES.len() + 1,
+        remaining_entries: MAX_FILES + layout.families().len() + usize::from(layout.documents()),
     };
     // Independent directory cursor: fdopendir's duplicate shares its offset.
-    let root = DirectoryCapture::new(open_at(root, ".", true)?, &mut capture.remaining_entries)?;
+    let root = DirectoryCapture::new(
+        open_at(root, ".", true)?,
+        &mut capture.remaining_entries,
+        layout,
+    )?;
     let mut directories = Vec::new();
     for name in &root.entries {
-        if FAMILIES.contains(&name.as_str()) || name == "docs" {
+        if layout.families().contains(&name.as_str()) || (layout.documents() && name == "docs") {
             let child = DirectoryCapture::new(
                 open_at(&root.file, name, true)?,
                 &mut capture.remaining_entries,
+                layout,
             )?;
             for file in &child.entries {
                 if name == "docs" {
@@ -75,10 +128,10 @@ pub(super) fn capture_opened(root: &File) -> Result<BTreeMap<String, Vec<u8>>, E
                 }
                 capture.file(&child.file, file, format!("{name}/{file}"))?;
             }
-            // At most eight family/document directories, not one fd per file.
+            // Bounded family/document directories, not one fd per file.
             directories.push((name, child));
         } else {
-            if name != "package.yaml" && !is_document(name) {
+            if !layout.documents() || (name != "package.yaml" && !is_document(name)) {
                 return Err(Error::UnsupportedPayload);
             }
             capture.file(&root.file, name, name.clone())?;
@@ -95,16 +148,18 @@ struct DirectoryCapture {
     file: File,
     metadata: Metadata,
     entries: Vec<String>,
+    layout: Layout,
 }
 
 impl DirectoryCapture {
-    fn new(file: File, remaining: &mut usize) -> Result<Self, Error> {
+    fn new(file: File, remaining: &mut usize, layout: Layout) -> Result<Self, Error> {
         let metadata = file.metadata().map_err(|_| Error::SourceUnavailable)?;
-        let entries = names(&file, remaining)?;
+        let entries = names_for_layout(&file, remaining, layout)?;
         Ok(Self {
             file,
             metadata,
             entries,
+            layout,
         })
     }
 
@@ -114,7 +169,10 @@ impl DirectoryCapture {
         // missing entry is a source change, not a partially accepted inventory.
         let cursor = open_at(anchored, ".", true)?;
         let mut remaining = self.entries.len();
-        if names(&cursor, &mut remaining).map_err(|_| Error::SourceUnavailable)? != self.entries {
+        if names_for_layout(&cursor, &mut remaining, self.layout)
+            .map_err(|_| Error::SourceUnavailable)?
+            != self.entries
+        {
             return Err(Error::SourceUnavailable);
         }
         check_metadata(&self.metadata, anchored)
@@ -223,6 +281,26 @@ fn portable_name(name: &str) -> bool {
             && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
+/// Activation's existing overlay_filename includes the digest's `sha256:`
+/// prefix. Permit that exact bounded form for overlays only; package sources
+/// retain their portable-name contract and arbitrary colon paths stay refused.
+fn generated_overlay_name(name: &str) -> bool {
+    let Some((digest, version)) = name
+        .strip_prefix("sha256:")
+        .and_then(|value| value.strip_suffix(".yaml"))
+        .and_then(|value| value.split_once("-v"))
+    else {
+        return false;
+    };
+    digest.len() == 64
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        && version
+            .parse::<u32>()
+            .is_ok_and(|parsed| parsed > 0 && parsed.to_string() == version)
+}
+
 pub(super) fn open_at(parent: &File, name: &str, directory: bool) -> Result<File, Error> {
     let name = CString::new(name).map_err(|_| Error::InvalidPath)?;
     let flags = libc::O_RDONLY
@@ -253,6 +331,14 @@ impl Drop for DirectoryStream {
 }
 
 pub(super) fn names(parent: &File, remaining: &mut usize) -> Result<Vec<String>, Error> {
+    names_for_layout(parent, remaining, Layout::Package)
+}
+
+fn names_for_layout(
+    parent: &File,
+    remaining: &mut usize,
+    layout: Layout,
+) -> Result<Vec<String>, Error> {
     // fdopendir takes ownership. Duplicate without leaking across exec.
     // SAFETY: parent is live; fcntl creates an independent owned descriptor.
     let duplicate = unsafe { libc::fcntl(parent.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 0) };
@@ -295,7 +381,7 @@ pub(super) fn names(parent: &File, remaining: &mut usize) -> Result<Vec<String>,
             return Err(Error::LimitExceeded);
         }
         *remaining -= 1;
-        if !portable_name(name) {
+        if !layout.name(name) {
             return Err(Error::InvalidPath);
         }
         names.push(name.to_owned());

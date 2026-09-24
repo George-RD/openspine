@@ -6,6 +6,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+#[path = "package_review/guardrails.rs"]
+mod guardrails;
 #[path = "package_review/support.rs"]
 mod support;
 use support::{assert_success, database_rows, files, Fixture};
@@ -40,6 +42,14 @@ fn review_uses_retained_candidate_and_actual_legacy_base_without_runtime() {
     let fixture = Fixture::new();
     let installed = fixture.install();
     fs::remove_dir_all(fixture.root.path().join("candidate")).unwrap();
+    fs::write(
+        fixture.root.path().join("artifacts/lyra/README.md"),
+        "configured-source-sentinel\n",
+    )
+    .unwrap();
+    let inspection = fixture.run(&["package", "inspect", "artifacts/lyra", "--json"]);
+    assert_success(&inspection);
+    let configured: Value = serde_json::from_slice(&inspection.stdout).unwrap();
     let output = fixture
         .review_command(&installed)
         // Tokio rejects zero threads if a runtime is constructed.
@@ -54,6 +64,10 @@ fn review_uses_retained_candidate_and_actual_legacy_base_without_runtime() {
     assert_eq!(report["activation_supported"], false);
     assert_eq!(report["source"]["mode"], "legacy-configured");
     assert_eq!(
+        report["source"]["identity"]["content_digest"],
+        configured["content_digest"]
+    );
+    assert_ne!(
         report["source"]["identity"]["content_digest"],
         installed["receipt"]["content_digest"]
     );
@@ -86,7 +100,11 @@ fn review_does_not_recover_erased_keys_or_remove_interrupted_key_writes() {
     let id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
     fs::write(keys.join(id), b"retained encrypted-key evidence").unwrap();
     fs::write(keys.join(format!("{id}.erased")), b"").unwrap();
-    fs::write(keys.join(format!("{id}.tmp.interrupted")), b"interrupted-key evidence").unwrap();
+    fs::write(
+        keys.join(format!("{id}.tmp.interrupted")),
+        b"interrupted-key evidence",
+    )
+    .unwrap();
     let before = files(&keys);
     fixture.review(&installed);
     assert_eq!(files(&keys), before);

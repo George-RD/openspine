@@ -149,7 +149,10 @@ fn standing_rule_registry_bookkeeping_survives_merge_and_exclusion() {
         .unwrap();
     let identity = ("standing_rule".to_owned(), "appointment_booking".to_owned());
     assert!(artifact_identity_pairs(&overlay).contains(&identity));
-    assert_eq!(artifact_version(&overlay, &identity.0, &identity.1), Some(2));
+    assert_eq!(
+        artifact_version(&overlay, &identity.0, &identity.1),
+        Some(2)
+    );
 
     let mut merged = ArtifactRegistry::default();
     merge_registry(&mut merged, overlay);

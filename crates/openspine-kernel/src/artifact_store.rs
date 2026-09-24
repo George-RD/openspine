@@ -122,6 +122,8 @@ pub struct ArtifactStore {
     fault_clear_upgrade_pending_sync: std::sync::atomic::AtomicBool,
 }
 
+mod read_only;
+
 impl ArtifactStore {
     pub fn open(root: PathBuf, master_key: [u8; 32]) -> Result<Self, ArtifactStoreError> {
         std::fs::create_dir_all(&root).map_err(|source| ArtifactStoreError::Io {
