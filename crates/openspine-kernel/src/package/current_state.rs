@@ -70,7 +70,7 @@ impl CapturedOverlayState {
                 "captured overlay source-presence evidence disagrees"
             );
             let (kind, id, _) = key;
-            if kind == "persona" {
+            if matches!(kind.as_str(), "persona" | "golden_set") {
                 continue;
             }
             if let Some(previous) =
@@ -82,12 +82,25 @@ impl CapturedOverlayState {
                 );
             }
         }
-        CapturedVersionAdmission::from_captured(
-            self.registry.clone(),
+        // Golden sets are unversioned fixtures that startup does not merge.
+        // Preserve their exact bytes for review without treating the loader's
+        // internal source-key sentinel as a proposal version to admit/prune.
+        let mut registry = self.registry.clone();
+        let fixture_sources: Vec<_> = registry
+            .sources
+            .iter()
+            .filter(|(key, _)| key.0 == "golden_set")
+            .map(|(key, source)| (key.clone(), source.clone()))
+            .collect();
+        registry.sources.retain(|key, _| key.0 != "golden_set");
+        let mut admitted = CapturedVersionAdmission::from_captured(
+            registry,
             self.learned.clone(),
             highest_active,
         )?
-        .evaluate()
+        .evaluate()?;
+        admitted.registry.sources.extend(fixture_sources);
+        Ok(admitted)
     }
 }
 

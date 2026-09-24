@@ -179,6 +179,79 @@ async fn typed_owner_principal_flows_from_composed_grant_through_gate_into_appro
         Some(grant.id),
         "the approval audit event is tied to the composed grant id"
     );
+    assert!(
+        plan_approval_reached_resolution(&state, &request),
+        "the typed owner proof must pass the gate and reach plan resolution"
+    );
+}
+
+fn plan_approval_reached_resolution(state: &AppState, request: &ActionRequest) -> bool {
+    let events: Vec<openspine_schemas::audit::AuditEvent> = state
+        .store
+        .all_audit_event_jsons()
+        .unwrap()
+        .into_iter()
+        .map(|json| serde_json::from_str::<openspine_schemas::audit::AuditEvent>(&json).unwrap())
+        .filter(|event| event.task_grant_id == Some(request.task_grant_id))
+        .collect();
+    // Approval and actor audit are persisted before gate() and therefore do
+    // not establish this outcome. Observe the handler that only Allow reaches.
+    events.iter().any(|event| {
+        event.kind.as_str() == "plan.resolved" && event.action.as_ref() == Some(&request.action)
+    }) && !events
+        .iter()
+        .any(|event| event.kind.as_str() == "plan.approval_gate_denied")
+}
+
+#[tokio::test]
+async fn typed_owner_approval_evidence_does_not_prove_resolution_after_gate_denial() {
+    let (mut state, _telegram_server, request) = proposed_plan_fixture().await;
+    // Model a retained plan whose action is no longer recognized by this
+    // runtime. The real composed grant and verified owner binding stay intact.
+    state.action_catalog = openspine_schemas::action::ActionCatalog::default();
+    crate::pipeline::plan_approval::handle_plan_approval_callback(
+        &state,
+        &crate::test_support::owner_surface_for(&state, 555),
+        "callback-id",
+        request.id,
+    )
+    .await
+    .unwrap();
+    let approval = state
+        .store
+        .find_approval_for_request(request.id)
+        .unwrap()
+        .expect("pre-gate approval still recorded");
+    assert_eq!(approval.approved_by, state.owner.principal_id);
+    let events: Vec<openspine_schemas::audit::AuditEvent> = state
+        .store
+        .all_audit_event_jsons()
+        .unwrap()
+        .into_iter()
+        .map(|json| serde_json::from_str(&json).unwrap())
+        .collect();
+    let recorded = events
+        .iter()
+        .find(|event| event.kind.as_str() == "plan.approval_recorded")
+        .unwrap();
+    assert_eq!(recorded.actor, Some(state.owner.principal_id));
+    assert_eq!(recorded.task_grant_id, Some(request.task_grant_id));
+    let denied = events
+        .iter()
+        .find(|event| event.kind.as_str() == "plan.approval_gate_denied")
+        .expect("the callback actually reached gate and was refused");
+    assert_eq!(denied.task_grant_id, Some(request.task_grant_id));
+    assert_eq!(
+        denied.decision,
+        Some(openspine_schemas::action::GateDecision::Deny {
+            reason: openspine_schemas::action::DenialReason::UnknownAction,
+        })
+    );
+    assert!(!events
+        .iter()
+        .any(|event| event.kind.as_str() == "plan.resolved"));
+    assert!(!plan_approval_reached_resolution(&state, &request),
+        "persisted approval and owner audit attribution must not make a denied callback satisfy the success proof");
 }
 
 #[tokio::test]

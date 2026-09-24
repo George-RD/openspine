@@ -73,8 +73,8 @@ impl Store {
     /// return contract.
     ///
     /// Built on the same primitives as [`Store::with_audited_effect`]
-    /// (`with_immediate_tx` + `append_audit_conn`) rather than that combinator
-    /// directly, because the audit row must NOT be appended on the lost-claim
+    /// (`with_immediate_tx` + `append_audit_conn_with_actor`) rather than that
+    /// combinator directly, because the audit row must NOT be appended on the lost-claim
     /// no-op — `with_audited_effect` always appends after its effect closure.
     pub(crate) fn begin_effect(
         &self,
@@ -92,7 +92,7 @@ impl Store {
             )? {
                 return Ok(BeginEffect::AlreadyFenced);
             }
-            Self::append_audit_conn(
+            Self::append_audit_conn_with_actor(
                 tx,
                 audit.kind.as_str(),
                 audit.action.as_ref(),
@@ -101,6 +101,9 @@ impl Store {
                 audit.task_grant_id,
                 &audit.target_refs,
                 &audit.payload_refs,
+                None,
+                None,
+                audit.actor.as_ref(),
             )?;
             Ok(BeginEffect::Fenced(EffectFence {
                 pending_id: fence.id,

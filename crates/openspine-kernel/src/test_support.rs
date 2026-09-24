@@ -25,6 +25,15 @@ pub(crate) mod fixtures {
     use crate::telegram::{TelegramConnector, TelegramUpdate};
     use openspine_schemas::digest::Digest;
 
+    /// Default fixtures must never contact Telegram. Tests asserting delivery
+    /// supply their own local MockServer through `with_api_url` instead.
+    pub(crate) fn offline_telegram() -> TelegramConnector {
+        TelegramConnector::with_api_url(
+            "test-token".to_string(),
+            "http://127.0.0.1:0".parse().unwrap(),
+        )
+    }
+
     pub(crate) fn repo_lyra_dir() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra")
     }
@@ -42,7 +51,7 @@ pub(crate) mod fixtures {
     ) -> AppState {
         build_state_inner(
             Store::open_in_memory().unwrap(),
-            TelegramConnector::new("test-token".to_string()),
+            offline_telegram(),
             Some(gmail),
             rate_limit,
         )
@@ -88,7 +97,7 @@ pub(crate) mod fixtures {
         let test_provider_config = ProviderConfig {
             id: "test-provider".to_string(),
             kind: ProviderKind::Anthropic,
-            base_url: None,
+            base_url: Some("http://127.0.0.1:0".to_string()),
             model: "test-model".to_string(),
             auth: ProviderAuth::ApiKey {
                 env: "UNUSED".to_string(),
@@ -157,7 +166,7 @@ pub(crate) mod fixtures {
     }
 
     pub(crate) fn test_state() -> AppState {
-        build_state(TelegramConnector::new("test-token".to_string()), None)
+        build_state(offline_telegram(), None)
     }
 
     pub(crate) fn test_state_with_telegram(telegram: TelegramConnector) -> AppState {
@@ -165,10 +174,7 @@ pub(crate) mod fixtures {
     }
 
     pub(crate) fn test_state_with_gmail(gmail: GmailConnector) -> AppState {
-        build_state(
-            TelegramConnector::new("test-token".to_string()),
-            Some(gmail),
-        )
+        build_state(offline_telegram(), Some(gmail))
     }
 
     /// Build a state wired to both a Gmail connector and a caller-supplied
@@ -210,11 +216,7 @@ pub(crate) mod fixtures {
     /// the same store after a simulated crash/restart and re-run the
     /// production path against it.
     pub(crate) fn test_state_with_store(store: Store) -> AppState {
-        build_state_with_store(
-            store,
-            TelegramConnector::new("test-token".to_string()),
-            None,
-        )
+        build_state_with_store(store, offline_telegram(), None)
     }
 }
 

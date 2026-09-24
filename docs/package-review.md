@@ -51,6 +51,13 @@ components and their before/after registry visibility. Visibility does not mean 
 standing rule has live permission to execute. Its pause, revocation, evaluation
 and budget controls belong to the separate authority lifecycle.
 
+Golden-set files found in the overlay directory are unversioned fixtures.
+Startup does not merge them into its effective registry. Review retains their
+source digests and bounded typed details, reports `version: null` and an
+`ignored_fixtures` disposition of `not_loaded_by_runtime`, and never treats them
+as activated or reconfirmable artifacts. A matching base fixture stays in use.
+Proposal or learned-artifact controls attached to a golden set remain invalid.
+
 When a base epoch changes, `required_transition_consequences` requires the future
 selection transaction to invalidate reusable authority and require ordinary
 reconfirmation before reuse. This is a consequence of accepting the transition,

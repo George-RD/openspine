@@ -316,3 +316,92 @@ fn captured_overlay_review_blocks_unresolved_typed_semantics() {
         .any(|item| item.artifact_id == "r" && item.reason == "unrenderable-typed-value"));
     assert!(result.after.effective_artifacts.is_empty());
 }
+
+#[test]
+fn captured_golden_overlay_is_reported_as_an_ignored_unversioned_fixture() {
+    use crate::artifact_store::ArtifactStore;
+    use crate::package::install_types::{InstallReceipt, PackageProvenance};
+    use crate::store::Store;
+    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
+    let candidate = crate::package::inspect(&base).unwrap();
+    let source = std::fs::read_to_string(base.join("golden_sets/model_swap_default.yaml")).unwrap();
+    for id in ["unique_overlay_fixture", "model_swap_default"] {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open_in_memory().unwrap();
+        let artifacts = ArtifactStore::open(root.path().join("artifacts"), [49; 32]).unwrap();
+        let fixture = source.replace("model_swap_default", id);
+        let dir = root.path().join("artifacts.d/golden_sets");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("fixture.yaml"), &fixture).unwrap();
+        let current =
+            CapturedCurrentState::capture(&base, "lyra", root.path(), &store, &artifacts).unwrap();
+        let assessment = assess(&current, candidate.registry()).unwrap();
+        assert!(assessment.blockers.is_empty());
+        assert!(assessment.before.effective_artifacts.is_empty());
+        assert!(assessment.after.effective_artifacts.is_empty());
+        assert!(assessment.before.consequences.is_empty());
+        assert!(assessment.after.consequences.is_empty());
+        let identity = candidate.identity();
+        let receipt = InstallReceipt {
+            installation_id: ulid::Ulid::from(1_u128),
+            package_id: identity.package_id,
+            revision: identity.revision,
+            inventory_format_version: identity.inventory_format_version,
+            content_digest: identity.content_digest,
+            manifest_digest: identity.manifest_digest,
+            provenance: PackageProvenance::LocalUnverified,
+            installed_at: "2026-01-01T00:00:00Z".into(),
+            audit_id: ulid::Ulid::from(2_u128),
+            audit_seq: 1,
+        };
+        let work = store
+            .package_outstanding_work("2026-01-01T00:00:00Z".parse().unwrap())
+            .unwrap();
+        let report =
+            crate::package::review_report::build(&current, &candidate, receipt, assessment, work);
+        let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
+        assert_eq!(json["overlay_semantics"]["blockers"], serde_json::json!([]));
+        let ignored = &json["overlay"]["ignored_fixtures"][0];
+        assert_eq!(ignored["artifact_id"], id);
+        assert_eq!(ignored["version"], serde_json::Value::Null);
+        assert_eq!(ignored["reason"], "not_loaded_by_runtime");
+        let detail = &json["overlay_semantics"]["artifacts"][0];
+        assert_eq!(detail["artifact"]["kind"], "golden_set");
+        assert_eq!(detail["artifact"]["version"], serde_json::Value::Null);
+        assert_eq!(
+            detail["artifact"]["source_digest"],
+            digest_of_bytes(fixture.as_bytes()).as_str()
+        );
+        assert_eq!(
+            detail["artifact"]["fields"]["cases"][0]["prompt"],
+            "Reply with the word READY."
+        );
+        assert_eq!(detail["before"]["effective"], false);
+        assert_eq!(detail["after"]["effective"], false);
+        let mut merged = current.base.registry.clone();
+        artifact_loader::merge_registry(&mut merged, current.overlay.registry.clone());
+        assert_eq!(merged.golden_sets, current.base.registry.golden_sets);
+        // A fixture file never makes a forged durable activation legitimate.
+        let proposal_id = ulid::Ulid::from(3_u128);
+        store
+            .insert_proposed_artifact(&crate::store::proposed_artifacts::ProposedArtifact {
+                id: proposal_id,
+                kind: "golden_set".into(),
+                artifact_id: id.into(),
+                version: 1,
+                state: Lifecycle::Proposed,
+                yaml_digest: digest_of_bytes(fixture.as_bytes()).to_string(),
+                task_grant_id: ulid::Ulid::from(4_u128),
+                action_request_id: None,
+                proposed_at: "2026-01-01T00:00:00Z".parse().unwrap(),
+                lineage: None,
+            })
+            .unwrap();
+        store
+            .force_proposed_artifact_state_for_test(proposal_id, Lifecycle::Active)
+            .unwrap();
+        let damaged =
+            CapturedCurrentState::capture(&base, "lyra", root.path(), &store, &artifacts).unwrap();
+        assert!(assess(&damaged, candidate.registry()).is_err());
+    }
+}

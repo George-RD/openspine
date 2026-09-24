@@ -18,6 +18,7 @@ cp "$repo/scripts/check-store-encapsulation.sh" "$tmp/repo/scripts/"
 if [ -f "$repo/scripts/check-effect-writes.mjs" ]; then
   cp "$repo/scripts/check-effect-writes.mjs" "$tmp/repo/scripts/"
 fi
+cp "$repo/scripts/check-store-boundaries.mjs" "$tmp/repo/scripts/"
 : >"$tmp/repo/crates/openspine-kernel/src/store/mod.rs"
 gate="$tmp/repo/scripts/check-store-encapsulation.sh"
 

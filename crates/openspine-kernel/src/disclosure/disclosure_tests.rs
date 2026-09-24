@@ -124,9 +124,7 @@ fn uncovered_egress_blocks_and_produces_owner_question() {
 
 #[tokio::test]
 async fn enforcement_allows_after_owner_answer() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let (grant, _) = mint_grant_with_selection_token(
         &state,
         &["web.search"],
@@ -284,9 +282,7 @@ fn forum_request(class: DisclosureClass, relationship: RelationshipKind) -> Disc
 
 #[tokio::test]
 async fn per_egress_revocation_is_independent() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let key = DisclosurePolicyKey {
         relationship: RelationshipKind::Client,
         disclosure_class: DisclosureClass::Private,
@@ -340,9 +336,7 @@ async fn per_egress_revocation_is_independent() {
 
 #[tokio::test]
 async fn reanswer_after_revoke_reactivates_via_version_bump() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let key = DisclosurePolicyKey {
         relationship: RelationshipKind::Client,
         disclosure_class: DisclosureClass::Private,
@@ -404,9 +398,7 @@ async fn reanswer_after_revoke_reactivates_via_version_bump() {
 }
 #[tokio::test]
 async fn prepared_query_mints_consumes_once_and_verifies_digest() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let sections = vec![BriefcaseSection {
         key: "private-query-term".to_string(),
         kind: SectionKind::Preference,
@@ -456,9 +448,7 @@ async fn prepared_query_mints_consumes_once_and_verifies_digest() {
 
 #[tokio::test]
 async fn owner_disclosure_answer_creates_policy_and_clears_pending() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let key = DisclosurePolicyKey {
         relationship: RelationshipKind::Client,
         disclosure_class: DisclosureClass::Private,

@@ -224,9 +224,7 @@ fn worker_visible_section_without_origin_fails_closed() {
 /// same `cancel_reservations` rollback).
 #[tokio::test]
 async fn blocked_disclosure_releases_reserved_envelope_budget() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let now = Timestamp::now();
     let covered = DisclosurePolicyKey {
         relationship: RelationshipKind::Client,

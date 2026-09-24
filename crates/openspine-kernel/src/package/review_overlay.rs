@@ -8,6 +8,9 @@ use openspine_schemas::digest::{digest_of, digest_of_bytes};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[path = "review_overlay_fixtures.rs"]
+mod fixtures;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub(crate) struct OverlayConsequence {
     pub kind: String,
@@ -36,6 +39,7 @@ pub(crate) struct OverlayAssessment {
     pub before: OverlayViewAssessment,
     pub after: OverlayViewAssessment,
     pub blockers: Vec<OverlayConsequence>,
+    pub ignored_fixtures: Vec<fixtures::IgnoredOverlayFixture>,
     /// Persona files not included by the provenance-gated loader. These are
     /// relative paths, not artifact IDs; the inventory still binds their bytes.
     pub ignored_persona_files: Vec<String>,
@@ -56,6 +60,7 @@ pub(crate) fn assess(
     let candidate_ids = artifact_loader::artifact_identity_pairs(candidate);
     let candidate_epoch = overlay_compat::compatibility_epoch(candidate, &candidate_ids);
     let epoch_changed = current_epoch != candidate_epoch;
+    let ignored_fixtures = fixtures::assess(&current.overlay)?;
     let mut keys = BTreeSet::new();
     for row in &current.overlay.learned {
         let key = (row.kind.clone(), row.artifact_id.clone(), row.version);
@@ -69,6 +74,9 @@ pub(crate) fn assess(
         );
     }
     for ((kind, id, version), control) in &current.overlay.controls {
+        if kind == "golden_set" {
+            continue; // Fixture controls were validated separately above.
+        }
         anyhow::ensure!(
             matches!(
                 kind.as_str(),
@@ -110,6 +118,7 @@ pub(crate) fn assess(
         before,
         after,
         blockers,
+        ignored_fixtures,
         ignored_persona_files,
         reusable_authority_reconfirmation_required: epoch_changed,
     })
@@ -128,7 +137,7 @@ fn view(
         .iter()
         .map(|key| consequence(key, "inactive_or_superseded", vec![]))
         .collect();
-    for key in overlay.sources.keys() {
+    for key in overlay.sources.keys().filter(|key| key.0 != "golden_set") {
         if artifact_loader::artifact_version(&overlay, &key.0, &key.1) != Some(key.2) {
             consequences.push(consequence(key, "inactive_or_superseded", vec![]));
         } else if !overlay_compat::registry_entry_active_at(&overlay, &key.0, &key.1, key.2) {
@@ -159,7 +168,7 @@ fn view(
             consequences.push(consequence(key, "erased", vec![]));
             continue;
         }
-        if key.0 == "persona" {
+        if matches!(key.0.as_str(), "persona" | "golden_set") {
             continue;
         }
         if control.lifecycle == Some(Lifecycle::Active)

@@ -183,7 +183,6 @@ mod tests {
 
     use crate::store::worker_dispatch::record_worker_commissioned;
     use crate::store::Store;
-    use crate::telegram::TelegramConnector;
     use crate::test_support::fixtures::build_state_with_store;
 
     use jiff::Timestamp;
@@ -305,7 +304,7 @@ mod tests {
     async fn get_task_emits_empty_output_channels_for_worker_grant() {
         let state = Arc::new(build_state_with_store(
             Store::open_in_memory().unwrap(),
-            TelegramConnector::new("test-token".to_string()),
+            crate::test_support::fixtures::offline_telegram(),
             None,
         ));
         let grant = worker_grant("worker-unit-token", &["worker.report_result"]);
@@ -331,7 +330,7 @@ mod tests {
     async fn worker_catalog_is_exactly_grant_derived_and_privileged_actions_are_absent() {
         let state = Arc::new(build_state_with_store(
             Store::open_in_memory().unwrap(),
-            TelegramConnector::new("test-token".to_string()),
+            crate::test_support::fixtures::offline_telegram(),
             None,
         ));
         let grant = worker_grant("worker-i2-token", &["worker.report_result"]);
@@ -388,7 +387,7 @@ mod tests {
     async fn catalog_is_recomputed_per_grant_with_no_shared_session_state() {
         let state = Arc::new(build_state_with_store(
             Store::open_in_memory().unwrap(),
-            TelegramConnector::new("test-token".to_string()),
+            crate::test_support::fixtures::offline_telegram(),
             None,
         ));
         let high = worker_grant(
