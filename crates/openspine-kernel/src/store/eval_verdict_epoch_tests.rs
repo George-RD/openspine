@@ -59,12 +59,9 @@ fn verdict_epochs_round_trip_through_the_store() {
     let mut via_conn = verdict_with(full_epochs(), Timestamp::now());
     via_conn.artifact_id = "prop-b".to_string();
     via_conn.epochs.policy_version = Some(12);
-    {
-        let mut conn = store.conn.lock();
-        let tx = conn.transaction().expect("tx");
-        insert_eval_verdict_conn(&tx, &via_conn).expect("insert via conn");
-        tx.commit().expect("commit");
-    }
+    store
+        .with_immediate_tx(|tx| insert_eval_verdict_conn(tx, &via_conn))
+        .expect("insert via conn");
 
     let by_artifact = store
         .eval_verdicts_for_artifact("proposal", "prop-a", 1)

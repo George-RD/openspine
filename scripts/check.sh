@@ -48,6 +48,9 @@ scripts/check-store-encapsulation.test.sh
 echo "== scripts/check-owner-proof-mint.sh =="
 scripts/check-owner-proof-mint.sh
 
+echo "== node --test scripts/check-store-boundaries.test.mjs =="
+node --test scripts/check-store-boundaries.test.mjs
+
 echo "== scripts/check-claims.sh =="
 scripts/check-claims.sh
 
