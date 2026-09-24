@@ -35,6 +35,24 @@ fn begin(store: &Store, fingerprint: &str) -> EffectFence {
     }
 }
 
+#[test]
+fn begin_effect_records_the_verified_actor_in_the_fenced_audit() {
+    let (_dir, store) = open_store();
+    let actor = openspine_schemas::ids::PrincipalId::from(ulid::Ulid::new());
+    let audit = AuditDescriptor::new("draft.pending_write_opened").with_actor(actor);
+    let result = store
+        .begin_effect(fence_inputs(ulid::Ulid::new(), "fp-actor"), audit)
+        .unwrap();
+    assert!(matches!(result, BeginEffect::Fenced(_)));
+    let events = store.all_audit_event_jsons().unwrap();
+    let recorded: openspine_schemas::audit::AuditEvent =
+        serde_json::from_str(events.last().expect("fence audit")).unwrap();
+    assert_eq!(recorded.kind.as_str(), "draft.pending_write_opened");
+    assert_eq!(recorded.actor, Some(actor));
+    assert_eq!(store.count_pending_draft_writes().unwrap(), 1);
+    assert!(store.verify_audit_chain().unwrap());
+}
+
 /// A `DeliveryUnknown`-style settlement retains + fences: the fence row stays
 /// `pending` (no duplicate send is possible without operator reconciliation),
 /// and both the begin and settle audit rows are recorded with a verifiable

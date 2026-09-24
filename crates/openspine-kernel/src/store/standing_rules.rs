@@ -287,35 +287,35 @@ impl Store {
         action_id: &ActionId,
         now: Timestamp,
     ) -> Result<Option<StandingRule>, StoreError> {
-        let row: Option<RuleRow> = {
-            let conn = self.conn.lock();
-            conn.query_row(
-                &format!(
-                    "SELECT {RULE_ROW_COLUMNS} FROM standing_rules \
+        // The read and any lapse share the write lock. An activation cannot
+        // replace the version between the expiry decision and its update.
+        self.with_immediate_tx(|tx| {
+            let row: Option<RuleRow> = tx
+                .query_row(
+                    &format!(
+                        "SELECT {RULE_ROW_COLUMNS} FROM standing_rules \
                      WHERE action_id = ?1 AND status = 'active' \
                      ORDER BY version DESC LIMIT 1"
-                ),
-                params![action_id.to_string()],
-                rule_row_from_row,
-            )
-            .optional()?
-        };
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        let rule = rule_from_row(row, "active")?;
-        let reference = rule.last_used_at.unwrap_or(rule.activated_at);
-        let deadline_nanos =
-            timestamp_to_epoch_nanos(reference)? + rule.expires_after_secs * 1_000_000_000;
-        let now_nanos = timestamp_to_epoch_nanos(now)?;
-        // Canonical exact-deadline boundary: a rule lapses the instant `now`
-        // reaches `deadline` (i.e. `deadline <= now`), matching the strict
-        // fired-token SQL (`elapsed < expiry`) and the atomic consult path.
-        if deadline_nanos <= now_nanos {
-            // #135: the lapse and the staling of its open exceptions land in
-            // one transaction, so a lapsed rule can never leave a fireable
-            // exception behind.
-            self.with_immediate_tx(|tx| {
+                    ),
+                    params![action_id.to_string()],
+                    rule_row_from_row,
+                )
+                .optional()?;
+            let Some(row) = row else {
+                return Ok(None);
+            };
+            let rule = rule_from_row(row, "active")?;
+            let reference = rule.last_used_at.unwrap_or(rule.activated_at);
+            let deadline_nanos =
+                timestamp_to_epoch_nanos(reference)? + rule.expires_after_secs * 1_000_000_000;
+            let now_nanos = timestamp_to_epoch_nanos(now)?;
+            // Canonical exact-deadline boundary: a rule lapses the instant `now`
+            // reaches `deadline` (i.e. `deadline <= now`), matching the strict
+            // fired-token SQL (`elapsed < expiry`) and the atomic consult path.
+            if deadline_nanos <= now_nanos {
+                // #135: the lapse and the staling of its open exceptions land in
+                // one transaction, so a lapsed rule can never leave a fireable
+                // exception behind.
                 super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
                     tx,
                     &rule.rule_id,
@@ -327,11 +327,10 @@ impl Store {
                      WHERE rule_id = ?1 AND status = 'active'",
                     params![rule.rule_id, now_nanos],
                 )?;
-                Ok(())
-            })?;
-            return Ok(None);
-        }
-        Ok(Some(rule))
+                return Ok(None);
+            }
+            Ok(Some(rule))
+        })
     }
 
     /// Whether `rule_id` at exactly `version` is still the current active
@@ -403,6 +402,10 @@ pub(super) use crate::store::standing_rules_row::{
     epoch_nanos_to_timestamp, rule_from_row, rule_row_from_row, timestamp_to_epoch_nanos, RuleRow,
     RULE_ROW_COLUMNS,
 };
+
+#[cfg(test)]
+#[path = "standing_rules_lookup_tests.rs"]
+mod lookup_tests;
 
 /// Stable per-request identity for dark-window deduplication. Mirrors the
 /// `GatedStepDigest` inputs so a fired token re-checked against the same

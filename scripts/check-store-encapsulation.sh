@@ -3,9 +3,9 @@
 # The two Ledger invariants must stay INSIDE the Store interface, and the
 # privileged kernel-state layer must not depend on a channel adapter:
 #
-#   1. BEGIN IMMEDIATE / Deferred transactions are opened ONLY by the private
-#      combinators in store/mod.rs (`transaction_with_behavior`); no call site
-#      may hand-restate the write-serialization discipline.
+#   1. Ordinary transaction API references and literal BEGIN/SAVEPOINT outside
+#      named Store combinators and startup migration functions fail the
+#      lexical placement guard. Macro expansion/dynamic SQL are not parsed.
 #   2. No module outside `store/` locks the raw `Store::conn` (it is a private
 #      field). Test-only raw access goes through `test_hooks::with_conn_for_test`;
 #      production callers use a Store method.
@@ -27,12 +27,8 @@ cd "$(dirname "$0")/.."
 src="crates/openspine-kernel/src"
 failed=0
 
-# 1. transaction_with_behavior only in the store/mod.rs combinators.
-offenders=$(grep -rln "transaction_with_behavior" "$src" --include='*.rs' \
-  | grep -v "^$src/store/mod.rs$" || true)
-if [ -n "$offenders" ]; then
-  echo "FAIL: transaction_with_behavior outside the store/mod.rs combinators:" >&2
-  echo "$offenders" >&2
+# 1. Named combinators and pre-Store migration functions only.
+if ! node scripts/check-store-boundaries.mjs transactions "$src"; then
   echo "  Route writes through Store::with_immediate_tx / with_immediate_tx_mapped;" >&2
   echo "  route multi-statement reads through Store::with_deferred_read." >&2
   failed=1
@@ -73,6 +69,6 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 
-echo "check-store-encapsulation: conn is encapsulated; the combinators own every"
-echo "store transaction; store/ is free of channel-adapter imports; effect-table"
+echo "check-store-encapsulation: conn is encapsulated; literal transaction openings"
+echo "use named combinators/migrations; store/ is free of channel-adapter imports; effect-table"
 echo "literal writes stay in the exact audited-module / named-fixture allowlist."
