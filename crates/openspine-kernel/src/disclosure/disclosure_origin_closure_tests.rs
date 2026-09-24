@@ -29,9 +29,7 @@ use crate::test_support::fixtures::test_state_with_telegram;
 const RECIPIENT_ID: u128 = 11;
 
 fn state() -> crate::pipeline::AppState {
-    test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
-    ))
+    test_state_with_telegram(crate::test_support::fixtures::offline_telegram())
 }
 
 fn counterparty(id: u128) -> ProvenanceOrigin {

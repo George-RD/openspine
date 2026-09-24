@@ -165,6 +165,12 @@ pub fn artifact_identity_pairs(registry: &ArtifactRegistry) -> HashSet<(String, 
             .keys()
             .map(|id| ("persona".into(), id.clone())),
     );
+    pairs.extend(
+        registry
+            .standing_rules
+            .keys()
+            .map(|id| ("standing_rule".into(), id.clone())),
+    );
     pairs
 }
 
@@ -196,6 +202,9 @@ pub fn exclude_identity_pairs(
     registry
         .personas
         .retain(|id, _| !excluded.contains(&("persona".into(), id.clone())));
+    registry
+        .standing_rules
+        .retain(|id, _| !excluded.contains(&("standing_rule".into(), id.clone())));
 }
 
 /// Retain only persona source versions that have durable row and digest
@@ -269,6 +278,7 @@ pub fn artifact_version(registry: &ArtifactRegistry, kind: &str, id: &str) -> Op
         "template" => registry.templates.get(id).map(|a| a.version),
         "model_swap" => registry.model_swaps.get(id).map(|a| a.version),
         "persona" => registry.personas.get(id).map(|p| p.version),
+        "standing_rule" => registry.standing_rules.get(id).map(|r| r.version),
         _ => None,
     }
 }
@@ -291,6 +301,7 @@ pub fn merge_registry(dst: &mut ArtifactRegistry, src: ArtifactRegistry) {
     dst.model_swaps.extend(src.model_swaps);
     dst.sources.extend(src.sources);
     dst.personas.extend(src.personas);
+    dst.standing_rules.extend(src.standing_rules);
 }
 
 fn load_yaml_dir<T, F>(dir: &Path, mut on_each: F) -> Result<(), ArtifactLoadError>

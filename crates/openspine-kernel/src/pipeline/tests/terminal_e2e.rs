@@ -7,7 +7,6 @@ use crate::api::router;
 use crate::pipeline::{handle_terminal_message, AppState};
 use crate::sandbox::{ProcessDriver, Sandbox};
 use crate::store::Store;
-use crate::telegram::TelegramConnector;
 use crate::test_support::fixtures::build_state_with_store;
 
 fn shell_binary() -> std::path::PathBuf {
@@ -55,7 +54,7 @@ async fn terminal_owner_status_reaches_device_through_real_shell() {
     let store = Store::open_in_memory().unwrap();
     let mut state = build_state_with_store(
         store,
-        TelegramConnector::new("unused-terminal-e2e-token".to_string()),
+        crate::test_support::fixtures::offline_telegram(),
         None,
     );
     let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();

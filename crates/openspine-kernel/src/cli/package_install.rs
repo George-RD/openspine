@@ -87,16 +87,18 @@ fn compare_inner(_: &Path, _: &str, _: &str) -> Result<serde_json::Value, Error>
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-struct Context {
-    store: crate::store::Store,
-    objects: crate::package::object_store::PackageObjects,
+pub(super) struct Context {
+    pub(super) store: crate::store::Store,
+    pub(super) objects: crate::package::object_store::PackageObjects,
+    pub(super) config: crate::config::Config,
+    artifact_key: [u8; 32],
     // Dropped last: the regular runtime lock covers the full command lifetime.
     _lock: crate::overlay_export_restore::OverlayOperations,
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 impl Context {
-    fn open(config: &Path) -> Result<Self, Error> {
+    pub(super) fn open(config: &Path) -> Result<Self, Error> {
         crate::env_file::load_adjacent(config).map_err(|_| Error::Configuration)?;
         let config = crate::config::Config::load(config).map_err(|_| Error::Configuration)?;
         let key = crate::config::artifact_key_bytes().map_err(|_| Error::Configuration)?;
@@ -128,8 +130,24 @@ impl Context {
         Ok(Self {
             store,
             objects,
+            config,
+            artifact_key: key,
             _lock: lock,
         })
+    }
+
+    pub(super) fn data_root(&self) -> &Path {
+        self._lock.canonical_data_root()
+    }
+
+    pub(super) fn artifacts_without_recovery(
+        &self,
+    ) -> Result<crate::artifact_store::ArtifactStore, crate::artifact_store::ArtifactStoreError>
+    {
+        crate::artifact_store::ArtifactStore::open_without_recovery(
+            self.data_root().join("artifacts"),
+            self.artifact_key,
+        )
     }
 }
 

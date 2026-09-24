@@ -26,6 +26,11 @@ openspine package compare "$FROM_INSTALLATION_ID" "$TO_INSTALLATION_ID" --json
 
 The normal global `--config` option applies to installation, listing and comparison. No remote package registry or URL fetching is supported. Native package maintenance is implemented for Linux and macOS; other platforms refuse rather than substitute weaker filesystem semantics.
 
+To assess a retained candidate against the actual configured base, use
+[`package review`](package-review.md). It reports compatibility, authority-bearing
+changes, learned-component consequences and outstanding work without approval
+or selection.
+
 ## What a receipt means
 
 Successful installation reports `installed-inactive`, `selected: false`, `active: false`, and `activation_supported: false`. Its durable receipt binds the package ID, positive integer revision, inventory format version, content digest, manifest digest, installation ID, provenance, timestamp, and audit identity/sequence.

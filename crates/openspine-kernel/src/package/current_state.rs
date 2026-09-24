@@ -4,8 +4,6 @@
 //! recover, republish, reconfirm or activate anything. Callers are responsible
 //! for holding the ordinary package-maintenance lifetime lock while capture
 //! runs; owned results must remain stable after that lock is released.
-#![allow(dead_code)] // staged #285 precursor; production wiring follows after the capture contract is green
-
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
@@ -28,6 +26,7 @@ pub(crate) type ArtifactVersion = (String, String, u32);
 pub(crate) struct CapturedCurrentBase {
     pub configured_path: PathBuf,
     pub identity: PackageIdentity,
+    pub declaration: openspine_schemas::package::PackageDeclaration,
     pub registry: ArtifactRegistry,
 }
 
@@ -35,6 +34,9 @@ pub(crate) struct CapturedCurrentBase {
 pub(crate) struct CapturedOverlayControl {
     pub lifecycle: Option<Lifecycle>,
     pub highest_active_version: Option<u32>,
+    /// Original reviewed proposal bytes. Activation reserializes active YAML;
+    /// its distinct committed digest lives in the learned-artifact row.
+    pub approved_yaml_digest: Option<String>,
     pub source_present: bool,
     pub recoverable_blob_present: bool,
 }
@@ -44,6 +46,8 @@ pub(crate) struct CapturedOverlayState {
     pub learned: Vec<LearnedArtifact>,
     pub controls: BTreeMap<ArtifactVersion, CapturedOverlayControl>,
     pub persona_findings: PersonaProvenanceFindings,
+    pub source_inventory_digest: Digest,
+    pub ignored_persona_files: Vec<String>,
 }
 
 impl CapturedOverlayState {
@@ -66,7 +70,7 @@ impl CapturedOverlayState {
                 "captured overlay source-presence evidence disagrees"
             );
             let (kind, id, _) = key;
-            if kind == "persona" {
+            if matches!(kind.as_str(), "persona" | "golden_set") {
                 continue;
             }
             if let Some(previous) =
@@ -78,12 +82,25 @@ impl CapturedOverlayState {
                 );
             }
         }
-        CapturedVersionAdmission::from_captured(
-            self.registry.clone(),
+        // Golden sets are unversioned fixtures that startup does not merge.
+        // Preserve their exact bytes for review without treating the loader's
+        // internal source-key sentinel as a proposal version to admit/prune.
+        let mut registry = self.registry.clone();
+        let fixture_sources: Vec<_> = registry
+            .sources
+            .iter()
+            .filter(|(key, _)| key.0 == "golden_set")
+            .map(|(key, source)| (key.clone(), source.clone()))
+            .collect();
+        registry.sources.retain(|key, _| key.0 != "golden_set");
+        let mut admitted = CapturedVersionAdmission::from_captured(
+            registry,
             self.learned.clone(),
             highest_active,
         )?
-        .evaluate()
+        .evaluate()?;
+        admitted.registry.sources.extend(fixture_sources);
+        Ok(admitted)
     }
 }
 
@@ -127,19 +144,6 @@ impl CapturedCurrentState {
         let base_compatibility_epoch =
             overlay_compat::compatibility_epoch(&base_registry, &base_artifact_ids);
 
-        let overlay_dir = data_root.join("artifacts.d");
-        let mut overlay_registry = match std::fs::symlink_metadata(&overlay_dir) {
-            Ok(metadata) if metadata.file_type().is_dir() => {
-                artifact_loader::load_registry_without_personas(&overlay_dir)
-                    .map_err(|_| CurrentStateCaptureError::Overlay)?
-            }
-            Ok(_) => return Err(CurrentStateCaptureError::Overlay),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                ArtifactRegistry::default()
-            }
-            Err(_) => return Err(CurrentStateCaptureError::Overlay),
-        };
-
         let learned = store
             .list_learned_artifacts()
             .map_err(|_| CurrentStateCaptureError::Control)?;
@@ -152,12 +156,10 @@ impl CapturedCurrentState {
             .iter()
             .map(|(key, digest)| (key.clone(), digest.clone()))
             .collect();
-        artifact_loader::load_admitted_personas(
-            &mut overlay_registry,
-            &overlay_dir,
-            &admitted_personas,
-        )
-        .map_err(|_| CurrentStateCaptureError::Overlay)?;
+        let overlay_dir = data_root.join("artifacts.d");
+        let captured_files = super::overlay_capture::capture(&overlay_dir, &admitted_personas)
+            .map_err(|_| CurrentStateCaptureError::Overlay)?;
+        let mut overlay_registry = captured_files.registry;
         overlay_compat::exclude_erased(&mut overlay_registry, &learned);
 
         let controls = capture_overlay_controls(store, artifacts, &overlay_registry, &learned)?;
@@ -166,6 +168,7 @@ impl CapturedCurrentState {
             base: CapturedCurrentBase {
                 configured_path: configured_base.to_path_buf(),
                 identity,
+                declaration: snapshot.declaration().clone(),
                 registry: base_registry,
             },
             base_artifact_ids,
@@ -175,6 +178,8 @@ impl CapturedCurrentState {
                 learned,
                 controls,
                 persona_findings,
+                source_inventory_digest: captured_files.source_inventory_digest,
+                ignored_persona_files: captured_files.ignored_persona_files,
             },
         })
     }
@@ -186,12 +191,19 @@ fn capture_overlay_controls(
     registry: &ArtifactRegistry,
     learned: &[LearnedArtifact],
 ) -> Result<BTreeMap<ArtifactVersion, CapturedOverlayControl>, CurrentStateCaptureError> {
-    // This captures every exact version represented by durable learned state or
-    // the effective overlay source set, plus the durable highest Active version
-    // for each such identity. The Store-owned exhaustive proposal/work census is
+    // This captures every exact version represented by durable learned state,
+    // committed active proposals or the effective overlay source set, plus the
+    // durable highest Active version for each identity. The proposal/work census is
     // a separate #285 phase and must remain an explicit readiness input.
     let mut versions = BTreeSet::new();
     let mut identities = BTreeSet::new();
+    for (kind, id, version) in store
+        .list_active_artifact_versions()
+        .map_err(|_| CurrentStateCaptureError::Control)?
+    {
+        identities.insert((kind.clone(), id.clone()));
+        versions.insert((kind, id, version));
+    }
     for row in learned {
         let identity = (row.kind.clone(), row.artifact_id.clone());
         identities.insert(identity.clone());
@@ -229,18 +241,15 @@ fn capture_overlay_controls(
             .find_proposed_artifact_state(&kind, &id, version)
             .map_err(|_| CurrentStateCaptureError::Control)?;
         let lifecycle = proposal.as_ref().map(|(state, _)| *state);
-        let reviewed_digest = proposal
-            .as_ref()
-            .map(|(_, digest)| digest.as_str())
-            .or_else(|| {
-                learned_by_version
-                    .get(&(kind.clone(), id.clone(), version))
-                    .and_then(|row| row.pending_yaml_digest.as_deref())
-            });
+        // Recovery republishes the committed active bytes, not the original
+        // proposal before activation rewrote its lifecycle and serialization.
+        let committed_digest = learned_by_version
+            .get(&(kind.clone(), id.clone(), version))
+            .and_then(|row| row.pending_yaml_digest.as_deref());
         let source_present = registry
             .sources
             .contains_key(&(kind.clone(), id.clone(), version));
-        let recoverable_blob_present = reviewed_digest.is_some_and(|digest| {
+        let recoverable_blob_present = committed_digest.is_some_and(|digest| {
             Digest::parse(digest.to_owned()).is_ok_and(|digest| {
                 artifacts
                     .get_scoped_without_recovery(
@@ -258,6 +267,7 @@ fn capture_overlay_controls(
             CapturedOverlayControl {
                 lifecycle,
                 highest_active_version: highest_active.get(&(kind, id)).copied().flatten(),
+                approved_yaml_digest: proposal.as_ref().map(|(_, digest)| digest.clone()),
                 source_present,
                 recoverable_blob_present,
             },
