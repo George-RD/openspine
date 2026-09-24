@@ -1,0 +1,407 @@
+use super::*;
+use crate::artifact_loader::{self, ArtifactSource};
+use crate::overlay_compat;
+use crate::overlay_persona_admission::PersonaProvenanceFindings;
+use crate::package::current_state::{
+    CapturedCurrentBase, CapturedOverlayControl, CapturedOverlayState,
+};
+use crate::package::install_types::PackageIdentity;
+use crate::store::learned_artifacts::{
+    CompatibilityStatus, LearnedArtifact, NominationStatus, Provenance,
+};
+use openspine_schemas::artifact::{ArtifactNamespace, Lifecycle};
+use openspine_schemas::digest::digest_of_bytes;
+use std::collections::BTreeMap;
+
+fn state() -> CapturedCurrentState {
+    let registry = ArtifactRegistry::default();
+    let ids = artifact_loader::artifact_identity_pairs(&registry);
+    CapturedCurrentState {
+        base_compatibility_epoch: overlay_compat::compatibility_epoch(&registry, &ids),
+        base_artifact_ids: ids,
+        base: CapturedCurrentBase {
+            configured_path: "/not-a-live-input".into(),
+            declaration: serde_yaml::from_str(include_str!(
+                "../../../../artifacts/lyra/package.yaml"
+            ))
+            .unwrap(),
+            identity: PackageIdentity {
+                package_id: "test".into(),
+                revision: 1,
+                inventory_format_version: 1,
+                content_digest: digest_of_bytes(b"base"),
+                manifest_digest: digest_of_bytes(b"manifest"),
+            },
+            registry,
+        },
+        overlay: CapturedOverlayState {
+            registry: ArtifactRegistry::default(),
+            learned: Vec::new(),
+            controls: BTreeMap::new(),
+            source_inventory_digest: digest_of_bytes(b"test-overlay-inventory"),
+            ignored_persona_files: Vec::new(),
+            persona_findings: PersonaProvenanceFindings {
+                expected_digests: BTreeMap::new(),
+                excluded: BTreeMap::new(),
+            },
+        },
+    }
+}
+
+fn insert(registry: &mut ArtifactRegistry, kind: &str, id: &str, yaml: &str) {
+    let parsed = artifact_loader::parse_proposal(kind, yaml).unwrap();
+    parsed.insert_into(registry).unwrap();
+    registry.sources.insert(
+        (kind.into(), id.into(), 1),
+        ArtifactSource {
+            path: "/must-not-be-reopened".into(),
+            bytes: yaml.as_bytes().to_vec(),
+        },
+    );
+}
+
+fn route(id: &str) -> String {
+    format!("id: {id}\nschema_version: 1\nversion: 1\nlifecycle_state: active\neffect: allow\n")
+}
+
+fn overlay(current: &mut CapturedCurrentState, kind: &str, id: &str, yaml: &str) {
+    insert(&mut current.overlay.registry, kind, id, yaml);
+    let at = "2026-09-24T00:00:00Z".parse().unwrap();
+    current.overlay.learned.push(LearnedArtifact {
+        kind: kind.into(),
+        artifact_id: id.into(),
+        version: 1,
+        namespace: ArtifactNamespace::Overlay,
+        provenance: Provenance::LegacyMigration { discovered_at: at },
+        accepted_via: None,
+        learned_at: at,
+        compatibility: CompatibilityStatus::Compatible,
+        nomination: NominationStatus::None,
+        pending_reconfirmation_id: None,
+        pending_yaml_digest: Some(digest_of_bytes(yaml.as_bytes()).to_string()),
+        accepted_dependency_fingerprint: None,
+        source_path: None,
+        accepted_base_epoch: None,
+    });
+    current.overlay.controls.insert(
+        (kind.into(), id.into(), 1),
+        CapturedOverlayControl {
+            lifecycle: Some(Lifecycle::Active),
+            highest_active_version: Some(1),
+            approved_yaml_digest: Some(digest_of_bytes(yaml.as_bytes()).to_string()),
+            source_present: true,
+            recoverable_blob_present: true,
+        },
+    );
+}
+
+fn reasons<'a>(view: &'a OverlayViewAssessment, id: &str) -> Vec<&'a str> {
+    view.consequences
+        .iter()
+        .filter(|item| item.artifact_id == id)
+        .map(|item| item.reason.as_str())
+        .collect()
+}
+
+#[test]
+fn captured_overlay_review_preserves_unchanged_authority_and_is_deterministic() {
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    let first = assess(&current, &current.base.registry).unwrap();
+    assert_eq!(first, assess(&current, &current.base.registry).unwrap());
+    assert_eq!(
+        first.before.effective_artifacts,
+        vec![("route".into(), "r".into(), 1)]
+    );
+    assert_eq!(first.before, first.after);
+    assert!(first.blockers.is_empty());
+    assert!(!first.reusable_authority_reconfirmation_required);
+    assert!(first.after.consequences.is_empty());
+}
+
+#[test]
+fn captured_overlay_review_requires_reconfirmation_when_base_epoch_changes() {
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    let mut candidate = ArtifactRegistry::default();
+    insert(&mut candidate, "route", "base", &route("base"));
+    let result = assess(&current, &candidate).unwrap();
+    assert!(result.reusable_authority_reconfirmation_required);
+    assert_eq!(result.before.effective_artifacts.len(), 1);
+    assert!(result.after.effective_artifacts.is_empty());
+    assert!(reasons(&result.after, "r").contains(&"base_epoch_reconfirmation_required"));
+    assert_eq!(
+        current.overlay.learned[0].compatibility,
+        CompatibilityStatus::Compatible
+    );
+}
+
+#[test]
+fn captured_overlay_review_missing_highest_source_blocks_even_if_blob_recoverable() {
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    current
+        .overlay
+        .controls
+        .get_mut(&("route".into(), "r".into(), 1))
+        .unwrap()
+        .highest_active_version = Some(2);
+    current.overlay.controls.insert(
+        ("route".into(), "r".into(), 2),
+        CapturedOverlayControl {
+            lifecycle: Some(Lifecycle::Active),
+            highest_active_version: Some(2),
+            approved_yaml_digest: None,
+            source_present: false,
+            recoverable_blob_present: true,
+        },
+    );
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result
+        .blockers
+        .iter()
+        .any(|x| x.reason == "highest_active_source_missing" && x.version == 2));
+    assert!(result.before.effective_artifacts.is_empty());
+    assert_eq!(current.overlay.registry.sources.len(), 1);
+}
+
+#[test]
+fn captured_overlay_review_excludes_erased_pending_and_retired_without_revival() {
+    for status in [
+        CompatibilityStatus::Erased,
+        CompatibilityStatus::ReconfirmationRequired,
+    ] {
+        let mut current = state();
+        overlay(&mut current, "route", "r", &route("r"));
+        current.overlay.learned[0].compatibility = status;
+        let result = assess(&current, &current.base.registry).unwrap();
+        assert!(result.after.effective_artifacts.is_empty());
+        assert!(!reasons(&result.after, "r").is_empty());
+    }
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    current
+        .overlay
+        .controls
+        .get_mut(&("route".into(), "r".into(), 1))
+        .unwrap()
+        .lifecycle = Some(Lifecycle::Retired);
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.after.effective_artifacts.is_empty());
+    assert!(!result.blockers.is_empty());
+}
+
+#[test]
+fn captured_overlay_review_reports_collision_digest_mismatch_and_missing_provenance() {
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    let mut candidate = ArtifactRegistry::default();
+    insert(&mut candidate, "route", "r", &route("r"));
+    let result = assess(&current, &candidate).unwrap();
+    assert!(reasons(&result.after, "r").contains(&"base_overlay_collision"));
+    current.overlay.learned[0].pending_yaml_digest = Some(digest_of_bytes(b"tampered").to_string());
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(reasons(&result.after, "r").contains(&"approved_overlay_digest_mismatch"));
+    assert!(result.after.effective_artifacts.is_empty());
+    current.overlay.learned.clear();
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(reasons(&result.after, "r").contains(&"missing_provenance"));
+}
+
+#[test]
+fn captured_overlay_review_converges_transitive_dangling_dependencies() {
+    let mut current = state();
+    let workflow = "id: w\nschema_version: 1\nversion: 1\nlifecycle_state: active\npurpose: p\nrequired_agent: absent\nrequired_capability_pack: absent\n";
+    overlay(&mut current, "workflow", "w", workflow);
+    overlay(&mut current, "route", "r", &(route("r") + "workflow: w\n"));
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.after.effective_artifacts.is_empty());
+    assert!(reasons(&result.after, "w").contains(&"dangling_dependencies"));
+    assert!(result
+        .after
+        .consequences
+        .iter()
+        .any(|x| x.artifact_id == "r" && x.details == ["workflow:w"]));
+}
+
+#[test]
+fn captured_overlay_review_fingerprint_binds_controls_and_ignores_input_order() {
+    let mut current = state();
+    overlay(&mut current, "route", "a", &route("a"));
+    overlay(&mut current, "route", "z", &route("z"));
+    let first = assess(&current, &current.base.registry).unwrap();
+    current.overlay.learned.reverse();
+    current.overlay.registry.routes.reverse();
+    assert_eq!(first, assess(&current, &current.base.registry).unwrap());
+    current.overlay.learned[0].compatibility = CompatibilityStatus::ReconfirmationRequired;
+    let changed = assess(&current, &current.base.registry).unwrap();
+    assert_ne!(first.control_fingerprint, changed.control_fingerprint);
+}
+
+#[test]
+fn captured_overlay_review_rejects_duplicate_provenance_and_missing_control() {
+    let mut current = state();
+    overlay(&mut current, "route", "r", &route("r"));
+    current
+        .overlay
+        .learned
+        .push(current.overlay.learned[0].clone());
+    assert!(assess(&current, &current.base.registry).is_err());
+    current.overlay.learned.pop();
+    current.overlay.controls.clear();
+    assert!(assess(&current, &current.base.registry).is_err());
+}
+
+#[test]
+fn captured_overlay_review_accepts_committed_activation_serialization() {
+    let reviewed = route("r").replace("lifecycle_state: active", "lifecycle_state: proposed");
+    let mut parsed = artifact_loader::parse_proposal("route", &reviewed).unwrap();
+    parsed.activate();
+    let published = parsed.to_yaml().unwrap();
+    let mut current = state();
+    overlay(&mut current, "route", "r", &published);
+    let key = ("route".into(), "r".into(), 1);
+    current
+        .overlay
+        .controls
+        .get_mut(&key)
+        .unwrap()
+        .approved_yaml_digest = Some(digest_of_bytes(reviewed.as_bytes()).to_string());
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.blockers.is_empty(), "{:#?}", result.blockers);
+    assert_eq!(result.after.effective_artifacts, vec![key]);
+}
+
+#[test]
+fn captured_overlay_review_reports_inactive_persona_lifecycle() {
+    let mut current = state();
+    let yaml = "id: persona\nschema_version: 1\nversion: 1\nlifecycle_state: retired\nguidance: old guidance\n";
+    overlay(&mut current, "persona", "persona", yaml);
+    current.overlay.learned[0].provenance = Provenance::ProducedBy {
+        source_event_id: ulid::Ulid::from(1_u128),
+        source_exchange: openspine_schemas::artifact::ArtifactRef {
+            digest: digest_of_bytes(b"captured exchange"),
+            schema_version: 1,
+        },
+        source_scope: openspine_schemas::provenance::ProvenanceOrigin::system(),
+    };
+    current.overlay.persona_findings.expected_digests.insert(
+        ("persona".into(), 1),
+        digest_of_bytes(yaml.as_bytes()).to_string(),
+    );
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result.after.effective_artifacts.is_empty());
+    assert!(reasons(&result.after, "persona").contains(&"inactive_lifecycle"));
+}
+
+#[test]
+fn captured_overlay_review_blocks_unresolved_typed_semantics() {
+    let mut current = state();
+    let workflow = "id: w\nschema_version: 1\nversion: 1\nlifecycle_state: active\npurpose: p\nrequired_agent: missing\nrequired_capability_pack: missing\nstates:\n- id: waiting\n  approval: required\n";
+    overlay(&mut current, "workflow", "w", workflow);
+    overlay(
+        &mut current,
+        "route",
+        "r",
+        &(route("r") + "when:\n  actor:\n    identity_confidence_min: .nan\n"),
+    );
+    let result = assess(&current, &current.base.registry).unwrap();
+    assert!(result
+        .blockers
+        .iter()
+        .any(|item| item.artifact_id == "w" && item.reason == "invalid-workflow-semantics"));
+    assert!(result
+        .blockers
+        .iter()
+        .any(|item| item.artifact_id == "r" && item.reason == "unrenderable-typed-value"));
+    assert!(result.after.effective_artifacts.is_empty());
+}
+
+#[test]
+fn captured_golden_overlay_is_reported_as_an_ignored_unversioned_fixture() {
+    use crate::artifact_store::ArtifactStore;
+    use crate::package::install_types::{InstallReceipt, PackageProvenance};
+    use crate::store::Store;
+    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra");
+    let candidate = crate::package::inspect(&base).unwrap();
+    let source = std::fs::read_to_string(base.join("golden_sets/model_swap_default.yaml")).unwrap();
+    for id in ["unique_overlay_fixture", "model_swap_default"] {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open_in_memory().unwrap();
+        let artifacts = ArtifactStore::open(root.path().join("artifacts"), [49; 32]).unwrap();
+        let fixture = source.replace("model_swap_default", id);
+        let dir = root.path().join("artifacts.d/golden_sets");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("fixture.yaml"), &fixture).unwrap();
+        let current =
+            CapturedCurrentState::capture(&base, "lyra", root.path(), &store, &artifacts).unwrap();
+        let assessment = assess(&current, candidate.registry()).unwrap();
+        assert!(assessment.blockers.is_empty());
+        assert!(assessment.before.effective_artifacts.is_empty());
+        assert!(assessment.after.effective_artifacts.is_empty());
+        assert!(assessment.before.consequences.is_empty());
+        assert!(assessment.after.consequences.is_empty());
+        let identity = candidate.identity();
+        let receipt = InstallReceipt {
+            installation_id: ulid::Ulid::from(1_u128),
+            package_id: identity.package_id,
+            revision: identity.revision,
+            inventory_format_version: identity.inventory_format_version,
+            content_digest: identity.content_digest,
+            manifest_digest: identity.manifest_digest,
+            provenance: PackageProvenance::LocalUnverified,
+            installed_at: "2026-01-01T00:00:00Z".into(),
+            audit_id: ulid::Ulid::from(2_u128),
+            audit_seq: 1,
+        };
+        let work = store
+            .package_outstanding_work("2026-01-01T00:00:00Z".parse().unwrap())
+            .unwrap();
+        let report =
+            crate::package::review_report::build(&current, &candidate, receipt, assessment, work);
+        let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
+        assert_eq!(json["overlay_semantics"]["blockers"], serde_json::json!([]));
+        let ignored = &json["overlay"]["ignored_fixtures"][0];
+        assert_eq!(ignored["artifact_id"], id);
+        assert_eq!(ignored["version"], serde_json::Value::Null);
+        assert_eq!(ignored["reason"], "not_loaded_by_runtime");
+        let detail = &json["overlay_semantics"]["artifacts"][0];
+        assert_eq!(detail["artifact"]["kind"], "golden_set");
+        assert_eq!(detail["artifact"]["version"], serde_json::Value::Null);
+        assert_eq!(
+            detail["artifact"]["source_digest"],
+            digest_of_bytes(fixture.as_bytes()).as_str()
+        );
+        assert_eq!(
+            detail["artifact"]["fields"]["cases"][0]["prompt"],
+            "Reply with the word READY."
+        );
+        assert_eq!(detail["before"]["effective"], false);
+        assert_eq!(detail["after"]["effective"], false);
+        let mut merged = current.base.registry.clone();
+        artifact_loader::merge_registry(&mut merged, current.overlay.registry.clone());
+        assert_eq!(merged.golden_sets, current.base.registry.golden_sets);
+        // A fixture file never makes a forged durable activation legitimate.
+        let proposal_id = ulid::Ulid::from(3_u128);
+        store
+            .insert_proposed_artifact(&crate::store::proposed_artifacts::ProposedArtifact {
+                id: proposal_id,
+                kind: "golden_set".into(),
+                artifact_id: id.into(),
+                version: 1,
+                state: Lifecycle::Proposed,
+                yaml_digest: digest_of_bytes(fixture.as_bytes()).to_string(),
+                task_grant_id: ulid::Ulid::from(4_u128),
+                action_request_id: None,
+                proposed_at: "2026-01-01T00:00:00Z".parse().unwrap(),
+                lineage: None,
+            })
+            .unwrap();
+        store
+            .force_proposed_artifact_state_for_test(proposal_id, Lifecycle::Active)
+            .unwrap();
+        let damaged =
+            CapturedCurrentState::capture(&base, "lyra", root.path(), &store, &artifacts).unwrap();
+        assert!(assess(&damaged, candidate.registry()).is_err());
+    }
+}

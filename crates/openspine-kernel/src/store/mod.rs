@@ -313,6 +313,7 @@ fn hydrate_task_grant(
 pub(crate) mod package_install;
 #[cfg(test)]
 mod package_install_tests;
+mod package_review_controls;
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {

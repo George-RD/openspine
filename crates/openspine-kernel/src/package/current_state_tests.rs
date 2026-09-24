@@ -203,3 +203,23 @@ fn captured_overlay_controls_do_not_adopt_later_activation() {
 
 #[path = "current_state_version_tests.rs"]
 mod version_tests;
+
+#[test]
+fn capture_includes_committed_active_identity_even_without_source_or_provenance() {
+    let (root, data_root, store, artifacts) = fixture();
+    let base = configured_base(root.path());
+    let yaml = route_yaml("lost-committed", 1);
+    let digest = digest_of_bytes(&yaml).to_string();
+    active_route(&store, "lost-committed", 1, &digest);
+
+    let captured =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
+    let control = captured
+        .overlay
+        .controls
+        .get(&("route".into(), "lost-committed".into(), 1))
+        .expect("committed authority must remain visible after source and provenance loss");
+    assert_eq!(control.lifecycle, Some(Lifecycle::Active));
+    assert_eq!(control.highest_active_version, Some(1));
+    assert!(!control.source_present);
+}

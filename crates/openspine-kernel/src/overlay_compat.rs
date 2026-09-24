@@ -6,6 +6,9 @@ mod overlay_compat_runtime;
 pub(crate) mod overlay_convergence;
 pub use overlay_compat_runtime::converge_owner_accepted_dependencies;
 pub(crate) use overlay_compat_runtime::reconfirmation_ids;
+#[path = "overlay_registry_state.rs"]
+mod overlay_registry_state;
+pub(crate) use overlay_registry_state::registry_entry_active_at;
 
 use std::collections::HashSet;
 
@@ -337,41 +340,6 @@ pub fn exclude_erased(registry: &mut ArtifactRegistry, learned: &[LearnedArtifac
         registry
             .sources
             .remove(&(item.kind, item.artifact_id, item.version));
-    }
-}
-
-fn registry_entry_active_at(
-    registry: &ArtifactRegistry,
-    kind: &str,
-    id: &str,
-    version: u32,
-) -> bool {
-    match kind {
-        "route" => registry
-            .routes
-            .iter()
-            .any(|r| r.id == id && r.version == version && r.lifecycle_state == Lifecycle::Active),
-        "agent" => registry
-            .agents
-            .get(id)
-            .is_some_and(|a| a.version == version && a.lifecycle_state == Lifecycle::Active),
-        "workflow" => registry
-            .workflows
-            .get(id)
-            .is_some_and(|w| w.version == version && w.lifecycle_state == Lifecycle::Active),
-        "pack" => registry
-            .packs
-            .get(id)
-            .is_some_and(|p| p.version == version && p.lifecycle_state == Lifecycle::Active),
-        "policy" => registry
-            .policies
-            .get(id)
-            .is_some_and(|p| p.version == version && p.lifecycle_state == Lifecycle::Active),
-        "template" => registry
-            .templates
-            .get(id)
-            .is_some_and(|t| t.version == version),
-        _ => false,
     }
 }
 

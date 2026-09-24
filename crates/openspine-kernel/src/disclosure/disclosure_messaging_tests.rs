@@ -22,8 +22,24 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 /// no catalog action is rated for messaging egress yet in this prefactor.
 #[tokio::test]
 async fn messaging_preparation_drives_core_without_query_generalization() {
-    let state = test_state_with_telegram(crate::telegram::TelegramConnector::new(
-        "bottest-token".to_string(),
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/bottest-token/SendMessage"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "ok": true,
+            "result": {
+                "message_id": 1,
+                "date": 0,
+                "chat": {"id": 555, "type": "private"},
+                "text": "sent"
+            }
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let state = test_state_with_telegram(TelegramConnector::with_api_url(
+        "test-token".to_string(),
+        server.uri().parse().unwrap(),
     ));
     let (grant, _) = mint_grant_with_selection_token(
         &state,
@@ -68,9 +84,7 @@ async fn messaging_preparation_drives_core_without_query_generalization() {
         .contains(&DisclosureClass::Private));
 
     // Uncovered (Client, Private) must not allow. Reservation cancellation
-    // runs before escalation delivery, so the Err is Blocked when the test
-    // connector delivers and Store when it is unreachable (D-058); either way
-    // the core refused to let messaging-derived provenance through.
+    // precedes escalation delivery, which reaches the local mock once (D-058).
     assert!(
         enforce_disclosure_egress(&state, &grant, request)
             .await
@@ -203,7 +217,7 @@ async fn email_send_uncovered_disclosure_blocks_through_dispatch_and_routes_owne
 /// cancelled (NotAttempted) and the envelope budget is fully restored.
 #[tokio::test]
 async fn email_send_covered_disclosure_reaches_no_executor_and_cancels_reservation() {
-    let state = test_state_with_telegram(TelegramConnector::new("bottest-token".to_string()));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let store = state.store.clone();
     let now = Timestamp::now();
     let key = DisclosurePolicyKey {
@@ -263,7 +277,7 @@ async fn email_send_covered_disclosure_reaches_no_executor_and_cancels_reservati
 /// provenance through and the reserved envelope finalizes as committed usage.
 #[tokio::test]
 async fn email_send_covered_messaging_disclosure_finalizes_reservation_at_seam() {
-    let state = test_state_with_telegram(TelegramConnector::new("bottest-token".to_string()));
+    let state = test_state_with_telegram(crate::test_support::fixtures::offline_telegram());
     let store = state.store.clone();
     let now = Timestamp::now();
     let key = DisclosurePolicyKey {

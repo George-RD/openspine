@@ -114,6 +114,7 @@ fn captured_version_review_does_not_recover_a_missing_highest_source() {
         CapturedOverlayControl {
             lifecycle: Some(Lifecycle::Active),
             highest_active_version: Some(3),
+            approved_yaml_digest: None,
             source_present: false,
             recoverable_blob_present: true,
         },
@@ -185,4 +186,36 @@ fn captured_version_constructor_does_not_apply_proposal_controls_to_personas() {
         highest,
     )
     .is_err());
+}
+
+#[test]
+fn captured_recovery_evidence_requires_published_bytes_not_proposal_bytes() {
+    let (root, data_root, store, artifacts) = fixture();
+    let base = configured_base(root.path());
+    let published = route_yaml("missing-published", 1);
+    let reviewed = String::from_utf8(published.clone())
+        .unwrap()
+        .replace("lifecycle_state: active", "lifecycle_state: proposed");
+    artifacts.put(reviewed.as_bytes()).unwrap();
+    active_route(
+        &store,
+        "missing-published",
+        1,
+        digest_of_bytes(reviewed.as_bytes()).as_str(),
+    );
+    store
+        .record_learned_artifact(&learned_route(
+            "missing-published",
+            1,
+            digest_of_bytes(&published).as_str(),
+        ))
+        .unwrap();
+    let captured =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
+    let key = ("route".into(), "missing-published".into(), 1);
+    assert!(!captured.overlay.controls[&key].recoverable_blob_present);
+    artifacts.put(&published).unwrap();
+    let with_published =
+        CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
+    assert!(with_published.overlay.controls[&key].recoverable_blob_present);
 }

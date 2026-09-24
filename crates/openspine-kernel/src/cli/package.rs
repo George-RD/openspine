@@ -26,6 +26,13 @@ pub(crate) enum PackageCommands {
         #[arg(long)]
         json: bool,
     },
+    /// Review a retained package against the configured base without approval.
+    Review {
+        #[arg(allow_hyphen_values = true)]
+        installation_id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Inspect exact local package bytes without installation or activation.
     Inspect {
         directory: PathBuf,
@@ -39,10 +46,10 @@ pub(crate) fn run(command: &PackageCommands, config: &Path) -> ExitCode {
     let (directory, json) = match command {
         PackageCommands::Inspect { directory, json } => (directory, json),
         PackageCommands::List { json } => {
-            return super::package_install::list(config, *json, false)
+            return super::package_install::list(config, *json, false);
         }
         PackageCommands::Receipts { json } => {
-            return super::package_install::list(config, *json, true)
+            return super::package_install::list(config, *json, true);
         }
         PackageCommands::Compare {
             from_installation_id,
@@ -54,8 +61,12 @@ pub(crate) fn run(command: &PackageCommands, config: &Path) -> ExitCode {
                 from_installation_id,
                 to_installation_id,
                 *json,
-            )
+            );
         }
+        PackageCommands::Review {
+            installation_id,
+            json,
+        } => return super::package_review::run(config, installation_id, *json),
     };
     let (output, code) = match crate::package::inspect(directory) {
         Ok(snapshot) => {

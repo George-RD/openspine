@@ -142,6 +142,7 @@ fn make_v1_aad(counterparty_id: Ulid) -> Vec<u8> {
     aad.extend_from_slice(&counterparty_id.to_bytes());
     aad
 }
+mod read_only;
 mod recovery;
 
 mod format;
