@@ -1,5 +1,5 @@
 //! Ledger replay, sticky managed mode and unrelated authority state (ANO-822).
-use super::package_selection_fixtures::{install, select};
+use super::package_selection_fixtures::{decision, install, select};
 use super::{Store, StoreError};
 use jiff::Timestamp;
 
@@ -54,8 +54,18 @@ fn ledger_replay_rejects_every_projection_without_its_audit_receipt() {
 #[test]
 fn managed_mode_is_sticky_when_the_selection_row_is_lost() {
     let store = Store::open_in_memory().unwrap();
-    let a = install(&store, 1);
-    select(&store, &a, Timestamp::now());
+    let (a, b) = (install(&store, 1), install(&store, 2));
+    let now = Timestamp::now();
+    select(&store, &a, now);
+    let presented = decision(&store, &b, now);
+    store
+        .record_package_selection_decision(&presented, now)
+        .unwrap();
+    store
+        .conn
+        .lock()
+        .execute_batch("PRAGMA foreign_keys = OFF;")
+        .unwrap();
     store
         .with_immediate_tx(|tx| {
             tx.execute_batch("DELETE FROM package_selection;")?;
@@ -64,6 +74,17 @@ fn managed_mode_is_sticky_when_the_selection_row_is_lost() {
         .unwrap();
     // The projection is gone but history remains: never silently legacy.
     assert!(store.validate_package_selection().is_err());
+    // Nor can a legacy-shaped decision be presented or a presented one
+    // consumed to recreate it without the sticky history.
+    let legacy_shaped = decision(&store, &b, now);
+    assert!(matches!(
+        store.record_package_selection_decision(&legacy_shaped, now),
+        Err(StoreError::BadLedgerMeta(_))
+    ));
+    assert!(matches!(
+        store.commit_package_selection(&presented, now),
+        Err(StoreError::BadLedgerMeta(_))
+    ));
 }
 
 #[test]

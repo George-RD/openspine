@@ -142,6 +142,12 @@ pub(super) fn receipt_by_installation(
 /// Compare the decision with live Store state: generation, source, target.
 fn current_state(conn: &Connection, decision: &SelectionDecision) -> Result<(), StoreError> {
     let current = selection_conn(conn)?;
+    // Managed history is sticky: a lost projection must never read as legacy.
+    if current.is_none() && is_managed_conn(conn)? {
+        return Err(StoreError::BadLedgerMeta(
+            "package selection projection is missing".into(),
+        ));
+    }
     let generation = current.as_ref().map_or(0, |record| record.generation);
     if decision.expected_generation != generation {
         return Err(refuse(SelectionRefusal::GenerationChanged));
