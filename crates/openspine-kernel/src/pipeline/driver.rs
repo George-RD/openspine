@@ -464,7 +464,12 @@ pub(crate) async fn run_pipeline_with_envelope(
                 }
             }
             Err(err) => {
-                tracing::error!(error = %err, grant_id = %grant.id, "worker shell failed");
+                super::driver_failures::report_shell_failure(
+                    state,
+                    &inputs.owner_surface,
+                    grant.id,
+                    &err,
+                );
                 state.store.append_audit(
                     "task.shell_failed",
                     None,

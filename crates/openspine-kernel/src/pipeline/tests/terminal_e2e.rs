@@ -4,7 +4,7 @@ use tokio::net::TcpListener;
 use ulid::Ulid;
 
 use crate::api::router;
-use crate::pipeline::{handle_terminal_message, AppState};
+use crate::pipeline::{handle_terminal_message, run_terminal_turn, AppState};
 use crate::sandbox::{ProcessDriver, Sandbox};
 use crate::store::Store;
 use crate::test_support::fixtures::build_state_with_store;
@@ -108,4 +108,145 @@ async fn terminal_owner_status_reaches_device_through_real_shell() {
     assert!(state.store.verify_audit_chain().unwrap());
 
     server.abort();
+}
+
+/// A worker that logs its progress, dies, and never replies — the shape of the
+/// Docker glibc failure the readiness audit hit.
+#[cfg(unix)]
+fn failing_worker(dir: &std::path::Path) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt as _;
+    let script = dir.join("dying-shell.sh");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\necho '[openspine-shell] INFO: starting' >&2\n\
+         echo 'worker image: GLIBC_2.39 not found' >&2\nexit 3\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    script
+}
+
+/// A worker that dies must end the turn with its cause instead of leaving the
+/// chat waiting for a reply that cannot arrive, and the next turn must work.
+#[cfg(unix)]
+#[tokio::test]
+async fn terminal_turn_reports_worker_failure_and_chat_stays_usable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let store = Store::open_in_memory().unwrap();
+    let mut state = build_state_with_store(
+        store,
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+    state.terminal_reply_tx = Some(reply_tx);
+    state.sandbox = Sandbox::Process(ProcessDriver {
+        shell_binary: failing_worker(tmp.path()),
+        scratch_root: tmp.path().join("scratch"),
+    });
+
+    // Bounded far below the old 150s wait: failure must surface immediately.
+    let error = tokio::time::timeout(
+        std::time::Duration::from_secs(4),
+        run_terminal_turn(&state, &mut reply_rx, "hello".to_string()),
+    )
+    .await
+    .expect("a dead worker must not leave the turn waiting")
+    .expect_err("a dead worker must fail the turn");
+    let message = format!("{error:#}");
+    assert!(message.contains("worker failed"), "{message}");
+    assert!(message.contains("exit status: 3"), "{message}");
+    assert!(message.contains("GLIBC_2.39 not found"), "{message}");
+    assert!(
+        !message.contains("[openspine-shell]"),
+        "progress lines must not reach the conversation: {message}"
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("task.shell_failed")
+            .unwrap(),
+        1
+    );
+
+    // The same chat then serves a healthy turn through the real shell.
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    state.kernel_endpoint = format!("http://{}", listener.local_addr().unwrap());
+    state.sandbox = Sandbox::Process(ProcessDriver {
+        shell_binary: shell_binary(),
+        scratch_root: tmp.path().join("scratch"),
+    });
+    let state = Arc::new(state);
+    let server = tokio::spawn({
+        let app = router(state.clone());
+        async move { serve(listener, app).await.unwrap() }
+    });
+    let reply = run_terminal_turn(&state, &mut reply_rx, "/status".to_string())
+        .await
+        .expect("chat must stay usable after a worker failure");
+    assert!(reply.contains("\"status\": \"ok\""), "{reply}");
+    server.abort();
+}
+
+/// A worker that exits cleanly without replying has nothing left to send; the
+/// turn must say so rather than wait out a model-latency budget.
+#[cfg(unix)]
+#[tokio::test]
+async fn terminal_turn_reports_worker_that_exits_without_replying() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let tmp = tempfile::tempdir().unwrap();
+    let script = tmp.path().join("silent-shell.sh");
+    std::fs::write(&script, "#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let mut state = build_state_with_store(
+        Store::open_in_memory().unwrap(),
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+    state.terminal_reply_tx = Some(reply_tx);
+    state.sandbox = Sandbox::Process(ProcessDriver {
+        shell_binary: script,
+        scratch_root: tmp.path().join("scratch"),
+    });
+
+    let error = run_terminal_turn(&state, &mut reply_rx, "hello".to_string())
+        .await
+        .expect_err("a silent worker must fail the turn");
+    assert!(
+        format!("{error:#}").contains("finished without sending a reply"),
+        "{error:#}"
+    );
+}
+
+/// A worker that already delivered its reply and then died still answered the
+/// owner; the reply must not be discarded in favour of the failure.
+#[cfg(unix)]
+#[tokio::test]
+async fn terminal_turn_delivers_a_reply_queued_before_the_worker_died() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut state = build_state_with_store(
+        Store::open_in_memory().unwrap(),
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+    reply_tx.send("already answered".to_string()).unwrap();
+    state.terminal_reply_tx = Some(reply_tx);
+    state.sandbox = Sandbox::Process(ProcessDriver {
+        shell_binary: failing_worker(tmp.path()),
+        scratch_root: tmp.path().join("scratch"),
+    });
+
+    let reply = run_terminal_turn(&state, &mut reply_rx, "hello".to_string())
+        .await
+        .expect("a queued reply must be delivered");
+    assert_eq!(reply, "already answered");
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("task.shell_failed")
+            .unwrap(),
+        1
+    );
 }

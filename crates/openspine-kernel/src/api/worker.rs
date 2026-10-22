@@ -588,8 +588,8 @@ pub(crate) fn handle_worker_commission<'a>(
             Err(err) => {
                 let failure_reason = match &err {
                     TaskRunError::Startup(_) => WorkerFailureReason::StartupFailure,
-                    TaskRunError::ShellExited(_) => WorkerFailureReason::ShellExited,
-                    TaskRunError::Crashed(_) => WorkerFailureReason::Crash,
+                    TaskRunError::ShellExited { .. } => WorkerFailureReason::ShellExited,
+                    TaskRunError::Crashed { .. } => WorkerFailureReason::Crash,
                 };
                 tracing::error!(error = %err, grant_id = %persisted_grant_id, "worker shell failed");
                 match record_worker_failed(

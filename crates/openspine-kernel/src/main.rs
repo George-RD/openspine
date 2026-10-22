@@ -227,8 +227,21 @@ fn main() -> std::process::ExitCode {
 
 #[tokio::main]
 async fn run_with_runtime(cli: Cli) -> std::process::ExitCode {
+    // Bare `openspine` is the long-running server: it must narrate startup and
+    // connector failures without RUST_LOG, or a bad token reads as a hang.
+    // Every other command keeps the quiet default, which for `chat` keeps log
+    // lines out of the conversation. An explicit RUST_LOG always wins.
+    let default_level = if cli.command.is_none() {
+        tracing::level_filters::LevelFilter::INFO
+    } else {
+        tracing::level_filters::LevelFilter::ERROR
+    };
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::builder()
+                .with_default_directive(default_level.into())
+                .from_env_lossy(),
+        )
         .init();
     let config_path = cli.config.clone();
     // Key material is read from the process environment, so the owner-only file
@@ -571,6 +584,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         sandbox,
         connectors: ConnectorRegistry::new(telegram, gmail)?,
         terminal_reply_tx,
+        terminal_turn_failure: parking_lot::Mutex::new(None),
         webhook_verifier: WebhookVerifier::new(
             config::webhook_hmac_secret()?,
             Duration::from_secs(300),
@@ -1001,23 +1015,6 @@ pub(crate) async fn bind_clock_and_finalize_overlay(
     finalize_overlay_after_bind(store, overlay_operations, pending, jiff::Timestamp::now())?;
     Ok(listener)
 }
-async fn run_terminal_turn(
-    state: &Arc<pipeline::AppState>,
-    receiver: &mut tokio::sync::mpsc::UnboundedReceiver<String>,
-    message: String,
-) -> anyhow::Result<String> {
-    if message.trim().is_empty() {
-        anyhow::bail!("terminal message must not be empty");
-    }
-    let grant = pipeline::handle_terminal_message(state, message).await?;
-    if grant.is_none() {
-        anyhow::bail!("terminal message was denied before a task grant was created");
-    }
-    tokio::time::timeout(Duration::from_secs(150), receiver.recv())
-        .await
-        .context("timed out waiting for the terminal reply action")?
-        .ok_or_else(|| anyhow::anyhow!("terminal reply channel closed before a reply arrived"))
-}
 
 async fn run_terminal_chat(
     state: Arc<pipeline::AppState>,
@@ -1049,7 +1046,7 @@ async fn run_terminal_chat(
         // One-shot output stays exactly the reply: scripts and smoke tests parse
         // it, so no notice may reach stdout on this path — and no local command,
         // `/login` included, is ever interpreted.
-        let reply = run_terminal_turn(&state, &mut receiver, message).await?;
+        let reply = pipeline::run_terminal_turn(&state, &mut receiver, message).await?;
         println!("{reply}");
         Ok(None)
     } else {
@@ -1103,7 +1100,7 @@ async fn run_terminal_chat(
                 }
                 None => {}
             }
-            match run_terminal_turn(&state, &mut receiver, line).await {
+            match pipeline::run_terminal_turn(&state, &mut receiver, line).await {
                 Ok(reply) => println!("lyra> {reply}"),
                 Err(error) => eprintln!("error: {error:#}"),
             }

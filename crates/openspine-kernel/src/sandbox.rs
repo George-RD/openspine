@@ -16,19 +16,46 @@ use anyhow::Context as _;
 use openspine_schemas::event::Lane;
 use std::path::{Path, PathBuf};
 
+mod output;
+
+/// Why a worker run failed. The exit variants carry the tail of the worker's
+/// stderr: its progress lines stay out of the owner's terminal, so this is how
+/// a failure is explained.
 #[derive(Debug)]
 pub enum TaskRunError {
     Startup(anyhow::Error),
-    ShellExited(std::process::ExitStatus),
-    Crashed(std::process::ExitStatus),
+    ShellExited {
+        status: std::process::ExitStatus,
+        stderr: String,
+    },
+    Crashed {
+        status: std::process::ExitStatus,
+        stderr: String,
+    },
+}
+
+impl TaskRunError {
+    /// Last lines the worker wrote to stderr, oldest first. Empty for
+    /// failures before a process ran.
+    pub fn stderr_tail(&self) -> &str {
+        match self {
+            Self::Startup(_) => "",
+            Self::ShellExited { stderr, .. } | Self::Crashed { stderr, .. } => stderr,
+        }
+    }
 }
 
 impl std::fmt::Display for TaskRunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Startup(error) => write!(f, "worker startup failed: {error}"),
-            Self::ShellExited(status) => write!(f, "worker shell exited: {status}"),
-            Self::Crashed(status) => write!(f, "worker crashed: {status}"),
+        let (what, status) = match self {
+            Self::Startup(error) => return write!(f, "worker startup failed: {error}"),
+            Self::ShellExited { status, .. } => ("worker shell exited", status),
+            Self::Crashed { status, .. } => ("worker crashed", status),
+        };
+        write!(f, "{what}: {status}")?;
+        match output::failure_summary(self.stderr_tail()) {
+            "" => Ok(()),
+            cause => write!(f, " ({cause})"),
         }
     }
 }
@@ -152,9 +179,8 @@ impl ProcessDriver {
         std::fs::create_dir_all(&scratch_dir)
             .with_context(|| format!("failed to create scratch dir {}", scratch_dir.display()))
             .map_err(TaskRunError::Startup)?;
-        let status = self
-            .build_command(&scratch_dir, kernel_endpoint, task_token)
-            .status()
+        let command = self.build_command(&scratch_dir, kernel_endpoint, task_token);
+        let (status, stderr) = output::run_capturing_stderr(command)
             .await
             .with_context(|| {
                 format!(
@@ -166,9 +192,9 @@ impl ProcessDriver {
         if status.success() {
             Ok(())
         } else if status.code().is_some() {
-            Err(TaskRunError::ShellExited(status))
+            Err(TaskRunError::ShellExited { status, stderr })
         } else {
-            Err(TaskRunError::Crashed(status))
+            Err(TaskRunError::Crashed { status, stderr })
         }
     }
 }
@@ -237,9 +263,9 @@ impl DockerDriver {
         task_token: &str,
     ) -> Result<(), TaskRunError> {
         let args = self.docker_run_args(kernel_endpoint, task_token);
-        let status = tokio::process::Command::new("docker")
-            .args(&args)
-            .status()
+        let mut command = tokio::process::Command::new("docker");
+        command.args(&args);
+        let (status, stderr) = output::run_capturing_stderr(command)
             .await
             .context("failed to invoke docker CLI")
             .map_err(TaskRunError::Startup)?;
@@ -247,13 +273,18 @@ impl DockerDriver {
             return Ok(());
         }
         match status.code() {
-            None => Err(TaskRunError::Crashed(status)),
+            None => Err(TaskRunError::Crashed { status, stderr }),
             Some(code) => match classify_docker_exit_code(code) {
-                DockerFailureClass::Startup => Err(TaskRunError::Startup(anyhow::anyhow!(
-                    "docker run failed with startup exit code {code}"
-                ))),
-                DockerFailureClass::Crash => Err(TaskRunError::Crashed(status)),
-                DockerFailureClass::ShellExit => Err(TaskRunError::ShellExited(status)),
+                DockerFailureClass::Startup => {
+                    let mut message = format!("docker run failed with startup exit code {code}");
+                    let cause = output::failure_summary(&stderr);
+                    if !cause.is_empty() {
+                        message.push_str(&format!(" ({cause})"));
+                    }
+                    Err(TaskRunError::Startup(anyhow::anyhow!(message)))
+                }
+                DockerFailureClass::Crash => Err(TaskRunError::Crashed { status, stderr }),
+                DockerFailureClass::ShellExit => Err(TaskRunError::ShellExited { status, stderr }),
             },
         }
     }
