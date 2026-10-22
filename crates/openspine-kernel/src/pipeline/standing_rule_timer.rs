@@ -150,7 +150,7 @@ async fn claim_and_redispatch(
     // Reconstruct the original encrypted payload so the re-dispatch carries the
     // exact bytes the fingerprint was computed over (P1-7/P1-11 token match).
     let payload_json = decode_pending_payload(state, &pending.payload_ref)?;
-    let (decision, _, result, _) = mediate_and_dispatch_action(
+    let (decision, _, result, _) = match mediate_and_dispatch_action(
         state,
         &grant.0,
         pending.action_id.clone(),
@@ -160,7 +160,17 @@ async fn claim_and_redispatch(
         Some(&pending.pending_id),
     )
     .await
-    .map_err(|e| StoreError::FailureRouting(format!("dark-window redispatch failed: {e:?}")))?;
+    {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            if terminate_if_permanent(state, &pending, &e).await {
+                return Ok(());
+            }
+            return Err(StoreError::FailureRouting(format!(
+                "dark-window redispatch failed: {e:?}"
+            )));
+        }
+    };
     // Fail closed: only report success when the mediation boundary actually
     // allowed and produced an effect (the one-use token was consumed and the
     // fired-reservation waiver finalized). Anything else (denied, no result)
@@ -179,6 +189,91 @@ async fn claim_and_redispatch(
     Ok(())
 }
 
+/// True only for the typed briefcase-origin refusal (legacy provenance or
+/// undecodable briefcase JSON). A corrupt unrelated row (rule, skill,
+/// reservation, counterparty), store I/O errors, and every connector/budget
+/// error are NOT permanent and keep retrying (fail closed, authority kept).
+fn is_permanent_refusal(err: &crate::api::actions::DispatchError) -> bool {
+    let crate::api::actions::DispatchError::Resource(inner) = err else {
+        return false;
+    };
+    inner
+        .downcast_ref::<crate::api::actions::BriefcaseRefused>()
+        .is_some()
+}
+
+const REFUSAL_NOTICE: &str = "dark-window fired but the action was refused before any effect \
+     (its task's stored briefcase cannot be loaded); it was cancelled and nothing ran. \
+     Start a new task if you still want it.";
+
+/// Send the refusal notice and settle it once handed off. A failed send is
+/// already in the dead-letter queue, which retries it; this sweep re-sends
+/// only outcomes where nothing was sent. At-least-once: a crash between a
+/// successful send and the mark can repeat it.
+async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
+    let outcome = crate::pipeline::notify_owner_with_digest(
+        state,
+        &state.telegram_owner_surface(),
+        &format!("Standing rule {rule_id} {REFUSAL_NOTICE}"),
+        &[],
+        None,
+    )
+    .await;
+    settle_notice(state, pending_id, outcome);
+}
+
+/// Record a terminal marker once the notice is handed off
+/// (`handoff_complete`: sent, already delivered with only the outcome audit
+/// failing, or queued in the dead letters) or can never be sent (gate denied,
+/// no delivery adapter). Outcomes where nothing was sent are retried.
+fn settle_notice(state: &AppState, pending_id: &str, outcome: crate::pipeline::NotifyOutcome) {
+    use crate::pipeline::NotifyOutcome as O;
+    if !crate::nerve_delivery::handoff_complete(outcome) {
+        if !matches!(outcome, O::GateDenied | O::SurfaceUnsupported) {
+            return;
+        }
+        tracing::error!(
+            pending_id,
+            ?outcome,
+            "refusal notice cannot be delivered; giving up"
+        );
+    }
+    if let Err(err) = state
+        .store
+        .mark_refused_pending_owner_notified(pending_id, Timestamp::now())
+    {
+        tracing::error!(error = %err, pending_id, "could not record refusal notice settlement");
+    }
+}
+
+/// Make a permanently refused, never-consumed fired pending terminal (one
+/// transaction with its audit) and notify the owner. Returns whether the row
+/// is now terminal.
+async fn terminate_if_permanent(
+    state: &AppState,
+    pending: &crate::store::standing_rules::StandingRulePendingAction,
+    err: &crate::api::actions::DispatchError,
+) -> bool {
+    if !is_permanent_refusal(err) {
+        return false;
+    }
+    match state.store.terminate_fired_pending_refused(
+        &pending.pending_id,
+        &format!("{err:?}"),
+        Timestamp::now(),
+    ) {
+        Ok(true) => {
+            notify_refused(state, &pending.pending_id, &pending.rule_id).await;
+            true
+        }
+        Ok(false) => true,
+        Err(store_err) => {
+            tracing::error!(error = %store_err, pending_id = %pending.pending_id, "could not terminate refused fired pending");
+            false
+        }
+    }
+}
+
 /// Re-drive any fired default whose one-use token was never consumed (a crash
 /// between claim and dispatch), and surface any claimed-but-unattempted effect
 /// for owner attention. Rows whose token was already consumed but the effect
@@ -188,6 +283,10 @@ async fn claim_and_redispatch(
 /// artifact on a re-drivable (`none`) row propagates as an error rather than
 /// being silently swallowed.
 async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> {
+    // 0. Re-send refusal notices whose first send failed.
+    for (pending_id, rule_id) in state.store.refused_pendings_awaiting_owner_notice()? {
+        notify_refused(state, &pending_id, &rule_id).await;
+    }
     // 1. Surface claimed-but-unattempted effects for owner attention.
     let claimed = state.store.pending_dark_window_claimed_unredriven()?;
     for pending in claimed {
@@ -226,7 +325,7 @@ async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> 
         let Some(grant) = state.store.find_task_grant_by_id(pending.task_grant_id)? else {
             continue;
         };
-        let _ = mediate_and_dispatch_action(
+        if let Err(e) = mediate_and_dispatch_action(
             state,
             &grant.0,
             pending.action_id.clone(),
@@ -236,9 +335,18 @@ async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> 
             Some(&pending.pending_id),
         )
         .await
-        .map_err(|e| {
-            StoreError::FailureRouting(format!("dark-window recovery redispatch failed: {e:?}"))
-        });
+        {
+            // Backstop: a permanent pre-consumption refusal must become
+            // terminal here, or this sweep re-drives it every tick forever.
+            // Transient errors stay `none` and retry on the next sweep.
+            if !terminate_if_permanent(state, &pending, &e).await {
+                tracing::warn!(
+                    pending_id = %pending.pending_id,
+                    error = ?e,
+                    "dark-window recovery redispatch failed; will retry"
+                );
+            }
+        }
     }
     Ok(())
 }
@@ -782,3 +890,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "standing_rule_timer_refusal_tests.rs"]
+mod refusal_tests;

@@ -27,16 +27,27 @@ the version number alone cannot distinguish these records. A placeholder is
 not evidence that the owner's content was system-generated.
 
 The kernel refuses to load or mutate a briefcase containing those placeholders.
-Worker projections, top-ups, rated egress, scoped admission, and fired
-standing-rule redispatch for that task stop with
-`stored briefcase has legacy owner provenance; compose a new task`. Existing
-briefcase bytes and provenance remain unchanged; restart does not repair them.
-Compose a new task through the normal authenticated owner flow so the current
-packer derives labels from trusted sources. A standing rule bound to the old
-task keeps failing closed on every redispatch; revoke or narrow it through the
-normal owner review flow and re-approve it against the new task. Do not
-relabel the old JSON or replay a potentially completed external effect as an
-upgrade recovery step.
+Worker projections, top-ups, rated egress, and scoped admission for that task
+stop with `stored briefcase has legacy owner provenance; compose a new task`
+(an API caller sees a generic `internal_error`; the specific message is only in
+the kernel log). Existing briefcase bytes and provenance remain unchanged;
+restart does not repair them. Compose a new task through the normal
+authenticated owner flow so the current packer derives labels from trusted
+sources.
+
+A fired dark-window standing-rule default already pending against such a task
+is refused before any effect and before its one-use token is consumed. The
+kernel then makes that pending terminal (`stale`), records one
+`standing_rule.fired_pending_refused` audit row in the same transaction, and
+sends you an owner notice (retried by the recovery sweep until a send succeeds or
+is permanently undeliverable; delivery is at-least-once, so a crash at the wrong
+moment can repeat it): nothing ran and no budget was spent. It is not re-driven
+afterwards. Only a briefcase that is legacy or undecodable triggers this;
+other errors (store I/O, a corrupt unrelated row) stay retryable. Transient store errors are different: they leave the
+pending retryable. The rule itself is untouched, so later exceptions for a new
+task fire normally; revoke or narrow it from the standing-rule review flow only
+if you no longer want it. Do not relabel the old JSON or replay a potentially
+completed external effect as an upgrade recovery step.
 Older sections with an absent origin retain their existing fail-closed rated
 egress behavior and likewise need fresh context.
 

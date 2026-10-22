@@ -457,7 +457,7 @@ async fn enforce_rated_disclosure(
                 fired_reservation,
                 fired_pending,
             );
-            return Err(DispatchError::Resource(anyhow::Error::new(err)));
+            return Err(briefcase_lookup_error(err));
         }
     };
     let relationship = match briefcase.task_shape.counterparty {
@@ -1120,7 +1120,7 @@ async fn mediate_and_dispatch_action_with_attribution_and_token(
         let briefcase = state
             .store
             .find_briefcase(grant.id)
-            .map_err(|err| DispatchError::Resource(anyhow::Error::new(err)))?;
+            .map_err(briefcase_lookup_error)?;
         let erased = match briefcase
             .as_ref()
             .map(|briefcase| &briefcase.task_shape.counterparty)
@@ -1553,6 +1553,40 @@ pub(crate) struct DispatchedEffect {
     /// generic path and the un-recorded scoped arms (registry miss, executor
     /// error) leave this false so the handler records them once.
     pub(crate) executor_recorded: bool,
+}
+
+/// Typed marker for a briefcase lookup that failed for a reason no retry can
+/// cure (legacy provenance or undecodable stored JSON). Wrapped inside
+/// `DispatchError::Resource` so every existing match arm is unchanged; the
+/// fired-redispatch recovery downcasts to it and ONLY it to decide a pending
+/// is permanently refused. Display is transparent to the wrapped error.
+#[derive(Debug)]
+pub(crate) struct BriefcaseRefused(pub(crate) crate::store::StoreError);
+
+impl std::fmt::Display for BriefcaseRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for BriefcaseRefused {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+/// Wrap a `find_briefcase` failure: permanent classes get the typed marker,
+/// everything else (I/O, busy) stays an ordinary retryable resource error.
+fn briefcase_lookup_error(err: crate::store::StoreError) -> DispatchError {
+    use crate::store::StoreError;
+    if matches!(
+        err,
+        StoreError::LegacyBriefcaseProvenance | StoreError::Serde(_)
+    ) {
+        DispatchError::Resource(anyhow::Error::new(BriefcaseRefused(err)))
+    } else {
+        DispatchError::Resource(anyhow::Error::new(err))
+    }
 }
 
 #[derive(Debug)]
