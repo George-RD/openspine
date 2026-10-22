@@ -12,6 +12,17 @@ use openspine_schemas::action::ActionId;
 pub(crate) fn owner_description_fallback(action: &ActionId) -> Option<&'static str> {
     Some(match action.as_str() {
         "artifact.activate" => "Activate an owner-approved artifact version.",
+        "artifact.reconfirm" => {
+            "Reconfirm a learned artifact after a base change; the owner's approval re-admits it."
+        }
+        "owner.notify" => "Send the owner a kernel-originated notification.",
+        "secret.intake" => {
+            "Capture a secret from the owner through the kernel's secret-intake flow."
+        }
+        "secret.rotate" => "Rotate a stored secret.",
+        "web.form_submit" => "Submit a form on a website.",
+        "web.forum_browse" => "Browse a web forum.",
+        "web.search" => "Search the web.",
         "artifact.write:task_scratch" => "Write scratch output that belongs to the current task.",
         "briefcase.topup" => {
             "Top up a briefcase allowance; the kernel mutates the briefcase after the gate."
@@ -63,16 +74,18 @@ mod tests {
         let catalog = crate::action_catalog::canonical_catalog();
         let mut ids: Vec<_> = catalog.action_ids().iter().cloned().collect();
         ids.sort();
+        let mut violations = Vec::new();
         for action in ids {
             let catalog_text = catalog.tool_descriptor_for(&action).is_some()
                 || catalog.delegation_descriptor_for(&action).is_some();
-            let fallback = owner_description_fallback(&action);
-            assert_ne!(
-                catalog_text,
-                fallback.is_some(),
-                "{action:?} must have either catalog text or a kernel fallback, not both or neither"
-            );
+            if catalog_text == owner_description_fallback(&action).is_some() {
+                violations.push(action.as_str().to_owned());
+            }
         }
+        assert!(
+            violations.is_empty(),
+            "each action needs catalog text xor a kernel fallback: {violations:?}"
+        );
         assert!(owner_description_fallback(&ActionId::new("not.an.action")).is_none());
     }
 }
