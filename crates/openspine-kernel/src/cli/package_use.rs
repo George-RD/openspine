@@ -118,7 +118,7 @@ fn execute(config: &Path, installation: &str) -> Result<String, UseError> {
          managed base.\nPlan digest: {}\nThis consent expires in {WINDOW_MINUTES} minutes. It \
          approves the base transition only; it approves no learned artifact, standing rule or \
          connector trust.\nType `{phrase}` and press Enter to confirm; anything else cancels:",
-        first.target.package_id,
+        crate::package::review_report::escaped_json(&first.target.package_id, false),
         first.target.revision,
         first.generation + 1,
         first.report.plan_digest(),
