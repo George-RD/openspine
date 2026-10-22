@@ -2,7 +2,7 @@
 
 Package installation retains a validated declarative assistant package. It does **not** select that package, activate an agent, grant permissions, connect an account, start a model, or change the active artifact registry.
 
-The inactive installation slice implements specification [#273](https://github.com/George-RD/openspine/issues/273). Exact installed comparison implements [#281](https://github.com/George-RD/openspine/issues/281). Package selection and activation remain separate work.
+The inactive installation slice implements specification [#273](https://github.com/George-RD/openspine/issues/273). Exact installed comparison implements [#281](https://github.com/George-RD/openspine/issues/281). Package selection is [`openspine use`](package-selection.md); installation itself never selects.
 
 ## Commands
 
@@ -33,7 +33,7 @@ or selection.
 
 ## What a receipt means
 
-Successful installation reports `installed-inactive`, `selected: false`, `active: false`, and `activation_supported: false`. Its durable receipt binds the package ID, positive integer revision, inventory format version, content digest, manifest digest, installation ID, provenance, timestamp, and audit identity/sequence.
+Successful installation reports `installed-inactive`, `selected: false`, `active: false`, and `activation_supported: false`. `package list` later reports `selected: true` (`status: selected-at-next-start`) for the one installation [`openspine use`](package-selection.md) committed; `active` stays `false` because nothing is live-activated. Its durable receipt binds the package ID, positive integer revision, inventory format version, content digest, manifest digest, installation ID, provenance, timestamp, and audit identity/sequence.
 
 `local-unverified` means an explicit local source. `runtime-bundled` records selection of the bundled-package source. Neither is publisher authentication, a signature-verification claim, an approval, or authority to perform actions. An exact retry preserves the original receipt and provenance; it cannot upgrade a local installation's trust label.
 
