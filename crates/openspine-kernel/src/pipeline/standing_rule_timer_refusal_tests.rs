@@ -343,3 +343,40 @@ async fn refusal_notice_is_resent_after_a_failed_first_send() {
     assert_eq!(sends(&server).await, 2, "one failed attempt, one delivered");
     assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 1);
 }
+
+#[tokio::test]
+async fn transient_store_error_leaves_the_pending_retryable() {
+    let (state, server, timer_id) = fired_allow_pending(Breakage::Legacy, false).await;
+    let claimed = state
+        .store
+        .claim_standing_rule_dark_window(
+            &timer_id,
+            Timestamp::now() + std::time::Duration::from_secs(61),
+        )
+        .unwrap()
+        .expect("claimed");
+    // A Sqlite error (non-permanent) at the briefcase lookup: the table the
+    // lookup reads is unavailable.
+    state.store.with_conn_for_test(|c| {
+        c.execute_batch("ALTER TABLE briefcases RENAME TO briefcases_gone")
+            .unwrap();
+    });
+    recover_unredriven_pending(&state).await.unwrap();
+    recover_unredriven_pending(&state).await.unwrap();
+    let (resolution, state_col): (Option<String>, String) = state.store.with_conn_for_test(|c| {
+        c.query_row(
+            "SELECT resolution, dispatch_state FROM standing_rule_pending_actions WHERE pending_id = ?1",
+            params![claimed.pending_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap()
+    });
+    assert_eq!(resolution.as_deref(), Some("allowed"), "not staled");
+    assert_eq!(state_col, "none", "still retryable");
+    assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 0);
+    assert_eq!(sends(&server).await, 0, "no notice, no effect");
+    assert_eq!(
+        state.store.pending_dark_window_recoverable().unwrap().len(),
+        1
+    );
+}
