@@ -317,3 +317,138 @@ fn render_blocking_shows_only_failures() {
     assert!(blocking.contains("SOME_KEY"), "{blocking}");
     assert!(!blocking.contains("[ok"), "{blocking}");
 }
+
+/// The install `init` used to print green for: a provider with `model: ''`
+/// whose first turn fails with `HTTP 400 model is required`.
+#[test]
+fn an_empty_model_blocks_and_names_setup() {
+    let dir = temp_dir("empty-model");
+    let provider = api_key_provider("SOME_KEY").replace("model: m", "model: ''");
+    let path = write_config(&dir, &provider);
+    let mut env = full_env();
+    env.insert("SOME_KEY".to_string(), "value".to_string());
+
+    let readiness = assess(&path, &lookup(&env), None);
+
+    assert!(!readiness.is_ready(), "{}", readiness.render());
+    let check = find(&readiness, "model.local").expect("a model check is reported");
+    assert_eq!(check.state, CheckState::Fail);
+    let remedy = check.remedy.as_deref().unwrap();
+    assert!(remedy.contains("openspine setup"), "{remedy}");
+    assert!(remedy.contains(&path.display().to_string()), "{remedy}");
+}
+
+#[test]
+fn a_configured_model_adds_no_model_check() {
+    let dir = temp_dir("has-model");
+    let path = write_config(&dir, &api_key_provider("SOME_KEY"));
+    let mut env = full_env();
+    env.insert("SOME_KEY".to_string(), "value".to_string());
+
+    let readiness = assess(&path, &lookup(&env), None);
+
+    assert!(find(&readiness, "model.local").is_none());
+}
+
+/// A relative `lyra_dir` resolves against the current directory, so a config
+/// written in one place breaks everywhere else. The old remedy told the owner
+/// to set the value it already had; this one names the cause and an absolute
+/// replacement.
+#[test]
+fn a_relative_package_directory_is_explained_and_replaced_with_an_absolute_one() {
+    let dir = temp_dir("relative-package");
+    let path = write_config(&dir, &api_key_provider("SOME_KEY"));
+    let text = std::fs::read_to_string(&path).unwrap();
+    let relative = "no-such-dir/lyra";
+    std::fs::write(
+        &path,
+        text.replace(
+            &format!("lyra_dir: {}", dir.join("package").display()),
+            &format!("lyra_dir: {relative}"),
+        ),
+    )
+    .unwrap();
+    let mut env = full_env();
+    env.insert("SOME_KEY".to_string(), "value".to_string());
+
+    let readiness = assess(&path, &lookup(&env), None);
+
+    let check = find(&readiness, "package").unwrap();
+    assert_eq!(check.state, CheckState::Fail);
+    assert!(check.detail.contains("relative"), "{}", check.detail);
+    assert!(
+        check
+            .detail
+            .contains(&std::env::current_dir().unwrap().display().to_string()),
+        "names where it resolved: {}",
+        check.detail
+    );
+    let remedy = check.remedy.as_deref().unwrap();
+    assert!(
+        remedy.contains("lyra_dir: /"),
+        "the remedy is an absolute path: {remedy}"
+    );
+    assert!(
+        !remedy.contains(&format!("lyra_dir: {relative}")),
+        "the remedy must not repeat the failing value: {remedy}"
+    );
+}
+
+/// A relative `data_dir` silently selects a different state root from every
+/// directory, so it is reported, but does not block a working install.
+#[test]
+fn a_relative_data_dir_warns_without_blocking() {
+    let dir = temp_dir("relative-data");
+    let path = write_config(&dir, &api_key_provider("SOME_KEY"));
+    let text = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(
+        &path,
+        text.replace(
+            &format!("data_dir: {}", dir.join("data").display()),
+            "data_dir: ./data",
+        ),
+    )
+    .unwrap();
+    let mut env = full_env();
+    env.insert("SOME_KEY".to_string(), "value".to_string());
+
+    let readiness = assess(&path, &lookup(&env), None);
+
+    let check = find(&readiness, "data_dir").expect("relative data_dir is reported");
+    assert_eq!(check.state, CheckState::Warn);
+    assert!(check.remedy.as_deref().unwrap().contains("absolute"));
+    assert!(readiness.is_ready(), "{}", readiness.render());
+}
+
+#[test]
+fn an_absolute_data_dir_adds_no_check() {
+    let dir = temp_dir("absolute-data");
+    let path = write_config(&dir, &api_key_provider("SOME_KEY"));
+    let readiness = assess(&path, &lookup(&full_env()), None);
+
+    assert!(find(&readiness, "data_dir").is_none());
+}
+
+/// The artifact loader reads a missing directory as an empty registry, so
+/// without this gate a bad `lyra_dir` boots and then denies every message.
+#[test]
+fn startup_refuses_a_missing_package_directory_with_an_actionable_message() {
+    let dir = temp_dir("require-package");
+    let path = write_config(&dir, &api_key_provider("SOME_KEY"));
+    let config = Config::load(&path).unwrap();
+    require_package(&config, &path).expect("a present package passes");
+
+    std::fs::remove_dir_all(dir.join("package")).unwrap();
+    let error = require_package(&config, &path).unwrap_err().to_string();
+
+    assert!(error.contains("agent package"), "{error}");
+    assert!(
+        error.contains(&dir.join("package").display().to_string()),
+        "{error}"
+    );
+}
+
+#[test]
+fn the_default_package_directory_is_absolute() {
+    assert!(default_package_dir().is_absolute());
+}

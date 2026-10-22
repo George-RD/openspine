@@ -27,16 +27,16 @@ pub struct StarterConfig {
     pub data_dir: PathBuf,
     pub display_name: String,
     /// The owner's Telegram user id — the single trusted-principal channel
-    /// binding written to `owner.telegram_user_id`. The interactive wizard
-    /// leaves the placeholder `1`, which is bound as the authoritative owner
-    /// principal on the *first* kernel boot (`bootstrap_owner_principal`).
-    /// That bootstrap is fail-closed: once bound, changing the id in the
-    /// config makes the kernel refuse to start. To bind a real id, set it
-    /// before the first run — `openspine init --owner <id>` captures it up
-    /// front.
+    /// binding written to `owner.telegram_user_id`. The kernel binds it as the
+    /// authoritative owner principal on the *first* boot
+    /// (`bootstrap_owner_principal`), fail-closed: once bound, changing the id
+    /// makes the kernel refuse to start. So it is always the owner's real id,
+    /// asked for up front, never a placeholder.
     pub telegram_user_id: i64,
     pub provider_id: String,
     pub base_url: String,
+    /// Must be non-empty by the time [`write`] runs: an empty model id makes
+    /// the endpoint reject every request.
     pub model: String,
     pub bind_addr: String,
     pub package_dir: PathBuf,
@@ -45,16 +45,19 @@ pub struct StarterConfig {
 impl StarterConfig {
     /// Defaults for a configuration at `config_path`, before the owner adjusts
     /// them. `model` is deliberately empty: model ids move independently of
-    /// this binary, so the owner names one.
-    pub fn defaults(config_path: &Path) -> Self {
-        let dir = config_path
+    /// this binary, so the owner names one (or picks one the endpoint serves).
+    ///
+    /// Every path is absolute. A relative `data_dir` or package directory
+    /// resolves against the current directory, so the same file would select a
+    /// different state root, or no package at all, from anywhere else.
+    pub fn defaults(config_path: &Path, telegram_user_id: i64) -> Self {
+        let dir = readiness::absolute(config_path)
             .parent()
-            .filter(|parent| !parent.as_os_str().is_empty())
             .map(Path::to_path_buf)
-            .unwrap_or_else(|| PathBuf::from("."));
+            .unwrap_or_else(|| PathBuf::from("/"));
         Self {
             data_dir: dir.join("data"),
-            telegram_user_id: 1,
+            telegram_user_id,
             display_name: std::env::var("USER")
                 .or_else(|_| std::env::var("USERNAME"))
                 .unwrap_or_else(|_| "owner".to_string()),
@@ -194,6 +197,48 @@ pub async fn discover_models(client: &reqwest::Client, base_url: &str) -> Vec<St
     }
 }
 
+/// The model to configure: the one the owner named, or the only one the
+/// endpoint serves. Several served models are a choice only the owner can make,
+/// and none means the endpoint is unreachable or serves nothing, so either way
+/// the answer is an error naming the next step rather than a guess.
+pub fn resolve_model(
+    requested: Option<&str>,
+    discovered: &[String],
+    base_url: &str,
+) -> anyhow::Result<String> {
+    if let Some(model) = requested.map(str::trim).filter(|model| !model.is_empty()) {
+        return Ok(model.to_string());
+    }
+    match discovered {
+        [only] => Ok(only.clone()),
+        [] => anyhow::bail!(
+            "no model was named and {base_url} did not list any. Pass `--model <id>`, or start \
+             the endpoint and re-run so its models can be discovered."
+        ),
+        several => anyhow::bail!(
+            "{base_url} serves several models ({}). Pass `--model <id>` to choose one.",
+            several.join(", ")
+        ),
+    }
+}
+
+/// Set the model of the provider the kernel routes to (the first one) in an
+/// existing configuration.
+///
+/// Edits the parsed configuration and rewrites it, the same way provider
+/// binding does, so the new value is serialised and cannot inject YAML.
+pub fn set_default_model(config_path: &Path, model: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(!model.trim().is_empty(), "the model id must not be empty");
+    let mut config = Config::load(config_path)?;
+    let provider = config
+        .providers
+        .first_mut()
+        .ok_or_else(|| anyhow::anyhow!("{} configures no providers", config_path.display()))?;
+    provider.model = model.trim().to_string();
+    std::fs::write(config_path, serde_yaml::to_string(&config)?)?;
+    Ok(())
+}
+
 /// Write the starter configuration and, when absent, an owner-only key file.
 ///
 /// Returns the generated entries so the caller can export them into the running
@@ -204,6 +249,10 @@ pub fn write(
     starter: &StarterConfig,
     env: EnvLookup<'_>,
 ) -> Result<Vec<(String, String)>, anyhow::Error> {
+    anyhow::ensure!(
+        !starter.model.trim().is_empty(),
+        "a model id is required: an empty `model:` makes every request fail with HTTP 400"
+    );
     if let Some(parent) = config_path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -223,174 +272,5 @@ pub fn write(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn temp_dir(tag: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("openspine-starter-{tag}-{}", ulid::Ulid::new()));
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    fn starter(dir: &Path) -> StarterConfig {
-        let mut starter = StarterConfig::defaults(&dir.join("openspine.yaml"));
-        starter.model = "test-model:latest".to_string();
-        starter
-    }
-
-    /// The template is only useful if the kernel's own loader accepts it.
-    #[test]
-    fn the_starter_configuration_parses_through_the_real_loader() {
-        let dir = temp_dir("parse");
-        let config_path = dir.join("openspine.yaml");
-        let starter = starter(&dir);
-
-        write(&config_path, &starter, &no_env).unwrap();
-        let config = Config::load(&config_path).expect("starter config must load");
-
-        assert_eq!(config.data_dir, starter.data_dir);
-        assert_eq!(config.lyra_dir, starter.package_dir);
-        assert_eq!(config.providers.len(), 1);
-        assert_eq!(config.providers[0].model, "test-model:latest");
-        assert_eq!(
-            config.providers[0].auth,
-            ProviderAuth::ApiKey {
-                env: DEFAULT_API_KEY_ENV.to_string()
-            }
-        );
-    }
-
-    /// Every value here comes from a terminal prompt. Hand-spliced YAML would
-    /// let a quote, a colon, or a newline corrupt the file or inject a key.
-    #[test]
-    fn prompt_supplied_values_cannot_corrupt_or_inject_yaml() {
-        let dir = temp_dir("injection");
-        let config_path = dir.join("openspine.yaml");
-        let mut starter = starter(&dir);
-        starter.display_name =
-            "quote\" colon: newline\nunsafe_allow_uncontained_private_data: true".to_string();
-        starter.model = "model: with: colons".to_string();
-        starter.provider_id = "#comment".to_string();
-
-        write(&config_path, &starter, &no_env).unwrap();
-        let config = Config::load(&config_path).expect("must still parse");
-
-        assert_eq!(config.owner.display_name, starter.display_name);
-        assert_eq!(config.providers[0].model, "model: with: colons");
-        assert_eq!(config.providers[0].id, "#comment");
-        assert!(
-            !config.unsafe_allow_uncontained_private_data,
-            "a newline in a prompt answer must not set another field"
-        );
-    }
-
-    /// A configuration that captured an install path at first run points at the
-    /// previous generation after an upgrade, so the default tracks the running
-    /// executable instead.
-    #[test]
-    fn the_package_directory_is_resolved_from_the_running_executable() {
-        let dir = temp_dir("package");
-        let resolved = StarterConfig::defaults(&dir.join("openspine.yaml")).package_dir;
-
-        let expected = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().and_then(Path::parent).map(Path::to_path_buf))
-            .map(|prefix| prefix.join("share").join("openspine").join("lyra"));
-        match expected {
-            Some(packaged) if packaged.is_dir() => assert_eq!(resolved, packaged),
-            _ => assert_eq!(resolved, PathBuf::from("artifacts/lyra")),
-        }
-    }
-
-    fn no_env(_: &str) -> Option<String> {
-        None
-    }
-
-    fn artifact_key_of(entries: &[(String, String)]) -> String {
-        entries
-            .iter()
-            .find(|(name, _)| name == "OPENSPINE_ARTIFACT_KEY")
-            .map(|(_, value)| value.clone())
-            .expect("artifact key")
-    }
-
-    #[test]
-    fn generated_keys_satisfy_the_artifact_key_shape() {
-        let artifact = artifact_key_of(&key_entries(&no_env));
-
-        assert_eq!(artifact.len(), 64);
-        assert!(artifact.bytes().all(|byte| byte.is_ascii_hexdigit()));
-        assert_ne!(
-            artifact,
-            artifact_key_of(&key_entries(&no_env)),
-            "keys must differ"
-        );
-    }
-
-    /// Generating a competing random key would work for the current process,
-    /// where the environment wins, and then take over on the next invocation and
-    /// decrypt an existing vault with the wrong key.
-    #[test]
-    fn an_environment_supplied_key_is_carried_into_the_file_unchanged() {
-        let supplied = "c".repeat(64);
-        let env = |name: &str| (name == "OPENSPINE_ARTIFACT_KEY").then(|| supplied.clone());
-
-        let entries = key_entries(&env);
-
-        assert_eq!(artifact_key_of(&entries), supplied);
-        assert_ne!(
-            entries
-                .iter()
-                .find(|(name, _)| name == "OPENSPINE_GRANT_HMAC_KEY")
-                .map(|(_, value)| value.as_str()),
-            Some(supplied.as_str()),
-            "an unset key is still generated"
-        );
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn the_generated_key_file_is_owner_only() {
-        use std::os::unix::fs::PermissionsExt as _;
-
-        let dir = temp_dir("keyfile");
-        let config_path = dir.join("openspine.yaml");
-
-        let entries = write(&config_path, &starter(&dir), &no_env).unwrap();
-
-        assert_eq!(entries.len(), 4);
-        let mode = std::fs::metadata(env_file::path_for(&config_path))
-            .unwrap()
-            .permissions()
-            .mode()
-            & 0o777;
-        assert_eq!(mode, 0o600, "mode was {mode:04o}");
-    }
-
-    /// Rewriting the configuration must never mint new key material: the
-    /// existing vault is encrypted under the current artifact key.
-    #[test]
-    fn an_existing_key_file_is_left_alone() {
-        let dir = temp_dir("keep-keys");
-        let config_path = dir.join("openspine.yaml");
-        let env_path = env_file::path_for(&config_path);
-        env_file::write_owner_only(&env_path, "OPENSPINE_ARTIFACT_KEY=existing\n").unwrap();
-
-        let entries = write(&config_path, &starter(&dir), &no_env).unwrap();
-
-        assert!(entries.is_empty());
-        assert_eq!(
-            std::fs::read_to_string(&env_path).unwrap(),
-            "OPENSPINE_ARTIFACT_KEY=existing\n"
-        );
-    }
-
-    #[test]
-    fn the_bind_port_probe_skips_a_port_already_in_use() {
-        let held = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let taken = held.local_addr().unwrap().port();
-
-        assert_ne!(free_port_from(taken), taken);
-    }
-}
+#[path = "starter_tests.rs"]
+mod tests;

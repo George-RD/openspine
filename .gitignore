@@ -6,3 +6,7 @@
 node_modules/
 site/dist/
 .codegraph/
+
+# Local first-run state: `openspine init` in a checkout writes these.
+/openspine.local.yaml
+.openspine-control-*/

@@ -145,3 +145,42 @@ fn refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration() {
 
     assert!(vault.store().is_none());
 }
+
+/// The wizard used to write `telegram_user_id: 1` and let the first kernel
+/// boot bind it permanently. The id now has to be a real Telegram id.
+#[test]
+fn the_owner_id_must_be_a_positive_number() {
+    assert_eq!(parse_owner_id(" 123456789 ").unwrap(), 123_456_789);
+    for bad in ["", "0", "-5", "@someone", "12ab", "1.5"] {
+        let error = parse_owner_id(bad).unwrap_err().to_string();
+        assert!(error.contains("@userinfobot"), "{bad}: {error}");
+    }
+}
+
+/// A configuration that already names a model must not be prompted about one:
+/// `ensure_model` runs on every `setup` of an existing install.
+#[tokio::test]
+async fn an_existing_model_is_not_prompted_for() {
+    let dir = std::env::temp_dir().join(format!("openspine-model-{}", ulid::Ulid::new()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let config_path = dir.join("openspine.yaml");
+    let mut starter = StarterConfig::defaults(&config_path, 7);
+    starter.model = "keep-me".to_string();
+    starter::write(&config_path, &starter, &|_| None).unwrap();
+
+    ensure_model(&config_path).await.unwrap();
+
+    assert_eq!(
+        Config::load(&config_path).unwrap().providers[0].model,
+        "keep-me"
+    );
+}
+
+/// An unreadable configuration is the readiness report's to explain, not a
+/// reason for the model step to abort `setup`.
+#[tokio::test]
+async fn an_unreadable_configuration_skips_the_model_step() {
+    ensure_model(Path::new("/nonexistent/openspine.yaml"))
+        .await
+        .unwrap();
+}

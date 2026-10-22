@@ -181,6 +181,15 @@ pub(crate) enum Commands {
         /// Owner display name (defaults to $USER).
         #[arg(long)]
         name: Option<String>,
+        /// Model id the default provider serves. Without it, a fresh install
+        /// asks the endpoint what it serves and uses a lone answer; several
+        /// (or none) is an error naming this flag.
+        #[arg(long)]
+        model: Option<String>,
+        /// OpenAI-compatible endpoint of a fresh install (defaults to the
+        /// local Ollama address).
+        #[arg(long)]
+        base_url: Option<String>,
     },
     /// Open a direct local terminal conversation with Lyra
     Chat {
@@ -282,8 +291,23 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             std::process::ExitCode::FAILURE
         });
     }
-    if let Some(Commands::Init { owner, name }) = &cli.command {
-        cli::init::run_init(&cli.config, *owner, name.as_deref()).await?;
+    if let Some(Commands::Init {
+        owner,
+        name,
+        model,
+        base_url,
+    }) = &cli.command
+    {
+        cli::init::run_init(
+            &cli.config,
+            cli::init::InitOptions {
+                owner: *owner,
+                name: name.as_deref(),
+                model: model.as_deref(),
+                base_url: base_url.as_deref(),
+            },
+        )
+        .await?;
         return Ok(std::process::ExitCode::SUCCESS);
     }
     if let Some(Commands::Provider {
@@ -295,6 +319,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     }
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
+    cli::readiness::require_package(&cfg, &cli.config)?;
 
     let artifact_key = config::artifact_key_bytes()?;
     // Acquire the exclusive data-root lifetime lock and process any pending

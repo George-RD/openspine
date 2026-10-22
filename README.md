@@ -190,15 +190,22 @@ owner-only key file, binds you as the single trusted owner, and prints the
 trust ceremony (seed key, approval boundary, and how to test it):
 
 ```sh
-openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name"
+openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name" --model <model_id>
 openspine --config openspine.local.yaml chat
 ```
 
 `--owner` is your Telegram user id — the trusted principal every later approval
-is bound to. The [first-run guide](docs/first-run.md) explains the ceremony and
+is bound to. `--model` is the model your OpenAI-compatible endpoint serves
+(default `http://127.0.0.1:11434`, override with `--base-url`); leave it out and
+`init` asks the endpoint, using the model it lists if there is exactly one and
+otherwise stopping to ask you to choose. `init` writes absolute `data_dir` and
+`lyra_dir` paths, so the configuration works from any directory, and
+`openspine.local.yaml` and the `.openspine-control-*` directories it creates are
+gitignored. The [first-run guide](docs/first-run.md) explains the ceremony and
 the capability rungs beyond it. `openspine setup` remains the interactive
-alternative: it offers the models your endpoint actually serves and can log in
-to a model provider.
+alternative: it asks for your Telegram user id, offers the models your endpoint
+actually serves (and can change the model of an existing configuration), and
+can log in to a model provider.
 
 Inside the conversation, `/status` prints the readiness report and `/help` lists
 the commands. On first start, a configured install prints a short orientation

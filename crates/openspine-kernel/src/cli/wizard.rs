@@ -11,7 +11,7 @@ use super::prompt::{confirm, prompt};
 use crate::cli::readiness::{self, Readiness};
 use crate::cli::setup;
 use crate::cli::starter::{self, StarterConfig};
-use crate::config::{self, Config};
+use crate::config::{self, Config, ProviderKind};
 use crate::env_file;
 use crate::overlay_export_restore::{self, OverlayOperations};
 use crate::secret_store::SecretStore;
@@ -86,6 +86,7 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
             // "run `openspine setup`" remedy on the key checks would send the
             // owner back to the command they just ran.
             ensure_key_material(config_path)?;
+            ensure_model(config_path).await?;
         }
     }
 
@@ -104,10 +105,11 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
     loop {
         println!();
         println!("  1) Log in to a model provider with OAuth");
-        println!("  2) Re-check readiness");
-        println!("  3) Send a verification request to a provider");
-        println!("  4) Done");
-        let Some(choice) = prompt("choose", Some("4"))? else {
+        println!("  2) Choose the model the default provider uses");
+        println!("  3) Re-check readiness");
+        println!("  4) Send a verification request to a provider");
+        println!("  5) Done");
+        let Some(choice) = prompt("choose", Some("5"))? else {
             break;
         };
         match choice.as_str() {
@@ -122,22 +124,35 @@ pub async fn run_setup(config_path: &Path, check_only: bool) -> anyhow::Result<b
                 current = report(config_path, &vault).await;
             }
             "2" => {
+                // The model lives in the configuration, so this works with the
+                // vault locked.
+                if let Err(error) = change_model(config_path).await {
+                    eprintln!("could not change the model: {error:#}");
+                }
                 refresh_vault(&mut vault, config_path)?;
                 current = report(config_path, &vault).await;
             }
             "3" => {
+                refresh_vault(&mut vault, config_path)?;
+                current = report(config_path, &vault).await;
+            }
+            "4" => {
                 if let Err(error) = verify_configured_provider(config_path, &vault).await {
                     eprintln!("verification failed: {error:#}");
                 }
             }
-            "4" | "" => break,
+            "5" | "" => break,
             other => println!("  '{other}' is not one of the options."),
         }
     }
 
     println!();
     if current.is_ready() {
-        println!("This install is ready. Run `openspine` to start talking to Lyra.");
+        println!("This install is ready. Run `openspine chat` to start talking to Lyra.");
+        println!(
+            "(Bare `openspine` is the Telegram server and also needs \
+             OPENSPINE_TELEGRAM_BOT_TOKEN; see docs/telegram-setup.md.)"
+        );
     } else {
         println!("Items above still block a reply. Re-run `openspine setup` after resolving them.");
     }
@@ -207,7 +222,7 @@ async fn bootstrap(config_path: &Path) -> anyhow::Result<()> {
         anyhow::bail!("setup needs a configuration file to continue");
     }
 
-    let mut starter = StarterConfig::defaults(config_path);
+    let mut starter = StarterConfig::defaults(config_path, ask_owner_id()?);
     if let Some(value) = prompt("Your name", Some(&starter.display_name))? {
         starter.display_name = value;
     }
@@ -217,7 +232,7 @@ async fn bootstrap(config_path: &Path) -> anyhow::Result<()> {
     )? {
         starter.base_url = value;
     }
-    starter.model = choose_model(&starter.base_url).await?;
+    starter.model = choose_model(&starter.base_url, None).await?;
 
     let generated = starter::write(config_path, &starter, &readiness::process_env)?;
     println!("  wrote {}", config_path.display());
@@ -278,13 +293,14 @@ fn ensure_key_material(config_path: &Path) -> anyhow::Result<()> {
 }
 
 /// Offer the model ids the endpoint actually serves. A model string this binary
-/// invented would be a guess that fails on the first turn.
-async fn choose_model(base_url: &str) -> anyhow::Result<String> {
+/// invented would be a guess that fails on the first turn. `current` is
+/// pre-selected when the endpoint still serves it.
+async fn choose_model(base_url: &str, current: Option<&str>) -> anyhow::Result<String> {
     let client = reqwest::Client::new();
     let models = starter::discover_models(&client, base_url).await;
     if models.is_empty() {
         println!("  {base_url} did not answer a model listing.");
-        return prompt("Model id", None)?
+        return prompt("Model id", current.filter(|model| !model.is_empty()))?
             .context("setup needs a model id to write a usable configuration");
     }
 
@@ -292,13 +308,98 @@ async fn choose_model(base_url: &str) -> anyhow::Result<String> {
     for (index, model) in models.iter().enumerate() {
         println!("    {}) {model}", index + 1);
     }
-    let default = "1".to_string();
+    let default = current
+        .and_then(|current| models.iter().position(|model| model == current))
+        .map_or(1, |index| index + 1)
+        .to_string();
     let choice = prompt("Model", Some(&default))?.unwrap_or(default);
     match choice.parse::<usize>() {
         Ok(index) if index >= 1 && index <= models.len() => Ok(models[index - 1].clone()),
         // Anything that is not an offered index is taken as a literal model id,
         // so an endpoint with a hidden model is still reachable.
         _ => Ok(choice),
+    }
+}
+
+/// Pick the model of the provider the kernel routes to and write it into the
+/// configuration. Only an OpenAI-compatible endpoint can be asked what it
+/// serves; an OAuth provider takes a typed model id.
+async fn change_model(config_path: &Path) -> anyhow::Result<()> {
+    let config = Config::load(config_path).context("loading the configuration")?;
+    let provider = config
+        .providers
+        .first()
+        .context("the configuration has no providers")?;
+    let model = if provider.kind == ProviderKind::OpenaiCompat {
+        let base_url = provider
+            .base_url
+            .as_deref()
+            .unwrap_or(starter::DEFAULT_BASE_URL);
+        choose_model(base_url, Some(&provider.model)).await?
+    } else {
+        prompt(
+            "Model id",
+            Some(&provider.model)
+                .filter(|model| !model.is_empty())
+                .map(String::as_str),
+        )?
+        .context("a model id is required")?
+    };
+    starter::set_default_model(config_path, &model)?;
+    println!("  provider {} now uses {model}", provider.id);
+    Ok(())
+}
+
+/// An existing configuration with no model answers nothing (`HTTP 400 model is
+/// required`), so the wizard asks for one instead of leaving the owner to find
+/// the line in the YAML. An unreadable configuration is left to the readiness
+/// report, which names the fix.
+async fn ensure_model(config_path: &Path) -> anyhow::Result<()> {
+    let Ok(config) = Config::load(config_path) else {
+        return Ok(());
+    };
+    let Some(provider) = config.providers.first() else {
+        return Ok(());
+    };
+    if !provider.model.trim().is_empty() {
+        return Ok(());
+    }
+    println!("Provider {} has no model configured.", provider.id);
+    change_model(config_path).await?;
+    println!();
+    Ok(())
+}
+
+/// A Telegram user id is a positive integer. Anything else is a typo or a
+/// username, and binding it would trap the owner behind the fail-closed owner
+/// bootstrap.
+fn parse_owner_id(answer: &str) -> anyhow::Result<i64> {
+    match answer.trim().parse::<i64>() {
+        Ok(id) if id > 0 => Ok(id),
+        _ => anyhow::bail!(
+            "'{}' is not a Telegram user id: it is a positive number (message @userinfobot \
+             on Telegram to find yours)",
+            answer.trim()
+        ),
+    }
+}
+
+/// Ask for the owner's real Telegram user id. The first kernel boot binds it
+/// permanently and refuses to start if it later changes, so a placeholder here
+/// would trap the owner.
+fn ask_owner_id() -> anyhow::Result<i64> {
+    loop {
+        let Some(answer) = prompt(
+            "Your Telegram user id (message @userinfobot on Telegram to find it)",
+            None,
+        )?
+        else {
+            anyhow::bail!("setup needs your Telegram user id to bind the trusted owner principal");
+        };
+        match parse_owner_id(&answer) {
+            Ok(id) => return Ok(id),
+            Err(error) => println!("  {error:#}"),
+        }
     }
 }
 

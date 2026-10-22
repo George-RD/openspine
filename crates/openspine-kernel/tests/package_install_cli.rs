@@ -16,8 +16,6 @@ impl Fixture {
         let fixture = Self {
             root: tempfile::tempdir().unwrap(),
         };
-        let output = fixture.run(&["init", "--owner", "987654321", "--name", "Tester"]);
-        assert_success(&output);
         copy_tree(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"),
             &fixture.root.path().join("candidate"),
@@ -26,6 +24,18 @@ impl Fixture {
             &fixture.root.path().join("candidate"),
             &fixture.root.path().join("artifacts/lyra"),
         );
+        // After the copy: init records the absolute package path it finds from
+        // the working directory, and this fixture's package is the copy.
+        let output = fixture.run(&[
+            "init",
+            "--owner",
+            "987654321",
+            "--name",
+            "Tester",
+            "--model",
+            "fixture-model",
+        ]);
+        assert_success(&output);
         fixture
     }
 

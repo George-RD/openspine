@@ -49,6 +49,14 @@ pub fn startup_remedy(error: &anyhow::Error, config_path: &Path) -> Option<Strin
 
 fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
     match error {
+        // Setup never asks for the bot token, so the generic "run setup"
+        // remedy below would send the owner in a circle.
+        ConfigError::MissingEnv(name) if name == "OPENSPINE_TELEGRAM_BOT_TOKEN" => format!(
+            "bare `openspine` runs the Telegram server, which needs a bot token from \
+             @BotFather: add {name} to {} (see docs/telegram-setup.md). To talk to Lyra \
+             without Telegram, run `openspine chat`.",
+            env_file::path_for(config_path).display()
+        ),
         ConfigError::MissingEnv(name) => format!(
             "{name} is not set. Run `openspine setup`, or add {name} to {}.",
             env_file::path_for(config_path).display()
@@ -160,6 +168,25 @@ mod tests {
 
         assert!(remedy.contains("OPENSPINE_ARTIFACT_KEY"), "{remedy}");
         assert!(remedy.contains("/etc/openspine/openspine.env"), "{remedy}");
+    }
+
+    /// `openspine setup` never asks for the bot token, so pointing a missing
+    /// token at setup sends the owner in a circle. The remedy names the real
+    /// fix and the token-free alternative, `openspine chat`.
+    #[test]
+    fn a_missing_bot_token_names_botfather_and_chat_not_setup() {
+        let error = anyhow::Error::new(ConfigError::MissingEnv(
+            "OPENSPINE_TELEGRAM_BOT_TOKEN".to_string(),
+        ))
+        .context("loading /etc/openspine/openspine.yaml");
+
+        let remedy = startup_remedy(&error, &config_path()).unwrap();
+
+        assert!(remedy.contains("OPENSPINE_TELEGRAM_BOT_TOKEN"), "{remedy}");
+        assert!(remedy.contains("/etc/openspine/openspine.env"), "{remedy}");
+        assert!(remedy.contains("@BotFather"), "{remedy}");
+        assert!(remedy.contains("openspine chat"), "{remedy}");
+        assert!(!remedy.contains("openspine setup"), "{remedy}");
     }
 
     /// `ConfigError::Read` carries an inner `io::Error`, so a naive
