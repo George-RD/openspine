@@ -1569,7 +1569,11 @@ impl std::fmt::Display for BriefcaseRefused {
     }
 }
 
-impl std::error::Error for BriefcaseRefused {}
+impl std::error::Error for BriefcaseRefused {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
 
 /// Wrap a `find_briefcase` failure: permanent classes get the typed marker,
 /// everything else (I/O, busy) stays an ordinary retryable resource error.

@@ -39,8 +39,9 @@ A fired dark-window standing-rule default already pending against such a task
 is refused before any effect and before its one-use token is consumed. The
 kernel then makes that pending terminal (`stale`), records one
 `standing_rule.fired_pending_refused` audit row in the same transaction, and
-sends you an owner notice (retried by the recovery sweep until a send succeeds,
-then never repeated): nothing ran and no budget was spent. It is not re-driven
+sends you an owner notice (retried by the recovery sweep until a send succeeds or
+is permanently undeliverable; delivery is at-least-once, so a crash at the wrong
+moment can repeat it): nothing ran and no budget was spent. It is not re-driven
 afterwards. Only a briefcase that is legacy or undecodable triggers this;
 other errors (store I/O, a corrupt unrelated row) stay retryable. Transient store errors are different: they leave the
 pending retryable. The rule itself is untouched, so later exceptions for a new

@@ -380,3 +380,36 @@ async fn transient_store_error_leaves_the_pending_retryable() {
         1
     );
 }
+
+#[tokio::test]
+async fn permanent_notice_outcome_stops_further_attempts() {
+    use crate::pipeline::NotifyOutcome as O;
+    let (state, _server, timer_id) = fired_allow_pending(Breakage::Legacy, false).await;
+    let claimed = state
+        .store
+        .claim_standing_rule_dark_window(
+            &timer_id,
+            Timestamp::now() + std::time::Duration::from_secs(61),
+        )
+        .unwrap()
+        .expect("claimed");
+    state
+        .store
+        .terminate_fired_pending_refused(&claimed.pending_id, "t", Timestamp::now())
+        .unwrap();
+    settle_notice(&state, &claimed.pending_id, O::SendFailed);
+    assert_eq!(
+        state
+            .store
+            .refused_pendings_awaiting_owner_notice()
+            .unwrap()
+            .len(),
+        1
+    );
+    settle_notice(&state, &claimed.pending_id, O::GateDenied);
+    assert!(state
+        .store
+        .refused_pendings_awaiting_owner_notice()
+        .unwrap()
+        .is_empty());
+}

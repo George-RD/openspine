@@ -207,7 +207,7 @@ const REFUSAL_NOTICE: &str = "dark-window fired but the action was refused befor
      Start a new task if you still want it.";
 
 /// Send the refusal notice and record delivery only on success, so a failed
-/// send is retried by the next recovery sweep (never lost, never duplicated).
+/// send is retried by the next recovery sweep (at-least-once: a crash between a successful send and the mark can repeat it).
 async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
     let outcome = crate::pipeline::notify_owner_with_digest(
         state,
@@ -217,13 +217,31 @@ async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
         None,
     )
     .await;
-    if outcome == crate::pipeline::NotifyOutcome::Sent {
-        if let Err(err) = state
-            .store
-            .mark_refused_pending_owner_notified(pending_id, Timestamp::now())
-        {
-            tracing::error!(error = %err, pending_id, "could not record refusal notice delivery");
+    settle_notice(state, pending_id, outcome);
+}
+
+/// Record a terminal marker for `Sent` and for outcomes no retry can fix
+/// (denied by the gate, no delivery adapter, or the send happened but its
+/// outcome audit failed), so the sweep stops; transient outcomes are left for
+/// the next sweep.
+fn settle_notice(state: &AppState, pending_id: &str, outcome: crate::pipeline::NotifyOutcome) {
+    use crate::pipeline::NotifyOutcome as O;
+    match outcome {
+        O::Sent => {}
+        O::GateDenied | O::SurfaceUnsupported | O::OutcomeAuditFailed => {
+            tracing::error!(
+                pending_id,
+                ?outcome,
+                "refusal notice cannot be delivered; giving up"
+            );
         }
+        _ => return,
+    }
+    if let Err(err) = state
+        .store
+        .mark_refused_pending_owner_notified(pending_id, Timestamp::now())
+    {
+        tracing::error!(error = %err, pending_id, "could not record refusal notice settlement");
     }
 }
 
