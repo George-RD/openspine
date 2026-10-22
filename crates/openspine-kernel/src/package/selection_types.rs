@@ -89,6 +89,9 @@ pub(crate) struct SelectionCommitted {
     pub generation: u64,
     pub invalidation_generation: u64,
     pub decision: SelectionDecision,
+    /// Runtime standing rules this transition moved from `active` to
+    /// `needs_review` (sorted); empty unless the base epoch changed.
+    pub rules_needing_review: Vec<String>,
 }
 
 /// Fixed refusal reasons. They never echo package or owner content.

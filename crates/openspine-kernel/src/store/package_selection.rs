@@ -293,10 +293,35 @@ impl Store {
                     return Err(refuse(SelectionRefusal::ConsequenceStale));
                 }
             }
+            // Runtime standing rules are the live reusable authority and are not
+            // gated by registry membership, so a base-epoch change must also
+            // send every active one back to review (pending dark-window
+            // exceptions staled with it). Paused and revoked rules keep their
+            // more restrictive owner state.
+            let mut rules_needing_review = Vec::new();
+            if confirmed.base_epoch_changed {
+                let now_nanos = i64::try_from(now.as_nanosecond())
+                    .map_err(|_| StoreError::NumericRange)?;
+                rules_needing_review = tx
+                    .prepare("SELECT rule_id FROM standing_rules WHERE status = 'active' ORDER BY rule_id")?
+                    .query_map([], |row| row.get::<_, String>(0))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                for rule_id in &rules_needing_review {
+                    super::standing_rules_exceptions::stale_pending_exceptions_in_tx(
+                        tx, rule_id, None, now_nanos,
+                    )?;
+                    tx.execute(
+                        "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2
+                         WHERE rule_id = ?1 AND status = 'active'",
+                        params![rule_id, now_nanos],
+                    )?;
+                }
+            }
             let committed = SelectionCommitted {
                 generation,
                 invalidation_generation: invalidation,
                 decision: confirmed.clone(),
+                rules_needing_review,
             };
             let seq = append(
                 tx,
