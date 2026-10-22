@@ -206,8 +206,10 @@ const REFUSAL_NOTICE: &str = "dark-window fired but the action was refused befor
      (its task's stored briefcase cannot be loaded); it was cancelled and nothing ran. \
      Start a new task if you still want it.";
 
-/// Send the refusal notice and record delivery only on success, so a failed
-/// send is retried by the next recovery sweep (at-least-once: a crash between a successful send and the mark can repeat it).
+/// Send the refusal notice and settle it once handed off. A failed send is
+/// already in the dead-letter queue, which retries it; this sweep re-sends
+/// only outcomes where nothing was sent. At-least-once: a crash between a
+/// successful send and the mark can repeat it.
 async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
     let outcome = crate::pipeline::notify_owner_with_digest(
         state,
@@ -220,22 +222,21 @@ async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
     settle_notice(state, pending_id, outcome);
 }
 
-/// Record a terminal marker for `Sent` and for outcomes no retry can fix
-/// (denied by the gate, no delivery adapter, or the send happened but its
-/// outcome audit failed), so the sweep stops; transient outcomes are left for
-/// the next sweep.
+/// Record a terminal marker once the notice is handed off
+/// (`handoff_complete`: sent, already delivered with only the outcome audit
+/// failing, or queued in the dead letters) or can never be sent (gate denied,
+/// no delivery adapter). Outcomes where nothing was sent are retried.
 fn settle_notice(state: &AppState, pending_id: &str, outcome: crate::pipeline::NotifyOutcome) {
     use crate::pipeline::NotifyOutcome as O;
-    match outcome {
-        O::Sent => {}
-        O::GateDenied | O::SurfaceUnsupported | O::OutcomeAuditFailed => {
-            tracing::error!(
-                pending_id,
-                ?outcome,
-                "refusal notice cannot be delivered; giving up"
-            );
+    if !crate::nerve_delivery::handoff_complete(outcome) {
+        if !matches!(outcome, O::GateDenied | O::SurfaceUnsupported) {
+            return;
         }
-        _ => return,
+        tracing::error!(
+            pending_id,
+            ?outcome,
+            "refusal notice cannot be delivered; giving up"
+        );
     }
     if let Err(err) = state
         .store

@@ -314,7 +314,7 @@ async fn corrupt_briefcase_json_is_terminal_and_cancels_reservations() {
 }
 
 #[tokio::test]
-async fn refusal_notice_is_resent_after_a_failed_first_send() {
+async fn failed_first_send_is_settled_into_dead_letters_not_resent_by_the_sweep() {
     let (state, server, timer_id) = fired_allow_pending(Breakage::Legacy, true).await;
     state
         .store
@@ -325,22 +325,27 @@ async fn refusal_notice_is_resent_after_a_failed_first_send() {
         .unwrap()
         .expect("claimed");
     recover_unredriven_pending(&state).await.unwrap(); // terminate; send fails
-    assert_eq!(
-        state
-            .store
-            .refused_pendings_awaiting_owner_notice()
-            .unwrap()
-            .len(),
-        1
-    );
-    recover_unredriven_pending(&state).await.unwrap(); // resend succeeds
     assert!(state
         .store
         .refused_pendings_awaiting_owner_notice()
         .unwrap()
         .is_empty());
-    recover_unredriven_pending(&state).await.unwrap(); // nothing further
-    assert_eq!(sends(&server).await, 2, "one failed attempt, one delivered");
+    recover_unredriven_pending(&state).await.unwrap();
+    assert_eq!(sends(&server).await, 1, "the sweep does not resend");
+    assert_eq!(state.store.pending_dead_letters().unwrap().len(), 1);
+    // The dead-letter queue owns delivery: its worker makes the send.
+    state.store.with_conn_for_test(|c| {
+        c.execute(
+            "UPDATE notify_dead_letters SET next_attempt_at = '1970-01-01T00:00:00Z'",
+            [],
+        )
+        .unwrap();
+    });
+    crate::failure_surfacing::retry_worker::retry_due_notifications(&state)
+        .await
+        .unwrap();
+    assert_eq!(sends(&server).await, 2, "dead-letter worker delivered it");
+    assert!(state.store.pending_dead_letters().unwrap().is_empty());
     assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 1);
 }
 
@@ -397,7 +402,7 @@ async fn permanent_notice_outcome_stops_further_attempts() {
         .store
         .terminate_fired_pending_refused(&claimed.pending_id, "t", Timestamp::now())
         .unwrap();
-    settle_notice(&state, &claimed.pending_id, O::SendFailed);
+    settle_notice(&state, &claimed.pending_id, O::GateUnavailable);
     assert_eq!(
         state
             .store
@@ -406,7 +411,8 @@ async fn permanent_notice_outcome_stops_further_attempts() {
             .len(),
         1
     );
-    settle_notice(&state, &claimed.pending_id, O::GateDenied);
+    // SendFailed is already in the dead-letter queue: settled.
+    settle_notice(&state, &claimed.pending_id, O::SendFailed);
     assert!(state
         .store
         .refused_pendings_awaiting_owner_notice()
