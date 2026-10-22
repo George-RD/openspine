@@ -20,6 +20,8 @@ mod generation;
 mod ledger;
 mod wire;
 
+#[cfg(test)]
+use acquire::resolve_root_identity_with;
 use acquire::{
     cleanup_temp_at, open_canonical_dir_nofollow, open_or_create_control_dir_relative,
     openat_file_nofollow, resolve_root_identity, secure_dir_fd, secure_or_create_sub_dir_at,
