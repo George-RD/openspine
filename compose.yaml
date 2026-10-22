@@ -41,9 +41,10 @@ services:
     image: busybox:1.36
     user: "0:0"
     restart: "no"
-    command: ["sh", "-c", "mkdir -p /app/data && chown -R 10001:10001 /app/data"]
+    command: ["sh", "-c", "mkdir -p /app/data /app/control && chown -R 10001:10001 /app/data /app/control"]
     volumes:
       - ./data:/app/data
+      - ./control:/app/control
 
   kernel:
     build:
@@ -82,6 +83,13 @@ services:
       # Preserve the existing local data path across upgrades. data-init fixes
       # ownership before the uid-10001 kernel starts.
       - ./data:/app/data
+      # The kernel keeps its lifetime lock and terminal-erasure ledger in a
+      # control directory outside the data tree. Natively that is beside the
+      # data root, i.e. in this container's ephemeral /app, which would lose the
+      # ledger on every recreate while ./data keeps its marker (the kernel then
+      # refuses to start). OPENSPINE_CONTROL_DIR relocates it to this volume.
+      # Back ./control up and restore it together with ./data.
+      - ./control:/app/control
       # Docker socket: the kernel uses this to spawn per-task shell containers
       # via DockerDriver (docker run --rm --network openspine-internal ...).
       # The socket grants significant privileges; in production restrict the
@@ -92,6 +100,8 @@ services:
     # Copy .env.example to .env and fill in real values.
     env_file:
       - .env
+    environment:
+      OPENSPINE_CONTROL_DIR: /app/control
     # Port 7777 is NOT published to the host; the kernel API is only reachable
     # from inside the openspine-internal network (by shell containers) and from
     # the kernel's own process. Expose it here only for documentation clarity.

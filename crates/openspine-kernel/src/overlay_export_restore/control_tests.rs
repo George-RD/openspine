@@ -389,6 +389,8 @@ fn merges_bundle_baseline_and_rejects_missing_or_regressed_continuity() {
     assert_eq!(good.sequence(), 2);
     assert_eq!(good.continuity_id(), continuity_id);
 }
+#[path = "control_tests/control_parent.rs"]
+mod control_parent;
 #[path = "control_tests/hardening.rs"]
 mod hardening;
 #[path = "control_tests/portability.rs"]

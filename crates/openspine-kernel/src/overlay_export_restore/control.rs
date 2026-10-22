@@ -20,6 +20,8 @@ mod generation;
 mod ledger;
 mod wire;
 
+#[cfg(test)]
+use acquire::resolve_root_identity_with;
 use acquire::{
     cleanup_temp_at, open_canonical_dir_nofollow, open_or_create_control_dir_relative,
     openat_file_nofollow, resolve_root_identity, secure_dir_fd, secure_or_create_sub_dir_at,
@@ -80,8 +82,31 @@ impl OverlayControl {
         if master_key.is_empty() {
             return Err(ControlError::AuthenticationFailed);
         }
+        Self::acquire_resolved(master_key, resolve_root_identity(data_root)?)
+    }
 
-        let identity = resolve_root_identity(data_root)?;
+    /// [`Self::acquire`] with the control parent passed explicitly instead of
+    /// read from `OPENSPINE_CONTROL_DIR`, so tests can exercise the override
+    /// without mutating process-global state.
+    #[cfg(test)]
+    pub(crate) fn acquire_with_control_parent(
+        data_root: &Path,
+        master_key: &[u8],
+        control_parent: Option<&Path>,
+    ) -> Result<Self, ControlError> {
+        if master_key.is_empty() {
+            return Err(ControlError::AuthenticationFailed);
+        }
+        Self::acquire_resolved(
+            master_key,
+            resolve_root_identity_with(data_root, control_parent)?,
+        )
+    }
+
+    fn acquire_resolved(
+        master_key: &[u8],
+        identity: acquire::ResolvedRootIdentity,
+    ) -> Result<Self, ControlError> {
         let parent_dir = open_canonical_dir_nofollow(&identity.canonical_parent)?;
         let control_dir = open_or_create_control_dir_relative(
             parent_dir.as_raw_fd(),

@@ -50,17 +50,19 @@ pub fn startup_remedy(error: &anyhow::Error, config_path: &Path) -> Option<Strin
 fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
     match error {
         // Setup never asks for the bot token, so the generic "run setup"
-        // remedy below would send the owner in a circle.
-        ConfigError::MissingEnv(name) if name == "OPENSPINE_TELEGRAM_BOT_TOKEN" => format!(
-            "bare `openspine` runs the Telegram server, which needs a bot token from \
-             @BotFather: add {name} to {} (see docs/telegram-setup.md). To talk to Lyra \
-             without Telegram, run `openspine chat`.",
-            env_file::path_for(config_path).display()
-        ),
-        ConfigError::MissingEnv(name) => format!(
-            "{name} is not set. Run `openspine setup`, or add {name} to {}.",
-            env_file::path_for(config_path).display()
-        ),
+        // remedy below would send the owner in a circle. In a container the
+        // Compose `.env` is the source, handled by the generic arm.
+        ConfigError::MissingEnv(name)
+            if name == "OPENSPINE_TELEGRAM_BOT_TOKEN" && !in_container() =>
+        {
+            format!(
+                "bare `openspine` runs the Telegram server, which needs a bot token from \
+                 @BotFather: add {name} to {} (see docs/telegram-setup.md). To talk to Lyra \
+                 without Telegram, run `openspine chat`.",
+                env_file::path_for(config_path).display()
+            )
+        }
+        ConfigError::MissingEnv(name) => missing_env_remedy(name, config_path, in_container()),
         ConfigError::InvalidArtifactKey(name, _) => format!(
             "{name} must be 64 hexadecimal characters (32 bytes for AES-256-GCM). \
              Run `openspine setup` to generate one."
@@ -83,6 +85,26 @@ fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
             config_path.display()
         ),
     }
+}
+
+/// Inside a container nothing loads `openspine.env`: Compose supplies the
+/// environment from the `.env` file beside `compose.yaml`, so that is the
+/// source to name.
+fn in_container() -> bool {
+    std::path::Path::new("/.dockerenv").exists()
+}
+
+fn missing_env_remedy(name: &str, config_path: &Path, in_container: bool) -> String {
+    if in_container {
+        return format!(
+            "{name} is not set. Add it to the `.env` file next to compose.yaml (Compose \
+             passes that file to the kernel container), then run `docker compose up -d`."
+        );
+    }
+    format!(
+        "{name} is not set. Run `openspine setup`, or add {name} to {}.",
+        env_file::path_for(config_path).display()
+    )
 }
 
 /// The text [`report_failure`] prints, as a value so it can be asserted on.
@@ -199,6 +221,14 @@ mod tests {
         assert!(remedy.contains("@BotFather"), "{remedy}");
         assert!(remedy.contains("openspine chat"), "{remedy}");
         assert!(!remedy.contains("openspine setup"), "{remedy}");
+    }
+
+    #[test]
+    fn absent_key_material_in_a_container_names_the_compose_env_file() {
+        let remedy = missing_env_remedy("OPENSPINE_GRANT_HMAC_KEY", &config_path(), true);
+        assert!(remedy.contains("OPENSPINE_GRANT_HMAC_KEY"), "{remedy}");
+        assert!(remedy.contains(".env"), "{remedy}");
+        assert!(!remedy.contains("openspine.env"), "{remedy}");
     }
 
     /// `ConfigError::Read` carries an inner `io::Error`, so a naive
