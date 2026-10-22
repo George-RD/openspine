@@ -129,13 +129,15 @@ impl Briefcase {
     /// origin stamped on the `Grant` section, which `pack` always creates from
     /// the owner principal. Owner-sourced top-up sections (preferences/skills)
     /// inherit it verbatim so a topped-up owner datum binds to the identical
-    /// origin an initially-packed one does. `None` only if a briefcase somehow
-    /// carries no grant section, which fails closed for rated egress.
+    /// origin an initially-packed one does. A missing owner binding, including
+    /// the legacy System placeholder, yields `None` and fails closed for rated
+    /// egress. It never supplies a new owner identity or rewrites the old label.
     fn owner_origin(&self) -> Option<ProvenanceOrigin> {
         self.sections
             .iter()
             .find(|section| matches!(section.kind, SectionKind::Grant))
             .and_then(|section| section.origin.clone())
+            .filter(|origin| matches!(origin, ProvenanceOrigin::Owner { .. }))
     }
 
     /// The ONLY way a section can be added after `pack()`.

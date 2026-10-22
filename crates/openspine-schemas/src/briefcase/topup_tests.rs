@@ -342,6 +342,57 @@ fn owner_sourced_top_up_inherits_the_pack_owner_origin() {
 }
 
 #[test]
+fn legacy_system_grant_cannot_mint_owner_topup_origin() {
+    let mut packed = pack(
+        shape(Ulid::new()),
+        &sources(),
+        RelationshipTier::Owner,
+        TaskClass::Conversation,
+    );
+    packed
+        .sections
+        .iter_mut()
+        .find(|s| s.kind == SectionKind::Grant)
+        .unwrap()
+        .origin = Some(ProvenanceOrigin::System {});
+    let request = TopUpRequest {
+        request_id: Ulid::new(),
+        section_key: "calendar".into(),
+        kind: SectionKind::Preference,
+        requested_depth: 1,
+        justification: "scheduling context".into(),
+    };
+    let source = SourceSlice {
+        key: "calendar".into(),
+        payload: json!({"tone": "concise"}),
+        minimum_depth: 1,
+    };
+    let policy = top_up_policy_relevant();
+    let mut decision = packed.evaluate_top_up(&request, &policy);
+    decision.source_digest = Some(crate::digest::digest_of(&source.payload));
+    packed.apply_top_up(decision, source, &policy).unwrap();
+    let added = packed
+        .sections
+        .iter()
+        .find(|s| s.key == "preference:calendar")
+        .unwrap();
+    assert_eq!(
+        added.origin, None,
+        "an unknown owner identity must remain unresolved, never System"
+    );
+    let grant = packed
+        .sections
+        .iter()
+        .find(|s| s.kind == SectionKind::Grant)
+        .unwrap();
+    assert_eq!(
+        grant.origin,
+        Some(ProvenanceOrigin::System {}),
+        "legacy history is not rewritten"
+    );
+}
+
+#[test]
 fn repeated_shallow_topups_cannot_exceed_aggregate_depth_budget() {
     let mut packed = pack(
         shape(Ulid::new()),
