@@ -287,7 +287,8 @@ impl Store {
         self.with_immediate_tx(|tx| {
             let changed = tx.execute(
                 "UPDATE standing_rule_pending_actions \
-                 SET resolved_at = ?2, resolution = 'stale', owner_attention_since = ?2 \
+                 SET resolved_at = ?2, resolution = 'stale', \
+                     dispatch_receipt_digest = 'refused-pre-effect' \
                  WHERE pending_id = ?1 AND resolution = 'allowed' \
                    AND dispatch_state = 'none'",
                 params![pending_id, now_nanos],
@@ -309,6 +310,44 @@ impl Store {
             }
             Ok(changed == 1)
         })
+    }
+
+    /// Refused-pre-effect pendings (see `terminate_fired_pending_refused`)
+    /// whose owner notice has not yet been confirmed sent. The
+    /// `refused-pre-effect` receipt marker distinguishes them from rows staled
+    /// by a lifecycle change; `owner_attention_since` is set only after a
+    /// successful send, so a failed send is retried by the next sweep.
+    pub fn refused_pendings_awaiting_owner_notice(
+        &self,
+    ) -> Result<Vec<(String, String)>, StoreError> {
+        let conn = self.conn.lock();
+        let rows = conn
+            .prepare(
+                "SELECT pending_id, rule_id FROM standing_rule_pending_actions \
+                 WHERE resolution = 'stale' AND dispatch_state = 'none' \
+                   AND dispatch_receipt_digest = 'refused-pre-effect' \
+                   AND owner_attention_since IS NULL",
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    /// Record that the refusal notice was delivered (idempotent).
+    pub fn mark_refused_pending_owner_notified(
+        &self,
+        pending_id: &str,
+        now: Timestamp,
+    ) -> Result<(), StoreError> {
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        let conn = self.conn.lock();
+        conn.execute(
+            "UPDATE standing_rule_pending_actions SET owner_attention_since = ?2 \
+             WHERE pending_id = ?1 AND owner_attention_since IS NULL \
+               AND dispatch_receipt_digest = 'refused-pre-effect'",
+            params![pending_id, now_nanos],
+        )?;
+        Ok(())
     }
 
     /// Re-arm a fired default after a pre-effect failure. The token was

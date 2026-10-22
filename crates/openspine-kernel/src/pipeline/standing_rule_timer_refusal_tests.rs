@@ -18,7 +18,29 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 async fn fired_allow_pending_with_legacy_briefcase() -> (AppState, MockServer, String) {
+    fired_allow_pending(Breakage::Legacy, false).await
+}
+
+#[derive(Clone, Copy)]
+enum Breakage {
+    Legacy,
+    CorruptJson,
+}
+
+async fn fired_allow_pending(
+    breakage: Breakage,
+    first_send_fails: bool,
+) -> (AppState, MockServer, String) {
     let server = MockServer::start().await;
+    if first_send_fails {
+        Mock::given(method("POST"))
+            .and(path("/bottest-token/SendMessage"))
+            .respond_with(ResponseTemplate::new(500))
+            .up_to_n_times(1)
+            .with_priority(1)
+            .mount(&server)
+            .await;
+    }
     Mock::given(method("POST"))
         .and(path("/bottest-token/SendMessage"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -99,10 +121,16 @@ async fn fired_allow_pending_with_legacy_briefcase() -> (AppState, MockServer, S
         }
     }
     state.store.insert_briefcase(grant.id, &briefcase).unwrap();
-    assert!(matches!(
-        state.store.find_briefcase(grant.id),
-        Err(StoreError::LegacyBriefcaseProvenance)
-    ));
+    if matches!(breakage, Breakage::CorruptJson) {
+        state.store.with_conn_for_test(|c| {
+            c.execute(
+                "UPDATE briefcases SET briefcase_json = '{not json' WHERE task_grant_id = ?1",
+                params![grant.id.to_string()],
+            )
+            .unwrap();
+        });
+    }
+    assert!(state.store.find_briefcase(grant.id).is_err());
     let payload = json!({"text": "fired default"});
     let payload_ref = Some(
         state
@@ -225,4 +253,93 @@ async fn timer_claim_path_terminates_a_permanently_refused_fired_pending() {
         .is_empty());
     assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 1);
     assert_eq!(sends(&server).await, 1);
+}
+
+fn dispatch_resource(err: StoreError) -> crate::api::actions::DispatchError {
+    crate::api::actions::DispatchError::Resource(anyhow::Error::new(err))
+}
+
+#[test]
+fn only_the_typed_briefcase_marker_is_permanent() {
+    // Unrelated corrupt rows and transient I/O errors are NOT permanent.
+    assert!(!is_permanent_refusal(&dispatch_resource(
+        StoreError::Serde(serde_json::from_str::<u8>("x").unwrap_err())
+    )));
+    assert!(!is_permanent_refusal(&dispatch_resource(
+        StoreError::LegacyBriefcaseProvenance
+    )));
+    assert!(!is_permanent_refusal(&dispatch_resource(
+        StoreError::Sqlite(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
+            None
+        ))
+    )));
+    assert!(!is_permanent_refusal(
+        &crate::api::actions::DispatchError::BadRequest("x".into())
+    ));
+}
+
+#[tokio::test]
+async fn corrupt_briefcase_json_is_terminal_and_cancels_reservations() {
+    let (state, server, timer_id) = fired_allow_pending(Breakage::CorruptJson, false).await;
+    state
+        .store
+        .claim_standing_rule_dark_window(
+            &timer_id,
+            Timestamp::now() + std::time::Duration::from_secs(61),
+        )
+        .unwrap()
+        .expect("claimed");
+    recover_unredriven_pending(&state).await.unwrap();
+    recover_unredriven_pending(&state).await.unwrap();
+    assert!(state
+        .store
+        .pending_dark_window_recoverable()
+        .unwrap()
+        .is_empty());
+    assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 1);
+    assert_eq!(sends(&server).await, 1);
+    let live: i64 = state.store.with_conn_for_test(|c| {
+        c.query_row(
+            "SELECT COUNT(*) FROM standing_rule_usage WHERE status NOT IN ('cancelled')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+    });
+    assert_eq!(
+        live, 0,
+        "no reserved/committed usage rows survive the refusal"
+    );
+}
+
+#[tokio::test]
+async fn refusal_notice_is_resent_after_a_failed_first_send() {
+    let (state, server, timer_id) = fired_allow_pending(Breakage::Legacy, true).await;
+    state
+        .store
+        .claim_standing_rule_dark_window(
+            &timer_id,
+            Timestamp::now() + std::time::Duration::from_secs(61),
+        )
+        .unwrap()
+        .expect("claimed");
+    recover_unredriven_pending(&state).await.unwrap(); // terminate; send fails
+    assert_eq!(
+        state
+            .store
+            .refused_pendings_awaiting_owner_notice()
+            .unwrap()
+            .len(),
+        1
+    );
+    recover_unredriven_pending(&state).await.unwrap(); // resend succeeds
+    assert!(state
+        .store
+        .refused_pendings_awaiting_owner_notice()
+        .unwrap()
+        .is_empty());
+    recover_unredriven_pending(&state).await.unwrap(); // nothing further
+    assert_eq!(sends(&server).await, 2, "one failed attempt, one delivered");
+    assert_eq!(count(&state, "standing_rule.fired_pending_refused"), 1);
 }

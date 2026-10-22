@@ -189,28 +189,47 @@ async fn claim_and_redispatch(
     Ok(())
 }
 
-/// True when `err` is a deterministic refusal that no retry can cure: a
-/// briefcase that is legacy-provenance or undecodable. Store I/O errors
-/// (`Sqlite`, lock/busy, etc.) and every connector/budget error are NOT
-/// permanent and must keep retrying.
+/// True only for the typed briefcase-origin refusal (legacy provenance or
+/// undecodable briefcase JSON). A corrupt unrelated row (rule, skill,
+/// reservation, counterparty), store I/O errors, and every connector/budget
+/// error are NOT permanent and keep retrying (fail closed, authority kept).
 fn is_permanent_refusal(err: &crate::api::actions::DispatchError) -> bool {
     let crate::api::actions::DispatchError::Resource(inner) = err else {
         return false;
     };
-    matches!(
-        inner.downcast_ref::<StoreError>(),
-        Some(
-            StoreError::LegacyBriefcaseProvenance
-                | StoreError::Serde(_)
-                | StoreError::BadDigest(_)
-                | StoreError::BadUlid(_)
-        )
+    inner
+        .downcast_ref::<crate::api::actions::BriefcaseRefused>()
+        .is_some()
+}
+
+const REFUSAL_NOTICE: &str = "dark-window fired but the action was refused before any effect \
+     (its task's stored briefcase cannot be loaded); it was cancelled and nothing ran. \
+     Start a new task if you still want it.";
+
+/// Send the refusal notice and record delivery only on success, so a failed
+/// send is retried by the next recovery sweep (never lost, never duplicated).
+async fn notify_refused(state: &AppState, pending_id: &str, rule_id: &str) {
+    let outcome = crate::pipeline::notify_owner_with_digest(
+        state,
+        &state.telegram_owner_surface(),
+        &format!("Standing rule {rule_id} {REFUSAL_NOTICE}"),
+        &[],
+        None,
     )
+    .await;
+    if outcome == crate::pipeline::NotifyOutcome::Sent {
+        if let Err(err) = state
+            .store
+            .mark_refused_pending_owner_notified(pending_id, Timestamp::now())
+        {
+            tracing::error!(error = %err, pending_id, "could not record refusal notice delivery");
+        }
+    }
 }
 
 /// Make a permanently refused, never-consumed fired pending terminal (one
-/// transaction with its audit) and tell the owner once. Returns whether the
-/// row is now terminal; a no-op transition (already terminal) notifies nothing.
+/// transaction with its audit) and notify the owner. Returns whether the row
+/// is now terminal.
 async fn terminate_if_permanent(
     state: &AppState,
     pending: &crate::store::standing_rules::StandingRulePendingAction,
@@ -225,17 +244,7 @@ async fn terminate_if_permanent(
         Timestamp::now(),
     ) {
         Ok(true) => {
-            crate::pipeline::notify_owner_best_effort(
-                state,
-                &state.telegram_owner_surface(),
-                &format!(
-                    "Standing rule {} dark-window fired but the action was refused before any \
-                     effect (its task context cannot be loaded); it was cancelled and nothing \
-                     ran. Start a new task if you still want it.",
-                    pending.rule_id
-                ),
-            )
-            .await;
+            notify_refused(state, &pending.pending_id, &pending.rule_id).await;
             true
         }
         Ok(false) => true,
@@ -255,6 +264,10 @@ async fn terminate_if_permanent(
 /// artifact on a re-drivable (`none`) row propagates as an error rather than
 /// being silently swallowed.
 async fn recover_unredriven_pending(state: &AppState) -> Result<(), StoreError> {
+    // 0. Re-send refusal notices whose first send failed.
+    for (pending_id, rule_id) in state.store.refused_pendings_awaiting_owner_notice()? {
+        notify_refused(state, &pending_id, &rule_id).await;
+    }
     // 1. Surface claimed-but-unattempted effects for owner attention.
     let claimed = state.store.pending_dark_window_claimed_unredriven()?;
     for pending in claimed {
