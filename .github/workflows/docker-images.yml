@@ -1,0 +1,63 @@
+name: Docker images
+
+# Builds both runtime images and starts each binary, so a builder/runtime
+# glibc mismatch (the binary linking a newer libc than the runtime image ships)
+# fails here instead of at the first worker spawn on a deployment.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/docker-images.yml"
+      - ".dockerignore"
+      - "Dockerfile.kernel"
+      - "Dockerfile.shell"
+      - "compose.yaml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "crates/**"
+      - "artifacts/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/docker-images.yml"
+      - ".dockerignore"
+      - "Dockerfile.kernel"
+      - "Dockerfile.shell"
+      - "compose.yaml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "crates/**"
+      - "artifacts/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-images-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build shell image
+        run: docker build --file Dockerfile.shell --tag openspine-shell:ci .
+
+      - name: Build kernel image
+        run: docker build --file Dockerfile.kernel --tag openspine-kernel:ci .
+
+      # `--help` runs the dynamic loader before main(), so a libc mismatch
+      # exits non-zero here with "GLIBC_2.xx not found".
+      - name: Start the shell binary in its runtime image
+        run: docker run --rm openspine-shell:ci --help
+
+      - name: Start the kernel binary in its runtime image
+        run: docker run --rm openspine-kernel:ci --help
+
+      - name: Compose file resolves
+        run: |
+          cp .env.example .env
+          DOCKER_GID=0 docker compose --file compose.yaml config --quiet

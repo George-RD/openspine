@@ -1,0 +1,31 @@
+# Docker build context filter for Dockerfile.kernel and Dockerfile.shell.
+#
+# Both builds `COPY . .` the workspace into a builder stage, so anything not
+# listed here lands in an image layer. Keep secrets and local state out of the
+# context entirely; they must reach the kernel at runtime (compose bind mounts
+# and env_file), never at build time.
+
+# Build output and local state
+**/target
+data
+.codegraph
+
+# Secrets and local deployment config (the *.example.yaml files are not needed
+# by the build either; compose mounts openspine.yaml at runtime)
+.env
+.env.*
+*.env
+openspine*.yaml
+*.key
+*.pem
+
+# VCS, CI, editor/agent tooling
+.git
+.github
+.omp
+.agents
+.DS_Store
+
+# Node tooling and the docs site: not Cargo workspace members
+node_modules
+site
