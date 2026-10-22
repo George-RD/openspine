@@ -22,8 +22,8 @@ mod wire;
 
 use acquire::{
     cleanup_temp_at, open_canonical_dir_nofollow, open_or_create_control_dir_relative,
-    openat_file_nofollow, resolve_root_identity, resolve_root_identity_with, secure_dir_fd,
-    secure_or_create_sub_dir_at, try_lock_exclusive, verify_entry_is_nofollow_dir,
+    openat_file_nofollow, resolve_root_identity, secure_dir_fd, secure_or_create_sub_dir_at,
+    try_lock_exclusive, verify_entry_is_nofollow_dir,
 };
 use fs::{atomic_write, remove_durable};
 use ledger::valid_transition;
