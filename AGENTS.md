@@ -84,7 +84,8 @@ history; historical `#N` references stay valid. See
 
 ### Triage labels
 
-The five canonical triage labels, used verbatim. See `docs/agents/triage-labels.md`.
+Four of the five canonical triage roles are labels, used verbatim; `wontfix`
+maps to the Canceled state. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 

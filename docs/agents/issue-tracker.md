@@ -12,8 +12,10 @@ comments before acting: dated owner comments override older text.
 GitHub Issues in `George-RD/openspine` are closed history. Each imported Linear
 issue links its closed GitHub original, and `#N` inside imported text means
 GitHub issue/PR N in this repo. Historical `#N` links in code, specs and docs
-stay valid; do not rewrite them. Do not open new GitHub issues; if an outside
-contributor files one, triage it into Linear and close it with a link.
+stay valid; do not rewrite them. Fetch one with `gh issue view <N> --comments`
+(fall back to `gh pr view <N> --comments`: issues and PRs share one number
+space). Do not open new GitHub issues; if an outside contributor files one,
+triage it into Linear and close it with a link.
 
 ## Conventions
 
