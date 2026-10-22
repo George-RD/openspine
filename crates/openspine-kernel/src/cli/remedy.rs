@@ -93,6 +93,10 @@ fn config_remedy(error: &ConfigError, config_path: &Path) -> String {
 /// fixes this one and hits the next.
 pub fn failure_report(error: &anyhow::Error, config_path: &Path) -> String {
     let mut out = format!("openspine: {error:#}\n");
+    // A chat turn that failed after startup succeeded: readiness is not the cause.
+    if error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()) {
+        return out;
+    }
     if let Some(remedy) = startup_remedy(error, config_path) {
         out.push_str(&format!("\nWhat to do: {remedy}\n"));
     }
@@ -121,6 +125,14 @@ mod tests {
 
     fn config_path() -> PathBuf {
         PathBuf::from("/etc/openspine/openspine.yaml")
+    }
+
+    /// A failed turn must not carry the setup-readiness remedy.
+    #[test]
+    fn a_failed_chat_turn_does_not_get_the_readiness_remedy() {
+        let error = anyhow::Error::new(crate::pipeline::TurnFailed("worker died".into()));
+        let report = failure_report(&error, &config_path());
+        assert_eq!(report, "openspine: worker died\n");
     }
 
     /// Built exactly as `overlay_export_restore::acquire` fails, wrapped in the
