@@ -24,7 +24,14 @@ OPENSPINE_GMAIL_CLIENT_SECRET=your-client-secret
 OPENSPINE_GMAIL_REFRESH_TOKEN=your-refresh-token
 ```
 
-Also set `DOCKER_GID` to the numeric group ID of `/var/run/docker.sock`. Use `stat -c '%g' /var/run/docker.sock` on Linux or `stat -f '%g' /var/run/docker.sock` on macOS. The non-root kernel container uses that supplemental group to spawn contained task workers.
+Also set `DOCKER_GID` to the group ID of the Docker socket as the Linux daemon sees it. Do not `stat` the host path: on Docker Desktop and OrbStack it is a symlink into a VM and reports the wrong group. Ask a container instead:
+
+```sh
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock busybox:1.36 \
+  stat -c '%g' /var/run/docker.sock
+```
+
+That prints `0` on OrbStack and the `docker` group ID on Linux. The non-root kernel container uses it as a supplemental group to spawn contained task workers. The three kernel keys (`OPENSPINE_ARTIFACT_KEY`, `OPENSPINE_GRANT_HMAC_KEY`, `OPENSPINE_WEBHOOK_HMAC_KEY`) also belong in `.env`; see the [README](../README.md#run-the-gmail-drafting-proof).
 
 Do not rely on host-shell `export` commands for the Compose path. `compose.yaml` reads the values from `.env`.
 

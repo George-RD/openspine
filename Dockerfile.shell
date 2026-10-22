@@ -11,8 +11,12 @@
 # untrusted-adjacent logic.
 # ──────────────────────────────────────────────────────────────────────────
 
+# The builder and runtime stages MUST share a Debian release: the binary links
+# the builder's glibc dynamically, and a newer builder than runtime fails at
+# start with "GLIBC_2.xx not found". Both are pinned to bookworm (glibc 2.36).
+
 # ── Stage 1: build ────────────────────────────────────────────────────────
-FROM rust:1-slim AS builder
+FROM rust:1-slim-bookworm AS builder
 
 WORKDIR /build
 

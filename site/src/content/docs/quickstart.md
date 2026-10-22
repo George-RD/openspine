@@ -34,11 +34,17 @@ openspine --config openspine.local.yaml chat
 
 ## Configure a real server
 
-1. Copy `.env.example` to `.env` and fill in the values. Compose passes this file into the kernel container. At minimum you need:
-   - `DOCKER_GID`: the numeric group ID of `/var/run/docker.sock`. Use `stat -c '%g' /var/run/docker.sock` on Linux or `stat -f '%g' /var/run/docker.sock` on macOS.
+1. Copy `.env.example` to `.env` and fill in the values. Compose reads this one file and passes it into the kernel container; it does not read the `openspine.env` that `init` writes for the bare-metal path. At minimum you need:
+   - `DOCKER_GID`: the group ID of the Docker socket as the Linux daemon sees it. Don't `stat` the host path: on Docker Desktop and OrbStack that is a symlink into a VM and reports the wrong group. Ask a container instead:
+     ```sh
+     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock busybox:1.36 \
+       stat -c '%g' /var/run/docker.sock
+     ```
+     This prints `0` on OrbStack and the `docker` group ID on Linux.
    - `OPENSPINE_TELEGRAM_BOT_TOKEN`: get one from [@BotFather](https://t.me/BotFather).
-   - `OPENSPINE_ARTIFACT_KEY`: a random 32-byte key from `openssl rand -hex 32`.
+   - `OPENSPINE_ARTIFACT_KEY`, `OPENSPINE_GRANT_HMAC_KEY` and `OPENSPINE_WEBHOOK_HMAC_KEY`: three separate random 32-byte keys, each from `openssl rand -hex 32`. If you already ran `init` on this data directory, copy these three lines from `openspine.env` instead.
    - Your model provider credentials, such as `ANTHROPIC_API_KEY`.
+   - Optional: `RUST_LOG`. The kernel logs at `info` by default; set `RUST_LOG=debug` (or a narrower filter) for more detail.
 2. Copy `openspine.docker.example.yaml` to `openspine.yaml`. Set `owner.telegram_user_id` to your Telegram user ID. Message [@userinfobot](https://t.me/userinfobot) to find it.
 3. To use `/draft`, follow the [Gmail setup guide](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md):
    - fill `OPENSPINE_GMAIL_CLIENT_SECRET` and `OPENSPINE_GMAIL_REFRESH_TOKEN` in `.env`;
