@@ -64,9 +64,10 @@ Must be exactly 64 lowercase hex characters. Losing this key makes every
 previously-stored artifact permanently unreadable — back it up like any
 other production secret once this leaves dev.
 
-The kernel also refuses to start without two further random values from the
-environment: the grant HMAC key that signs worker task grants, and the webhook
-HMAC key:
+The kernel also needs two further random values from the environment: the
+webhook HMAC key (it refuses to start without it) and the grant HMAC key that
+signs worker task grants (without it, it starts but denies every task and
+tells you why):
 
 ```sh
 export OPENSPINE_GRANT_HMAC_KEY="$(openssl rand -hex 32)"

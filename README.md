@@ -254,7 +254,7 @@ Compose reads one env file, `.env` beside `compose.yaml`; it does **not** read t
 
 - `DOCKER_GID`, the group id of the Docker socket as the Linux daemon sees it (below)
 - `OPENSPINE_TELEGRAM_BOT_TOKEN`, from [@BotFather](https://t.me/BotFather)
-- `OPENSPINE_ARTIFACT_KEY`, `OPENSPINE_GRANT_HMAC_KEY` and `OPENSPINE_WEBHOOK_HMAC_KEY`, each a separate `openssl rand -hex 32`; the kernel refuses to start if any of the three is missing or empty
+- `OPENSPINE_ARTIFACT_KEY`, `OPENSPINE_GRANT_HMAC_KEY` and `OPENSPINE_WEBHOOK_HMAC_KEY`, each a separate `openssl rand -hex 32`; all three are required: without the artifact or webhook key the kernel refuses to start, and without the grant key it starts but denies every task (and tells you why)
 - credentials for Anthropic, OpenAI, Onyx, or another compatible model provider
 
 For Gmail drafting, follow the [Gmail setup guide](docs/gmail-setup.md). It adds the Google OAuth client, `OPENSPINE_GMAIL_CLIENT_SECRET`, `OPENSPINE_GMAIL_REFRESH_TOKEN`, and a `gmail:` block with your `mailbox_address`.
@@ -268,7 +268,9 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock busybox:1.36 \
 
 Paste each generated value into `.env`. Ask a container for `DOCKER_GID` instead of running `stat` on the host: Docker Desktop and OrbStack run the daemon in a Linux VM, so the host's `/var/run/docker.sock` is a symlink whose group (`1` or `20` on macOS) is not the group the kernel container needs. A container reports the socket's group inside the VM (`0` on OrbStack), which is the value `group_add` must receive; on Linux the same command returns the `docker` group id. If you already ran `openspine init` against this data directory, copy its three `OPENSPINE_*_KEY` lines from `openspine.env` into `.env` instead of generating new ones; a different artifact key cannot read existing encrypted state.
 
-Then copy `openspine.docker.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id` plus the Gmail fields. Add `RUST_LOG=info` to `.env` to see startup progress; the kernel logs errors only by default.
+Granting the kernel the socket's group gives it host-root-equivalent control of Docker. Treat the kernel container as privileged; the socket-proxy hardening note in `compose.yaml` and [day-2 operations](docs/day-2-operations.md) describe the remaining exposure.
+
+Then copy `openspine.docker.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id` plus the Gmail fields. The kernel logs at `info` by default; set `RUST_LOG` in `.env` for more or less detail.
 
 Build the contained task worker, then start the kernel:
 

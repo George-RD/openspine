@@ -44,7 +44,7 @@ openspine --config openspine.local.yaml chat
    - `OPENSPINE_TELEGRAM_BOT_TOKEN`: get one from [@BotFather](https://t.me/BotFather).
    - `OPENSPINE_ARTIFACT_KEY`, `OPENSPINE_GRANT_HMAC_KEY` and `OPENSPINE_WEBHOOK_HMAC_KEY`: three separate random 32-byte keys, each from `openssl rand -hex 32`. If you already ran `init` on this data directory, copy these three lines from `openspine.env` instead.
    - Your model provider credentials, such as `ANTHROPIC_API_KEY`.
-   - Optional: `RUST_LOG=info` to see startup progress; the kernel logs errors only by default.
+   - Optional: `RUST_LOG`. The kernel logs at `info` by default; set `RUST_LOG=debug` (or a narrower filter) for more detail.
 2. Copy `openspine.docker.example.yaml` to `openspine.yaml`. Set `owner.telegram_user_id` to your Telegram user ID. Message [@userinfobot](https://t.me/userinfobot) to find it.
 3. To use `/draft`, follow the [Gmail setup guide](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md):
    - fill `OPENSPINE_GMAIL_CLIENT_SECRET` and `OPENSPINE_GMAIL_REFRESH_TOKEN` in `.env`;
