@@ -411,11 +411,41 @@ async fn permanent_notice_outcome_stops_further_attempts() {
             .len(),
         1
     );
-    // SendFailed is already in the dead-letter queue: settled.
-    settle_notice(&state, &claimed.pending_id, O::SendFailed);
+    // GateDenied can never be sent: give up rather than retry forever.
+    settle_notice(&state, &claimed.pending_id, O::GateDenied);
     assert!(state
         .store
         .refused_pendings_awaiting_owner_notice()
         .unwrap()
         .is_empty());
+}
+
+/// Each give-up / handed-off outcome settles a fresh terminated pending.
+#[tokio::test]
+async fn settled_notice_outcomes_leave_nothing_awaiting() {
+    use crate::pipeline::NotifyOutcome as O;
+    for outcome in [O::SendFailed, O::SurfaceUnsupported] {
+        let (state, _server, timer_id) = fired_allow_pending(Breakage::Legacy, false).await;
+        let claimed = state
+            .store
+            .claim_standing_rule_dark_window(
+                &timer_id,
+                Timestamp::now() + std::time::Duration::from_secs(61),
+            )
+            .unwrap()
+            .expect("claimed");
+        state
+            .store
+            .terminate_fired_pending_refused(&claimed.pending_id, "t", Timestamp::now())
+            .unwrap();
+        settle_notice(&state, &claimed.pending_id, outcome);
+        assert!(
+            state
+                .store
+                .refused_pendings_awaiting_owner_notice()
+                .unwrap()
+                .is_empty(),
+            "{outcome:?}"
+        );
+    }
 }
