@@ -380,3 +380,59 @@ fn a_consequence_that_no_longer_applies_refuses_and_rolls_back() {
     assert_eq!(store.package_selection().unwrap().unwrap().generation, 1);
     assert_eq!(status_of(&store, "gone"), CompatibilityStatus::Erased);
 }
+
+#[test]
+fn epoch_change_sends_active_standing_rules_to_review_and_stales_their_exceptions() {
+    let now = Timestamp::now();
+    let (store, pending_id, _timer) =
+        super::standing_rules_staleness_tests::scheduled_exception("selected-rule", now);
+    let action =
+        openspine_schemas::action::ActionId::new(super::standing_rules_staleness_tests::ACTION);
+    let (a, b) = (install(&store, 1), install(&store, 2));
+    select(&store, &a, now);
+    // An unchanged epoch leaves the live rule and its open exception alone.
+    select(&store, &b, now);
+    assert!(store
+        .active_standing_rule_for_action(&action, now)
+        .unwrap()
+        .is_some());
+    assert_eq!(
+        super::standing_rules_staleness_tests::resolution(&store, &pending_id),
+        None
+    );
+
+    let mut changing = decision(&store, &a, now);
+    changing.base_epoch_changed = true;
+    store
+        .record_package_selection_decision(&changing, now)
+        .unwrap();
+    store.commit_package_selection(&changing, now).unwrap();
+    // The live reusable authority is no longer reusable until reviewed again.
+    assert!(store
+        .active_standing_rule_for_action(&action, now)
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        super::standing_rules_staleness_tests::resolution(&store, &pending_id).as_deref(),
+        Some("stale")
+    );
+    let status: String = store
+        .conn
+        .lock()
+        .query_row(
+            "SELECT status FROM standing_rules WHERE rule_id = 'selected-rule'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(status, "needs_review");
+    let receipt = store.with_deferred_read(|tx| {
+        Ok(tx.query_row(
+            "SELECT meta_json FROM audit_log WHERE kind = 'package.selection_committed' ORDER BY seq DESC LIMIT 1",
+            [],
+            |row| row.get::<_, String>(0),
+        )?)
+    }).unwrap();
+    assert!(receipt.contains("selected-rule"), "{receipt}");
+    store.validate_package_selection().unwrap();
+}
