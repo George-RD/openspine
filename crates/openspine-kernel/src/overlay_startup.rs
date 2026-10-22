@@ -58,14 +58,39 @@ fn discard_staged_overlay_files(overlay_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Where startup's base registry comes from.
+pub(crate) enum BaseSource<'a> {
+    /// Legacy mode: load the operator-configured directory.
+    Legacy(&'a Path),
+    /// Managed mode: the ledger-validated, already captured base registry. No
+    /// path is consulted, so a vanished legacy directory cannot matter.
+    Managed(Box<ArtifactRegistry>),
+}
+
+/// Legacy adapter: the configured `lyra_dir` is the base. Production startup
+/// goes through [`load_with_base`]; this keeps the legacy-path fixtures terse.
+#[cfg(test)]
 pub(crate) fn load(
     lyra_dir: &Path,
     data_dir: &Path,
     store: &Store,
     artifacts: &ArtifactStore,
 ) -> anyhow::Result<OverlayStartup> {
-    let mut registry = artifact_loader::load_base_registry(lyra_dir)
-        .with_context(|| format!("loading artifact registry from {}", lyra_dir.display()))?;
+    load_with_base(BaseSource::Legacy(lyra_dir), data_dir, store, artifacts)
+}
+
+pub(crate) fn load_with_base(
+    base: BaseSource<'_>,
+    data_dir: &Path,
+    store: &Store,
+    artifacts: &ArtifactStore,
+) -> anyhow::Result<OverlayStartup> {
+    let managed = matches!(base, BaseSource::Managed(_));
+    let mut registry = match base {
+        BaseSource::Legacy(lyra_dir) => artifact_loader::load_base_registry(lyra_dir)
+            .with_context(|| format!("loading artifact registry from {}", lyra_dir.display()))?,
+        BaseSource::Managed(registry) => *registry,
+    };
     let base_artifact_ids = artifact_loader::artifact_identity_pairs(&registry);
     let base_compatibility_epoch =
         crate::overlay_compat::compatibility_epoch(&registry, &base_artifact_ids);
@@ -251,6 +276,26 @@ pub(crate) fn load(
         tracing::warn!(kind = %artifact.kind, artifact_id = %artifact.artifact_id,
             "excluded legacy overlay artifact without provenance");
     }
+    if managed {
+        // A managed base transition invalidated reusable authority durably.
+        // Startup must never refresh an acceptance epoch past that: an
+        // owner-accepted row that does not bind this base epoch goes back
+        // through the ordinary reconfirmation lifecycle before reuse.
+        for item in learned.iter_mut().filter(|item| {
+            item.compatibility
+                == crate::store::learned_artifacts::CompatibilityStatus::OwnerAccepted
+                && item.accepted_base_epoch.as_deref() != Some(base_compatibility_epoch.as_str())
+        }) {
+            store.require_reconfirmation_for_stale_epoch(
+                &item.kind,
+                &item.artifact_id,
+                item.version,
+                &base_compatibility_epoch,
+            )?;
+            item.compatibility =
+                crate::store::learned_artifacts::CompatibilityStatus::ReconfirmationRequired;
+        }
+    }
     let mut owner_accepted_invalid = Vec::new();
     let prior_invalid_len = owner_accepted_invalid.len();
     let (orphans, review_ids, planned_invalid) =
@@ -273,7 +318,9 @@ pub(crate) fn load(
         )?;
     }
     for item in learned.iter().filter(|item| {
-        item.compatibility == crate::store::learned_artifacts::CompatibilityStatus::OwnerAccepted
+        !managed
+            && item.compatibility
+                == crate::store::learned_artifacts::CompatibilityStatus::OwnerAccepted
             && !owner_accepted_invalid.iter().any(|orphan| {
                 orphan.kind == item.kind
                     && orphan.artifact_id == item.artifact_id

@@ -13,7 +13,7 @@ use openspine_schemas::artifact::ArtifactNamespace;
 use openspine_schemas::digest::digest_of_bytes;
 use ulid::Ulid;
 
-pub(super) fn identity(revision: u32) -> PackageIdentity {
+pub(crate) fn identity(revision: u32) -> PackageIdentity {
     PackageIdentity {
         package_id: "lyra".into(),
         revision,
@@ -23,7 +23,7 @@ pub(super) fn identity(revision: u32) -> PackageIdentity {
     }
 }
 
-pub(super) fn install(store: &Store, revision: u32) -> InstallReceipt {
+pub(crate) fn install(store: &Store, revision: u32) -> InstallReceipt {
     let PrepareResult::Prepared(metadata) = store
         .prepare_package_install(identity(revision), PackageProvenance::LocalUnverified)
         .unwrap()
@@ -36,7 +36,7 @@ pub(super) fn install(store: &Store, revision: u32) -> InstallReceipt {
     receipt
 }
 
-pub(super) fn decision(
+pub(crate) fn decision(
     store: &Store,
     target: &InstallReceipt,
     now: Timestamp,
@@ -81,7 +81,7 @@ pub(super) fn decision(
     }
 }
 
-pub(super) fn select(store: &Store, target: &InstallReceipt, now: Timestamp) {
+pub(crate) fn select(store: &Store, target: &InstallReceipt, now: Timestamp) {
     let decision = decision(store, target, now);
     store
         .record_package_selection_decision(&decision, now)
@@ -89,14 +89,14 @@ pub(super) fn select(store: &Store, target: &InstallReceipt, now: Timestamp) {
     store.commit_package_selection(&decision, now).unwrap();
 }
 
-pub(super) fn refusal(error: StoreError) -> SelectionRefusal {
+pub(crate) fn refusal(error: StoreError) -> SelectionRefusal {
     match error {
         StoreError::PackageSelection(reason) => reason,
         other => panic!("expected a selection refusal, got {other:?}"),
     }
 }
 
-pub(super) fn learned(kind: &str, id: &str, status: CompatibilityStatus) -> LearnedArtifact {
+pub(crate) fn learned(kind: &str, id: &str, status: CompatibilityStatus) -> LearnedArtifact {
     LearnedArtifact {
         kind: kind.into(),
         artifact_id: id.into(),
@@ -117,7 +117,7 @@ pub(super) fn learned(kind: &str, id: &str, status: CompatibilityStatus) -> Lear
     }
 }
 
-pub(super) fn status_of(store: &Store, id: &str) -> CompatibilityStatus {
+pub(crate) fn status_of(store: &Store, id: &str) -> CompatibilityStatus {
     store
         .list_learned_artifacts()
         .unwrap()

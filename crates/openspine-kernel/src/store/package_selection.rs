@@ -206,6 +206,43 @@ impl Store {
         self.with_deferred_read(|tx| selection_conn(tx))
     }
 
+    /// Managed startup never refreshes an acceptance epoch: an owner-accepted
+    /// row that does not bind `epoch` returns to the reconfirmation lifecycle.
+    /// Returns whether a row changed.
+    pub(crate) fn require_reconfirmation_for_stale_epoch(
+        &self,
+        kind: &str,
+        artifact_id: &str,
+        version: u32,
+        epoch: &str,
+    ) -> Result<bool, StoreError> {
+        self.with_immediate_tx(|tx| {
+            Ok(tx.execute(
+                "UPDATE learned_artifacts SET compatibility = 'reconfirmation_required'
+                 WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3
+                   AND compatibility = 'owner_accepted'
+                   AND (accepted_base_epoch IS NULL OR accepted_base_epoch != ?4)",
+                params![kind, artifact_id, version, epoch],
+            )? == 1)
+        })
+    }
+
+    /// The selection with its committed installation receipt. Readers must have
+    /// validated the ledger; a selected installation without a receipt is a
+    /// ledger error, never legacy mode.
+    pub(crate) fn selected_package(
+        &self,
+    ) -> Result<Option<(SelectionRecord, InstallReceipt)>, StoreError> {
+        self.with_deferred_read(|tx| {
+            let Some(record) = selection_conn(tx)? else {
+                return Ok(None);
+            };
+            let receipt = receipt_by_installation(tx, record.installation_id)?
+                .ok_or_else(|| refuse(SelectionRefusal::SourceChanged))?;
+            Ok(Some((record, receipt)))
+        })
+    }
+
     /// Persist the exact decision the owner is about to be asked to confirm,
     /// with its paired presentation receipt. The decision authorizes nothing
     /// until the single commit transaction consumes it.

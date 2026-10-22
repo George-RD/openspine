@@ -22,6 +22,7 @@ mod gmail;
 mod identity;
 #[cfg(test)]
 mod kernel_tests;
+mod managed_startup;
 mod model_gateway;
 mod model_swap;
 mod model_swap_recovery;
@@ -381,6 +382,11 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         &data_root,
         now_ms,
     )?;
+    // A committed package selection is authoritative. Resolve and validate it
+    // here, before owner/overlay writes and long before any ingress, model,
+    // worker or timer starts; failure never falls back to `lyra_dir`.
+    let base = managed_startup::startup_base(&store, &data_root, &cfg.lyra_dir)
+        .context("resolving the base package")?;
     // Bootstrap only after audit verification so a broken chain leaves the
     // database and audit trail untouched.
     let owner_principal = crate::identity::bootstrap_owner_principal(
@@ -397,7 +403,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // overlay_startup::load so the seeded YAML is discovered into the registry.
     store::personality_seed::seed_if_missing(&store, &artifacts, &overlay_dir)
         .context("seeding personality seed overlay artifacts")?;
-    let overlay_startup = overlay_startup::load(&cfg.lyra_dir, &data_root, &store, &artifacts)?;
+    let overlay_startup = overlay_startup::load_with_base(base, &data_root, &store, &artifacts)?;
     let registry = overlay_startup.registry;
     let base_artifact_ids = overlay_startup.base_artifact_ids;
     let base_compatibility_epoch = overlay_startup.base_compatibility_epoch;

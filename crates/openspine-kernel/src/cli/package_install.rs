@@ -126,7 +126,17 @@ impl Context {
         let root = lock.canonical_data_root();
         let store = crate::store::Store::open_for_package_management(&root.join("kernel.db"))
             .map_err(|_| Error::Ledger)?;
-        let objects = crate::package::object_store::PackageObjects::open(root, &config.lyra_dir)?;
+        // Managed history is sticky: the legacy directory is neither read nor
+        // an active path once a selection exists. Opening validated the ledger.
+        let managed = store
+            .package_selection()
+            .map_err(|_| Error::Ledger)?
+            .is_some();
+        let objects = if managed {
+            crate::package::object_store::PackageObjects::open_managed(root)?
+        } else {
+            crate::package::object_store::PackageObjects::open(root, &config.lyra_dir)?
+        };
         Ok(Self {
             store,
             objects,
