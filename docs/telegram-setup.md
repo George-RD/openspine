@@ -64,6 +64,19 @@ Must be exactly 64 lowercase hex characters. Losing this key makes every
 previously-stored artifact permanently unreadable — back it up like any
 other production secret once this leaves dev.
 
+The kernel also refuses to start without two further random values from the
+environment: the grant HMAC key that signs worker task grants, and the webhook
+HMAC key:
+
+```sh
+export OPENSPINE_GRANT_HMAC_KEY="$(openssl rand -hex 32)"
+export OPENSPINE_WEBHOOK_HMAC_KEY="$(openssl rand -hex 32)"
+```
+
+`openspine init` generates all three into `openspine.env` for you. For the
+Docker Compose deployment, put the same three values in `.env`; see the
+[README](../README.md#run-the-gmail-drafting-proof).
+
 ## 4. Minimal `openspine.yaml`
 
 ```yaml
@@ -86,7 +99,7 @@ kernel:
 # if you're loading a different artifact registry.
 ```
 
-Then, with `OPENSPINE_TELEGRAM_BOT_TOKEN`, `OPENSPINE_ARTIFACT_KEY`, and
+Then, with `OPENSPINE_TELEGRAM_BOT_TOKEN`, the three keys above, and
 `ANTHROPIC_API_KEY` (or whichever env var your configured provider names)
 all set:
 
