@@ -270,6 +270,47 @@ impl Store {
         })
     }
 
+    /// Terminate a fired default whose redispatch was permanently refused
+    /// before its one-use token was consumed (e.g. a legacy-provenance or
+    /// corrupt briefcase). Marks the row `stale` (terminal, no authority) and
+    /// appends the audit in ONE transaction, fenced to the never-consumed
+    /// `allowed`/`none` state so a claimed or dispatched effect is untouched.
+    /// Returns `true` only on the transition itself, so the caller notifies
+    /// the owner exactly once.
+    pub fn terminate_fired_pending_refused(
+        &self,
+        pending_id: &str,
+        reason: &str,
+        now: Timestamp,
+    ) -> Result<bool, StoreError> {
+        let now_nanos = timestamp_to_epoch_nanos(now)?;
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE standing_rule_pending_actions \
+                 SET resolved_at = ?2, resolution = 'stale', owner_attention_since = ?2 \
+                 WHERE pending_id = ?1 AND resolution = 'allowed' \
+                   AND dispatch_state = 'none'",
+                params![pending_id, now_nanos],
+            )?;
+            if changed == 1 {
+                Self::append_audit_conn(
+                    tx,
+                    "standing_rule.fired_pending_refused",
+                    None,
+                    None,
+                    Some(&format!(
+                        "fired dark-window default pending {pending_id} permanently refused before \
+                         effect ({reason}); marked stale, no effect, no budget consumed"
+                    )),
+                    None,
+                    &[],
+                    &[],
+                )?;
+            }
+            Ok(changed == 1)
+        })
+    }
+
     /// Re-arm a fired default after a pre-effect failure. The token was
     /// consumed only to claim the action; when no connector effect has begun,
     /// it is safe to return the row to the recoverable `none` state so timer
