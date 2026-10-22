@@ -27,12 +27,16 @@ the version number alone cannot distinguish these records. A placeholder is
 not evidence that the owner's content was system-generated.
 
 The kernel refuses to load or mutate a briefcase containing those placeholders.
-Worker projections, top-ups, and rated egress stop with
+Worker projections, top-ups, rated egress, scoped admission, and fired
+standing-rule redispatch for that task stop with
 `stored briefcase has legacy owner provenance; compose a new task`. Existing
 briefcase bytes and provenance remain unchanged; restart does not repair them.
 Compose a new task through the normal authenticated owner flow so the current
-packer derives labels from trusted sources. Do not relabel the old JSON or
-replay a potentially completed external effect as an upgrade recovery step.
+packer derives labels from trusted sources. A standing rule bound to the old
+task keeps failing closed on every redispatch; revoke or narrow it through the
+normal owner review flow and re-approve it against the new task. Do not
+relabel the old JSON or replay a potentially completed external effect as an
+upgrade recovery step.
 Older sections with an absent origin retain their existing fail-closed rated
 egress behavior and likewise need fresh context.
 
