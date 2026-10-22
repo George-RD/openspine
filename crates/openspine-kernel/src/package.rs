@@ -44,6 +44,7 @@ pub(crate) mod review_overlay;
 pub(crate) mod review_report;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod review_semantics;
+pub(crate) mod selection_types;
 mod validation;
 
 pub(super) const MAX_FILES: usize = 4096;
