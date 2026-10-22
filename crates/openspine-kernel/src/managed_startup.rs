@@ -22,6 +22,14 @@ pub(crate) fn startup_base<'a>(
     {
         None => Ok(BaseSource::Legacy(lyra_dir)),
         Some(base) => {
+            tracing::info!(
+                generation = base.record.generation,
+                installation_id = %base.receipt.installation_id,
+                package = %base.receipt.package_id,
+                revision = base.receipt.revision,
+                content_digest = %base.receipt.content_digest,
+                "starting from the managed package selection"
+            );
             if lyra_dir != crate::config::default_lyra_dir() {
                 tracing::warn!(
                     generation = base.record.generation,

@@ -164,6 +164,9 @@ pub(crate) struct Cli {
 pub(crate) enum Commands {
     /// Install an immutable package snapshot without selecting or activating it.
     Install(cli::package_install::InstallArgs),
+    /// Review and, on interactive owner consent, select an installed package
+    /// as the managed base. Does not start or reload the assistant.
+    Use(cli::package_use::UseArgs),
     /// Interactive onboarding setup wizard
     Setup {
         /// Print the readiness report and exit non-zero when anything blocks.
@@ -231,6 +234,9 @@ fn main() -> std::process::ExitCode {
     }
     if let Some(Commands::Install(args)) = &cli.command {
         return cli::package_install::run(args, &cli.config);
+    }
+    if let Some(Commands::Use(args)) = &cli.command {
+        return cli::package_use::run(args, &cli.config);
     }
     run_with_runtime(cli)
 }

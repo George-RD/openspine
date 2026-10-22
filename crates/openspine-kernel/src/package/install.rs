@@ -78,6 +78,10 @@ pub(crate) fn install(
 pub(crate) fn list(store: &Store, objects: &PackageObjects) -> Result<serde_json::Value, Error> {
     recover(store, objects)?;
     let receipts = store.installed_packages().map_err(|_| Error::Ledger)?;
+    let selected = store
+        .package_selection()
+        .map_err(|_| Error::Ledger)?
+        .map(|record| record.installation_id);
     let packages: Vec<_> = receipts
         .into_iter()
         .map(|receipt| {
@@ -86,9 +90,14 @@ pub(crate) fn list(store: &Store, objects: &PackageObjects) -> Result<serde_json
             } else {
                 "unavailable-or-corrupt"
             };
+            // Selection takes effect at the next runtime start, never live.
+            let is_selected = selected == Some(receipt.installation_id);
             serde_json::json!({
-                "receipt": receipt, "status": "installed-inactive", "availability": availability,
-                "selected": false, "active": false, "activation_supported": false,
+                "receipt": receipt,
+                "status": if is_selected { "selected-at-next-start" } else { "installed-inactive" },
+                "availability": availability,
+                "selected": is_selected, "active": false,
+                "activation_supported": false,
             })
         })
         .collect();

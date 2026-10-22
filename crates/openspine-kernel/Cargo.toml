@@ -43,5 +43,8 @@ hmac-sha256.workspace = true
 # where O_DIRECTORY and O_NOFOLLOW differ from the asm-generic values.
 libc = "0.2.180"
 
+[build-dependencies]
+sha2.workspace = true
+
 [dev-dependencies]
 wiremock = "0.6.5"

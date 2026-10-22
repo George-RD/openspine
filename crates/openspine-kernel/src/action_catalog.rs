@@ -13,6 +13,8 @@ use openspine_schemas::selection::SelectionTokenType;
 mod action_catalog_contracts;
 #[path = "action_catalog_data.rs"]
 mod action_catalog_data;
+#[path = "action_catalog_owner_descriptions.rs"]
+mod action_catalog_owner_descriptions;
 #[path = "action_catalog_tool_descriptors.rs"]
 mod action_catalog_tool_descriptors;
 /// The canonical declaration of what a standing rule for an action must bind,
@@ -21,6 +23,7 @@ mod action_catalog_tool_descriptors;
 pub(crate) use action_catalog_contracts::{
     dark_window_allow_eligible, required_scope_dimensions_for,
 };
+pub(crate) use action_catalog_owner_descriptions::owner_description_fallback;
 fn id(s: &str) -> ActionId {
     ActionId::new(s)
 }
