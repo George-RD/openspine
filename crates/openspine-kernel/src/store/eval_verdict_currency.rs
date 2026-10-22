@@ -83,6 +83,9 @@ impl Store {
                 }
             }
         }
+        let managed =
+            self.with_deferred_read(|tx| super::package_selection::is_managed_conn(tx))?;
+        push_unbound_axis(managed, &verdicts, &mut stale_axes);
         if stale_axes.is_empty() {
             return Ok(());
         }
@@ -121,6 +124,8 @@ pub(crate) fn reject_stale_eval_verdicts_conn(
             }
         }
     }
+    let managed = super::package_selection::is_managed_conn(conn)?;
+    push_unbound_axis(managed, &verdicts, &mut stale_axes);
     if stale_axes.is_empty() {
         return Ok(());
     }
@@ -139,4 +144,22 @@ pub(crate) fn reject_stale_eval_verdicts_conn(
         &[],
     )?;
     Err(StoreError::ProposedArtifactLifecycle(reason))
+}
+
+/// A verdict that bound no compatibility digest cannot show it predates a
+/// managed base transition. Under a managed selection it therefore counts as
+/// stale instead of passing as "nothing bound, nothing to compare".
+fn push_unbound_axis(
+    managed: bool,
+    verdicts: &[super::eval_verdict_store::EvalVerdict],
+    stale_axes: &mut Vec<&'static str>,
+) {
+    if managed
+        && !stale_axes.contains(&"compatibility_digest")
+        && verdicts
+            .iter()
+            .any(|verdict| verdict.epochs.compatibility_digest.is_none())
+    {
+        stale_axes.push("compatibility_digest");
+    }
 }
