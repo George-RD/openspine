@@ -318,17 +318,16 @@ pub(crate) mod package_install;
 #[cfg(test)]
 mod package_install_tests;
 mod package_review_controls;
-// Staged ANO-822 layer: the commit path is consumed by the layers above.
-#[allow(dead_code)]
 pub(crate) mod package_selection;
+mod package_selection_controls;
 #[cfg(test)]
 mod package_selection_currency_tests;
 #[cfg(test)]
 pub(crate) mod package_selection_fixtures;
-#[allow(dead_code)]
 mod package_selection_ledger;
 #[cfg(test)]
 mod package_selection_ledger_tests;
+mod package_selection_owner;
 #[cfg(test)]
 mod package_selection_tests;
 

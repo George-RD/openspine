@@ -146,6 +146,25 @@ impl Context {
         })
     }
 
+    /// The protected key under which instance bindings are authenticated.
+    pub(super) fn artifact_key(&self) -> &[u8; 32] {
+        &self.artifact_key
+    }
+
+    /// Counterparty IDs the signed terminal-erasure ledger records. `None` means
+    /// no ledger exists yet (an instance that never ran). Reading it writes
+    /// nothing; any authentication or alignment failure is an error.
+    pub(super) fn signed_erasures(
+        &self,
+    ) -> Result<Option<std::collections::BTreeSet<String>>, Error> {
+        use crate::overlay_export_restore::ControlError;
+        match self._lock.export_terminal_ledger() {
+            Ok(ledger) => Ok(Some(ledger.erased_counterparty_ids().clone())),
+            Err(ControlError::MissingContinuity) => Ok(None),
+            Err(_) => Err(Error::Ledger),
+        }
+    }
+
     pub(super) fn data_root(&self) -> &Path {
         self._lock.canonical_data_root()
     }

@@ -21,9 +21,13 @@ timers, network ingress or an asynchronous runtime.
 
 ## Reading the result
 
-The source is identified as `legacy-configured`: its exact bytes came from
-`lyra_dir`. A matching installed receipt does not make that source a previously
-approved installation. The candidate keeps its original installation receipt
+The source is identified as `legacy-configured` while no selection history exists:
+its exact bytes came from `lyra_dir`. A matching installed receipt does not make
+that source a previously approved installation. After [`openspine use`](package-selection.md)
+has committed a selection the source is `managed`: the retained bytes of the selected
+installation (`installation_id`, `selection_generation`) are captured and validated
+instead, and `lyra_dir` is never opened, so it may have disappeared. A candidate that
+is already the selected installation reports `candidate-already-selected`. The candidate keeps its original installation receipt
 and provenance. Review verifies retained bytes and validates the same captured
 bytes with the current typed loader; it does not reopen the original candidate
 directory. That original directory can already have been removed.
@@ -36,9 +40,12 @@ escaped and package-supplied labels are distinguished from kernel findings.
 Missing catalog descriptions or oversized required detail block review
 completeness; omitted detail must not be treated as approved.
 Owner descriptions come from the existing action or delegation catalog. An
-action does not need a model-facing tool schema to have complete owner metadata.
-`missing-owner-action-description` identifies genuinely missing descriptions;
-the accepting slice must resolve these before treating a review as complete.
+action does not need a model-facing tool schema to have complete owner metadata:
+a known catalog action without tool or delegation text gets one fixed kernel-owned
+sentence (`kernel_owner_description`). That label adds no worker tool, delegation
+eligibility, executor or permission interpretation.
+`missing-owner-action-description` identifies genuinely missing descriptions, such as
+an action no catalog source describes; it blocks a complete review.
 
 `approval: not-performed` and `activation_supported: false` always apply.
 `semantic_review_complete`, `blockers` and `outstanding_work.quiescent`
@@ -80,6 +87,9 @@ inputs produces a nonzero exit status and a fixed, bounded diagnostic.
 | `candidate-incompatible` | Retained integrity passed, but today's typed loader rejects the captured candidate. |
 | `candidate-staging-unavailable` | Retained integrity passed, but private temporary loader staging failed. This is not corruption. |
 | `current-base-unavailable` | The configured legacy base could not be captured and validated. |
+| `selection-ledger-invalid` | Managed selection history failed ledger validation; no other base is used. |
+| `selected-object-corrupt` | The selected installation's retained bytes are missing or corrupt. |
+| `selected-package-incompatible` | The selected installation is intact but today's typed loader rejects it. |
 | `package-id-mismatch` | The candidate belongs to a different product; this command does not migrate product data. |
 | `overlay-state-unavailable` | Existing learned state could not be assessed reliably. |
 | `outstanding-work-unavailable` | The durable-work census could not be completed. |
@@ -113,5 +123,5 @@ Expiry is assessed once per command; a grant or approval expiring between two
 commands can legitimately change the work classification and plan. No review
 timestamp or generated review ID is added to the deterministic report.
 
-Package acceptance, managed startup and rollback are later delivery slices.
-This command does not add `use`, a selected pointer or a permission bypass.
+Review itself still selects nothing and adds no permission. Accepting a plan, managed
+startup and rollback are [`openspine use`](package-selection.md).

@@ -234,7 +234,16 @@ fn describe_actions(actions: BTreeSet<ActionId>, blockers: &mut BTreeSet<String>
         if !catalog.contains(&action) {
             blockers.insert("unknown-catalog-action".into());
         }
-        if descriptor.is_none() && catalog.delegation_descriptor_for(&action).is_none() {
+        // Catalog-owned tool/delegation text wins; otherwise the kernel's own
+        // fixed sentence. Neither is package text, and neither grants anything.
+        let fallback = (descriptor.is_none()
+            && catalog.delegation_descriptor_for(&action).is_none())
+        .then(|| crate::action_catalog::owner_description_fallback(&action))
+        .flatten();
+        if descriptor.is_none()
+            && catalog.delegation_descriptor_for(&action).is_none()
+            && fallback.is_none()
+        {
             blockers.insert("missing-owner-action-description".into());
         }
         if catalog.egress_decl_for(&action).is_none() {
@@ -251,6 +260,7 @@ fn describe_actions(actions: BTreeSet<ActionId>, blockers: &mut BTreeSet<String>
                 "non_delegable": catalog.is_non_delegable(&action),
                 "egress_class": catalog.egress_class_for(&action),
                 "output_channels": catalog.output_channel_for(&action),
+                "kernel_owner_description": fallback,
                 "delegation": catalog.delegation_descriptor_for(&action),
                 "implementation": catalog.implementation_descriptor_for_action(&action),
             }),
