@@ -175,6 +175,7 @@ pub fn assess(config_path: &Path, env: EnvLookup<'_>, vault: Option<&SecretStore
     };
 
     checks.push(package_check(&config, config_path));
+    checks.extend(data_dir_check(&config, config_path));
 
     if config.providers.is_empty() {
         checks.push(Check::fail(
@@ -188,8 +189,8 @@ pub fn assess(config_path: &Path, env: EnvLookup<'_>, vault: Option<&SecretStore
 
     for provider in &config.providers {
         checks.push(provider_check(provider, env, vault, &env_file_path));
+        checks.extend(model_check(provider, config_path));
     }
-
     Readiness { checks }
 }
 
@@ -240,42 +241,132 @@ fn is_hex_key(value: &str) -> bool {
 }
 
 /// The agent package directory. A stale path here is exactly what an upgrade
-/// produces when a configuration captured the previous install's location.
+/// produces when a configuration captured the previous install's location, and
+/// a relative path is what a configuration written from another directory
+/// produces: it resolves against whatever the current directory happens to be.
 fn package_check(config: &Config, config_path: &Path) -> Check {
-    if config.lyra_dir.is_dir() {
+    let resolved = absolute(&config.lyra_dir);
+    if resolved.is_dir() {
         return Check::pass(
             "package",
             "agent package",
-            format!("{} is present", config.lyra_dir.display()),
+            format!("{} is present", resolved.display()),
         );
     }
-    Check::fail(
-        "package",
-        "agent package",
-        format!("{} is not a directory", config.lyra_dir.display()),
+    let relative = config.lyra_dir.is_relative();
+    let detail = if relative {
         format!(
+            "`lyra_dir: {}` is relative to the current directory and resolves to {}, which is not a directory",
+            config.lyra_dir.display(),
+            resolved.display()
+        )
+    } else {
+        format!("{} is not a directory", resolved.display())
+    };
+    let remedy = match bundled_package_dir() {
+        Some(bundled) if bundled != resolved => format!(
             "set `lyra_dir: {}` in {}",
-            default_package_dir().display(),
+            bundled.display(),
             config_path.display()
         ),
-    )
+        _ => format!(
+            "set `lyra_dir` in {} to the absolute path of the directory that holds the Lyra \
+             agent package (this build found no bundled package)",
+            config_path.display()
+        ),
+    };
+    Check::fail("package", "agent package", detail, remedy)
 }
 
-/// The packaged agent directory for the running executable.
+/// Refuse to start a runtime whose agent package directory is missing.
 ///
-/// Resolved from `current_exe` so it tracks the running binary. A configuration
-/// that captured an absolute install path at first run points at the previous
-/// generation after an upgrade. A development build with no packaged directory
-/// falls back to the in-repo fixtures.
-pub fn default_package_dir() -> PathBuf {
+/// The artifact loader treats an absent directory as an empty registry, so
+/// without this a bad `lyra_dir` boots cleanly and then denies every message
+/// with no hint about why.
+pub fn require_package(config: &Config, config_path: &Path) -> anyhow::Result<()> {
+    let check = package_check(config, config_path);
+    if check.state == CheckState::Fail {
+        anyhow::bail!("cannot start without the agent package: {}", check.detail);
+    }
+    Ok(())
+}
+
+/// `path` made absolute against the current directory, without touching the
+/// filesystem. Falls back to the input if the current directory is unreadable.
+pub fn absolute(path: &Path) -> PathBuf {
+    std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// Warns when `data_dir` is relative: a different working directory then
+/// silently selects a different state root, and with it a different vault,
+/// owner binding, and audit trail.
+fn data_dir_check(config: &Config, config_path: &Path) -> Option<Check> {
+    if !config.data_dir.is_relative() {
+        return None;
+    }
+    Some(Check::warn(
+        "data_dir",
+        "state directory",
+        format!(
+            "`data_dir: {}` is relative, so it resolves against the current directory ({})",
+            config.data_dir.display(),
+            absolute(&config.data_dir).display()
+        ),
+        format!(
+            "set `data_dir` in {} to an absolute path so every directory sees the same state",
+            config_path.display()
+        ),
+    ))
+}
+
+/// A provider with no model id cannot answer: the endpoint rejects the request
+/// (`HTTP 400 model is required`) on the first turn.
+fn model_check(provider: &ProviderConfig, config_path: &Path) -> Option<Check> {
+    if !provider.model.trim().is_empty() {
+        return None;
+    }
+    Some(Check::fail(
+        &format!("model.{}", provider.id),
+        &format!("provider {} model", provider.id),
+        "no model is configured".to_string(),
+        format!(
+            "run `openspine setup` and choose a model, or set `model:` for provider {} in {}",
+            provider.id,
+            config_path.display()
+        ),
+    ))
+}
+
+/// The packaged agent directory shipped with, or built alongside, this binary.
+///
+/// Always absolute, so a configuration that records it keeps working from any
+/// directory. Candidates, in order: the install prefix of the running
+/// executable (`<prefix>/share/openspine/lyra`, tracking upgrades),
+/// `artifacts/lyra` under the current directory (the checkout the owner is
+/// standing in, which is what the relative default always meant), and the
+/// checkout this binary was built from.
+pub fn bundled_package_dir() -> Option<PathBuf> {
     let packaged = std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().and_then(Path::parent).map(Path::to_path_buf))
         .map(|prefix| prefix.join("share").join("openspine").join("lyra"));
-    match packaged {
-        Some(dir) if dir.is_dir() => dir,
-        _ => PathBuf::from("artifacts/lyra"),
-    }
+    let built_from =
+        std::fs::canonicalize(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../artifacts/lyra"))
+            .ok();
+    [
+        packaged,
+        Some(absolute(Path::new("artifacts/lyra"))),
+        built_from,
+    ]
+    .into_iter()
+    .flatten()
+    .find(|dir| dir.is_dir())
+}
+
+/// [`bundled_package_dir`], or the absolute path the package is expected at
+/// when none exists yet.
+pub fn default_package_dir() -> PathBuf {
+    bundled_package_dir().unwrap_or_else(|| absolute(Path::new("artifacts/lyra")))
 }
 
 /// Whether a provider can authenticate. Reports presence only: no token, key,

@@ -29,21 +29,31 @@ use crate::{identity, overlay_export_restore, store};
 use anyhow::Context as _;
 use std::path::Path;
 
+/// What the owner passed to `openspine init`.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct InitOptions<'a> {
+    /// The owner's Telegram user id — the single trusted-principal channel
+    /// binding. Required on a fresh install because the owner principal is
+    /// bound once and the kernel fails closed on a later mismatch; requiring
+    /// the real id up front avoids binding a placeholder that would trap the
+    /// owner.
+    pub owner: Option<i64>,
+    /// The owner's display name.
+    pub name: Option<&'a str>,
+    /// The model id to configure. Without it, the endpoint is asked what it
+    /// serves and a lone answer is used.
+    pub model: Option<&'a str>,
+    /// The OpenAI-compatible endpoint of a fresh install.
+    pub base_url: Option<&'a str>,
+}
+
 /// Run `openspine init`.
-///
-/// `owner` is the owner's Telegram user id — the single trusted-principal
-/// channel binding. It is required on a fresh install because the owner
-/// principal is bound once and the kernel fails closed on a later mismatch;
-/// requiring the real id up front avoids binding a placeholder that would trap
-/// the owner. `name` is the owner's display name.
 ///
 /// Init succeeds whenever it has established every artifact it owns; a
 /// not-yet-authorized model provider is reported as a next step, not failed.
-pub async fn run_init(
-    config_path: &Path,
-    owner: Option<i64>,
-    name: Option<&str>,
-) -> anyhow::Result<()> {
+/// A model it cannot determine is different: a configuration with no model
+/// answers nothing, so a fresh install is refused rather than written.
+pub async fn run_init(config_path: &Path, options: InitOptions<'_>) -> anyhow::Result<()> {
     println!("OpenSpine first-run setup");
     println!("  configuration  {}", config_path.display());
     println!(
@@ -53,9 +63,23 @@ pub async fn run_init(
     println!();
 
     if config_path.exists() {
-        prepare_existing(config_path, owner)?;
+        anyhow::ensure!(
+            options.base_url.is_none(),
+            "--base-url only applies to a fresh install; edit the `providers:` entry in {} instead",
+            config_path.display()
+        );
+        prepare_existing(config_path, options.owner)?;
+        settle_model_existing(config_path, options.model).await?;
     } else {
-        write_fresh(config_path, owner, name)?;
+        let owner_id = require_owner(options.owner)?;
+        let base_url = options.base_url.unwrap_or(starter::DEFAULT_BASE_URL);
+        let discovered = if options.model.is_some_and(|model| !model.trim().is_empty()) {
+            Vec::new()
+        } else {
+            starter::discover_models(&reqwest::Client::new(), base_url).await
+        };
+        let model = starter::resolve_model(options.model, &discovered, base_url)?;
+        write_fresh(config_path, owner_id, options.name, base_url, &model)?;
     }
 
     // Export the seed keys so readiness and the store open see them, exactly as
@@ -92,19 +116,28 @@ pub async fn run_init(
     Ok(())
 }
 
-/// Write a starter configuration and seed key file for an install that has
-/// neither, binding the owner's real Telegram id up front.
-fn write_fresh(config_path: &Path, owner: Option<i64>, name: Option<&str>) -> anyhow::Result<()> {
-    let Some(owner_id) = owner else {
-        anyhow::bail!(
+fn require_owner(owner: Option<i64>) -> anyhow::Result<i64> {
+    owner.ok_or_else(|| {
+        anyhow::anyhow!(
             "openspine init needs --owner <telegram_user_id> to bind the trusted owner \
              principal on a fresh install. Message @userinfobot on Telegram to find yours, \
-             then re-run: openspine init --owner <id>"
-        );
-    };
+             then re-run: openspine init --owner <id> --model <model>"
+        )
+    })
+}
 
-    let mut starter = StarterConfig::defaults(config_path);
-    starter.telegram_user_id = owner_id;
+/// Write a starter configuration and seed key file for an install that has
+/// neither, binding the owner's real Telegram id and a real model up front.
+fn write_fresh(
+    config_path: &Path,
+    owner_id: i64,
+    name: Option<&str>,
+    base_url: &str,
+    model: &str,
+) -> anyhow::Result<()> {
+    let mut starter = StarterConfig::defaults(config_path, owner_id);
+    starter.base_url = base_url.to_string();
+    starter.model = model.to_string();
     if let Some(name) = name {
         starter.display_name = name.to_string();
     }
@@ -112,6 +145,7 @@ fn write_fresh(config_path: &Path, owner: Option<i64>, name: Option<&str>) -> an
     let generated = starter::write(config_path, &starter, &readiness::process_env)
         .context("writing the starter configuration and seed key file")?;
     println!("  wrote {}", config_path.display());
+    println!("  model          {model} at {base_url}");
     if !generated.is_empty() {
         let names: Vec<&str> = generated.iter().map(|(name, _)| name.as_str()).collect();
         println!(
@@ -120,6 +154,39 @@ fn write_fresh(config_path: &Path, owner: Option<i64>, name: Option<&str>) -> an
             names.join(", ")
         );
     }
+    Ok(())
+}
+
+/// Give an existing configuration a model: the one named with `--model`, or
+/// else, when none is set, the only one its endpoint serves. An ambiguous or
+/// unreachable endpoint is left to the readiness report, which blocks on the
+/// empty model and names the fix.
+async fn settle_model_existing(config_path: &Path, requested: Option<&str>) -> anyhow::Result<()> {
+    let config = Config::load(config_path)?;
+    let Some(provider) = config.providers.first() else {
+        return Ok(());
+    };
+    let requested = requested.map(str::trim).filter(|model| !model.is_empty());
+    let model = match requested {
+        Some(model) if model == provider.model => return Ok(()),
+        Some(model) => model.to_string(),
+        None if !provider.model.trim().is_empty() => return Ok(()),
+        None => {
+            let Some(base_url) = provider.base_url.as_deref() else {
+                return Ok(());
+            };
+            let served = starter::discover_models(&reqwest::Client::new(), base_url).await;
+            match starter::resolve_model(None, &served, base_url) {
+                Ok(model) => model,
+                Err(error) => {
+                    println!("  model          not set: {error}");
+                    return Ok(());
+                }
+            }
+        }
+    };
+    starter::set_default_model(config_path, &model)?;
+    println!("  model          provider {} now uses {model}", provider.id);
     Ok(())
 }
 
@@ -216,7 +283,8 @@ fn report_trust_ceremony(config_path: &Path, readiness: &Readiness) {
         println!("Before your first task:");
         print!("{}", readiness.render_blocking());
         println!(
-            "  authorize a model with `openspine provider login`, then start `openspine chat`."
+            "  resolve the items above (`openspine setup` walks through them; \
+             `openspine provider login` authorizes an OAuth model), then start `openspine chat`."
         );
     } else {
         println!("Next: start `openspine chat` and send Lyra a message.");

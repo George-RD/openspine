@@ -6,7 +6,7 @@ one command establishes one trusted principal and reports the boundary before
 you send Lyra any work.
 
 ```bash
-openspine init --owner <telegram_user_id> --name "Your Name"
+openspine init --owner <telegram_user_id> --name "Your Name" --model <model_id>
 ```
 
 `--owner` is your Telegram user id — the single trusted principal every later
@@ -14,6 +14,20 @@ approval and audit row is bound to. Message
 [@userinfobot](https://t.me/userinfobot) to find yours. `--name` is your
 display name and defaults to `$USER`. Pass `--config <path>` to place the
 configuration somewhere other than `openspine.yaml` in the current directory.
+
+`--model` is the model id the default provider serves, and `--base-url` the
+OpenAI-compatible endpoint (default `http://127.0.0.1:11434`, a local Ollama).
+Without `--model`, a fresh `init` asks the endpoint what it serves and uses the
+model it lists if there is exactly one. Several models, or an endpoint that
+cannot be reached, stops `init` with a message naming `--model` and writes
+nothing: a configuration with no model answers nothing. Re-running `init
+--model <id>` on an existing configuration changes its model.
+
+Everything `init` writes is location-independent: `data_dir` and `lyra_dir` are
+absolute paths, so the configuration selects the same state root and agent
+package from any working directory. If it cannot find a bundled Lyra package
+(a Nix install, or the checkout the binary was built from), the readiness report
+says so and names the `lyra_dir` to set.
 
 The command is non-interactive and idempotent: re-running it fills in anything
 missing and never overwrites key material or the bound owner identity.
@@ -61,7 +75,8 @@ principal during its normal boot.
 ### 3. Test
 
 `init` prints a readiness report and the plain-language trust ceremony. A green
-report means the configuration, seed keys, and Lyra package are in place. To
+report means the configuration, seed keys, a configured model, and the Lyra
+package are in place. To
 close the loop with a governed reply:
 
 ```bash

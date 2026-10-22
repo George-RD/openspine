@@ -26,11 +26,11 @@ One command turns the built binary into a running, governed install. `openspine 
 ```sh
 cargo build --workspace --bins
 export PATH="$PWD/target/debug:$PATH"
-openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name"
+openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name" --model <model_id>
 openspine --config openspine.local.yaml chat
 ```
 
-`--owner` is your Telegram user id — the trusted principal every later approval and audit row is bound to. Message [@userinfobot](https://t.me/userinfobot) to find it. This is the fastest path to a governed local reply; the [first-run guide](https://github.com/George-RD/openspine/blob/main/docs/first-run.md) explains each step of the ceremony and the capability rungs beyond it. The Docker deployment below adds Telegram and the guarded Gmail draft flow.
+`--owner` is your Telegram user id — the trusted principal every later approval and audit row is bound to. Message [@userinfobot](https://t.me/userinfobot) to find it. `--model` is the model your OpenAI-compatible endpoint serves (default `http://127.0.0.1:11434`, override with `--base-url`); without it `init` asks the endpoint and uses a lone answer, otherwise it stops and asks you to choose. The configuration it writes uses absolute paths, so it works from any directory. This is the fastest path to a governed local reply; the [first-run guide](https://github.com/George-RD/openspine/blob/main/docs/first-run.md) explains each step of the ceremony and the capability rungs beyond it. The Docker deployment below adds Telegram and the guarded Gmail draft flow.
 
 ## Configure a real server
 

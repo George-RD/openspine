@@ -62,8 +62,11 @@ openspine --config openspine.terminal.yaml chat
 
 `setup --check` prints the readiness report and exits non-zero when anything
 blocks a reply, naming the remedy for each gap. Run `setup` without `--check`
-for the interactive version, which can also write a starter configuration, fill
-in missing key material, and log in to a model provider.
+for the interactive version, which can also write a starter configuration
+(asking for your Telegram user id, which the first boot binds permanently),
+fill in missing key material, choose or change the model, and log in to a model
+provider. Bare `openspine` is the Telegram server and needs
+`OPENSPINE_TELEGRAM_BOT_TOKEN`; use `openspine chat` for the terminal.
 
 In the conversation, `/help` lists the commands, `/status` prints the readiness
 report, `/login [provider]` leaves chat for a provider OAuth login (`anthropic`
