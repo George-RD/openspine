@@ -64,7 +64,9 @@ pub use polling::run_telegram_poll_loop;
 mod plan_approval;
 mod stages;
 pub(crate) mod standing_rule_timer;
+mod terminal_turn;
 mod timer_dispatch;
+pub(crate) use terminal_turn::run_terminal_turn;
 mod worker_failed_consumer;
 mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;
@@ -135,6 +137,11 @@ pub struct AppState {
     /// in-process channel. It is present only while the `chat` command is
     /// active; ordinary daemon mode leaves it disabled.
     pub terminal_reply_tx: Option<tokio::sync::mpsc::UnboundedSender<String>>,
+    /// Why the worker for the in-flight direct-terminal turn failed, set by the
+    /// driver and taken by the chat loop. Terminal turns are serialized by
+    /// `lock_conversation`, so one slot suffices. Without it the chat loop,
+    /// which waits for a reply the dead worker will never send, could only hang.
+    pub terminal_turn_failure: parking_lot::Mutex<Option<String>>,
     /// HMAC-SHA256 verifier for inbound webhooks (AD-134/AD-141). Shared
     /// kernel state so replay dedup is stable across hook deliveries.
     #[allow(dead_code)]

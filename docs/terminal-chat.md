@@ -83,6 +83,21 @@ openspine --config openspine.terminal.yaml chat \
 
 `OPENSPINE_TELEGRAM_BOT_TOKEN` is not required in chat mode.
 
+## When the worker fails
+
+If the contained worker dies before replying (for example the sandbox image
+cannot start), the turn ends at once with `error: the worker failed before it
+could reply: …` naming the exit status and the last line the worker wrote to
+stderr. Interactive chat stays open for the next message; `chat --once` exits
+non-zero. A worker that exits cleanly without sending a reply is reported the
+same way. A worker that replied and then died still delivers its reply; the
+failure stays in the audit log.
+
+The worker's own progress lines (`[openspine-shell] INFO: …`) are captured by
+the kernel and kept out of the conversation. Set `RUST_LOG=openspine::worker=debug`
+to see them. Chat mode logs errors only unless `RUST_LOG` says otherwise; bare
+`openspine` (the server) defaults to `info`.
+
 ## Authority boundary
 
 Terminal grants permit status, setup, approved model generation, and

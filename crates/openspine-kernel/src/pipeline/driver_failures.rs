@@ -1,6 +1,27 @@
 use super::lanes::PreflightFailure;
 use super::{notify_owner_best_effort, AppState};
-use openspine_schemas::owner_surface::OwnerSurfaceRef;
+use crate::sandbox::TaskRunError;
+use openspine_schemas::owner_surface::{OwnerSurfaceKind, OwnerSurfaceRef};
+use ulid::Ulid;
+
+/// Report a worker that failed to run to completion. A direct-terminal turn
+/// has an owner waiting synchronously for a reply that will now never come,
+/// so the cause is handed to the chat loop (and logged quietly, because the
+/// chat loop prints it); every other lane keeps the error log line.
+pub(super) fn report_shell_failure(
+    state: &AppState,
+    owner_surface: &OwnerSurfaceRef,
+    grant_id: Ulid,
+    err: &TaskRunError,
+) {
+    let stderr = err.stderr_tail();
+    if owner_surface.kind() == OwnerSurfaceKind::LocalTerminal {
+        tracing::warn!(error = %err, grant_id = %grant_id, stderr, "worker shell failed");
+        *state.terminal_turn_failure.lock() = Some(err.to_string());
+    } else {
+        tracing::error!(error = %err, grant_id = %grant_id, stderr, "worker shell failed");
+    }
+}
 
 pub(super) async fn emit_preflight_failure(
     state: &AppState,

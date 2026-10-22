@@ -116,6 +116,7 @@ pub(crate) mod fixtures {
             connectors: ConnectorRegistry::with_rate_limit(telegram, gmail, rate_limit)
                 .expect("built-in egress ratings are conflict-free"),
             terminal_reply_tx: None,
+            terminal_turn_failure: parking_lot::Mutex::new(None),
             webhook_verifier: WebhookVerifier::new(
                 b"openspine-test-webhook-hmac-key-v1".to_vec(),
                 Duration::from_secs(300),
