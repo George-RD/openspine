@@ -27,6 +27,13 @@ a decision. Vocabulary: [CONTEXT.md](CONTEXT.md); user stories:
   off-map from that spec. Fold tickets resolve by comments on the issues they
   fold into; filing tickets resolve by the filed issue. Implementation order
   must be derivable from the tracker alone.
+- **Tracker (ruled 2026-10-22)**: Linear is the planner and the only issue
+  tracker: the OpenSpine project (`P-ANO-23`, team ANO). Its milestones order
+  the roadmap (Owner-ready → Distribution → Immune system designs →
+  Progressive delegation (post-fit-review) → Exploration). The 13 open GitHub
+  issues moved there with descriptions, comments, labels, parents and blocking
+  edges; GitHub Issues are closed history and historical `#N` references stay
+  valid. Mechanics: [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
 
 ## Delivery mechanics (ruled 2026-09-01)
 

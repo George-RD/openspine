@@ -77,7 +77,10 @@ under `.omp/skills/` are supplemental and do not define delivery.
 
 ### Issue tracker
 
-Issues live in GitHub Issues (`George-RD/openspine`), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues, specs and the roadmap live in Linear: the OpenSpine project (`P-ANO-23`)
+of team ANO, managed with the Linear MCP tools. GitHub Issues are closed
+history; historical `#N` references stay valid. See
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

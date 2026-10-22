@@ -19,7 +19,8 @@ does not start until the stack for its blocker has merged.
 ## Per issue
 
 1. Branch the bottom layer from `main` as
-   `<type>/<issue>-<layer-slug>`. Branch each upper layer from the branch below
+   `<type>/<issue>-<layer-slug>` (issue in lowercase, e.g.
+   `feat/ano-822-select-package`). Branch each upper layer from the branch below
    it. For a stack, initialize or link the chain with `gh stack` so every base
    remains explicit.
 2. Implement one observable layer with the `implement` skill. Use the crate's
@@ -31,8 +32,9 @@ does not start until the stack for its blocker has merged.
    its current `HEAD` is the reviewed `HEAD`.
 4. Submit a stack with `gh stack submit --auto --open`; push an unstacked branch
    and open its PR with `gh pr create --body-file <path>`. Include
-   `Part of #<issue>` in every lower stacked PR body and `Closes #<issue>` only
-   in the cumulative top (or sole unstacked PR).
+   `Part of ANO-<n>` in every lower stacked PR body and `Fixes ANO-<n>` only
+   in the cumulative top (or sole unstacked PR). After merge, confirm the
+   Linear issue is Done ([issue-tracker.md](issue-tracker.md)).
 5. Review the exact cumulative top head with one independent adversarial
    reviewer. Add a specialist adversarial review for a layer that changes
    identity, authority, persistence, gate mediation, sandboxing, connector
