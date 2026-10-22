@@ -286,7 +286,7 @@ docker build --file Dockerfile.shell --tag openspine-shell:latest .
 docker compose up --build
 ```
 
-Compose mounts the Lyra package read-only and retains runtime state in `./data`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
+Compose mounts the Lyra package read-only and retains runtime state in `./data`. The kernel's lifetime lock and terminal-erasure ledger live in `./control` (`OPENSPINE_CONTROL_DIR`, set by `compose.yaml`), so recreating the container keeps them with `./data`; back up and restore the two directories together. A deployment that ran before this directory existed has its ledger only inside the old container: before the first `docker compose up` with the new `compose.yaml`, run `docker compose cp kernel:/app/.openspine-control-<hash> ./control/` (find the name with `docker compose exec kernel ls -a /app`) on the still-running old container, or the kernel refuses to start with `terminal-erasure continuity is missing`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 
 Then message your bot:
 

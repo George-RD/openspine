@@ -68,8 +68,31 @@ pub(super) struct ResolvedRootIdentity {
     pub(super) control_root: PathBuf,
 }
 
+/// Environment variable naming the directory that holds the control directory
+/// (`.openspine-control-<hash>`). Unset, the control directory is a sibling of
+/// the data root, which is where every native install already keeps it. A
+/// containerised deployment sets it to a mounted volume so the lifetime lock and
+/// terminal-erasure ledger survive container recreation together with the data.
+pub const CONTROL_PARENT_ENV: &str = "OPENSPINE_CONTROL_DIR";
+
 pub(super) fn resolve_root_identity(
     data_root: &Path,
+) -> Result<ResolvedRootIdentity, ControlError> {
+    let control_parent = std::env::var_os(CONTROL_PARENT_ENV).filter(|value| !value.is_empty());
+    resolve_root_identity_with(data_root, control_parent.as_deref().map(Path::new))
+}
+
+/// [`resolve_root_identity`] with the control parent passed explicitly.
+///
+/// The override must be an existing absolute directory that is not the data root
+/// or inside it: the data tree is exported, restored and erased as a unit, and
+/// the ledger that survives those operations must not live in it. It is
+/// canonicalised, so a mount point is accepted but a missing path is refused
+/// rather than created (an unmounted volume must not silently yield a fresh,
+/// empty control directory beside a populated data root).
+pub(super) fn resolve_root_identity_with(
+    data_root: &Path,
+    control_parent: Option<&Path>,
 ) -> Result<ResolvedRootIdentity, ControlError> {
     if data_root.as_os_str().is_empty() {
         return Err(ControlError::NotDirectory(data_root.to_path_buf()));
@@ -167,6 +190,20 @@ pub(super) fn resolve_root_identity(
 
     let digest = Sha256::digest(canonical_data_root.as_os_str().as_bytes());
     let control_root_name = format!(".openspine-control-{}", super::wire::hex(&digest));
+    let canonical_parent = match control_parent {
+        None => canonical_parent,
+        Some(configured) => {
+            if !configured.is_absolute() {
+                return Err(ControlError::UnsafeControlPath(configured.to_path_buf()));
+            }
+            let canonical =
+                std::fs::canonicalize(configured).map_err(|source| io(configured, source))?;
+            if !canonical.is_dir() || canonical.starts_with(&canonical_data_root) {
+                return Err(ControlError::UnsafeControlPath(configured.to_path_buf()));
+            }
+            canonical
+        }
+    };
     let control_root = canonical_parent.join(&control_root_name);
 
     Ok(ResolvedRootIdentity {
