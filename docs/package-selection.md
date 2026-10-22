@@ -90,7 +90,7 @@ record and sends every affected learned artifact (including standing rules) back
 Returning to an earlier epoch is another change, never a revival. In managed mode startup
 does not refresh an owner-accepted row's epoch: a row that does not bind the current base
 returns to reconfirmation, and an evaluation verdict that bound no compatibility digest is
-stale for standing-rule activation. Consent here supplies none of that reconfirmation.
+stale for standing-rule activation. In the same transaction every active standing rule moves to `needs_review` and its open exceptions go stale, with the rule IDs recorded in the audit payload. Consent here supplies none of that reconfirmation.
 
 ## Failure and refusal reference
 
