@@ -33,6 +33,8 @@ pub(crate) mod install;
 mod install_tests;
 pub(crate) mod install_types;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod managed_source;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 mod object_fs;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(crate) mod object_store;

@@ -20,7 +20,9 @@ fn state() -> CapturedCurrentState {
         base_compatibility_epoch: overlay_compat::compatibility_epoch(&registry, &ids),
         base_artifact_ids: ids,
         base: CapturedCurrentBase {
-            configured_path: "/not-a-live-input".into(),
+            origin: super::super::current_state::BaseOrigin::LegacyConfigured(
+                "/not-a-live-input".into(),
+            ),
             declaration: serde_yaml::from_str(include_str!(
                 "../../../../artifacts/lyra/package.yaml"
             ))
