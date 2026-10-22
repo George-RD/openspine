@@ -66,7 +66,7 @@ mod stages;
 pub(crate) mod standing_rule_timer;
 mod terminal_turn;
 mod timer_dispatch;
-pub(crate) use terminal_turn::run_terminal_turn;
+pub(crate) use terminal_turn::{run_terminal_turn, TurnFailed};
 mod worker_failed_consumer;
 mod worker_result_consumer;
 pub(crate) use offset::initialize_telegram_bot_id_until_ready;

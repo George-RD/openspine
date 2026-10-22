@@ -4,8 +4,6 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
-
 use super::{handle_terminal_message, AppState};
 
 /// How long to wait for a reply after the worker has already exited. Replies
@@ -13,6 +11,13 @@ use super::{handle_terminal_message, AppState};
 /// that is not queued by now is never coming; the wait only absorbs scheduling
 /// jitter and is not a model-latency budget.
 const REPLY_GRACE: Duration = Duration::from_secs(5);
+
+/// A chat turn that ran but produced no reply (worker failure, silence, a
+/// refused message). Setup readiness is not the cause, so the CLI failure
+/// report omits its readiness remedy for this class.
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+pub(crate) struct TurnFailed(pub(crate) String);
 
 pub(crate) async fn run_terminal_turn(
     state: &AppState,
@@ -26,7 +31,11 @@ pub(crate) async fn run_terminal_turn(
     state.terminal_turn_failure.lock().take();
     let grant = handle_terminal_message(state, message).await?;
     if grant.is_none() {
-        anyhow::bail!("terminal message was denied before a task grant was created");
+        // Owner commands (`/review …`) are answered without a task grant and
+        // queue their reply before returning; a genuine denial queues nothing.
+        return receiver.try_recv().map_err(|_| {
+            TurnFailed("terminal message was denied before a task grant was created".into()).into()
+        });
     }
     if let Some(failure) = state.terminal_turn_failure.lock().take() {
         // A worker that replied and then died (for instance while reporting
@@ -35,13 +44,14 @@ pub(crate) async fn run_terminal_turn(
         // queued is an error.
         return match receiver.try_recv() {
             Ok(reply) => Ok(reply),
-            Err(_) => Err(anyhow::anyhow!(
+            Err(_) => Err(TurnFailed(format!(
                 "the worker failed before it could reply: {failure}"
-            )),
+            ))
+            .into()),
         };
     }
     tokio::time::timeout(REPLY_GRACE, receiver.recv())
         .await
-        .context("the worker finished without sending a reply")?
+        .map_err(|_| TurnFailed("the worker finished without sending a reply".into()))?
         .ok_or_else(|| anyhow::anyhow!("terminal reply channel closed before a reply arrived"))
 }

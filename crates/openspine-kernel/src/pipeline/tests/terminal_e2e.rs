@@ -250,3 +250,34 @@ async fn terminal_turn_delivers_a_reply_queued_before_the_worker_died() {
         1
     );
 }
+
+/// Owner commands are answered without a task grant. Their queued reply is the
+/// turn's reply, in interactive chat and `--once` alike, never a "denied".
+#[tokio::test]
+async fn terminal_turn_shows_the_reply_of_a_grantless_review_command() {
+    let mut state = build_state_with_store(
+        Store::open_in_memory().unwrap(),
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+    state.terminal_reply_tx = Some(reply_tx);
+
+    for command in [
+        "/review",
+        &format!("/review {} abcdef123456 approve", Ulid::new()),
+    ] {
+        let reply = run_terminal_turn(&state, &mut reply_rx, command.to_string())
+            .await
+            .unwrap_or_else(|e| panic!("{command}: {e:#}"));
+        assert!(reply.starts_with("Review decision refused"), "{reply}");
+    }
+    assert!(reply_rx.try_recv().is_err(), "no stray replies may remain");
+}
+
+/// A failed turn must not carry the setup-readiness remedy.
+#[test]
+fn turn_failures_are_typed_so_the_cli_skips_the_readiness_remedy() {
+    let error: anyhow::Error = crate::pipeline::TurnFailed("x".into()).into();
+    assert!(error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()));
+}
