@@ -232,7 +232,7 @@ impl Store {
             Ok(())
         })?;
         self.installed_packages()?;
-        Ok(())
+        self.validate_package_selection()
     }
 }
 
@@ -284,7 +284,7 @@ fn load_receipt(
     load_receipt_by_key(conn, &identity.package_id, identity.revision)
 }
 
-fn load_receipt_by_key(
+pub(super) fn load_receipt_by_key(
     conn: &Connection,
     id: &str,
     revision: u32,
