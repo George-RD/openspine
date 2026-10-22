@@ -1,14 +1,15 @@
 # openspine
 
-Rust workspace (`crates/`) for a self-hostable governed-agent runtime, plus an
-archived OpenSpec spec tree (`openspec/`) and an Astro docs site (`site/`).
+Rust workspace (`crates/`) for a self-hostable governed-agent runtime, plus
+historical OpenSpec specs and archived changes (`openspec/`) and an Astro docs
+site (`site/`).
 
 **Process canon — read first: [`DIRECTION.md`](DIRECTION.md).** New work uses
 the Pocock skills workflow (wayfinder → grilling/domain-modeling → to-spec →
-to-tickets → implement, all under `.agents/skills/`); the OpenSpec ceremony
-(propose / apply / archive) is **retired for new work** — do not open new
-changes under `openspec/changes/`. Domain vocabulary: [`CONTEXT.md`](CONTEXT.md)
-(five promises, six users, decision test) and [`STORIES.md`](STORIES.md).
+to-tickets → implement, all under `.agents/skills/`). The retired OpenSpec
+ceremony is unavailable: never use it for delivery or create a new
+`openspec/changes/` entry. Domain vocabulary: [`CONTEXT.md`](CONTEXT.md) (five
+promises, six users, decision test) and [`STORIES.md`](STORIES.md).
 
 Crates are split by trust boundary, not by convenience: `openspine-schemas`
 (shared types) → `openspine-authority` (composition) → `openspine-gate`
@@ -17,9 +18,9 @@ sandboxed). Dependencies point one way down that list.
 
 ## Gate
 
-`scripts/check.sh` is the gate and mirrors `.github/workflows/ci.yml`. It still
-strict-validates the archived OpenSpec tree (historical record). Inner loop:
-`cargo test -p <crate>`.
+`scripts/check.sh` is the gate and mirrors `.github/workflows/ci.yml`. It
+strict-validates the canonical historical OpenSpec specs; archived change
+packages remain static history. Inner loop: `cargo test -p <crate>`.
 
 ## Gotchas
 
@@ -40,34 +41,22 @@ strict-validates the archived OpenSpec tree (historical record). Inner loop:
 - **Every `test: <name>` row in `docs/threat-claims.md` must name a real test**
   (`scripts/check-claims.sh`). Writing a security claim without landing its test
   fails the gate.
-- **Legacy OpenSpec changes archive with the CLI, never by moving directories**
-  (applies only to leftover/historical changes — new work never creates them;
-  see `DIRECTION.md`). `npx --no-install openspec archive "<name>" --yes`
-  applies the deltas into `openspec/specs/` mechanically; a raw `mv` into
-  `openspec/changes/archive/` leaves the specs unapplied. `--yes` is permitted
-  on `archive` only. If it fails with `ADDED ... already exists`, change the
-  delta header to `## MODIFIED Requirements` and re-run; do not fall back to
-  `--skip-specs`.
-- **`.omp/skills/openspec-*` and `.omp/commands/opsx-*` are generated but
-  hand-patched** with that ceremony. `openspec init/update --tools oh-my-pi`
-  silently reverts the patch; `scripts/check-omp-ceremony.sh` catches it.
-  Re-apply before committing regenerated output. `.omp/` is the only
-  maintained copy — do not re-generate openspec skills into other harness
-  directories, they drift and teach the raw-move archive.
-- **OpenSpec is pinned to exact `1.6.0-beta.1`**; use `node_modules/.bin/openspec`
-  (or `$OPENSPINE_OPENSPEC_BIN`), not a global install. Rust is pinned to 1.97.1
-  in `rust-toolchain.toml`.
-- **Requirement content lives in the canon, not in the sequence file.**
-  `.raw/openspine-agentos-design-log.md` (AD-0XX, only *settled* entries bind a
-  spec) and `.raw/openspine-decision-log.md` (D-0XX) are canon;
-  `openspec/openspine-change-sequence.md` holds only decomposition and
-  dependency edges. On conflict, canon wins. On *process*, `DIRECTION.md` is
-  newest and wins.
+- **OpenSpec is historical spec validation only.** It is pinned to exact
+  `1.6.0-beta.1`; `scripts/check.sh` uses the local binary solely to run
+  `validate --all --strict` over `openspec/specs/`. Archived change packages
+  are not revalidated. Do not run the change ceremony. Rust is pinned to
+  1.97.1 in `rust-toolchain.toml`.
+- **Requirement history lives in the canon.**
+  `.raw/openspine-agentos-design-log.md` and
+  `.raw/openspine-decision-log.md` record settled product decisions; the
+  archived OpenSpec tree records their former specification shape. Current
+  process comes from `DIRECTION.md` and the issue tracker, never from the
+  historical OpenSpec sequence.
 
 ## Where to look
 
-- Process rulings and the delivery workflow: `DIRECTION.md`. Legacy OpenSpec
-  workflow detail (historical changes only): `.omp/skills/openspec-*/SKILL.md`.
+- Process rulings: `DIRECTION.md`. PR and stack mechanics:
+  `docs/agents/delivery.md`.
 - Operator-facing docs: `docs/` (terminal chat, Gmail setup, day-2 ops, threat claims).
 - Product framing and the public site: `site/`.
 - Whole-codebase structural view: the **codegraph** MCP server, registered in
@@ -82,14 +71,29 @@ strict-validates the archived OpenSpec tree (historical record). Inner loop:
 
 ## Agent skills
 
+Portable engineering skills and their support files are versioned under
+`.agents/skills/`; `skills-lock.json` records their sources. OMP-only extras
+under `.omp/skills/` are supplemental and do not define delivery.
+
 ### Issue tracker
 
-Issues live in GitHub Issues (`George-RD/openspine`), managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues, specs and the roadmap live in Linear: the OpenSpine project (`P-ANO-23`)
+of team ANO, managed with the Linear MCP tools. GitHub Issues are closed
+history; historical `#N` references stay valid. See
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The five canonical triage labels, used verbatim. See `docs/agents/triage-labels.md`.
+Four of the five canonical triage roles are labels, used verbatim; `wontfix`
+maps to the Canceled state. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Delivery
+
+Code lands on `main` through pull requests. One issue may use a short stack of
+complete, tested, genuinely dependent layers. Review every layer against
+standards and spec, then independently review the cumulative stack head. See
+`docs/agents/delivery.md`.
