@@ -167,7 +167,7 @@ fn default_kernel_bind() -> KernelBindConfig {
     }
 }
 
-fn default_lyra_dir() -> PathBuf {
+pub(crate) fn default_lyra_dir() -> PathBuf {
     PathBuf::from("artifacts/lyra")
 }
 

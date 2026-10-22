@@ -17,39 +17,35 @@ struct RetainedManifestIdentity {
     version: serde_yaml::Value,
 }
 
-pub(crate) struct PackageObjects {
+/// Read-only, descriptor-anchored access to immutable retained objects.
+/// It opens only existing directories: it never creates the namespace, stages
+/// bytes or runs the publication overlap guard, because it cannot write.
+pub(crate) struct PackageObjectReader {
     data_path: PathBuf,
     data: File,
     namespace: File,
     objects: File,
-    staging: File,
 }
 
-impl PackageObjects {
-    pub(crate) fn open(data_path: &Path, active_base: &Path) -> Result<Self, Error> {
-        let namespace_path = data_path.join("packages");
-        for active in [active_base.to_path_buf(), data_path.join("artifacts.d")] {
-            let active = fs::resolve(&active)?;
-            if active.starts_with(&namespace_path) || namespace_path.starts_with(&active) {
-                return Err(Error::Destination);
-            }
-        }
+impl PackageObjectReader {
+    pub(crate) fn open(data_path: &Path) -> Result<Self, Error> {
         let data = fs::root(data_path)?;
-        let namespace = fs::ensure_directory(&data, "packages")?;
-        let objects = fs::ensure_directory(&namespace, "objects")?;
-        let staging = fs::ensure_directory(&namespace, "staging")?;
-        let result = Self {
+        // A missing namespace is a missing retained object, not a repairable
+        // destination: nothing here may create it.
+        let namespace = fs::open_directory(&data, "packages").map_err(|_| Error::ObjectCorrupt)?;
+        let objects =
+            fs::open_directory(&namespace, "objects").map_err(|_| Error::ObjectCorrupt)?;
+        let reader = Self {
             data_path: data_path.to_owned(),
             data,
             namespace,
             objects,
-            staging,
         };
-        result.check_anchors()?;
-        Ok(result)
+        reader.check_anchors()?;
+        Ok(reader)
     }
 
-    pub(crate) fn check_anchors(&self) -> Result<(), Error> {
+    fn check_anchors(&self) -> Result<(), Error> {
         fs::same(&self.data, &fs::root(&self.data_path)?)?;
         fs::same(
             &self.namespace,
@@ -58,69 +54,7 @@ impl PackageObjects {
         fs::same(
             &self.objects,
             &fs::open_directory(&self.namespace, "objects")?,
-        )?;
-        fs::same(
-            &self.staging,
-            &fs::open_directory(&self.namespace, "staging")?,
         )
-    }
-
-    pub(crate) fn publish(&self, id: Ulid, snapshot: &PackageSnapshot) -> Result<(), Error> {
-        self.check_anchors()?;
-        let stage = fs::create_directory(&self.staging, &id.to_string())?;
-        let mut directories = BTreeMap::new();
-        for (path, bytes) in snapshot.files() {
-            match path.split_once('/') {
-                Some((family, file)) => {
-                    if !directories.contains_key(family) {
-                        directories.insert(family, fs::create_directory(&stage, family)?);
-                    }
-                    fs::write_new(&directories[family], file, bytes)?;
-                }
-                None => fs::write_new(&stage, path, bytes)?,
-            }
-            crash_at("during-staging");
-        }
-        for directory in directories.values() {
-            fs::sync(directory)?;
-        }
-        fs::sync(&stage)?;
-        fs::sync(&self.staging)?;
-        crash_at("before-publish");
-        self.check_anchors()?;
-        fs::same(&stage, &fs::open_directory(&self.staging, &id.to_string())?)?;
-        let identity = snapshot.identity();
-        let _published = fs::publish(
-            &self.staging,
-            &id.to_string(),
-            &self.objects,
-            object_name(&identity)?,
-        )?;
-        // Even an existing orphan must match the complete captured inventory.
-        // Re-sync before committing a retry after a prior directory sync error.
-        self.verify(&identity)?;
-        let object = fs::open_directory(&self.objects, object_name(&identity)?)?;
-        fs::sync_snapshot(&object, snapshot)?;
-        self.verify(&identity)?;
-        fs::sync(&self.objects)?;
-        fs::sync(&self.staging)?;
-        crash_at("after-publish");
-        self.check_anchors()
-    }
-
-    /// Verify recorded bytes and stable identity, not current runtime or
-    /// declaration compatibility. Success does not construct a trusted snapshot.
-    pub(crate) fn verify(&self, identity: &PackageIdentity) -> Result<(), Error> {
-        self.inventory(identity).map(|_| ())
-    }
-
-    /// Return metadata from the exact capture whose integrity was verified.
-    /// Consumers must not reopen the path or treat this as loader validation.
-    pub(crate) fn inventory(
-        &self,
-        identity: &PackageIdentity,
-    ) -> Result<Vec<super::InventoryFile>, Error> {
-        self.capture(identity).map(|capture| capture.inventory)
     }
 
     /// Retain the exact bytes verified against the supplied recorded identity.
@@ -155,6 +89,125 @@ impl PackageObjects {
             &object,
             &fs::open_directory(&self.objects, name).map_err(|_| Error::ObjectCorrupt)?,
         )?;
+        self.check_anchors()?;
+        Ok(capture)
+    }
+}
+
+pub(crate) struct PackageObjects {
+    reader: PackageObjectReader,
+    staging: File,
+}
+
+impl PackageObjects {
+    /// Publication access while a legacy `lyra_dir` is the active base.
+    pub(crate) fn open(data_path: &Path, active_base: &Path) -> Result<Self, Error> {
+        Self::open_guarded(data_path, Some(active_base))
+    }
+
+    /// Publication access under a managed selection: the active base is the
+    /// retained object itself, so there is no legacy directory to protect.
+    pub(crate) fn open_managed(data_path: &Path) -> Result<Self, Error> {
+        Self::open_guarded(data_path, None)
+    }
+
+    fn open_guarded(data_path: &Path, active_base: Option<&Path>) -> Result<Self, Error> {
+        let namespace_path = data_path.join("packages");
+        let mut active = vec![data_path.join("artifacts.d")];
+        active.extend(active_base.map(Path::to_path_buf));
+        for active in active {
+            let active = fs::resolve(&active)?;
+            if active.starts_with(&namespace_path) || namespace_path.starts_with(&active) {
+                return Err(Error::Destination);
+            }
+        }
+        let data = fs::root(data_path)?;
+        let namespace = fs::ensure_directory(&data, "packages")?;
+        let objects = fs::ensure_directory(&namespace, "objects")?;
+        let staging = fs::ensure_directory(&namespace, "staging")?;
+        let result = Self {
+            reader: PackageObjectReader {
+                data_path: data_path.to_owned(),
+                data,
+                namespace,
+                objects,
+            },
+            staging,
+        };
+        result.check_anchors()?;
+        Ok(result)
+    }
+
+    pub(crate) fn check_anchors(&self) -> Result<(), Error> {
+        self.reader.check_anchors()?;
+        fs::same(
+            &self.staging,
+            &fs::open_directory(&self.reader.namespace, "staging")?,
+        )
+    }
+
+    pub(crate) fn publish(&self, id: Ulid, snapshot: &PackageSnapshot) -> Result<(), Error> {
+        self.check_anchors()?;
+        let stage = fs::create_directory(&self.staging, &id.to_string())?;
+        let mut directories = BTreeMap::new();
+        for (path, bytes) in snapshot.files() {
+            match path.split_once('/') {
+                Some((family, file)) => {
+                    if !directories.contains_key(family) {
+                        directories.insert(family, fs::create_directory(&stage, family)?);
+                    }
+                    fs::write_new(&directories[family], file, bytes)?;
+                }
+                None => fs::write_new(&stage, path, bytes)?,
+            }
+            crash_at("during-staging");
+        }
+        for directory in directories.values() {
+            fs::sync(directory)?;
+        }
+        fs::sync(&stage)?;
+        fs::sync(&self.staging)?;
+        crash_at("before-publish");
+        self.check_anchors()?;
+        fs::same(&stage, &fs::open_directory(&self.staging, &id.to_string())?)?;
+        let identity = snapshot.identity();
+        let _published = fs::publish(
+            &self.staging,
+            &id.to_string(),
+            &self.reader.objects,
+            object_name(&identity)?,
+        )?;
+        // Even an existing orphan must match the complete captured inventory.
+        // Re-sync before committing a retry after a prior directory sync error.
+        self.verify(&identity)?;
+        let object = fs::open_directory(&self.reader.objects, object_name(&identity)?)?;
+        fs::sync_snapshot(&object, snapshot)?;
+        self.verify(&identity)?;
+        fs::sync(&self.reader.objects)?;
+        fs::sync(&self.staging)?;
+        crash_at("after-publish");
+        self.check_anchors()
+    }
+
+    /// Verify recorded bytes and stable identity, not current runtime or
+    /// declaration compatibility. Success does not construct a trusted snapshot.
+    pub(crate) fn verify(&self, identity: &PackageIdentity) -> Result<(), Error> {
+        self.inventory(identity).map(|_| ())
+    }
+
+    /// Return metadata from the exact capture whose integrity was verified.
+    /// Consumers must not reopen the path or treat this as loader validation.
+    pub(crate) fn inventory(
+        &self,
+        identity: &PackageIdentity,
+    ) -> Result<Vec<super::InventoryFile>, Error> {
+        self.capture(identity).map(|capture| capture.inventory)
+    }
+
+    /// The publisher's capture is the reader's, behind the full anchor check.
+    pub(crate) fn capture(&self, identity: &PackageIdentity) -> Result<PackageCapture, Error> {
+        self.check_anchors()?;
+        let capture = self.reader.capture(identity)?;
         self.check_anchors()?;
         Ok(capture)
     }

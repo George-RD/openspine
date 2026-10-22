@@ -324,7 +324,7 @@ pub(crate) mod package_selection;
 #[cfg(test)]
 mod package_selection_currency_tests;
 #[cfg(test)]
-mod package_selection_fixtures;
+pub(crate) mod package_selection_fixtures;
 #[allow(dead_code)]
 mod package_selection_ledger;
 #[cfg(test)]

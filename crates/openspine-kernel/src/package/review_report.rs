@@ -27,8 +27,8 @@ use openspine_schemas::digest::{digest_of, digest_of_bytes, Digest};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
-use super::current_state::CapturedCurrentState;
-use super::install_types::{InstallReceipt, PackageIdentity};
+use super::current_state::{BaseOrigin, CapturedCurrentState};
+use super::install_types::{InstallReceipt, PackageIdentity, PackageProvenance};
 use super::review_overlay::OverlayAssessment;
 use super::review_semantics::{self, SemanticReview};
 use super::PackageSnapshot;
@@ -43,8 +43,45 @@ struct SourceIdentity {
     mode: &'static str,
     provenance: &'static str,
     configured_path: Option<String>,
-    configured_path_digest: Digest,
+    configured_path_digest: Option<Digest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    installation_id: Option<ulid::Ulid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    selection_generation: Option<u64>,
     identity: PackageIdentity,
+}
+
+impl SourceIdentity {
+    fn of(current: &CapturedCurrentState) -> Self {
+        let identity = current.base.identity.clone();
+        match &current.base.origin {
+            BaseOrigin::LegacyConfigured(path) => Self {
+                mode: "legacy-configured",
+                provenance: "configured-local-unverified",
+                configured_path: path.to_str().map(str::to_owned),
+                configured_path_digest: Some(digest_of_bytes(path.as_os_str().as_encoded_bytes())),
+                installation_id: None,
+                selection_generation: None,
+                identity,
+            },
+            BaseOrigin::Managed {
+                installation_id,
+                generation,
+                provenance,
+            } => Self {
+                mode: "managed",
+                provenance: match provenance {
+                    PackageProvenance::LocalUnverified => "installed-local-unverified",
+                    PackageProvenance::RuntimeBundled => "installed-runtime-bundled",
+                },
+                configured_path: None,
+                configured_path_digest: None,
+                installation_id: Some(*installation_id),
+                selection_generation: Some(*generation),
+                identity,
+            },
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -175,9 +212,15 @@ pub(crate) fn build(
         }
     };
     let candidate_matches = receipt.identity() == candidate.identity();
-    let configured_path = current.base.configured_path.to_str().map(str::to_owned);
-    if configured_path.is_none() {
+    let source = SourceIdentity::of(current);
+    let source_renderable = source.mode == "managed" || source.configured_path.is_some();
+    if !source_renderable {
         blockers.push("source-path-unrenderable".into());
+    }
+    if matches!(&current.base.origin, BaseOrigin::Managed { installation_id, .. }
+        if *installation_id == receipt.installation_id)
+    {
+        blockers.push("candidate-already-selected".into());
     }
     if !candidate_matches {
         blockers.push("candidate-receipt-identity-mismatch".into());
@@ -201,7 +244,7 @@ pub(crate) fn build(
             .as_ref()
             .is_some_and(|details| details.blockers.is_empty())
         && overlay.blockers.is_empty()
-        && configured_path.is_some();
+        && source_renderable;
     let mut counts = BTreeMap::new();
     for source in OutstandingWorkSource::ALL {
         let count = work.source(source);
@@ -223,13 +266,7 @@ pub(crate) fn build(
     blockers.dedup();
     let mut plan = ReviewPlan {
         schema_version: 1,
-        source: SourceIdentity {
-            mode: "legacy-configured",
-            provenance: "configured-local-unverified",
-            configured_path,
-            configured_path_digest: digest_of_bytes(current.base.configured_path.as_os_str().as_encoded_bytes()),
-            identity: current.base.identity.clone(),
-        },
+        source,
         candidate: receipt,
         candidate_integrity: if candidate_matches { "verified" } else { "identity-mismatch" },
         candidate_compatibility: "typed-loader-compatible",

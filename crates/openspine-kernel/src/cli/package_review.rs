@@ -18,7 +18,9 @@ pub(super) fn run(config: &Path, installation: &str, json: bool) -> ExitCode {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn execute(config: &Path, installation: &str, json: bool) -> Result<String, Error> {
     use crate::package::{
-        compare, current_state::CapturedCurrentState, review_overlay, review_report,
+        compare,
+        current_state::{BaseOrigin, CapturedCurrentState},
+        review_overlay, review_report,
     };
 
     // Canonical parsing is deliberately before configuration, lock or keys.
@@ -38,14 +40,32 @@ fn execute(config: &Path, installation: &str, json: bool) -> Result<String, Erro
     let artifacts = context
         .artifacts_without_recovery()
         .map_err(|_| Error::Artifacts)?;
-    let current = CapturedCurrentState::capture(
-        &context.config.lyra_dir,
-        &receipt.package_id,
-        context.data_root(),
-        &context.store,
-        &artifacts,
-    )
-    .map_err(Error::Current)?;
+    let current =
+        match crate::package::managed_source::resolve(&context.store, context.data_root())
+            .map_err(Error::Managed)?
+        {
+            // Managed history wins: the legacy directory is never opened.
+            Some(base) => CapturedCurrentState::capture_snapshot(
+                BaseOrigin::Managed {
+                    installation_id: base.receipt.installation_id,
+                    generation: base.record.generation,
+                    provenance: base.receipt.provenance,
+                },
+                &base.snapshot,
+                &receipt.package_id,
+                context.data_root(),
+                &context.store,
+                &artifacts,
+            ),
+            None => CapturedCurrentState::capture(
+                &context.config.lyra_dir,
+                &receipt.package_id,
+                context.data_root(),
+                &context.store,
+                &artifacts,
+            ),
+        }
+        .map_err(Error::Current)?;
     let overlays =
         review_overlay::assess(&current, candidate.registry()).map_err(|_| Error::Assessment)?;
     // Capture expiry-sensitive work once, outside the deterministic evaluator.
@@ -68,6 +88,8 @@ fn execute(_: &Path, _: &str, _: bool) -> Result<String, Error> {
 
 enum Error {
     Maintenance(InstallError),
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    Managed(crate::package::managed_source::ManagedBaseError),
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     Candidate(crate::package::InspectionError),
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -99,6 +121,24 @@ impl Error {
                 },
                 "not-evaluated",
             ),
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            Self::Managed(error) => {
+                use crate::package::managed_source::ManagedBaseError as Managed;
+                let (code, integrity, compatibility) = match error {
+                    Managed::Ledger => {
+                        ("selection-ledger-invalid", "not-evaluated", "not-evaluated")
+                    }
+                    Managed::ObjectCorrupt => (
+                        "selected-object-corrupt",
+                        "unavailable-or-corrupt",
+                        "not-evaluated",
+                    ),
+                    Managed::Incompatible(_) => {
+                        ("selected-package-incompatible", "verified", "incompatible")
+                    }
+                };
+                (code, error.to_string(), integrity, compatibility)
+            }
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             Self::Candidate(error) => {
                 let (code, compatibility) =

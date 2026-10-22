@@ -23,8 +23,20 @@ use crate::store::Store;
 
 pub(crate) type ArtifactVersion = (String, String, u32);
 
+/// Where the captured current base came from. A managed origin never involves
+/// the legacy configured directory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum BaseOrigin {
+    LegacyConfigured(PathBuf),
+    Managed {
+        installation_id: ulid::Ulid,
+        generation: u64,
+        provenance: super::install_types::PackageProvenance,
+    },
+}
+
 pub(crate) struct CapturedCurrentBase {
-    pub configured_path: PathBuf,
+    pub origin: BaseOrigin,
     pub identity: PackageIdentity,
     pub declaration: openspine_schemas::package::PackageDeclaration,
     pub registry: ArtifactRegistry,
@@ -124,6 +136,7 @@ pub(crate) enum CurrentStateCaptureError {
 }
 
 impl CapturedCurrentState {
+    /// Legacy mode: capture and validate the operator-configured directory.
     pub(crate) fn capture(
         configured_base: &Path,
         expected_package_id: &str,
@@ -131,10 +144,28 @@ impl CapturedCurrentState {
         store: &Store,
         artifacts: &ArtifactStore,
     ) -> Result<Self, CurrentStateCaptureError> {
-        // Capture and validate the configured base once. The typed registry is
-        // retained from those exact bounded bytes; it is never reconstructed
-        // from the live path after validation.
         let snapshot = super::inspect(configured_base)?;
+        Self::capture_snapshot(
+            BaseOrigin::LegacyConfigured(configured_base.to_path_buf()),
+            &snapshot,
+            expected_package_id,
+            data_root,
+            store,
+            artifacts,
+        )
+    }
+
+    /// Capture state around an already validated base. The typed registry is
+    /// retained from those exact bounded bytes; it is never reconstructed from
+    /// a live path after validation.
+    pub(crate) fn capture_snapshot(
+        origin: BaseOrigin,
+        snapshot: &super::PackageSnapshot,
+        expected_package_id: &str,
+        data_root: &Path,
+        store: &Store,
+        artifacts: &ArtifactStore,
+    ) -> Result<Self, CurrentStateCaptureError> {
         let identity = snapshot.identity();
         if identity.package_id != expected_package_id {
             return Err(CurrentStateCaptureError::PackageIdMismatch);
@@ -166,7 +197,7 @@ impl CapturedCurrentState {
 
         Ok(Self {
             base: CapturedCurrentBase {
-                configured_path: configured_base.to_path_buf(),
+                origin,
                 identity,
                 declaration: snapshot.declaration().clone(),
                 registry: base_registry,
