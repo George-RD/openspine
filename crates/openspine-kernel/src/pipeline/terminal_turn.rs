@@ -25,9 +25,11 @@ pub(crate) async fn run_terminal_turn(
     message: String,
 ) -> anyhow::Result<String> {
     if message.trim().is_empty() {
-        anyhow::bail!("terminal message must not be empty");
+        return Err(TurnFailed("terminal message must not be empty".into()).into());
     }
-    // A failure recorded by an earlier turn must not be blamed on this one.
+    // Each turn starts from an empty queue and no recorded failure, so a
+    // leftover from an earlier turn is never shown as this turn's answer.
+    while receiver.try_recv().is_ok() {}
     state.terminal_turn_failure.lock().take();
     let grant = handle_terminal_message(state, message).await?;
     if grant.is_none() {
@@ -53,5 +55,9 @@ pub(crate) async fn run_terminal_turn(
     tokio::time::timeout(REPLY_GRACE, receiver.recv())
         .await
         .map_err(|_| TurnFailed("the worker finished without sending a reply".into()))?
-        .ok_or_else(|| anyhow::anyhow!("terminal reply channel closed before a reply arrived"))
+        .ok_or_else(|| {
+            anyhow::Error::from(TurnFailed(
+                "terminal reply channel closed before a reply arrived".into(),
+            ))
+        })
 }

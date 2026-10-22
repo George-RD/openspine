@@ -127,10 +127,7 @@ mod tests {
         PathBuf::from("/etc/openspine/openspine.yaml")
     }
 
-    /// Built exactly as `overlay_export_restore::acquire` fails, wrapped in the
-    /// context `main` adds. A bare `ControlError` would pass while the real
-    /// startup path stayed unmatched, because `OverlayOperationError::Control`
-    /// is `#[error(transparent)]`.
+    /// A failed turn must not carry the setup-readiness remedy.
     #[test]
     fn a_failed_chat_turn_does_not_get_the_readiness_remedy() {
         let error = anyhow::Error::new(crate::pipeline::TurnFailed("worker died".into()));
@@ -138,6 +135,10 @@ mod tests {
         assert_eq!(report, "openspine: worker died\n");
     }
 
+    /// Built exactly as `overlay_export_restore::acquire` fails, wrapped in the
+    /// context `main` adds. A bare `ControlError` would pass while the real
+    /// startup path stayed unmatched, because `OverlayOperationError::Control`
+    /// is `#[error(transparent)]`.
     #[test]
     fn a_held_data_root_lock_names_the_running_instance() {
         let error = anyhow::Error::new(OverlayOperationError::Control(

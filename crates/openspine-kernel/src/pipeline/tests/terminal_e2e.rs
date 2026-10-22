@@ -119,7 +119,7 @@ fn failing_worker(dir: &std::path::Path) -> std::path::PathBuf {
     std::fs::write(
         &script,
         "#!/bin/sh\necho '[openspine-shell] INFO: starting' >&2\n\
-         echo 'worker image: GLIBC_2.39 not found' >&2\nexit 3\n",
+         echo 'worker image: GLIBC_2.39 not found' >&2\nsleep 1\nexit 3\n",
     )
     .unwrap();
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -231,8 +231,12 @@ async fn terminal_turn_delivers_a_reply_queued_before_the_worker_died() {
         None,
     );
     let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
-    reply_tx.send("already answered".to_string()).unwrap();
-    state.terminal_reply_tx = Some(reply_tx);
+    // Queued mid-turn, as the worker's `terminal.reply` would be, before the
+    // worker dies.
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        reply_tx.send("already answered".to_string()).unwrap();
+    });
     state.sandbox = Sandbox::Process(ProcessDriver {
         shell_binary: failing_worker(tmp.path()),
         scratch_root: tmp.path().join("scratch"),
@@ -280,4 +284,26 @@ async fn terminal_turn_shows_the_reply_of_a_grantless_review_command() {
 fn turn_failures_are_typed_so_the_cli_skips_the_readiness_remedy() {
     let error: anyhow::Error = crate::pipeline::TurnFailed("x".into()).into();
     assert!(error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()));
+}
+
+/// A genuine denial queues nothing: it stays a typed turn failure.
+#[tokio::test]
+async fn terminal_turn_reports_a_genuine_denial() {
+    let mut state = build_state_with_store(
+        Store::open_in_memory().unwrap(),
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+    state.terminal_reply_tx = Some(reply_tx);
+    state.registry.write().routes.clear();
+
+    let error = run_terminal_turn(&state, &mut reply_rx, "hello".to_string())
+        .await
+        .expect_err("no route must deny the turn");
+    assert!(error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()));
+    assert!(
+        format!("{error:#}").contains("denied before a task grant was created"),
+        "{error:#}"
+    );
 }
