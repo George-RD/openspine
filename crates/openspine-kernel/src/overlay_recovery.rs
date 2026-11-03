@@ -82,6 +82,13 @@ pub(crate) fn republish_missing_committed(
         if expected_path.exists() && !approved_dangling {
             continue;
         }
+        // D-175 shipped workflows are materialized once, not managed files:
+        // owner deletion must survive both re-init and ordinary boot recovery.
+        // Only a real init acceptance event marks this policy; other learned
+        // artifacts retain normal committed-file crash recovery.
+        if !expected_path.exists() && crate::seed_workflows::honors_owner_deletion(store, row)? {
+            continue;
+        }
         let Some(digest) = row.pending_yaml_digest.as_deref() else {
             continue;
         };

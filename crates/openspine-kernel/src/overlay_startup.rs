@@ -335,8 +335,32 @@ pub(crate) fn load(
                     .map(|source| source.path.clone())
             })
             .ok_or_else(|| anyhow::anyhow!("overlay review source is missing"))?;
-        let yaml = std::fs::read(&yaml_path)
-            .with_context(|| format!("reading overlay review payload {}", yaml_path.display()))?;
+        let yaml = match std::fs::read(&yaml_path) {
+            Ok(yaml) => yaml,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let deleted_seed = learned
+                    .iter()
+                    .find(|row| {
+                        row.kind == orphan.kind
+                            && row.artifact_id == orphan.artifact_id
+                            && row.version == orphan.version
+                    })
+                    .map(|row| crate::seed_workflows::honors_owner_deletion(store, row))
+                    .transpose()?
+                    .unwrap_or(false);
+                if deleted_seed {
+                    continue;
+                }
+                return Err(error).with_context(|| {
+                    format!("reading overlay review payload {}", yaml_path.display())
+                });
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("reading overlay review payload {}", yaml_path.display())
+                })
+            }
+        };
         if let Some(learned_row) = learned.iter().find(|item| {
             item.kind == orphan.kind
                 && item.artifact_id == orphan.artifact_id

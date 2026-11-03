@@ -68,13 +68,31 @@ fn init_bootstraps_the_first_run_trust_loop_in_a_clean_dir() {
 
     // 2. Approval anchor: the trusted owner principal was bound into a store.
     assert!(
-        stdout.contains("trusted owner principal established"),
+        stdout.contains("trusted owner principal validated"),
         "init reports the approval anchor.\nstdout:\n{stdout}"
     );
     assert!(
         Path::new(&dir.path().join("data").join("kernel.db")).exists(),
         "a kernel store exists after bootstrap"
     );
+
+    let conn = rusqlite::Connection::open(dir.path().join("data/kernel.db")).unwrap();
+    let accepted: i64 = conn.query_row(
+        "SELECT count(*) FROM learned_artifacts WHERE kind = 'workflow' AND compatibility = 'owner_accepted'",
+        [], |row| row.get(0),
+    ).unwrap();
+    assert_eq!(
+        accepted, 4,
+        "init explicitly accepts all four embedded workflow seeds"
+    );
+    let active: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM proposed_artifacts WHERE kind = 'workflow' AND state = 'active'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(active, 4);
 
     // 3. Test step: the trust ceremony is reported to the owner.
     assert!(

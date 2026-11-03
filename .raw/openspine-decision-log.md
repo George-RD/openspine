@@ -102,7 +102,7 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-088 | A workflow transition writes exactly one advancing durable step with edge-bound approval semantics | Accepted |
 | D-089 | Reasoning-tier routing stores only explicit overrides and resolves the active provider per call | Accepted |
 | D-090 | Workflow manifests are digest-bound at run start; production driving is deferred to worker-runtime/seed-workflows | Accepted |
-| D-091 | Seed workflows ship as overlay artifacts under distinct seed identities through the standard quarantine path with marker-gated first-boot materialization | Accepted |
+| D-091 | Seed workflows ship as overlay artifacts under distinct seed identities with marker-gated materialization; D-175 amends first-run acceptance, retaining quarantine without consent | Accepted; amended by D-175 |
 | D-092 | Nerve admission and replay are kernel-owned boundaries with atomic budget debits and gate-visible structured interjections | Accepted |
 | D-093 | Manifest-derived advisee limits seed `ModelTier::Cheap` until agent manifests carry a model-tier ceiling | Accepted |
 | D-094 | Persona is a seventh, addressable overlay artifact kind with no authority: absent from the proposable-kind table and authority composition | Accepted |
@@ -166,6 +166,8 @@ Before changing a PRD section, check the relevant decision entry. If the propose
 | D-171 | Lifecycle refusals surface as typed refusals carrying the refusal reason, never as successful or replayed decisions | Accepted |
 | D-172 | A new guard ships only with a filled three-column reachability census; a guard no production-entering test reaches is recorded UNPROVEN rather than claimed as covered | Accepted |
 | D-173 | NixOS module plus flake is the primary reference deployment; Compose is retained as the portability proof and as the substrate the containment claims inspect; the module is packaging and supervision, not a security boundary | Accepted |
+| D-174 | Provenance labels bind to typed identity and are consulted deterministically at context assembly and egress; kernel-minted, immutable, fail-closed, with no LLM judgment | Accepted |
+| D-175 | Explicit init/first-run wizard consent accepts only byte-exact embedded seed identities and versions for the bound owner through the ordinary auditable lifecycle; re-init converges only matching parked legacy reconfirmations, never runtime auto-trust or resurrection | Accepted |
 
 ---
 
@@ -2271,6 +2273,8 @@ worker-runtime lands and assumes the driving contract, or a migration ceremony f
 
 The AD-153 seed set ships as embedded templates materialized once (kv-marker-gated first boot) into the overlay namespace under distinct `_seed` artifact identities, then loads through the SAME quarantine/owner-reconfirmation lifecycle as any discovered overlay artifact (D-080); materialization never overwrites existing files, and owner deletions are honored after the first boot. The customer-service intake seed forward-declares its agent/pack identifiers for future proposals.
 
+**Amended by D-175 (2026-11-03):** explicit owner consent in the init ceremony or first-run wizard may accept the byte-exact embedded seed set through the ordinary provenance/proposal lifecycle. Without that ceremony, the quarantine/reconfirmation decision above still applies.
+
 ## Rationale
 
 AD-153 forbids kernel fixtures; reusing the discovery path instead of a bespoke seed activation branch keeps the provenance invariant total and the seed set user-editable/versioned like everything else.
@@ -4188,6 +4192,36 @@ A principal or agent judgment (rather than a kernel-derived typed-identity bindi
 
 ---
 
+# D-175 — Explicit first-run consent accepts byte-exact embedded seed workflows
+
+## Decision
+
+Owner-ratified on 2026-11-03 in [ANO-1206](https://linear.app/another-workspace-for-me/issue/ANO-1206/seed-workflows-pre-accept-in-the-first-run-init-ceremony-amends-d-091), this exercises D-091's stated “would change if” condition: `openspine init` is explicit owner consent to the four AD-153 embedded seed workflows, and the setup wizard's first-run path offers the same acceptance with an explicit confirmation. Merely starting the kernel, checking readiness, or running setup on an existing configuration is not consent.
+
+Acceptance binds each workflow's exact embedded byte digest, artifact id and version, and the instance's bound owner principal. It records genuine learned-artifact provenance (`OwnerAccepted`), an Active proposal, the accepted dependency fingerprint, and audit evidence through the ordinary owner-acceptance lifecycle. There is no trusted-seed shortcut at runtime and no manufactured provenance or evaluation evidence.
+
+Re-running `init` may converge seeds already parked as `LegacyMigration` / `ReconfirmationRequired` only when their current bytes and recorded identity/version/digest match the embedded seed. Their pending `artifact.reconfirm` requests are consumed in the same transaction as acceptance. Other provenance states, changed content, versions, and unrelated pending reviews are not swept into this consent; they retain the ordinary owner-review path.
+
+The `customer_service_intake_seed` is accepted with its current dangling agent/pack references included in the dependency fingerprint, just as for owner reconfirmation. It remains inert until those dependencies exist. Acceptance does not invent the missing dependencies or widen any workflow's effect authority.
+
+## Rationale
+
+Fresh installs should not manufacture four unsurfaced reconfirmation requests for content the owner can explicitly accept during onboarding. Binding that acceptance to the exact shipped bytes and the real owner makes the ceremony auditable without weakening D-080's provenance invariant or AD-153's rule that seeds are overlay artifacts, never kernel fixtures.
+
+## Consequences
+
+- Fresh ceremony-backed installs can load the three runnable seeds through normal admission; the customer-service template remains accepted but inert.
+- An instance that never runs the accepting ceremony retains D-091's quarantine/reconfirmation behavior. Compose operators must explicitly run the init step; `docker compose up` alone is not consent.
+- Materialization remains marker-gated, never overwrites existing files, and does not resurrect owner-deleted seeds. Re-init neither restores missing files after materialization nor reactivates revoked or superseded seed proposals.
+- Later edits or dependency changes face the same provenance, drift, compatibility, and approval rules as any other learned artifact.
+- Existing-store integrity and owner validation precede acceptance; init uses the data-root lifetime lock rather than racing a running kernel.
+
+## Would change if
+
+The owner chooses a different explicit acceptance ceremony, or the embedded seed set changes. Neither permits accepting changed overlay bytes or silently trusting shipped content at runtime; those would require a new owner-ratified decision.
+
+---
+
 ## Change Log
 
 | Date       | Change                                                                |
@@ -4247,3 +4281,4 @@ A principal or agent judgment (rather than a kernel-derived typed-identity bindi
 | 2026-08-14 | Added D-167–D-172 (counterparty erasure as a store-level admission predicate consulted inside the reservation transaction and swept across all persisted standing rules; typed decision-event-deduplicated repeated-approval evidence replacing the raw audit-row count; miner reviews carrying an immutable evaluation binding re-verified inside the activation transaction; owner approval minting a fresh activation grant instead of reusing the proposer's; lifecycle refusals surfacing as typed refusals; and the three-column reachability census as a precondition for shipping a guard), settled while implementing `ship-recurring-gmail-draft-proof` (#130). |
 | 2026-08-14 | Added D-173 (the NixOS module plus flake is the primary reference deployment; `compose.yaml` and the Dockerfiles are retained as the portability proof and as the substrate `docs/threat-claims.md` CLAIM-06 inspects; supersedes only D-031's "first reference target" claim, leaving D-020 intact; the NixOS module is packaging and supervision, not a security boundary, since optional `docker` group membership is a host-equivalent control surface and the socket-proxy hardening remains unfinished; records the proposal-only improvement boundary as posture), settled while reconciling the deployment story after the NixOS service landed in PR #139. |
 | 2026-09-24 | Reconciled D-174's owner-exemption wording with #220 story 3, CLAIM-44 and shipped origin closure; clarified coverage versus grant-chain authorization and fail-closed handling of legacy schema-1 owner sections stamped `System`, preserving immutable provenance. |
+| 2026-11-03 | Added D-175 (ANO-1206), amending D-091's first-run acceptance: explicit init/wizard consent binds the four embedded seeds' exact bytes, identities, versions, and owner to ordinary auditable provenance and Active proposals; re-init conservatively converges matching parked legacy reconfirmations transactionally, while no-consent quarantine, dangling customer-service dependencies, and owner deletions remain intact. |
