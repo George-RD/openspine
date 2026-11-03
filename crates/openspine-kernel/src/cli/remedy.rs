@@ -116,7 +116,7 @@ fn missing_env_remedy(name: &str, config_path: &Path, in_container: bool) -> Str
 pub fn failure_report(error: &anyhow::Error, config_path: &Path) -> String {
     let mut out = format!("openspine: {error:#}\n");
     // A chat turn that failed after startup succeeded: readiness is not the cause.
-    if error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()) {
+    if error.is::<crate::pipeline::TurnFailed>() {
         return out;
     }
     if let Some(remedy) = startup_remedy(error, config_path) {

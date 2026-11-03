@@ -12,9 +12,9 @@ use super::{handle_terminal_message, AppState};
 /// jitter and is not a model-latency budget.
 const REPLY_GRACE: Duration = Duration::from_secs(5);
 
-/// A chat turn that ran but produced no reply (worker failure, silence, a
-/// refused message). Setup readiness is not the cause, so the CLI failure
-/// report omits its readiness remedy for this class.
+/// A post-startup chat turn failure (dispatch, worker failure, silence, a
+/// refused message). Also used as typed anyhow context to retain dispatch
+/// causes. The CLI report omits its readiness remedy for this class.
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub(crate) struct TurnFailed(pub(crate) String);
@@ -31,7 +31,9 @@ pub(crate) async fn run_terminal_turn(
     // leftover from an earlier turn is never shown as this turn's answer.
     while receiver.try_recv().is_ok() {}
     state.terminal_turn_failure.lock().take();
-    let grant = handle_terminal_message(state, message).await?;
+    let grant = handle_terminal_message(state, message)
+        .await
+        .map_err(|error| error.context(TurnFailed("terminal message dispatch failed".into())))?;
     if grant.is_none() {
         // Owner commands (`/review …`) are answered without a task grant and
         // queue their reply before returning; a genuine denial queues nothing.

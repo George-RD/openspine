@@ -96,6 +96,11 @@ non-zero. A worker that exits cleanly without sending a reply is reported the
 same way. A worker that replied and then died still delivers its reply; the
 failure stays in the audit log.
 
+Failures while dispatching a message (before a worker can start) also fail the
+turn with their original cause. Post-startup turn errors, including in
+`chat --once`, do not print a startup readiness checklist or `setup --check`
+advice.
+
 The worker's own progress lines (`[openspine-shell] INFO: …`) are captured by
 the kernel and kept out of the conversation. Set `RUST_LOG=openspine::worker=debug`
 to see them. Chat mode logs errors only unless `RUST_LOG` says otherwise; bare
