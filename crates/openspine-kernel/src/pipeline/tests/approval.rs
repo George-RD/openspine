@@ -286,8 +286,8 @@ async fn draft_write_timeout_is_delivery_unknown_and_retry_is_fenced() {
             telegram_server.uri().parse().unwrap(),
         ),
     );
-    // Tight call budget so the 500ms draft POST always times out.
-    state.connector_call_timeout = std::time::Duration::from_millis(50);
+    // Tight write budget so the 500ms draft POST always times out.
+    state.connector_write_timeout = std::time::Duration::from_millis(50);
 
     let grant = approval_fixture_grant();
     let pending_ref = state.artifacts.put(b"hi").unwrap();

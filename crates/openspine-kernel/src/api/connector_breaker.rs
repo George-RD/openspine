@@ -203,7 +203,7 @@ where
     F: Future<Output = Result<T, E>>,
     E: Into<anyhow::Error>,
 {
-    match timeout(state.connector_call_timeout, fut).await {
+    match timeout(state.connector_write_timeout, fut).await {
         Ok(inner) => {
             record_connector_outcome(state, connector, permit, inner.is_ok());
             inner.map_err(|err| write_error_to_dispatch(state, connector, err.into()))
@@ -213,7 +213,7 @@ where
             tracing::error!(action = %action.0, connector, "connector write timed out (delivery-unknown)");
             Err(DispatchError::DeliveryUnknown(anyhow!(
                 "{connector} write timed out after {:?}; delivery-unknown, fenced for retry",
-                state.connector_call_timeout
+                state.connector_write_timeout
             )))
         }
     }

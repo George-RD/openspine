@@ -111,6 +111,7 @@ fn build_state_at(data_root: &Path, master_key: &[u8; 32]) -> AppState {
         provider_config_digests: base.provider_config_digests,
         started_at: std::time::Instant::now(),
         connector_call_timeout: Duration::from_secs(30),
+        connector_write_timeout: Duration::from_secs(30),
         overlay_dir,
         base_artifact_ids: HashSet::new(),
         base_compatibility_epoch: String::new(),

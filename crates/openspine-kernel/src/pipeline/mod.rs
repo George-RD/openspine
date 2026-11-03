@@ -167,10 +167,14 @@ pub struct AppState {
     pub provider_config_digests: HashMap<String, openspine_schemas::digest::Digest>,
     /// Backs `GET /v1/status`'s `uptime_seconds`.
     pub started_at: std::time::Instant,
-    /// Bounded duration of any single connector call (AD-141: per-call
-    /// connector timeout). Defaults to 30s; tests set it tiny to exercise
-    /// timeouts quickly.
+    /// Bounded duration of a general connector call (AD-141), including reads
+    /// and Telegram notifications routed through `call_with_connector`.
+    /// Defaults to 30s independently of the admitted-write budget.
     pub connector_call_timeout: Duration,
+    /// Bounded duration of an admitted connector write. Defaults to 30s;
+    /// expiry is delivery-unknown. Separate from reads so shortening the write
+    /// budget cannot time out a preceding preflight read instead.
+    pub connector_write_timeout: Duration,
     /// `data/artifacts.d` overlay dir (5a/5d): approved `artifact.propose`
     /// activations are written here as `<kind-plural>/<id>-v<version>.yaml`
     /// so they survive restart, and the startup loader re-merges them into

@@ -137,7 +137,9 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
     Mock::given(method("GET"))
         .and(path("/gmail/v1/users/me/threads/thread-1"))
         .respond_with(
-            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+            ResponseTemplate::new(200)
+                .set_body_json(thread_with_sender("alice@example.com"))
+                .set_delay(std::time::Duration::from_millis(100)),
         )
         .mount(&api_server)
         .await;
@@ -152,7 +154,7 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
         .await;
     let gmail = gmail_with_token_mock(&token_server, &api_server).await;
     let mut state = test_state_with_gmail(gmail);
-    state.connector_call_timeout = std::time::Duration::from_millis(50);
+    state.connector_write_timeout = std::time::Duration::from_millis(50);
     let grant = approval_fixture_grant();
     let request = approval_fixture_request(
         &state,

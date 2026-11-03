@@ -306,7 +306,7 @@ async fn standing_rule_delivery_unknown_retains_live_reservation() {
         server.uri().parse().unwrap(),
     ));
     let store = state.store.clone();
-    state.connector_call_timeout = Duration::from_millis(5);
+    state.connector_write_timeout = Duration::from_millis(5);
     let now = Timestamp::now();
     let rule = manifest(
         "rule-delivery-unknown",

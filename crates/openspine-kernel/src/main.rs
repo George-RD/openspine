@@ -632,6 +632,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         started_at: Instant::now(),
         spend_cap: cfg.spend_cap,
         connector_call_timeout: Duration::from_secs(30),
+        connector_write_timeout: Duration::from_secs(30),
         overlay_dir,
         conversation_locks: parking_lot::Mutex::new(std::collections::HashMap::new()),
         overlay_operations: overlay_operations.clone(),
