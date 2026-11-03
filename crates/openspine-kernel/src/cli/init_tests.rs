@@ -188,7 +188,13 @@ fn existing_config_accepts_matching_owner() {
 /// change the environment of concurrently running unit tests.
 #[test]
 fn init_accepts_shipped_seeds_on_fresh_and_existing_installs() {
-    for case in ["fresh", "existing", "invalid-store", "edited-and-deleted"] {
+    for case in [
+        "fresh",
+        "existing",
+        "invalid-store",
+        "tampered-ledger",
+        "edited-and-deleted",
+    ] {
         let dir = tempfile::tempdir().unwrap();
         let test_name = format!(
             "{}::init_seed_acceptance_child",
@@ -222,6 +228,7 @@ async fn init_seed_acceptance_child() {
     let config_path = dir.join("openspine.yaml");
     if case != "fresh" {
         write_fresh(&config_path, 111, None, URL, "m").unwrap();
+        env_file::load_adjacent(&config_path).unwrap();
         let config = Config::load(&config_path).unwrap();
         std::fs::create_dir_all(&config.data_dir).unwrap();
         if case == "invalid-store" {
@@ -234,7 +241,54 @@ async fn init_seed_acceptance_child() {
             return;
         }
         // Existing encrypted state used to skip the owner/seed ceremony.
-        crate::store::Store::open(&config.data_dir.join("kernel.db")).unwrap();
+        let store = crate::store::Store::open(&config.data_dir.join("kernel.db")).unwrap();
+        if case == "tampered-ledger" {
+            store
+                .append_audit("test.init_integrity", None, None, None, None, &[], &[])
+                .unwrap();
+            // A legacy ineligible Allow row makes a serving Store::open mutate
+            // unrelated authority before it would notice the corrupt audit.
+            store.with_conn_for_test(|conn| conn.execute_batch(
+                "INSERT INTO standing_rules
+                 (rule_id, artifact_id, version, action_id, rule_json, quota_max,
+                  quota_window_secs, rate_max, rate_window_secs, expires_after_secs,
+                  dark_window_timeout_secs, dark_window_default, status, activated_at,
+                  dark_window_max_pending)
+                 VALUES ('legacy-rule', 'legacy-rule', 1, 'email.send', '{}', 1,
+                         60, 1, 60, 3600, 60, 'allow', 'active', 0, 1);
+                 UPDATE audit_log SET hash = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';"
+            ).unwrap());
+            drop(store);
+            assert!(run_init(&config_path, InitOptions::default())
+                .await
+                .is_err());
+            let conn = rusqlite::Connection::open(config.data_dir.join("kernel.db")).unwrap();
+            let status: String = conn
+                .query_row(
+                    "SELECT status FROM standing_rules WHERE rule_id = 'legacy-rule'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                status, "active",
+                "refused init must not run unrelated authority sweeps"
+            );
+            let count: i64 = conn
+                .query_row("SELECT count(*) FROM audit_log", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(
+                count, 1,
+                "refused init must not append to the corrupt audit chain"
+            );
+            let learned: i64 = conn
+                .query_row("SELECT count(*) FROM learned_artifacts", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(learned, 0);
+            return;
+        }
     }
     run_init(
         &config_path,

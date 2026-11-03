@@ -6,14 +6,21 @@ use std::path::Path;
 
 use crate::artifact_loader::{self, ArtifactRegistry};
 use crate::artifact_store::ArtifactStore;
-use crate::store::learned_artifacts::{CompatibilityStatus, Provenance};
-use crate::store::seed_acceptance::SeedAcceptance;
+use crate::store::seed_acceptance::{parked_seed_matches, SeedAcceptance};
 use crate::store::Store;
 
 pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result<usize> {
     let key = crate::config::artifact_key_bytes()?;
-    let operations = crate::overlay_export_restore::acquire(&config.data_dir, &key)
-        .context("acquiring the data-root lifetime lock; stop any running OpenSpine before init")?;
+    let operations = match crate::overlay_export_restore::acquire(&config.data_dir, &key) {
+        Ok(operations) => operations,
+        Err(error) if crate::overlay_export_restore::is_already_locked(&error) => {
+            anyhow::bail!(
+                "another OpenSpine process is holding {}. Stop it before running `openspine init`.",
+                config.data_dir.display()
+            );
+        }
+        Err(error) => return Err(error).context("acquiring the data-root lifetime lock"),
+    };
     let root = operations.canonical_data_root();
     // Init must not operate on a generation awaiting restore/finalization.
     anyhow::ensure!(
@@ -21,7 +28,19 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
         "pending overlay export/restore; complete kernel recovery before init"
     );
     operations.process_pre_open(false, jiff::Timestamp::now())?;
-    let store = Store::open(&root.join("kernel.db"))?;
+    let database = root.join("kernel.db");
+    // Maintenance must not run the serving open's unrelated authority sweep,
+    // especially before integrity and the configured owner have been checked.
+    let store = if database.exists() {
+        Store::open_for_package_management(&database)?
+    } else {
+        Store::open(&database)?
+    };
+    let owner = crate::identity::bootstrap_owner_principal(
+        &store,
+        config.owner.telegram_user_id,
+        &config.owner.display_name,
+    )?;
     let artifacts = ArtifactStore::open(root.join("artifacts"), key)?;
     crate::validate_startup_and_reconcile_overlay_terminal_erasures(
         &store,
@@ -29,11 +48,6 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
         &operations,
         root,
         jiff::Timestamp::now().as_millisecond(),
-    )?;
-    let owner = crate::identity::bootstrap_owner_principal(
-        &store,
-        config.owner.telegram_user_id,
-        &config.owner.display_name,
     )?;
     let base = artifact_loader::load_base_registry(&config.lyra_dir)?;
     accept_embedded(
@@ -52,7 +66,7 @@ pub(super) fn accept_embedded(
     base: &ArtifactRegistry,
     owner: PrincipalId,
 ) -> anyhow::Result<usize> {
-    super::materialize_missing(store, overlay_dir)?;
+    let written = super::materialize_missing(store, overlay_dir)?;
     let base_ids = artifact_loader::artifact_identity_pairs(base);
     let epoch = crate::overlay_compat::compatibility_epoch(base, &base_ids);
     let learned = store.list_learned_artifacts()?;
@@ -82,15 +96,19 @@ pub(super) fn accept_embedded(
                 && row.artifact_id == manifest.id
                 && row.version == manifest.version
         }) {
-            if !matches!(row.provenance, Provenance::LegacyMigration { .. })
-                || row.compatibility != CompatibilityStatus::ReconfirmationRequired
-                || row.pending_yaml_digest.as_deref() != Some(digest.as_str())
-            {
+            if !parked_seed_matches(
+                &row.provenance,
+                row.compatibility,
+                row.pending_yaml_digest.as_deref(),
+                digest.as_str(),
+            ) {
                 continue;
             }
         }
-        std::fs::File::open(&path)?.sync_all()?;
-        std::fs::File::open(path.parent().expect("workflow directory"))?.sync_all()?;
+        if written < super::all().len() {
+            std::fs::File::open(&path)?.sync_all()?;
+            std::fs::File::open(path.parent().expect("workflow directory"))?.sync_all()?;
+        }
         let parsed = artifact_loader::parse_proposal("workflow", embedded)?;
         let dangling = crate::overlay_compat::dangling_for_parsed(base, &parsed);
         // The encrypted exchange is the receipt of this owner action, not a

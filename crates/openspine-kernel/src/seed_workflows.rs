@@ -120,8 +120,10 @@ pub fn write_seed_files(overlay_dir: &Path) -> anyhow::Result<usize> {
         };
         file.write_all(seed_yaml(manifest.id.as_str()).as_bytes())?;
         file.sync_all()?;
-        std::fs::File::open(&workflows_dir)?.sync_all()?;
         written += 1;
+    }
+    if written > 0 {
+        std::fs::File::open(&workflows_dir)?.sync_all()?;
     }
     Ok(written)
 }
