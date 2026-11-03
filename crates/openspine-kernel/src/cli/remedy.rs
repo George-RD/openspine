@@ -114,6 +114,14 @@ fn missing_env_remedy(name: &str, config_path: &Path, in_container: bool) -> Str
 /// material shows one remedy while the other gaps stay invisible until the owner
 /// fixes this one and hits the next.
 pub fn failure_report(error: &anyhow::Error, config_path: &Path) -> String {
+    failure_report_with_env(error, config_path, &readiness::process_env)
+}
+
+fn failure_report_with_env(
+    error: &anyhow::Error,
+    config_path: &Path,
+    env: readiness::EnvLookup<'_>,
+) -> String {
     let mut out = format!("openspine: {error:#}\n");
     // A chat turn that failed after startup succeeded: readiness is not the cause.
     if error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()) {
@@ -124,7 +132,7 @@ pub fn failure_report(error: &anyhow::Error, config_path: &Path) -> String {
     }
     // No vault: key material may be exactly what is missing. Readiness reports
     // OAuth credential state as unchecked rather than guessing.
-    let blocking = readiness::assess(config_path, &readiness::process_env, None).render_blocking();
+    let blocking = readiness::assess(config_path, env, None).render_blocking();
     if !blocking.is_empty() {
         out.push_str("\nBlocking:\n");
         out.push_str(&blocking);
@@ -252,16 +260,17 @@ mod tests {
     /// and repeat.
     #[test]
     fn a_startup_failure_lists_every_blocking_check_not_only_the_first_remedy() {
-        let dir = std::env::temp_dir().join(format!("openspine-report-{}", ulid::Ulid::new()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let config_path = dir.join("openspine.yaml");
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("openspine.yaml");
         let error = anyhow::Error::new(ConfigError::Read {
             path: config_path.clone(),
             source: std::io::Error::new(std::io::ErrorKind::NotFound, "No such file or directory"),
         })
         .context("loading the configuration");
 
-        let report = failure_report(&error, &config_path);
+        // Digest and wizard tests populate process-wide keys concurrently. This
+        // scenario describes an empty environment, regardless of those writes.
+        let report = failure_report_with_env(&error, &config_path, &|_| None);
 
         assert!(report.contains("What to do:"), "{report}");
         assert!(report.contains("Blocking:"), "{report}");

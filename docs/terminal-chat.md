@@ -68,6 +68,10 @@ fill in missing key material, choose or change the model, and log in to a model
 provider. Bare `openspine` is the Telegram server and needs
 `OPENSPINE_TELEGRAM_BOT_TOKEN`; use `openspine chat` for the terminal.
 
+Startup failures also print every blocking readiness check, not only the first
+remedy. Key checks use the current process environment, including values loaded
+from the adjacent `openspine.env` file.
+
 In the conversation, `/help` lists the commands, `/status` prints the readiness
 report, `/login [provider]` leaves chat for a provider OAuth login (`anthropic`
 or `openai-codex`), and `/exit`, `/quit`, or Ctrl-D stops.
