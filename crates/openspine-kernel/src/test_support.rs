@@ -151,6 +151,7 @@ pub(crate) mod fixtures {
             )]),
             started_at: std::time::Instant::now(),
             connector_call_timeout: std::time::Duration::from_secs(30),
+            connector_write_timeout: std::time::Duration::from_secs(30),
             overlay_dir,
             base_artifact_ids: std::collections::HashSet::new(),
             base_compatibility_epoch: String::new(),

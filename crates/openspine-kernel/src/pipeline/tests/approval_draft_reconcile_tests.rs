@@ -154,7 +154,7 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
         .await;
     let gmail = gmail_with_token_mock(&token_server, &api_server).await;
     let mut state = test_state_with_gmail(gmail);
-    state.connector_call_timeout = std::time::Duration::from_millis(50);
+    state.connector_write_timeout = std::time::Duration::from_millis(50);
     let grant = approval_fixture_grant();
     let request = approval_fixture_request(
         &state,
