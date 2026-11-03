@@ -6,9 +6,24 @@ use openspine_schemas::lineage::ArtifactLineage;
 use rusqlite::{params, OptionalExtension};
 use ulid::Ulid;
 
-use super::learned_artifacts::{dependency_fingerprint, Provenance};
+use super::learned_artifacts::{
+    dependency_fingerprint, parse_status, CompatibilityStatus, Provenance,
+};
 use super::proposed_artifacts::ProposedArtifact;
 use super::{Store, StoreError};
+
+const NO_TASK_GRANT: Ulid = Ulid::nil();
+
+pub(crate) fn parked_seed_matches(
+    provenance: &Provenance,
+    compatibility: CompatibilityStatus,
+    pending_digest: Option<&str>,
+    embedded_digest: &str,
+) -> bool {
+    matches!(provenance, Provenance::LegacyMigration { .. })
+        && compatibility == CompatibilityStatus::ReconfirmationRequired
+        && pending_digest == Some(embedded_digest)
+}
 
 pub(crate) struct SeedAcceptance<'a> {
     pub owner: PrincipalId,
@@ -43,10 +58,7 @@ impl Store {
             let pending = if let Some((provenance, status, digest, pending)) = existing.as_ref() {
                 let provenance: Provenance = serde_json::from_str(provenance)
                     .map_err(|err| StoreError::LearnedArtifact(err.to_string()))?;
-                if !matches!(provenance, Provenance::LegacyMigration { .. })
-                    || status != "reconfirmation_required"
-                    || digest.as_deref() != Some(seed.yaml.digest.as_str())
-                {
+                if !parked_seed_matches(&provenance, parse_status(status)?, digest.as_deref(), seed.yaml.digest.as_str()) {
                     return Ok(false);
                 }
                 pending.clone()
@@ -103,14 +115,21 @@ impl Store {
                 id: Ulid::new(), kind: "workflow".into(), artifact_id: seed.id.into(),
                 version: seed.version, state: Lifecycle::Proposed,
                 yaml_digest: seed.yaml.digest.to_string(),
-                // Init is an owner ceremony, not a delegated task. The legacy
+                // Init is an owner ceremony, not a delegated task. The
                 // NOT NULL column uses nil for this explicitly grantless origin.
-                task_grant_id: Ulid::nil(),
+                task_grant_id: NO_TASK_GRANT,
                 action_request_id: pending.as_deref().map(Ulid::from_string).transpose()
                     .map_err(|err| StoreError::LearnedArtifact(err.to_string()))?,
                 proposed_at: Timestamp::now(), lineage: Some(ArtifactLineage::root()),
             };
             Self::activate_owner_proposal(tx, &proposal, None)?;
+            if !seed.dangling.is_empty() {
+                let reason = format!("owner accepted reviewed dangling refs: {}", seed.dangling.join(","));
+                Self::append_audit_conn_with_actor(
+                    tx, "artifact.reconfirm_owner_accepted_dangling", None, None, Some(&reason),
+                    None, &[], std::slice::from_ref(&seed.yaml), None, None, Some(&seed.owner),
+                )?;
+            }
             Self::append_audit_conn_with_actor(
                 tx, "artifact.activated", None, None, Some("owner init ceremony (D-175)"),
                 None, &[], &[seed.yaml], None, None, Some(&seed.owner),

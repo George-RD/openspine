@@ -315,13 +315,12 @@ pub(crate) fn load(
     let mut pending_reconfirm_notices: Vec<String> = Vec::new();
     pending_reconfirm_buttons.extend(recovered_reconfirmations);
     for (orphan, request_id) in orphans.iter().zip(review_ids) {
-        let yaml_path = learned
-            .iter()
-            .find(|item| {
-                item.kind == orphan.kind
-                    && item.artifact_id == orphan.artifact_id
-                    && item.version == orphan.version
-            })
+        let learned_row = learned.iter().find(|item| {
+            item.kind == orphan.kind
+                && item.artifact_id == orphan.artifact_id
+                && item.version == orphan.version
+        });
+        let yaml_path = learned_row
             .and_then(|item| item.source_path.as_deref())
             .map(PathBuf::from)
             .or_else(|| {
@@ -336,36 +335,20 @@ pub(crate) fn load(
             })
             .ok_or_else(|| anyhow::anyhow!("overlay review source is missing"))?;
         let yaml = match std::fs::read(&yaml_path) {
-            Ok(yaml) => yaml,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                let deleted_seed = learned
-                    .iter()
-                    .find(|row| {
-                        row.kind == orphan.kind
-                            && row.artifact_id == orphan.artifact_id
-                            && row.version == orphan.version
-                    })
-                    .map(|row| crate::seed_workflows::honors_owner_deletion(store, row))
-                    .transpose()?
-                    .unwrap_or(false);
-                if deleted_seed {
-                    continue;
-                }
-                return Err(error).with_context(|| {
-                    format!("reading overlay review payload {}", yaml_path.display())
-                });
+            Err(error)
+                if error.kind() == std::io::ErrorKind::NotFound
+                    && learned_row
+                        .map(|row| crate::seed_workflows::honors_owner_deletion(store, row))
+                        .transpose()?
+                        .unwrap_or(false) =>
+            {
+                continue
             }
-            Err(error) => {
-                return Err(error).with_context(|| {
-                    format!("reading overlay review payload {}", yaml_path.display())
-                })
-            }
+            result => result.with_context(|| {
+                format!("reading overlay review payload {}", yaml_path.display())
+            })?,
         };
-        if let Some(learned_row) = learned.iter().find(|item| {
-            item.kind == orphan.kind
-                && item.artifact_id == orphan.artifact_id
-                && item.version == orphan.version
-        }) {
+        if let Some(learned_row) = learned_row {
             if learned_row
                 .pending_yaml_digest
                 .as_deref()

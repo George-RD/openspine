@@ -1,5 +1,5 @@
 use super::*;
-use crate::store::learned_artifacts::CompatibilityStatus;
+use crate::store::learned_artifacts::{CompatibilityStatus, Provenance};
 use openspine_schemas::artifact::Lifecycle;
 
 struct Fixture {
@@ -127,6 +127,12 @@ fn init_acceptance_first_boot_has_real_owner_bound_provenance_and_no_reconfirms(
             );
         }
     }
+    assert_eq!(
+        f.store
+            .count_audit_events_of_kind("artifact.reconfirm_owner_accepted_dangling")
+            .unwrap(),
+        1
+    );
     assert!(f.store.verify_audit_chain().unwrap());
 }
 

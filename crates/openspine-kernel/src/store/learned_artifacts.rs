@@ -376,7 +376,7 @@ fn nomination_name(status: NominationStatus) -> &'static str {
         NominationStatus::Nominated => "nominated",
     }
 }
-fn parse_status(value: &str) -> Result<CompatibilityStatus, StoreError> {
+pub(super) fn parse_status(value: &str) -> Result<CompatibilityStatus, StoreError> {
     match value {
         "compatible" => Ok(CompatibilityStatus::Compatible),
         "reconfirmation_required" => Ok(CompatibilityStatus::ReconfirmationRequired),
