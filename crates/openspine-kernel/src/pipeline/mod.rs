@@ -167,8 +167,9 @@ pub struct AppState {
     pub provider_config_digests: HashMap<String, openspine_schemas::digest::Digest>,
     /// Backs `GET /v1/status`'s `uptime_seconds`.
     pub started_at: std::time::Instant,
-    /// Bounded duration of a read-only connector call (AD-141: per-call
-    /// connector timeout). Defaults to 30s independently of the write budget.
+    /// Bounded duration of a general connector call (AD-141), including reads
+    /// and Telegram notifications routed through `call_with_connector`.
+    /// Defaults to 30s independently of the admitted-write budget.
     pub connector_call_timeout: Duration,
     /// Bounded duration of an admitted connector write. Defaults to 30s;
     /// expiry is delivery-unknown. Separate from reads so shortening the write
