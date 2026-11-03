@@ -74,6 +74,30 @@ impl Fixture {
     fn list(&self) -> Value {
         self.json(&["package", "list", "--json"])
     }
+
+    fn overlay_snapshot(&self) -> std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+        fn capture(
+            root: &Path,
+            directory: &Path,
+            files: &mut std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
+        ) {
+            for entry in fs::read_dir(directory).unwrap() {
+                let entry = entry.unwrap();
+                let path = entry.path();
+                let relative = path.strip_prefix(root).unwrap().to_path_buf();
+                if entry.file_type().unwrap().is_dir() {
+                    files.insert(relative, None);
+                    capture(root, &path, files);
+                } else {
+                    files.insert(relative, Some(fs::read(path).unwrap()));
+                }
+            }
+        }
+        let root = self.root.path().join("data/artifacts.d");
+        let mut files = std::collections::BTreeMap::new();
+        capture(&root, &root, &mut files);
+        files
+    }
 }
 
 fn assert_success(output: &Output) {
@@ -103,6 +127,7 @@ fn install_lists_exact_snapshot_as_inactive_after_process_restart() {
     let fixture = Fixture::new();
     let config_before = fs::read(fixture.root.path().join("openspine.yaml")).unwrap();
     let keys_before = fs::read(fixture.root.path().join("openspine.env")).unwrap();
+    let overlay_before = fixture.overlay_snapshot();
     let inspected = fixture.json(&["package", "inspect", "candidate", "--json"]);
     let installed = fixture.install();
     assert_eq!(installed["status"], "installed-inactive");
@@ -133,7 +158,11 @@ fn install_lists_exact_snapshot_as_inactive_after_process_restart() {
         fs::read(fixture.root.path().join("openspine.env")).unwrap(),
         keys_before
     );
-    assert!(!fixture.root.path().join("data/artifacts.d").exists());
+    assert_eq!(
+        fixture.overlay_snapshot(),
+        overlay_before,
+        "installation preserves the init-accepted overlay"
+    );
 }
 
 #[test]
