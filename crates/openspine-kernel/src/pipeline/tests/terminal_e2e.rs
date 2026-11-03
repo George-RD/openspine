@@ -224,6 +224,7 @@ async fn terminal_turn_reports_worker_that_exits_without_replying() {
 #[cfg(unix)]
 #[tokio::test]
 async fn terminal_turn_delivers_a_reply_queued_before_the_worker_died() {
+    use std::os::unix::fs::PermissionsExt as _;
     let tmp = tempfile::tempdir().unwrap();
     let mut state = build_state_with_store(
         Store::open_in_memory().unwrap(),
@@ -231,20 +232,41 @@ async fn terminal_turn_delivers_a_reply_queued_before_the_worker_died() {
         None,
     );
     let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
-    // Queued mid-turn, as the worker's `terminal.reply` would be, before the
-    // worker dies.
-    tokio::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        reply_tx.send("already answered".to_string()).unwrap();
-    });
+    // The worker cannot exit until this test queues the reply: no elapsed-time
+    // assumption about when dispatch starts or how loaded the executor is.
+    let script = tmp.path().join("reply-then-die.sh");
+    std::fs::write(
+        &script,
+        "#!/bin/sh\ncd \"$(dirname \"$0\")\" || exit 1\n\
+         touch started\n\
+         for attempt in $(seq 1 1000); do\n\
+           if [ -f release ]; then exit 3; fi\n\
+           sleep 0.01\n\
+         done\nexit 4\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
     state.sandbox = Sandbox::Process(ProcessDriver {
-        shell_binary: failing_worker(tmp.path()),
+        shell_binary: script,
         scratch_root: tmp.path().join("scratch"),
     });
 
-    let reply = run_terminal_turn(&state, &mut reply_rx, "hello".to_string())
-        .await
-        .expect("a queued reply must be delivered");
+    let queue_reply = async {
+        while !tmp.path().join("started").exists() {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        reply_tx.send("already answered".to_string()).unwrap();
+        std::fs::write(tmp.path().join("release"), "").unwrap();
+    };
+    let (reply, ()) = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        tokio::join!(
+            run_terminal_turn(&state, &mut reply_rx, "hello".to_string()),
+            queue_reply
+        )
+    })
+    .await
+    .expect("the worker/reply handshake must finish");
+    let reply = reply.expect("a queued reply must be delivered");
     assert_eq!(reply, "already answered");
     assert_eq!(
         state
@@ -284,6 +306,39 @@ async fn terminal_turn_shows_the_reply_of_a_grantless_review_command() {
 fn turn_failures_are_typed_so_the_cli_skips_the_readiness_remedy() {
     let error: anyhow::Error = crate::pipeline::TurnFailed("x".into()).into();
     assert!(error.chain().any(|c| c.is::<crate::pipeline::TurnFailed>()));
+}
+
+/// Dispatch errors happen after startup too, and must retain their original
+/// typed cause without sending `--once` owners back through setup.
+#[tokio::test]
+async fn terminal_turn_types_dispatch_failure_and_preserves_its_cause() {
+    let state = build_state_with_store(
+        Store::open_in_memory().unwrap(),
+        crate::test_support::fixtures::offline_telegram(),
+        None,
+    );
+    state
+        .store
+        .install_audit_append_failure_for_kind("owner_review.decision_refused")
+        .unwrap();
+    let (_reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    let error = run_terminal_turn(&state, &mut reply_rx, "/review".to_string())
+        .await
+        .expect_err("the refused-command audit must fail dispatch");
+    assert!(error.is::<crate::pipeline::TurnFailed>(), "{error:#}");
+    assert!(error
+        .chain()
+        .any(|cause| cause.is::<crate::store::StoreError>()));
+    assert!(error.chain().any(|cause| cause.is::<rusqlite::Error>()));
+    let report = crate::cli::remedy::failure_report(
+        &error,
+        &std::path::PathBuf::from("/absent/openspine.yaml"),
+    );
+    assert!(report.contains("injected audit append failure"), "{report}");
+    assert!(!report.contains("Blocking:"), "{report}");
+    assert!(!report.contains("setup --check"), "{report}");
+    assert!(!report.contains("What to do:"), "{report}");
 }
 
 /// A genuine denial queues nothing: it stays a typed turn failure.
