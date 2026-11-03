@@ -137,7 +137,9 @@ async fn draft_write_timeout_is_delivery_unknown_and_leaves_pending_row() {
     Mock::given(method("GET"))
         .and(path("/gmail/v1/users/me/threads/thread-1"))
         .respond_with(
-            ResponseTemplate::new(200).set_body_json(thread_with_sender("alice@example.com")),
+            ResponseTemplate::new(200)
+                .set_body_json(thread_with_sender("alice@example.com"))
+                .set_delay(std::time::Duration::from_millis(100)),
         )
         .mount(&api_server)
         .await;
