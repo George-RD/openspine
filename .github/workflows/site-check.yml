@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Playwright 1.54.1 cannot install chromium on ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: site
