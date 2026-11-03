@@ -6,26 +6,23 @@
 //!
 //!   1. **Seed key** — writes the owner-only key file (artifact, grant, and
 //!      webhook keys) and a starter configuration when the install has neither.
-//!   2. **Approval anchor** — bootstraps the single trusted owner principal into
-//!      a fresh kernel store. This is the identity every later approval and
-//!      audit row is bound to.
+//!   2. **Approval anchor** — validates the store and binds the single trusted
+//!      owner principal, then accepts the four shipped workflows by their exact
+//!      embedded digests. Edited and deleted seeds remain untouched.
 //!   3. **Test** — reports readiness and the honest next steps (authorize a
 //!      model, run the first governed task) before the owner talks to Lyra.
 //!
-//! It never introduces an ungated authority path: the owner principal it writes
-//! is exactly the one the kernel would bootstrap on first boot, via the same
-//! [`crate::identity::bootstrap_owner_principal`] entry point, and the
-//! deterministic pipeline is untouched. The principal is only written on a
-//! demonstrably fresh data root, so it never appends a bootstrap audit event
-//! against an existing store the kernel has not yet validated (`run()` in
-//! `main.rs` validates and reconciles integrity before it bootstraps).
+//! Running this command is explicit owner acceptance of those exact shipped
+//! workflows, on both fresh and existing installs. The shared acceptance helper
+//! holds the data-root lock and validates integrity and owner identity before
+//! writing trust records; ordinary runtime startup never grants this trust.
 
 use super::bootstrap;
 use super::readiness::{self, Readiness};
 use super::starter::{self, StarterConfig};
-use crate::config::{self, Config};
+use crate::config::Config;
 use crate::env_file;
-use crate::{identity, overlay_export_restore, store};
+use crate::seed_workflows;
 use anyhow::Context as _;
 use std::path::Path;
 
@@ -61,6 +58,11 @@ pub async fn run_init(config_path: &Path, options: InitOptions<'_>) -> anyhow::R
         env_file::path_for(config_path).display()
     );
     println!();
+    println!(
+        "Running `openspine init` accepts the four shipped workflows by exact embedded digest. \
+         Edited or deleted seeds remain untouched."
+    );
+    println!();
 
     if config_path.exists() {
         anyhow::ensure!(
@@ -89,22 +91,12 @@ pub async fn run_init(config_path: &Path, options: InitOptions<'_>) -> anyhow::R
     let config =
         Config::load(config_path).with_context(|| format!("loading {}", config_path.display()))?;
 
-    // Approval anchor. Only bind on a demonstrably fresh data root: `run()`
-    // validates and reconciles integrity before it bootstraps, so appending a
-    // bootstrap audit against an existing, unvalidated store would break that
-    // ordering. An install with any encrypted state defers to the kernel's own
-    // validated boot bootstrap.
-    if bootstrap::encrypted_state_in(config_path).is_none() {
-        bootstrap_owner(&config)?;
-        println!(
-            "  trusted owner principal established for {} (telegram_user_id {})",
-            config.owner.display_name, config.owner.telegram_user_id
-        );
-    } else {
-        println!(
-            "  existing install detected — the owner principal is bound and validated on the next `openspine` boot"
-        );
-    }
+    let accepted = seed_workflows::accept_from_init(&config)?;
+    println!(
+        "  trusted owner principal validated for {} (telegram_user_id {})",
+        config.owner.display_name, config.owner.telegram_user_id
+    );
+    println!("  accepted {accepted} shipped workflows by exact embedded digest");
     println!();
 
     let readiness = readiness::assess(config_path, &readiness::process_env, None);
@@ -229,35 +221,6 @@ fn prepare_existing(config_path: &Path, owner: Option<i64>) -> anyhow::Result<()
     Ok(())
 }
 
-/// Bind the single trusted owner principal into the kernel store, through the
-/// same [`identity::bootstrap_owner_principal`] entry point the kernel uses on
-/// first boot. The data-root lifetime lock guarantees no kernel is writing the
-/// same state underneath us.
-fn bootstrap_owner(config: &Config) -> anyhow::Result<()> {
-    let artifact_key = config::artifact_key_bytes().context("reading the artifact key")?;
-    let operations = match overlay_export_restore::acquire(&config.data_dir, &artifact_key) {
-        Ok(operations) => operations,
-        Err(error) if overlay_export_restore::is_already_locked(&error) => {
-            anyhow::bail!(
-                "another OpenSpine process is holding {}. Stop it before running `openspine init`.",
-                config.data_dir.display()
-            );
-        }
-        Err(error) => {
-            return Err(anyhow::Error::new(error).context("acquiring the data-root lifetime lock"));
-        }
-    };
-    let store = store::Store::open(&operations.canonical_data_root().join("kernel.db"))
-        .context("opening the kernel store")?;
-    identity::bootstrap_owner_principal(
-        &store,
-        config.owner.telegram_user_id,
-        &config.owner.display_name,
-    )
-    .context("bootstrapping the owner principal")?;
-    Ok(())
-}
-
 /// Print the plain-language trust ceremony and the honest next steps. The
 /// governed pipeline is unchanged; this only explains where the boundary is.
 fn report_trust_ceremony(config_path: &Path, readiness: &Readiness) {
@@ -272,6 +235,11 @@ fn report_trust_ceremony(config_path: &Path, readiness: &Readiness) {
         "  approval   you are the single trusted owner. Lyra runs each task under a \
          short-lived grant; an external effect (for example sending mail) stops for your \
          approval and stays denied until you approve the exact action."
+    );
+    println!(
+        "  workflows executing `openspine init` accepts the four shipped workflows only by \
+         their exact embedded digests. Edited or deleted seeds remain untouched; \
+         ordinary startup never auto-accepts them."
     );
     println!(
         "  test       run `openspine chat` and send a message. `/status` prints readiness; \

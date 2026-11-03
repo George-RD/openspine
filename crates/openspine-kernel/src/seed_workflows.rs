@@ -14,6 +14,30 @@ use crate::artifact_loader;
 use crate::store::Store;
 use openspine_schemas::workflow::WorkflowManifest;
 
+#[path = "seed_workflows_acceptance.rs"]
+mod acceptance;
+pub(crate) use acceptance::accept_from_init;
+
+/// Init-shipped overlay files honor owner deletion rather than being managed
+/// crash-recovery files. The policy is anchored to a real audited ceremony.
+pub(crate) fn honors_owner_deletion(
+    store: &Store,
+    row: &crate::store::learned_artifacts::LearnedArtifact,
+) -> anyhow::Result<bool> {
+    if row.kind != "workflow" || !all().iter().any(|(id, _)| *id == row.artifact_id) {
+        return Ok(false);
+    }
+    let crate::store::learned_artifacts::Provenance::ProducedBy {
+        source_event_id, ..
+    } = &row.provenance
+    else {
+        return Ok(false);
+    };
+    Ok(store
+        .validated_audit_event_by_id(*source_event_id)?
+        .is_some_and(|event| event.kind.as_str() == "seed_workflows.owner_accepted"))
+}
+
 const OWNER_CONTROL: &str =
     include_str!("../../../artifacts/overlay-seeds/workflows/owner_control_conversation_seed.yaml");
 const EMAIL_DRAFT: &str =
@@ -70,6 +94,10 @@ pub fn materialize_missing(store: &Store, overlay_dir: &Path) -> anyhow::Result<
 pub fn write_seed_files(overlay_dir: &Path) -> anyhow::Result<usize> {
     let workflows_dir = overlay_dir.join("workflows");
     std::fs::create_dir_all(&workflows_dir)?;
+    std::fs::File::open(overlay_dir)?.sync_all()?;
+    if let Some(parent) = overlay_dir.parent() {
+        std::fs::File::open(parent)?.sync_all()?;
+    }
     let manifests = parsed()?;
     let mut written = 0usize;
     for manifest in &manifests {
@@ -80,8 +108,22 @@ pub fn write_seed_files(overlay_dir: &Path) -> anyhow::Result<usize> {
         if target.exists() {
             continue;
         }
-        std::fs::write(&target, seed_yaml(manifest.id.as_str()))?;
+        use std::io::Write as _;
+        let mut file = match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+        {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        };
+        file.write_all(seed_yaml(manifest.id.as_str()).as_bytes())?;
+        file.sync_all()?;
         written += 1;
+    }
+    if written > 0 {
+        std::fs::File::open(&workflows_dir)?.sync_all()?;
     }
     Ok(written)
 }
