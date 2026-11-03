@@ -409,3 +409,6 @@ async fn accepted_customer_service_seed_cannot_compose_without_its_agent_and_pac
         Some(1)
     );
 }
+
+#[path = "seed_workflows_deletion_tests.rs"]
+mod deletion_tests;

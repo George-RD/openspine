@@ -4213,6 +4213,7 @@ Fresh installs should not manufacture four unsurfaced reconfirmation requests fo
 - Fresh ceremony-backed installs can load the three runnable seeds through normal admission; the customer-service template remains accepted but inert.
 - An instance that never runs the accepting ceremony retains D-091's quarantine/reconfirmation behavior. Compose operators must explicitly run the init step; `docker compose up` alone is not consent.
 - Materialization remains marker-gated, never overwrites existing files, and does not resurrect owner-deleted seeds. Re-init neither restores missing files after materialization nor reactivates revoked or superseded seed proposals.
+- A deleted init-accepted seed transitions its proposal to terminal `Retired` on the next boot, atomically with one accurate deletion receipt. Historical acceptance provenance is retained; retired versions are not repeatedly revalidated as missing/dangling, and re-init or same-version file replacement cannot reactivate them.
 - Later edits or dependency changes face the same provenance, drift, compatibility, and approval rules as any other learned artifact.
 - Existing-store integrity and owner validation precede acceptance; init uses the data-root lifetime lock rather than racing a running kernel.
 

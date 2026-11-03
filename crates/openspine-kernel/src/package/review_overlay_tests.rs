@@ -225,6 +225,32 @@ fn captured_overlay_review_converges_transitive_dangling_dependencies() {
 }
 
 #[test]
+fn captured_overlay_review_does_not_revalidate_retired_owner_accepted_sources() {
+    for source_present in [false, true] {
+        let mut current = state();
+        let workflow = "id: w\nschema_version: 1\nversion: 1\nlifecycle_state: active\npurpose: p\nrequired_agent: absent\nrequired_capability_pack: absent\n";
+        overlay(&mut current, "workflow", "w", workflow);
+        current.overlay.learned[0].compatibility = CompatibilityStatus::OwnerAccepted;
+        let control = current
+            .overlay
+            .controls
+            .get_mut(&("workflow".into(), "w".into(), 1))
+            .unwrap();
+        control.lifecycle = Some(Lifecycle::Retired);
+        control.highest_active_version = None;
+        control.source_present = source_present;
+        if !source_present {
+            current.overlay.registry = ArtifactRegistry::default();
+        }
+        let result = assess(&current, &current.base.registry).unwrap();
+        assert!(result.before.effective_artifacts.is_empty());
+        assert!(result.after.effective_artifacts.is_empty());
+        assert!(!reasons(&result.before, "w").contains(&"dangling_dependencies"));
+        assert!(!reasons(&result.after, "w").contains(&"dangling_dependencies"));
+    }
+}
+
+#[test]
 fn captured_overlay_review_fingerprint_binds_controls_and_ignores_input_order() {
     let mut current = state();
     overlay(&mut current, "route", "a", &route("a"));

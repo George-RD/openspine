@@ -38,6 +38,46 @@ pub(crate) fn honors_owner_deletion(
         .is_some_and(|event| event.kind.as_str() == "seed_workflows.owner_accepted"))
 }
 
+/// Retain deletion as an ordinary terminal proposal retirement. Historical
+/// acceptance provenance remains available, but retired rows are not candidates
+/// for startup dependency revalidation or renewed reconfirmation.
+pub(crate) fn retire_owner_deleted(
+    store: &Store,
+    learned: &[crate::store::learned_artifacts::LearnedArtifact],
+) -> anyhow::Result<Vec<(String, u32)>> {
+    use openspine_schemas::artifact::Lifecycle;
+    let mut retired = Vec::new();
+    for row in learned
+        .iter()
+        .filter(|row| row.kind == "workflow" && all().iter().any(|(id, _)| *id == row.artifact_id))
+    {
+        let Some(proposal) =
+            store.find_proposed_artifact(&row.kind, &row.artifact_id, row.version)?
+        else {
+            continue;
+        };
+        if proposal.state != Lifecycle::Retired {
+            if proposal.state != Lifecycle::Active {
+                continue;
+            }
+            let Some(path) = row.source_path.as_deref() else {
+                continue;
+            };
+            match std::fs::metadata(path) {
+                Ok(_) => continue,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        if honors_owner_deletion(store, row)?
+            && store.retire_deleted_init_seed(&row.artifact_id, row.version)?
+        {
+            retired.push((row.artifact_id.clone(), row.version));
+        }
+    }
+    Ok(retired)
+}
+
 const OWNER_CONTROL: &str =
     include_str!("../../../artifacts/overlay-seeds/workflows/owner_control_conversation_seed.yaml");
 const EMAIL_DRAFT: &str =

@@ -299,6 +299,14 @@ fn view(
     consequences.extend(blockers.iter().cloned());
     exclude(&mut overlay, &consequences);
     let mut learned = captured.learned.clone();
+    // A retired version is terminal history: keep it for provenance/version
+    // admission above, but never treat it as live owner-accepted authority.
+    learned.retain(|row| {
+        !captured
+            .controls
+            .get(&(row.kind.clone(), row.artifact_id.clone(), row.version))
+            .is_some_and(|control| control.lifecycle == Some(Lifecycle::Retired))
+    });
     if epoch_changed {
         for row in learned.iter_mut().filter(|row| {
             row.kind != "persona"

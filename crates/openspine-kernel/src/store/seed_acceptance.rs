@@ -37,6 +37,37 @@ pub(crate) struct SeedAcceptance<'a> {
 }
 
 impl Store {
+    /// A missing init seed is an owner deletion, not corruption to recover.
+    /// Retirement and its accurate receipt are atomic and terminal/idempotent.
+    pub(crate) fn retire_deleted_init_seed(
+        &self,
+        id: &str,
+        version: u32,
+    ) -> Result<bool, StoreError> {
+        self.with_immediate_tx(|tx| {
+            let changed = tx.execute(
+                "UPDATE proposed_artifacts SET state = 'retired'
+                 WHERE kind = 'workflow' AND artifact_id = ?1 AND version = ?2 AND state = 'active'
+                   AND EXISTS (SELECT 1 FROM learned_artifacts
+                     WHERE kind = 'workflow' AND artifact_id = ?1 AND version = ?2
+                       AND compatibility = 'owner_accepted')",
+                params![id, version],
+            )?;
+            if changed == 1 {
+                Self::append_audit_conn(
+                    tx, "artifact.retired", None, None,
+                    Some(&format!("init-accepted seed workflow {id} v{version} source was deleted; honoring owner deletion (D-175)")),
+                    None, &[], &[],
+                )?;
+            }
+            tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM proposed_artifacts
+                 WHERE kind = 'workflow' AND artifact_id = ?1 AND version = ?2 AND state = 'retired')",
+                params![id, version], |row| row.get(0),
+            ).map_err(StoreError::from)
+        })
+    }
+
     /// Consume a parked request, establish real producing provenance, and
     /// activate its proposal in ONE transaction. No reconfirm request is minted
     /// for a fresh seed. Existing accepted/edited/erased/proposed rows are no-ops.

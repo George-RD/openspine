@@ -36,11 +36,6 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
     } else {
         Store::open(&database)?
     };
-    let owner = crate::identity::bootstrap_owner_principal(
-        &store,
-        config.owner.telegram_user_id,
-        &config.owner.display_name,
-    )?;
     let artifacts = ArtifactStore::open(root.join("artifacts"), key)?;
     crate::validate_startup_and_reconcile_overlay_terminal_erasures(
         &store,
@@ -48,6 +43,11 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
         &operations,
         root,
         jiff::Timestamp::now().as_millisecond(),
+    )?;
+    let owner = crate::identity::bootstrap_owner_principal(
+        &store,
+        config.owner.telegram_user_id,
+        &config.owner.display_name,
     )?;
     let base = artifact_loader::load_base_registry(&config.lyra_dir)?;
     accept_embedded(

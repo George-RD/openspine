@@ -95,6 +95,7 @@ pub(crate) fn load(
     let mut learned = store
         .list_learned_artifacts()
         .context("loading learned artifact provenance")?;
+    let retired_seeds = crate::seed_workflows::retire_owner_deleted(store, &learned)?;
     crate::overlay_persona_admission::admit(
         store,
         artifacts,
@@ -251,6 +252,13 @@ pub(crate) fn load(
         tracing::warn!(kind = %artifact.kind, artifact_id = %artifact.artifact_id,
             "excluded legacy overlay artifact without provenance");
     }
+    // Retirement is terminal. Keep historical rows through provenance/version
+    // admission above, then omit them from dependency revalidation below.
+    learned.retain(|row| {
+        !retired_seeds.iter().any(|(id, version)| {
+            row.kind == "workflow" && row.artifact_id == *id && row.version == *version
+        })
+    });
     let mut owner_accepted_invalid = Vec::new();
     let prior_invalid_len = owner_accepted_invalid.len();
     let (orphans, review_ids, planned_invalid) =
