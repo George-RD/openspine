@@ -305,6 +305,7 @@ fn comparison_does_not_change_configuration_keys_receipts_or_active_files() {
     let active = fixture.json(&["package", "inspect", "artifacts/lyra", "--json"]);
     let receipts = fixture.json(&["package", "receipts", "--json"]);
     let installed = fixture.list();
+    let overlay = fixture.overlay_snapshot();
     compare(&fixture, &first, &second);
     assert_eq!(
         fs::read(fixture.root.path().join("openspine.yaml")).unwrap(),
@@ -320,7 +321,11 @@ fn comparison_does_not_change_configuration_keys_receipts_or_active_files() {
     );
     assert_eq!(fixture.json(&["package", "receipts", "--json"]), receipts);
     assert_eq!(fixture.list(), installed);
-    assert!(!fixture.root.path().join("data/artifacts.d").exists());
+    assert_eq!(
+        fixture.overlay_snapshot(),
+        overlay,
+        "comparison preserves the init-accepted overlay"
+    );
 }
 
 #[test]
