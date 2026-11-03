@@ -184,3 +184,103 @@ async fn an_unreadable_configuration_skips_the_model_step() {
         .await
         .unwrap();
 }
+
+/// Isolated stdin and environment exercise the actual first-run ceremony,
+/// rather than a predicate that could drift away from wizard sequencing.
+#[test]
+fn setup_requires_explicit_first_run_seed_consent() {
+    use std::io::Write as _;
+    for (case, input) in [
+        ("accept", "y\n111\nTester\nhttp://127.0.0.1:1\nm\ny\n5\n"),
+        ("decline", "y\n111\nTester\nhttp://127.0.0.1:1\nm\nn\n5\n"),
+        ("default-no", "y\n111\nTester\nhttp://127.0.0.1:1\nm\n\n5\n"),
+        ("eof", "y\n111\nTester\nhttp://127.0.0.1:1\nm\n"),
+        ("check", ""),
+        ("existing-check", ""),
+        ("existing", "5\n"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let test_name = format!(
+            "{}::setup_seed_consent_child",
+            module_path!().split_once("::").unwrap().1
+        );
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", &test_name, "--nocapture"])
+            .env("OPENSPINE_SETUP_SEED_CASE", case)
+            .env("OPENSPINE_SETUP_SEED_DIR", dir.path())
+            .env_remove("OPENSPINE_ARTIFACT_KEY")
+            .env_remove("OPENSPINE_GRANT_HMAC_KEY")
+            .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.as_bytes())
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(
+            output.status.success(),
+            "{case}: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1 passed"));
+        if case.starts_with("existing") || case == "check" {
+            assert!(!stdout.contains("Accept the four shipped workflows"));
+        } else {
+            assert!(stdout.contains("Accept the four shipped workflows"));
+        }
+    }
+}
+
+#[tokio::test]
+async fn setup_seed_consent_child() {
+    let Ok(case) = std::env::var("OPENSPINE_SETUP_SEED_CASE") else {
+        return;
+    };
+    let dir = PathBuf::from(std::env::var_os("OPENSPINE_SETUP_SEED_DIR").unwrap());
+    let config_path = dir.join("openspine.yaml");
+    if case.starts_with("existing") {
+        let mut starter = StarterConfig::defaults(&config_path, 111);
+        starter.base_url = "http://127.0.0.1:1".to_string();
+        starter.model = "m".to_string();
+        starter::write(&config_path, &starter, &|_| None).unwrap();
+        env_file::load_adjacent(&config_path).unwrap();
+    }
+    run_setup(&config_path, case.ends_with("check"))
+        .await
+        .unwrap();
+    if case == "check" {
+        assert!(!config_path.exists(), "check-only must not bootstrap");
+        return;
+    }
+    let config = Config::load(&config_path).unwrap();
+    let db = config.data_dir.join("kernel.db");
+    if case != "accept" {
+        assert!(!db.exists(), "{case} must not bootstrap seed acceptance");
+        return;
+    }
+    let store = crate::store::Store::open(&db).unwrap();
+    let rows = store.list_learned_artifacts().unwrap();
+    assert_eq!(rows.len(), 4);
+    for row in rows {
+        assert_eq!(
+            row.compatibility,
+            crate::store::learned_artifacts::CompatibilityStatus::OwnerAccepted
+        );
+        assert!(matches!(
+            row.provenance,
+            crate::store::learned_artifacts::Provenance::ProducedBy { .. }
+        ));
+        assert!(store
+            .is_active_proposal(&row.kind, &row.artifact_id, row.version)
+            .unwrap());
+    }
+    assert!(store.verify_audit_chain().unwrap());
+}

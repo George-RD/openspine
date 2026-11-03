@@ -21,7 +21,8 @@ Without `--model`, a fresh `init` asks the endpoint what it serves and uses the
 model it lists if there is exactly one. Several models, or an endpoint that
 cannot be reached, stops `init` with a message naming `--model` and writes
 nothing: a configuration with no model answers nothing. Re-running `init
---model <id>` on an existing configuration changes its model.
+--model <id>` on an existing configuration changes its model. Invoking `init`
+also explicitly accepts the four shipped seed workflows as described below.
 
 Everything `init` writes is location-independent: `data_dir` and `lyra_dir` are
 absolute paths, so the configuration selects the same state root and agent
@@ -30,7 +31,8 @@ package from any working directory. If it cannot find a bundled Lyra package
 says so and names the `lyra_dir` to set.
 
 The command is non-interactive and idempotent: re-running it fills in anything
-missing and never overwrites key material or the bound owner identity.
+missing without overwriting key material or the bound owner identity. Seed
+materialization is one-time; it does not restore seeds you later delete.
 
 ## What the ceremony establishes
 
@@ -68,9 +70,67 @@ if the configured owner id later changes, so `init` requires the real id up
 front on a fresh install and rejects an `--owner` that conflicts with an
 already-bound identity. To change owners, start from a fresh data directory.
 
-`init` only writes the principal on a genuinely fresh data root. On an existing
-install it leaves the store alone; the kernel validates and re-binds the owner
-principal during its normal boot.
+On both fresh and existing installs, `init` acquires the data-root lifetime lock
+and validates the existing stores and owner before recording acceptance. Stop a
+running kernel before re-running it; init is not a concurrent repair command.
+
+#### Explicit seed-workflow acceptance (D-175)
+
+Running `init` is your explicit consent to accept these four embedded workflows
+for the bound owner:
+
+- `owner_control_conversation_seed`
+- `email_draft_with_approval_seed`
+- `research_and_brief_seed`
+- `customer_service_intake_seed`
+
+Acceptance binds each exact embedded byte digest, artifact id and version, and
+your owner principal. It records ordinary learned-artifact `OwnerAccepted`
+provenance, an Active proposal, the dependency fingerprint, and audit evidence.
+The three runnable seeds then pass through normal overlay admission; no runtime
+auto-trust path is added and effects still require their normal authority.
+
+The customer-service seed is accepted with its current dangling agent and pack
+references recorded in that fingerprint. It stays inert until those dependencies
+exist; acceptance does not install them.
+
+The interactive `openspine setup` first-run wizard asks separately whether to
+accept these seeds, defaulting to no. Declining leaves the ordinary quarantine/
+owner-reconfirmation path. Running setup on an existing configuration, or
+`setup --check`, does not accept seeds; use `init` to give that explicit consent.
+Starting the kernel without ever running an accepting ceremony also leaves
+seeds in quarantine.
+
+On an existing install, re-running `init` converges only parked
+`LegacyMigration` / `ReconfirmationRequired` seeds whose identity, version,
+recorded digest, and current bytes still match the embedded seed. Acceptance and
+consumption of their pending `artifact.reconfirm` requests happen in the same
+transaction. Modified seeds and unrelated reviews stay in the normal owner-review
+path. Already materialized seeds you deleted are not recreated, and revoked or
+superseded proposals are not reactivated. Later edits or dependency drift face
+the same checks as any other learned artifact.
+
+#### Compose with the read-only configuration
+
+After filling `.env` and copying/editing `openspine.docker.example.yaml` as
+`openspine.yaml`, run the accepting ceremony before the first server start:
+
+```sh
+docker compose run --rm --build kernel --config /app/openspine.yaml init
+docker compose up --build
+```
+
+The existing Docker example sets a model and absolute `/app/data` and
+`/app/artifacts/lyra` paths. With those values already configured, omit `--model`
+and `--base-url`: init need not rewrite the read-only `/app/openspine.yaml`.
+Compose supplies all three keys from `.env`, so init need not create the adjacent
+`openspine.env` either. It writes acceptance to the mounted data directory; the
+`data-init` dependency prepares data/control ownership. Build the shell image as
+shown in the [README](../README.md#run-the-gmail-drafting-proof) before serving.
+For an existing deployment, stop the kernel and follow the
+[control-ledger migration guidance](day-2-operations.md#seed-acceptance-and-existing-installs-d-175)
+before init. These commands reflect the checked-in mounts and CLI; they are not
+a report of an exercised Docker run.
 
 ### 3. Test
 

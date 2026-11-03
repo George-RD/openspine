@@ -51,6 +51,48 @@ completed external effect as an upgrade recovery step.
 Older sections with an absent origin retain their existing fail-closed rated
 egress behavior and likewise need fresh context.
 
+### Seed acceptance and existing installs (D-175)
+
+`openspine init` explicitly accepts the four AD-153 workflows only at their
+embedded byte digests, artifact ids and versions, bound to the immutable owner
+principal. The first-run setup wizard offers the same consent separately
+(default no). Server startup, setup on an existing configuration, and
+`setup --check` do not supply consent: without it seeds stay on the ordinary
+quarantine/owner-reconfirmation path.
+
+For an instance that already parked seeds as `LegacyMigration` /
+`ReconfirmationRequired`, stop the kernel and re-run init against the same
+configuration and keys. Init acquires the same data-root lifetime lock and
+validates stores and owner before acceptance. Only unchanged embedded seeds
+with matching identity/version/recorded digest converge; their pending
+`artifact.reconfirm` requests are consumed transactionally with learned
+`OwnerAccepted` provenance, Active proposals, dependency fingerprints, and audit.
+Edited seeds and unrelated pending reviews still require normal owner review.
+Do not delete the database or change keys to clear these requests.
+
+For Compose, keep the configured model and all three `.env` keys in place:
+
+```sh
+docker compose stop kernel
+docker compose run --rm --build kernel --config /app/openspine.yaml init
+docker compose up --build
+```
+
+No `--model`/`--base-url` is needed: the existing configuration remains read-only.
+The command uses the mounted data/control directories and the `data-init`
+ownership dependency. Before either init or up on an older deployment, migrate
+the terminal-erasure ledger out of the old container as described in the
+[README](../README.md#run-the-gmail-drafting-proof); otherwise recreating that
+container can lose the continuity required by retained data. These instructions
+reflect the CLI/mount configuration, not a recorded Docker verification run.
+
+Re-init does not recreate owner-deleted seed files after one-time materialization,
+reactivate revoked/superseded proposals, or accept arbitrary overlays. Subsequent
+edits and dependency drift follow ordinary artifact admission. The
+`customer_service_intake_seed` records its current dangling agent/pack references
+in the accepted fingerprint and remains inert until those dependencies exist.
+See [the first-run ceremony](first-run.md#explicit-seed-workflow-acceptance-d-175).
+
 ### Startup
 
 Run these steps in order; each boundary is retryable only as described:
