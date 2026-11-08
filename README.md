@@ -186,8 +186,10 @@ export PATH="$PWD/target/debug:$PATH"
 ```
 
 Run the first-run trust loop. One command writes a configuration and an
-owner-only key file, binds you as the single trusted owner, and prints the
-trust ceremony (seed key, approval boundary, and how to test it):
+owner-only key file, binds you as the single trusted owner, and explicitly
+accepts the four byte-exact embedded seed workflows for that owner through the
+normal auditable artifact lifecycle. It prints the trust ceremony (seed key,
+approval boundary, and how to test it):
 
 ```sh
 openspine --config openspine.local.yaml init --owner <telegram_user_id> --name "Your Name" --model <model_id>
@@ -206,6 +208,13 @@ the capability rungs beyond it. `openspine setup` remains the interactive
 alternative: it asks for your Telegram user id, offers the models your endpoint
 actually serves (and can change the model of an existing configuration), and
 can log in to a model provider.
+
+The setup wizard asks separately before accepting seeds on its first-run path;
+existing-config setup and `setup --check` do not accept them. Without acceptance
+they remain in quarantine. Re-running `init` can accept only unchanged embedded
+seeds parked for legacy reconfirmation, not edited content or deleted/revoked
+seeds. The customer-service seed is accepted but stays inert while its agent/
+pack dependencies are missing. See [first-run seed acceptance](docs/first-run.md#explicit-seed-workflow-acceptance-d-175).
 
 Inside the conversation, `/status` prints the readiness report and `/help` lists
 the commands. On first start, a configured install prints a short orientation
@@ -279,12 +288,27 @@ Granting the kernel the socket's group gives it host-root-equivalent control of 
 
 Then copy `openspine.docker.example.yaml` to `openspine.yaml` and set `owner.telegram_user_id` plus the Gmail fields. The kernel logs at `info` by default; set `RUST_LOG` in `.env` for more or less detail.
 
-Build the contained task worker, then start the kernel:
+Build the contained task worker, explicitly accept the shipped seed workflows
+for the configured owner, then start the kernel. On an existing deployment,
+stop the kernel first and complete the control-ledger migration below before
+running init:
 
 ```sh
 docker build --file Dockerfile.shell --tag openspine-shell:latest .
+docker compose run --rm --build kernel --config /app/openspine.yaml init
 docker compose up --build
 ```
+
+The init command uses the existing read-only `/app/openspine.yaml`, the three
+keys supplied by `.env`, and the mounted `./data` and `./control`. Keep the
+example's model configured and omit `--model`/`--base-url` so init does not try to
+rewrite the config or generate keys beside it. `docker compose up` alone is not
+seed acceptance: without the ceremony, seeds take the ordinary quarantine/
+reconfirmation path. Re-init consumes only matching parked legacy seed reviews,
+not other outstanding work; it never restores owner-deleted seeds. The
+[first-run guide](docs/first-run.md#compose-with-the-read-only-configuration)
+explains the lifecycle. This command is based on the checked-in CLI and mounts,
+not a claimed Docker verification run.
 
 Compose mounts the Lyra package read-only and retains runtime state in `./data`. The kernel's lifetime lock and terminal-erasure ledger live in `./control` (`OPENSPINE_CONTROL_DIR`, set by `compose.yaml`), so recreating the container keeps them with `./data`; back up and restore the two directories together. A deployment that ran before this directory existed has its ledger only inside the old container: migrate it before the first `docker compose up` with the new `compose.yaml`, or the kernel refuses to start with `terminal-erasure continuity is missing`. Stop the old kernel first so the ledger cannot change mid-copy: `docker compose stop kernel`, `mkdir -p control`, find the name with `docker cp "$(docker compose ps -aq kernel)":/app - | tar -t | grep -m1 openspine-control` (lists names only; nothing from `./data` is written to disk), copy it with `docker cp "$(docker compose ps -aq kernel)":/app/.openspine-control-<hash> ./control/` (`docker cp` works on a stopped container), then `docker compose rm -f kernel` so the old copy can never be restarted, and finally `docker compose up -d`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts. The bare-metal process driver is a development shortcut; `/draft` is refused unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 

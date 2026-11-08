@@ -88,7 +88,12 @@ fn review_preserves_logical_rows_config_keys_and_all_package_and_overlay_bytes()
     fixture.review(&installed);
     assert_eq!(database_rows(&fixture), rows_before);
     assert_eq!(files(fixture.root.path()), files_before);
-    assert!(!fixture.root.path().join("data/artifacts.d").exists());
+    assert_eq!(
+        fs::read_dir(fixture.root.path().join("data/artifacts.d/workflows"))
+            .unwrap()
+            .count(),
+        4
+    );
 }
 
 #[test]
@@ -106,9 +111,15 @@ fn review_does_not_recover_erased_keys_or_remove_interrupted_key_writes() {
     )
     .unwrap();
     let before = files(&keys);
+    let artifacts = fixture.root.path().join("data/artifacts");
+    let artifacts_before = files(&artifacts);
     fixture.review(&installed);
     assert_eq!(files(&keys), before);
-    assert!(!fixture.root.path().join("data/artifacts").exists());
+    assert_eq!(
+        files(&artifacts),
+        artifacts_before,
+        "review preserves encrypted init provenance without recovering keys"
+    );
 }
 
 fn assert_error(output: &Output, expected: &str) -> Value {

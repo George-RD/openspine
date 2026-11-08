@@ -51,6 +51,22 @@ pub(crate) struct CapturedOverlayState {
 }
 
 impl CapturedOverlayState {
+    /// Learned rows that can still carry live authority. A retired version is
+    /// terminal history: it stays in `learned` for provenance/version
+    /// admission, but is never revalidated as owner-accepted authority.
+    pub(crate) fn live_learned(&self) -> Vec<LearnedArtifact> {
+        self.learned
+            .iter()
+            .filter(|row| {
+                !self
+                    .controls
+                    .get(&(row.kind.clone(), row.artifact_id.clone(), row.version))
+                    .is_some_and(|control| control.lifecycle == Some(Lifecycle::Retired))
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Run only the shared version-admission phase over this captured state.
     /// No Store reads, source reopening or recovery occur here. Keep the full
     /// capture intact: a missing highest source still needs an explicit blocker

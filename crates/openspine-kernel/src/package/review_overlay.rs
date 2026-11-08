@@ -298,7 +298,7 @@ fn view(
     }
     consequences.extend(blockers.iter().cloned());
     exclude(&mut overlay, &consequences);
-    let mut learned = captured.learned.clone();
+    let mut learned = captured.live_learned();
     if epoch_changed {
         for row in learned.iter_mut().filter(|row| {
             row.kind != "persona"

@@ -99,52 +99,7 @@ impl Store {
                 ));
             }
             let proposal_rows = if let Some(proposal) = new_proposal {
-                let lineage_json = serde_json::to_string(&proposal.lineage)
-                    .map_err(|err| StoreError::LearnedArtifact(format!("lineage json: {err}")))?;
-                tx.execute(
-                    "INSERT INTO proposed_artifacts \
-                     (id, kind, artifact_id, version, state, yaml_digest, task_grant_id, \
-                      action_request_id, proposed_at, lineage_json) \
-                     VALUES (?1, ?2, ?3, ?4, 'proposed', ?5, ?6, ?7, ?8, ?9)",
-                    params![
-                        proposal.id.to_string(),
-                        proposal.kind,
-                        proposal.artifact_id,
-                        proposal.version as i64,
-                        proposal.yaml_digest,
-                        proposal.task_grant_id.to_string(),
-                        proposal.action_request_id.map(|u| u.to_string()),
-                        proposal.proposed_at.to_string(),
-                        lineage_json,
-                    ],
-                )?;
-                Store::append_audit_conn(
-                    tx,
-                    "artifact.proposed",
-                    None,
-                    None,
-                    None,
-                    grant_id,
-                    &[],
-                    &[],
-                )?;
-                for (from, to) in [
-                    ("proposed", "validated"),
-                    ("validated", "review_required"),
-                    ("review_required", "approved"),
-                    ("approved", "active"),
-                ] {
-                    let rows = tx.execute(
-                        "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
-                        params![to, proposal.id.to_string(), from],
-                    )?;
-                    if rows != 1 {
-                        return Err(StoreError::LearnedArtifact(format!(
-                            "legacy proposal {} lifecycle transition {} -> {} affected {} rows",
-                            proposal.id, from, to, rows
-                        )));
-                    }
-                }
+                Self::activate_owner_proposal(tx, &proposal, grant_id)?;
                 1
             } else if let Some(proposal_id) = proposal_id {
                 tx.execute(
@@ -220,5 +175,61 @@ impl Store {
             }
             Ok(true)
         })
+    }
+
+    /// Shared owner-acceptance lifecycle for legacy reconfirmation and init's
+    /// digest-bound shipped seeds. Called inside the acceptance transaction.
+    pub(super) fn activate_owner_proposal(
+        tx: &rusqlite::Connection,
+        proposal: &ProposedArtifact,
+        grant_id: Option<Ulid>,
+    ) -> Result<(), StoreError> {
+        let lineage_json = serde_json::to_string(&proposal.lineage)
+            .map_err(|err| StoreError::LearnedArtifact(format!("lineage json: {err}")))?;
+        tx.execute(
+            "INSERT INTO proposed_artifacts
+             (id, kind, artifact_id, version, state, yaml_digest, task_grant_id,
+              action_request_id, proposed_at, lineage_json)
+             VALUES (?1, ?2, ?3, ?4, 'proposed', ?5, ?6, ?7, ?8, ?9)",
+            params![
+                proposal.id.to_string(),
+                proposal.kind,
+                proposal.artifact_id,
+                proposal.version as i64,
+                proposal.yaml_digest,
+                proposal.task_grant_id.to_string(),
+                proposal.action_request_id.map(|id| id.to_string()),
+                proposal.proposed_at.to_string(),
+                lineage_json,
+            ],
+        )?;
+        Self::append_audit_conn(
+            tx,
+            "artifact.proposed",
+            None,
+            None,
+            None,
+            grant_id,
+            &[],
+            &[],
+        )?;
+        for (from, to) in [
+            ("proposed", "validated"),
+            ("validated", "review_required"),
+            ("review_required", "approved"),
+            ("approved", "active"),
+        ] {
+            let rows = tx.execute(
+                "UPDATE proposed_artifacts SET state = ?1 WHERE id = ?2 AND state = ?3",
+                params![to, proposal.id.to_string(), from],
+            )?;
+            if rows != 1 {
+                return Err(StoreError::LearnedArtifact(format!(
+                    "owner proposal {} transition {from} -> {to} affected {rows} rows",
+                    proposal.id,
+                )));
+            }
+        }
+        Ok(())
     }
 }

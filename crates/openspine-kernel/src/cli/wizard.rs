@@ -255,6 +255,22 @@ async fn bootstrap(config_path: &Path) -> anyhow::Result<()> {
             loaded.retained.join(", ")
         );
     }
+    println!(
+        "The four shipped workflows can be accepted only by their exact embedded digests. \
+         Edited or deleted seeds remain untouched; ordinary startup never auto-accepts them."
+    );
+    if confirm(
+        "Accept the four shipped workflows as this install's owner?",
+        false,
+    )? {
+        // This helper acquires its own data-root lock. Run it before
+        // `run_setup` opens the credential vault and holds that same lock.
+        let config = Config::load(config_path).context("loading the configuration")?;
+        let accepted = crate::seed_workflows::accept_from_init(&config)?;
+        println!("  accepted {accepted} shipped workflows by exact embedded digest");
+    } else {
+        println!("  workflows not accepted; run `openspine init` later to accept shipped seeds.");
+    }
     println!();
     Ok(())
 }

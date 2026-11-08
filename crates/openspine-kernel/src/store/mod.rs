@@ -899,6 +899,7 @@ mod owner_review_tests;
 pub(crate) mod personality_seed;
 pub(crate) mod proposed_artifacts;
 mod reflection_miner_support;
+pub(crate) mod seed_acceptance;
 pub(crate) use reflection_miner_support::{OwnerApprovalAuditMetadata, OwnerApprovalScopeArtifact};
 pub(crate) mod skill_preview_records;
 pub(crate) mod skill_promotion_decisions;

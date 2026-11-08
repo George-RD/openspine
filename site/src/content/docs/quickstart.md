@@ -21,7 +21,7 @@ cargo build --workspace
 
 ## First run (local chat)
 
-One command turns the built binary into a running, governed install. `openspine init` writes a configuration and an owner-only key file, binds you as the single trusted owner, and prints the trust ceremony — seed key, approval boundary, and how to test it:
+One command turns the built binary into a running, governed install. `openspine init` writes a configuration and an owner-only key file, binds you as the single trusted owner, and explicitly accepts the four byte-exact embedded seed workflows for that owner through the ordinary auditable artifact lifecycle. It prints the trust ceremony — seed key, approval boundary, and how to test it:
 
 ```sh
 cargo build --workspace --bins
@@ -31,6 +31,8 @@ openspine --config openspine.local.yaml chat
 ```
 
 `--owner` is your Telegram user id — the trusted principal every later approval and audit row is bound to. Message [@userinfobot](https://t.me/userinfobot) to find it. `--model` is the model your OpenAI-compatible endpoint serves (default `http://127.0.0.1:11434`, override with `--base-url`); without it `init` asks the endpoint and uses a lone answer, otherwise it stops and asks you to choose. The configuration it writes uses absolute paths, so it works from any directory. This is the fastest path to a governed local reply; the [first-run guide](https://github.com/George-RD/openspine/blob/main/docs/first-run.md) explains each step of the ceremony and the capability rungs beyond it. The Docker deployment below adds Telegram and the guarded Gmail draft flow.
+
+The interactive `openspine setup` first-run wizard asks separately before accepting seeds (default no); setup on an existing configuration and `setup --check` do not accept them. Without consent the seeds stay in quarantine. Re-running `init` accepts only unchanged embedded seeds parked for legacy reconfirmation and consumes those matching requests transactionally; edited content and unrelated reviews remain for owner review, and deleted or revoked seeds are not restored. The customer-service template is accepted with its dangling dependencies recorded but stays inert until its agent and pack exist. The [first-run guide](https://github.com/George-RD/openspine/blob/main/docs/first-run.md#explicit-seed-workflow-acceptance-d-175) explains the exact digest/id/version/owner binding.
 
 ## Configure a real server
 
@@ -49,12 +51,15 @@ openspine --config openspine.local.yaml chat
 3. To use `/draft`, follow the [Gmail setup guide](https://github.com/George-RD/openspine/blob/main/docs/gmail-setup.md):
    - fill `OPENSPINE_GMAIL_CLIENT_SECRET` and `OPENSPINE_GMAIL_REFRESH_TOKEN` in `.env`;
    - add the `gmail:` block to `openspine.yaml`, including your `mailbox_address`.
-4. Build the contained task-worker image expected by the Docker configuration, then start the kernel:
+4. Build the contained task-worker image, run the explicit seed-acceptance ceremony for the configured owner, then start the kernel. For an existing deployment, stop the kernel first and complete the control-ledger migration below before running init:
 
 ```sh
 docker build --file Dockerfile.shell --tag openspine-shell:latest .
+docker compose run --rm --build kernel --config /app/openspine.yaml init
 docker compose up --build
 ```
+
+This init command uses the model already set in the Docker example and all three keys from `.env`. Omit `--model`/`--base-url`: the existing `/app/openspine.yaml` is mounted read-only and does not need rewriting. Acceptance is persisted in `./data`; `data-init` prepares ownership of the mounted data/control directories. `docker compose up` alone does not accept seeds and retains the quarantine/reconfirmation path. These commands follow the checked-in mounts and CLI, not an exercised Docker run.
 
 Compose mounts the Lyra package read-only and retains runtime state in `./data`. The kernel's lifetime lock and terminal-erasure ledger live in `./control` (`OPENSPINE_CONTROL_DIR`, set by `compose.yaml`), so recreating the container keeps them with `./data`; back up and restore the two directories together. A deployment that ran before this directory existed has its ledger only inside the old container: migrate it before the first `docker compose up` with the new `compose.yaml`, or the kernel refuses to start with `terminal-erasure continuity is missing`. Stop the old kernel first so the ledger cannot change mid-copy: `docker compose stop kernel`, `mkdir -p control`, find the name with `docker cp "$(docker compose ps -aq kernel)":/app - | tar -t | grep -m1 openspine-control` (lists names only; nothing from `./data` is written to disk), copy it with `docker cp "$(docker compose ps -aq kernel)":/app/.openspine-control-<hash> ./control/` (`docker cp` works on a stopped container), then `docker compose rm -f kernel` so the old copy can never be restarted, and finally `docker compose up -d`. A one-shot initializer fixes that directory's ownership before the non-root kernel starts, so existing Compose data is preserved across upgrades. Docker is the supported path for the Gmail workflow. The bare-metal process driver is a development shortcut and refuses `/draft` unless `unsafe_allow_uncontained_private_data: true` is set in an isolated development config.
 

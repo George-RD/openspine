@@ -1,11 +1,10 @@
 //! Tests for `cli::init`, in a separate file so `init.rs` stays under the
 //! 500-line budget.
 //!
-//! These exercise the pieces that do not mutate the ambient process
-//! environment (config/key writing and the owner-immutability guard). The full
-//! seed-key -> owner-principal -> readiness loop is covered end-to-end by the
-//! `first_run_smoke` integration test, which spawns the binary in an isolated
-//! process so its `env_file::load_adjacent` cannot race other tests.
+//! Config/key writing and owner-immutability checks do not mutate the ambient
+//! process environment. Command-level seed acceptance runs in isolated child
+//! processes so `env_file::load_adjacent` cannot race other tests. The
+//! `first_run_smoke` integration test also exercises the complete first-run loop.
 
 use super::*;
 use crate::config::Config;
@@ -183,4 +182,184 @@ fn existing_config_accepts_matching_owner() {
     write_fresh(&config_path, 111, Some("First"), URL, "m").unwrap();
 
     prepare_existing(&config_path, Some(111)).expect("matching owner is accepted");
+}
+
+/// Run the real command in an isolated process: loading adjacent keys must not
+/// change the environment of concurrently running unit tests.
+#[test]
+fn init_accepts_shipped_seeds_on_fresh_and_existing_installs() {
+    for case in [
+        "fresh",
+        "existing",
+        "invalid-store",
+        "tampered-ledger",
+        "edited-and-deleted",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let test_name = format!(
+            "{}::init_seed_acceptance_child",
+            module_path!().split_once("::").unwrap().1
+        );
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", &test_name, "--nocapture"])
+            .env("OPENSPINE_INIT_SEED_CASE", case)
+            .env("OPENSPINE_INIT_SEED_DIR", dir.path())
+            .env_remove("OPENSPINE_ARTIFACT_KEY")
+            .env_remove("OPENSPINE_GRANT_HMAC_KEY")
+            .env_remove("OPENSPINE_WEBHOOK_HMAC_KEY")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{case}: {}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+    }
+}
+
+#[tokio::test]
+async fn init_seed_acceptance_child() {
+    let Ok(case) = std::env::var("OPENSPINE_INIT_SEED_CASE") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(std::env::var_os("OPENSPINE_INIT_SEED_DIR").unwrap());
+    let config_path = dir.join("openspine.yaml");
+    if case != "fresh" {
+        write_fresh(&config_path, 111, None, URL, "m").unwrap();
+        env_file::load_adjacent(&config_path).unwrap();
+        let config = Config::load(&config_path).unwrap();
+        std::fs::create_dir_all(&config.data_dir).unwrap();
+        if case == "invalid-store" {
+            let db = config.data_dir.join("kernel.db");
+            std::fs::write(&db, b"not a kernel store").unwrap();
+            assert!(run_init(&config_path, InitOptions::default())
+                .await
+                .is_err());
+            assert_eq!(std::fs::read(db).unwrap(), b"not a kernel store");
+            return;
+        }
+        // Existing encrypted state used to skip the owner/seed ceremony.
+        let store = crate::store::Store::open(&config.data_dir.join("kernel.db")).unwrap();
+        if case == "tampered-ledger" {
+            store
+                .append_audit("test.init_integrity", None, None, None, None, &[], &[])
+                .unwrap();
+            // A legacy ineligible Allow row makes a serving Store::open mutate
+            // unrelated authority before it would notice the corrupt audit.
+            store.with_conn_for_test(|conn| conn.execute_batch(
+                "INSERT INTO standing_rules
+                 (rule_id, artifact_id, version, action_id, rule_json, quota_max,
+                  quota_window_secs, rate_max, rate_window_secs, expires_after_secs,
+                  dark_window_timeout_secs, dark_window_default, status, activated_at,
+                  dark_window_max_pending)
+                 VALUES ('legacy-rule', 'legacy-rule', 1, 'email.send', '{}', 1,
+                         60, 1, 60, 3600, 60, 'allow', 'active', 0, 1);
+                 UPDATE audit_log SET hash = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';"
+            ).unwrap());
+            drop(store);
+            assert!(run_init(&config_path, InitOptions::default())
+                .await
+                .is_err());
+            let conn = rusqlite::Connection::open(config.data_dir.join("kernel.db")).unwrap();
+            let status: String = conn
+                .query_row(
+                    "SELECT status FROM standing_rules WHERE rule_id = 'legacy-rule'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                status, "active",
+                "refused init must not run unrelated authority sweeps"
+            );
+            let count: i64 = conn
+                .query_row("SELECT count(*) FROM audit_log", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(
+                count, 1,
+                "refused init must not append to the corrupt audit chain"
+            );
+            let learned: i64 = conn
+                .query_row("SELECT count(*) FROM learned_artifacts", [], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(learned, 0);
+            return;
+        }
+    }
+    run_init(
+        &config_path,
+        InitOptions {
+            owner: Some(111),
+            model: Some("m"),
+            base_url: (case == "fresh").then_some(URL),
+            ..InitOptions::default()
+        },
+    )
+    .await
+    .unwrap();
+    let config = Config::load(&config_path).unwrap();
+    let store = crate::store::Store::open(&config.data_dir.join("kernel.db")).unwrap();
+    let rows = store.list_learned_artifacts().unwrap();
+    assert_eq!(rows.len(), 4);
+    for manifest in crate::seed_workflows::parsed().unwrap() {
+        let row = rows
+            .iter()
+            .find(|row| row.artifact_id == manifest.id.as_str())
+            .expect("every shipped seed has accepted provenance");
+        let crate::store::learned_artifacts::Provenance::ProducedBy {
+            source_event_id, ..
+        } = &row.provenance
+        else {
+            panic!("acceptance has genuine producing provenance");
+        };
+        let event = store
+            .validated_audit_event_by_id(*source_event_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(event.kind.as_str(), "seed_workflows.owner_accepted");
+        assert_eq!(
+            event.actor,
+            Some(
+                crate::identity::bootstrap_owner_principal(&store, 111, "Test")
+                    .unwrap()
+                    .principal_id
+            )
+        );
+        assert!(store
+            .is_active_proposal("workflow", manifest.id.as_str(), manifest.version)
+            .unwrap());
+    }
+    let workflows = config.data_dir.join("artifacts.d").join("workflows");
+    let manifests = crate::seed_workflows::parsed().unwrap();
+    let deleted = workflows.join(crate::artifact_loader::overlay_filename(
+        &manifests[0].id,
+        manifests[0].version,
+    ));
+    let edited = workflows.join(crate::artifact_loader::overlay_filename(
+        &manifests[1].id,
+        manifests[1].version,
+    ));
+    let edited_bytes = format!("{}\n# owner edit\n", crate::seed_workflows::all()[1].1);
+    if case == "edited-and-deleted" {
+        std::fs::remove_file(&deleted).unwrap();
+        std::fs::write(&edited, &edited_bytes).unwrap();
+    }
+    drop(store);
+    run_init(&config_path, InitOptions::default())
+        .await
+        .unwrap();
+    if case == "edited-and-deleted" {
+        assert!(
+            !deleted.exists(),
+            "rerunning init must not resurrect a deleted seed"
+        );
+        assert_eq!(std::fs::read_to_string(edited).unwrap(), edited_bytes);
+    }
+    let store = crate::store::Store::open(&config.data_dir.join("kernel.db")).unwrap();
+    assert_eq!(store.list_learned_artifacts().unwrap().len(), 4);
+    assert!(store.verify_audit_chain().unwrap());
 }
