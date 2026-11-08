@@ -38,6 +38,40 @@ use helpers::*;
 use support::{assert_success, database_rows, files, Fixture};
 
 #[test]
+fn deleted_package_ledger_refuses_startup_without_recreating_state() {
+    for selected in [false, true] {
+        let fixture = Fixture::new();
+        let installed = fixture.install();
+        if selected {
+            let finished = select(&fixture, &id(&installed));
+            assert_eq!(finished.code, Some(0), "{}", finished.output);
+        }
+        let data = fixture.root.path().join("data");
+        fs::remove_file(data.join("kernel.db")).unwrap();
+        let journal = data.join("kernel.db-journal");
+        if journal.exists() {
+            fs::remove_file(journal).unwrap();
+        }
+        let before = files(&data);
+        let output = fixture
+            .command(&["chat", "--once", "must not reach a worker"])
+            .env("RUST_LOG", "info")
+            .output()
+            .unwrap();
+        let transcript = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!output.status.success(), "{transcript}");
+        assert!(transcript.contains("package-ledger-missing"), "{transcript}");
+        assert!(transcript.contains("separate empty data_dir"), "{transcript}");
+        assert!(!data.join("kernel.db").exists(), "{transcript}");
+        assert_eq!(files(&data), before);
+    }
+}
+
+#[test]
 fn use_commits_after_typed_consent_and_a_fresh_process_sees_the_exact_selection() {
     let fixture = Fixture::new();
     let original = fixture.install();

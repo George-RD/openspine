@@ -70,6 +70,16 @@ reading the artifact key, taking the lifetime lock or writing the data root.
 Once the namespace exists, startup defers to the managed resolver instead of
 using the legacy path as a prerequisite.
 
+Package storage without `kernel.db` is not a fresh or legacy instance. After
+pending restore recovery, startup checks for this loss under the lifetime lock,
+before opening any store. Any existing `packages` entry is treated conservatively
+as evidence, including an emptied, damaged or linked namespace. Startup refuses
+with `package-ledger-missing`; retained objects cannot reconstruct selection,
+revocation, approval or audit history. Preserve the remaining state for
+investigation. To deliberately start a new instance, configure a separate empty
+`data_dir` and run `init` there. Do not reuse the affected namespace or roll back
+authority history by substituting an older database.
+
 `package list` marks the selected installation (`selected: true`,
 `status: selected-at-next-start`); nothing is live-activated. `package review` and `use`
 treat a managed selection as the current source (`source.mode: managed`) without opening
@@ -117,6 +127,7 @@ a “not paused” refusal or a successful resume.
 | changed after consent | The named bindings no longer match; review again. |
 | consent window expired | Review again. |
 | `selection-ledger-invalid`, `selected-object-corrupt`, `selected-package-incompatible` | A managed selection cannot be resolved; no other base is used. |
+| `package-ledger-missing` | Package storage remains but its ledger is missing; startup creates no replacement and never falls back. Preserve the affected state; initialize a separate empty `data_dir` only if you intend a new instance. |
 
 A crash before the transaction commits leaves the previous selection; a crash after it
 leaves the new one. Recovery only finishes committed state and never invents approval or
