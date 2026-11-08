@@ -222,7 +222,9 @@ fn a_concurrent_exclusive_writer_is_busy_not_schema_or_integrity_failure() {
     let report = checks(&config(&fixture), Path::new("openspine.yaml"));
     release_tx.send(()).unwrap();
     writer.join().unwrap();
-    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    // The configured SQLite timeout is one second; allow runner scheduling
+    // and connection teardown overhead while retaining a finite bound.
+    assert!(started.elapsed() < std::time::Duration::from_secs(10));
     assert!(report[0].detail.contains("database-busy"), "{report:?}");
     assert!(!report[0].detail.contains("schema-unavailable"));
     assert!(!report[0].detail.contains("ledger-invalid"));

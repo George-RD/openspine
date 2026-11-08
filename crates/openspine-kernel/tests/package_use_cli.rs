@@ -331,14 +331,23 @@ fn crashes_on_either_side_of_the_commit_leave_the_old_selection_never_a_mixed_ba
             );
             // The ledger still validates and a clean retry commits generation 1.
             assert_success(&fixture.run(&["package", "list", "--json"]));
+            let retried = select(&fixture, &target);
+            assert_eq!(retried.code, Some(0), "{point}: {}", retried.output);
+            assert_eq!(selection(&fixture).unwrap().0, 1);
         } else {
             // Release builds never honor the debug fault hooks.
             assert_eq!(crashed.code, Some(0), "{point}: {}", crashed.output);
-        }
-        let retried = select(&fixture, &target);
-        if cfg!(debug_assertions) {
-            assert_eq!(retried.code, Some(0), "{point}: {}", retried.output);
             assert_eq!(selection(&fixture).unwrap().0, 1);
+            let rows = database_rows(&fixture);
+            let reselected = pty::Session::spawn(fixture.command(&["use", &target])).finish();
+            assert_ne!(reselected.code, Some(0), "{point}: {}", reselected.output);
+            assert!(
+                reselected.output.contains("candidate-already-selected"),
+                "{point}: {}",
+                reselected.output
+            );
+            assert!(!reselected.output.contains(PROMPT));
+            assert_eq!(database_rows(&fixture), rows);
         }
     }
 }
