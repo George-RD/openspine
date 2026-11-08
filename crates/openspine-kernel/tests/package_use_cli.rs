@@ -257,18 +257,22 @@ fn a_state_change_after_consent_makes_the_review_stale() {
     let mut session = pty::Session::spawn(command);
     session.wait_for(PROMPT);
     session.send_line(&format!("select {target}"));
-    let ready = barrier.path().join("use-after-consent.ready");
-    while !ready.exists() {
-        std::thread::sleep(std::time::Duration::from_millis(20));
+    // Production builds ignore the pause hook; waiting for it there would
+    // hang the release fixture rather than prove that it cannot be enabled.
+    if cfg!(debug_assertions) {
+        let ready = barrier.path().join("use-after-consent.ready");
+        while !ready.exists() {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        // The owner state moves after the plan was displayed and consented to.
+        db(&fixture)
+            .execute(
+                "INSERT INTO kv_state (key, value) VALUES ('changed.after.consent', '1')",
+                [],
+            )
+            .unwrap();
+        fs::write(barrier.path().join("use-after-consent.release"), b"").unwrap();
     }
-    // The owner state moves after the plan was displayed and consented to.
-    db(&fixture)
-        .execute(
-            "INSERT INTO kv_state (key, value) VALUES ('changed.after.consent', '1')",
-            [],
-        )
-        .unwrap();
-    fs::write(barrier.path().join("use-after-consent.release"), b"").unwrap();
     let finished = session.finish();
     if cfg!(debug_assertions) {
         assert_ne!(finished.code, Some(0), "{}", finished.output);
@@ -285,6 +289,9 @@ fn a_state_change_after_consent_makes_the_review_stale() {
             ),
             0
         );
+    } else {
+        assert_eq!(finished.code, Some(0), "{}", finished.output);
+        assert_eq!(selection(&fixture).unwrap().0, 1);
     }
 }
 
