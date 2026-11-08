@@ -8,25 +8,35 @@ use anyhow::Context as _;
 use crate::overlay_startup::BaseSource;
 use crate::store::Store;
 
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum PackageLedgerError {
+    #[error(
+        "package-ledger-missing: package storage exists but kernel.db is missing. \
+         Refusing to create a replacement ledger or fall back to lyra_dir. \
+         Stop and preserve this instance's remaining state for investigation. \
+         To start a new instance, configure a separate empty data_dir and initialize it; \
+         do not reuse this package namespace or roll back authority history."
+    )]
+    Missing,
+    #[error("inspecting the existing package namespace or ledger: {0}")]
+    Inspection(#[from] std::io::Error),
+}
+
 /// Run under the lifetime lock, after pending restore recovery and before any
 /// store is opened. The namespace alone is conservative evidence of package
 /// history: even emptied or damaged storage must not recreate a legacy ledger.
-pub(crate) fn require_package_ledger(data_root: &Path) -> anyhow::Result<()> {
+pub(crate) fn require_package_ledger(data_root: &Path) -> Result<(), PackageLedgerError> {
     match std::fs::symlink_metadata(data_root.join("packages")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(error).context("inspecting the package namespace"),
+        Err(error) => return Err(error.into()),
         Ok(_) => {}
     }
     match std::fs::metadata(data_root.join("kernel.db")) {
         Ok(_) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => anyhow::bail!(
-            "package-ledger-missing: package storage exists but kernel.db is missing. \
-             Refusing to create a replacement ledger or fall back to lyra_dir. \
-             Stop and preserve this instance's remaining state for investigation. \
-             To start a new instance, configure a separate empty data_dir and initialize it; \
-             do not reuse this package namespace or roll back authority history."
-        ),
-        Err(error) => Err(error).context("inspecting the existing package ledger"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Err(PackageLedgerError::Missing)
+        }
+        Err(error) => Err(error.into()),
     }
 }
 

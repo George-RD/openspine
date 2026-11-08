@@ -58,14 +58,14 @@ pub fn add_missing_key_material(config_path: &Path) -> anyhow::Result<Vec<String
     Ok(env_file::merge_owner_only(&env_path, &entries)?)
 }
 
-/// The first piece of artifact-key-encrypted state in the configured data root,
-/// or `None` for a genuinely new one.
+/// The first retained instance state that prevents minting an artifact key,
+/// or `None` for a genuinely new one. Package history counts even without a DB.
 ///
 /// Uses the configured `data_dir` rather than the overlay controller's canonical
 /// root so it needs no lock: this runs before any store or vault is opened.
 pub fn encrypted_state_in(config_path: &Path) -> Option<PathBuf> {
     let data_dir = Config::load(config_path).ok()?.data_dir;
-    ["credentials", "artifacts", "kernel.db"]
+    ["credentials", "artifacts", "kernel.db", "packages"]
         .iter()
         .map(|entry| data_dir.join(entry))
         .find(|path| match std::fs::read_dir(path) {

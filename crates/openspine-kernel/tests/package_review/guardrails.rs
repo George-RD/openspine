@@ -148,7 +148,7 @@ fn review_respects_runtime_lock_and_does_not_bootstrap_a_missing_ledger() {
     fs::remove_file(&database).unwrap();
     assert_error(
         &fixture.review_command(&installed).output().unwrap(),
-        "ledger-unavailable",
+        "package-ledger-missing",
     );
     assert!(!database.exists());
 }

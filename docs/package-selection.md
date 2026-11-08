@@ -79,6 +79,10 @@ revocation, approval or audit history. Preserve the remaining state for
 investigation. To deliberately start a new instance, configure a separate empty
 `data_dir` and run `init` there. Do not reuse the affected namespace or roll back
 authority history by substituting an older database.
+`init` applies the same locked check before it can create or open the ledger;
+rerunning the ceremony is not a bypass. Package maintenance also reports
+`package-ledger-missing` for this condition. Retained package objects count as
+existing state when checking whether it is safe to generate an artifact key.
 
 `package list` marks the selected installation (`selected: true`,
 `status: selected-at-next-start`); nothing is live-activated. `package review` and `use`

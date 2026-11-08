@@ -155,7 +155,11 @@ fn comparison_never_bootstraps_missing_empty_or_unrelated_ledgers() {
                 id(&installed),
                 "--json",
             ]),
-            "ledger-unavailable",
+            if state == "missing" {
+                "package-ledger-missing"
+            } else {
+                "ledger-unavailable"
+            },
         );
         assert_eq!(fs::read(&path).ok(), before);
     }

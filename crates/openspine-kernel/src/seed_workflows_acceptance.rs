@@ -28,6 +28,7 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
         "pending overlay export/restore; complete kernel recovery before init"
     );
     operations.process_pre_open(false, jiff::Timestamp::now())?;
+    crate::managed_startup::require_package_ledger(root)?;
     let database = root.join("kernel.db");
     // Maintenance must not run the serving open's unrelated authority sweep,
     // especially before integrity and the configured owner have been checked.
