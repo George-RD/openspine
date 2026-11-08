@@ -66,7 +66,9 @@ impl UseError {
 
 #[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn execute(_: &Path, _: &str) -> Result<String, UseError> {
-    Err(UseError::Preflight("unsupported platform"))
+    Err(UseError::Review(
+        "Native package maintenance is supported only on Linux and macOS.".into(),
+    ))
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -100,7 +102,7 @@ fn execute(config: &Path, installation: &str) -> Result<String, UseError> {
         return Err(UseError::Blocked {
             blockers: first.report.blockers().join(", "),
             grant_hint: if first.active_task_grants {
-                " Active task_grants block selection. Wait for active task grants to expire after their TTL (120 seconds / 2 minutes for the shipped Lyra terminal agent; custom agent/pack runtime limits may differ)."
+                " Active task_grants block selection. Wait for active task grants to expire after their TTL (shipped Lyra terminal: 120 seconds / 2 minutes; email drafter: 180 seconds; kernel reconfirmation and owner review: 300 seconds / 5 minutes; kernel notifications: 60 seconds; custom agent/pack limits may differ)."
             } else {
                 ""
             },

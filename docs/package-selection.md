@@ -90,7 +90,11 @@ record and sends every affected learned artifact (including standing rules) back
 Returning to an earlier epoch is another change, never a revival. In managed mode startup
 does not refresh an owner-accepted row's epoch: a row that does not bind the current base
 returns to reconfirmation, and an evaluation verdict that bound no compatibility digest is
-stale for standing-rule activation. In the same transaction every active standing rule moves to `needs_review` and its open exceptions go stale, with the rule IDs recorded in the audit payload. Consent here supplies none of that reconfirmation.
+stale for standing-rule activation. In the same transaction every active standing rule
+moves to `needs_review`; paused rules retain their pause but are marked for full review
+on resume. Their open exceptions go stale and affected rule IDs are recorded in the
+audit payload. Resume cannot clear that marker or reactivate a revoked rule. Consent
+here supplies none of that reconfirmation.
 
 ## Failure and refusal reference
 
@@ -114,9 +118,16 @@ overwrites a receipt.
 - Linux and macOS only; other platforms refuse. Local administrator compromise is outside
   this boundary: there is no cryptographic human-presence claim.
 - The instance must be stopped and idle. Active `task_grants` remain outstanding until
-  their TTL expires: shipped Lyra terminal grants last 120 seconds (2 minutes), bounded
-  by the agent and capability-pack runtime limits. Stop the runtime, wait for existing
-  grants to expire, then review again; selection never deletes or cancels them.
+  their TTL expires. TTL depends on the issuer: shipped Lyra terminal grants last
+  120 seconds (2 minutes), email-drafter grants last 180 seconds, kernel reconfirmation
+  and owner-review grants last 300 seconds (5 minutes), and kernel notifications last
+  60 seconds. Agent/pack grants use the narrower runtime limit; custom limits can
+  differ. The kernel TTLs are defined in
+  [`pipeline/mod.rs`](../crates/openspine-kernel/src/pipeline/mod.rs),
+  [`pipeline/owner_review_decision.rs`](../crates/openspine-kernel/src/pipeline/owner_review_decision.rs)
+  and [`pipeline/message_notify.rs`](../crates/openspine-kernel/src/pipeline/message_notify.rs).
+  Stop the runtime, wait for all existing grants to expire, then review again;
+  selection never deletes or cancels them.
 - `init` explicitly accepts the four shipped seed workflows by embedded digest. An
   ordinary first chat therefore creates no seed reconfirmation requests. Edited,
   unaccepted or epoch-invalidated overlays still require the normal owner lifecycle;
