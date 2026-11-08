@@ -95,7 +95,7 @@ pub(crate) fn load(
     let mut learned = store
         .list_learned_artifacts()
         .context("loading learned artifact provenance")?;
-    let retired_seeds = crate::seed_workflows::retire_owner_deleted(store, &learned)?;
+    let retired_seeds = crate::seed_workflows::retire_owner_deleted(store, &overlay_dir, &learned)?;
     crate::overlay_persona_admission::admit(
         store,
         artifacts,

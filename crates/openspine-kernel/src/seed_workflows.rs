@@ -41,8 +41,13 @@ pub(crate) fn honors_owner_deletion(
 /// Retain deletion as an ordinary terminal proposal retirement. Historical
 /// acceptance provenance remains available, but retired rows are not candidates
 /// for startup dependency revalidation or renewed reconfirmation.
+///
+/// Deletion is judged against this boot's overlay directory, never the
+/// recorded `source_path`: a relocated or re-mounted data root must not read
+/// as an owner deletion. A dangling symlink is not a deletion either.
 pub(crate) fn retire_owner_deleted(
     store: &Store,
+    overlay_dir: &Path,
     learned: &[crate::store::learned_artifacts::LearnedArtifact],
 ) -> anyhow::Result<Vec<(String, u32)>> {
     use openspine_schemas::artifact::Lifecycle;
@@ -60,10 +65,13 @@ pub(crate) fn retire_owner_deleted(
             if proposal.state != Lifecycle::Active {
                 continue;
             }
-            let Some(path) = row.source_path.as_deref() else {
-                continue;
-            };
-            match std::fs::metadata(path) {
+            let path = overlay_dir
+                .join("workflows")
+                .join(artifact_loader::overlay_filename(
+                    &row.artifact_id,
+                    row.version,
+                ));
+            match std::fs::symlink_metadata(&path) {
                 Ok(_) => continue,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),

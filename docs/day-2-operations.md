@@ -91,8 +91,11 @@ reactivate revoked/superseded proposals, or accept arbitrary overlays. Subsequen
 edits and dependency drift follow ordinary artifact admission. The
 `customer_service_intake_seed` records its current dangling agent/pack references
 in the accepted fingerprint and remains inert until those dependencies exist.
-When a previously accepted seed file is deleted, the next boot atomically retires
-its proposal and records one `artifact.retired` receipt with the deletion reason.
+When a previously accepted seed file is absent from the current data root's
+`artifacts.d/workflows/` at boot, the kernel atomically retires its proposal and
+records one `artifact.retired` receipt with the deletion reason. Detection uses
+the current data root, so moving or re-mounting the data root does not retire
+seeds, and a dangling symlink in a seed's place is not treated as a deletion.
 Historical acceptance provenance remains, but the retired version is no longer
 revalidated or repeatedly reported as dangling. Re-init or replacing the same
 version's file cannot undo that terminal retirement.

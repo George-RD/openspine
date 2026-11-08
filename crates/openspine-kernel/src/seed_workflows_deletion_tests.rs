@@ -115,3 +115,67 @@ fn deletion_retirement_and_receipt_roll_back_together_on_audit_failure() {
     );
     assert!(f.store.verify_audit_chain().unwrap());
 }
+
+#[test]
+fn relocated_data_root_never_reads_as_owner_deletion() {
+    let f = Fixture::new();
+    assert_eq!(f.accept(), 4);
+    // The recorded source paths point at the old root; the seeds now live
+    // under a different data root with identical bytes.
+    let moved = tempfile::tempdir().unwrap();
+    let moved_workflows = moved.path().join("artifacts.d").join("workflows");
+    std::fs::create_dir_all(&moved_workflows).unwrap();
+    for entry in std::fs::read_dir(f.overlay().join("workflows")).unwrap() {
+        let entry = entry.unwrap();
+        std::fs::copy(entry.path(), moved_workflows.join(entry.file_name())).unwrap();
+    }
+    std::fs::remove_dir_all(f.overlay()).unwrap();
+    let startup =
+        crate::overlay_startup::load(&Fixture::lyra(), moved.path(), &f.store, &f.artifacts)
+            .unwrap();
+    for (id, _) in crate::seed_workflows::all() {
+        assert_eq!(
+            f.store
+                .find_proposed_artifact("workflow", id, 1)
+                .unwrap()
+                .unwrap()
+                .state,
+            Lifecycle::Active,
+            "{id} must not be retired after relocation"
+        );
+    }
+    assert!(startup
+        .registry
+        .workflows
+        .contains_key("research_and_brief_seed"));
+    assert_eq!(
+        f.store
+            .count_audit_events_of_kind("artifact.retired")
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn dangling_symlink_in_place_of_a_seed_is_not_a_deletion() {
+    let f = Fixture::new();
+    f.accept();
+    let id = "research_and_brief_seed";
+    std::fs::remove_file(f.path(id)).unwrap();
+    std::os::unix::fs::symlink(f.dir.path().join("missing-target.yaml"), f.path(id)).unwrap();
+    let _ = crate::overlay_startup::load(&Fixture::lyra(), f.dir.path(), &f.store, &f.artifacts);
+    assert_eq!(
+        f.store
+            .find_proposed_artifact("workflow", id, 1)
+            .unwrap()
+            .unwrap()
+            .state,
+        Lifecycle::Active
+    );
+    assert_eq!(
+        f.store
+            .count_audit_events_of_kind("artifact.retired")
+            .unwrap(),
+        0
+    );
+}
