@@ -315,6 +315,22 @@ pub(crate) fn build(
 }
 
 impl ReviewReport {
+    pub(crate) fn plan_digest(&self) -> &Digest {
+        &self.plan_digest
+    }
+
+    pub(crate) fn blockers(&self) -> &[String] {
+        &self.plan.blockers
+    }
+
+    /// Whether the accepting command may even offer this plan. Blockers are
+    /// never overridable: an incomplete or unquiescent review is not offered.
+    pub(crate) fn offerable(&self) -> bool {
+        self.plan.blockers.is_empty()
+            && self.plan.semantic_review_complete
+            && self.plan.candidate_integrity == "verified"
+    }
+
     pub(crate) fn json(&self) -> String {
         escaped_json(self, false) + "\n"
     }
