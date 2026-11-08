@@ -120,15 +120,22 @@ email-drafter grants 180 seconds, kernel owner-review/reconfirmation grants
 300 seconds and notification grants 60 seconds; custom package limits can
 differ. A stopped/completed chat does not immediately expire its grant.
 
-`setup --check` is deliberately different: **no lifetime lock**, no schema
+The **package snapshot check** acquires no lifetime lock and performs no schema
 migration, installation recovery, owner creation, selection or reconfirmation.
-It reads one existing SQLite snapshot, verifies the audit chain and selection
-replay, then uses the same selected-object capture and current typed validation
-as startup. It can run while the service holds the lock. Its result is
-point-in-time diagnostics, not authorization to start or switch. SQLite may use
-its normal read-only WAL/SHM coordination for a WAL-mode ledger; no ledger rows,
-database contents or object bytes are changed. A closed rollback-journal ledger
-needs no WAL/SHM files.
+It verifies database evidence in one existing read-only SQLite snapshot, copies
+the selected identity and receipts, and closes that transaction before retained
+object reads or typed validation. A busy database reports `database-busy`: retry,
+not migration or corruption. No ledger rows, database contents or object bytes
+are changed; SQLite may use its normal WAL/SHM coordination for WAL-mode ledgers.
+
+The overall `setup --check` command also opens the credential vault. That path
+acquires the lifetime lock when free; when the service owns it, the vault
+degrades to `Locked` and readiness reporting continues without it. Thus the
+command can run alongside the service, but is not unconditionally lock-free.
+Its result is point-in-time diagnostics, not authorization to start or switch.
+Fresh setup that declines seed consent may have a vault/data directory but no
+kernel database: with no package namespace it remains a fresh legacy instance.
+A package namespace without its database still fails closed.
 
 The package checks distinguish:
 

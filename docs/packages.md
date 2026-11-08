@@ -84,13 +84,17 @@ Use exact installation IDs from receipts, never `use lyra` or a revision alias.
 The supported runtime entry points remain `openspine chat` and the normal
 `openspine` service; there is no separate `run` command.
 
-`openspine setup --check` reports the legacy configured base, installed-inactive
-candidates, or the committed selection that startup will resolve. It validates
-the same selected bytes and ledger as startup without acquiring the lifetime
-lock or selecting anything. A missing or incompatible selection fails closed,
-even when a usable legacy source exists. Candidate installation is not consent.
+The supported flow is `openspine install lyra`, then
+`openspine use <installation-id>`, then normal `openspine chat` or service startup.
+`openspine setup --check` distinguishes legacy base, inactive candidates and
+committed selection. Its package check acquires no lifetime lock: it copies
+verified ledger evidence from a short read-only snapshot, closes it, then checks
+the same retained bytes and typed validation as startup. The command's separate
+vault opener takes the lifetime lock when free, or degrades to `Locked` while
+the service runs. Database contention is a retryable `database-busy` diagnosis.
+Missing/incompatible managed selections never fall back to a legacy source.
 
-The local selection/recovery tranche of installation epic #117 is implemented;
-signed/version-pinned distribution, remote fetching, cross-product data migration
+The local selection/recovery tranche of installation epic #117 is implemented.
+Signed/version-pinned distribution, remote fetching, cross-product data migration
 and live Bell integration remain unfinished. Local provenance is not publisher
 authentication.

@@ -163,8 +163,9 @@ openspine use "$INSTALLATION_ID"
 openspine setup --check
 ```
 
-`setup --check` is a read-only snapshot and can run while the service is running;
-install/review/use require its exclusive lifetime lock. A completed first chat
+The package check in `setup --check` uses a short read-only snapshot; its separate
+vault opener takes the lifetime lock when free or degrades to `Locked` alongside
+the service. Install/review/use require the exclusive lock. A completed first chat
 normally leaves a 120-second Lyra task grant: wait for its expiry before `use`.
 Other durable work, including unresolved external effects, also blocks switching.
 Do not clear fences or delete work to bypass a blocker.

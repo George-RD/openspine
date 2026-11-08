@@ -150,25 +150,81 @@ fn readiness_keeps_one_wal_snapshot_while_the_runtime_can_append() {
     let second = fixture.install(&variant(fixture.root.path(), 4));
     fixture.select(&second);
     assert_eq!(
-        reader
-            .resolve(&fixture.data)
-            .unwrap()
-            .unwrap()
-            .receipt
-            .installation_id,
+        reader.selected.as_ref().unwrap().1.installation_id,
         first.installation_id
     );
-    assert_eq!(reader.installations().unwrap().len(), 1);
+    assert_eq!(reader.installations.len(), 1);
     assert_eq!(fs::read(&path).unwrap(), before);
     assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), mtime);
     assert_eq!(
         Store::open_for_readiness(&path)
             .unwrap()
-            .resolve(&fixture.data)
+            .selected
             .unwrap()
-            .unwrap()
-            .receipt
+            .1
             .installation_id,
         second.installation_id
     );
+}
+
+#[test]
+fn copied_readiness_evidence_releases_rollback_journal_lock_before_object_io() {
+    let fixture = Fixture::new();
+    let receipt = fixture.install(&variant(fixture.root.path(), 3));
+    fixture.select(&receipt);
+    let path = fixture.data.join("kernel.db");
+    let snapshot = Store::open_for_readiness(&path).unwrap();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let writer = std::thread::spawn(move || {
+        let connection = rusqlite::Connection::open(path).unwrap();
+        connection
+            .busy_timeout(std::time::Duration::from_millis(50))
+            .unwrap();
+        sender
+            .send(connection.execute(
+                "INSERT INTO kv_state (key, value) VALUES ('concurrent.writer', 'committed')",
+                [],
+            ))
+            .unwrap();
+    });
+    let result = receiver
+        .recv_timeout(std::time::Duration::from_millis(500))
+        .expect("writer must finish while copied readiness evidence is alive");
+    assert!(result.is_ok(), "{result:?}");
+    writer.join().unwrap();
+    let (_, selected) = snapshot.selected.as_ref().unwrap();
+    crate::package::managed_source::capture_selected(selected, &fixture.data).unwrap();
+    assert_eq!(selected.installation_id, receipt.installation_id);
+}
+
+#[test]
+fn a_concurrent_exclusive_writer_is_busy_not_schema_or_integrity_failure() {
+    let fixture = Fixture::new();
+    let path = fixture.data.join("kernel.db");
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel();
+    let (release_tx, release_rx) = std::sync::mpsc::channel();
+    let writer = std::thread::spawn(move || {
+        let connection = rusqlite::Connection::open(path).unwrap();
+        connection
+            .pragma_update(None, "locking_mode", "EXCLUSIVE")
+            .unwrap();
+        connection
+            .execute(
+                "INSERT INTO kv_state (key, value) VALUES ('exclusive.writer', 'committed')",
+                [],
+            )
+            .unwrap();
+        ready_tx.send(()).unwrap();
+        release_rx.recv().unwrap();
+    });
+    ready_rx.recv().unwrap();
+    let started = std::time::Instant::now();
+    let report = checks(&config(&fixture), Path::new("openspine.yaml"));
+    release_tx.send(()).unwrap();
+    writer.join().unwrap();
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    assert!(report[0].detail.contains("database-busy"), "{report:?}");
+    assert!(!report[0].detail.contains("schema-unavailable"));
+    assert!(!report[0].detail.contains("ledger-invalid"));
+    assert!(report[0].remedy.as_deref().unwrap().contains("Retry"));
 }

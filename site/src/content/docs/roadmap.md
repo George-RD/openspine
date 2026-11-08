@@ -151,7 +151,7 @@ The capability map closes the status ambiguity between landed machinery and usab
 
 ### [Install OpenSpine as an assistant system](https://github.com/George-RD/openspine/issues/117)
 
-Ship the intended package model: a transactional package store, an explicit selected package, and a coherent `install lyra` / `use lyra` / `run` flow. This resolves the current ambiguity between OpenSpine the installed system, Lyra the default assistant, and OpenSpine the reusable runtime.
+The local package lifecycle is implemented: `openspine install lyra` retains an exact package, `openspine use <installation-id>` commits an owner-reviewed selection, and normal `openspine chat` or service startup consumes it. Setup/readiness and reviewed earlier-revision recovery follow that same selection without restoring an older database or reviving authority. Epic #117 remains open for signed/version-pinned distribution, remote fetching, cross-product migration and Bell integration; there is no `use lyra` alias or separate `run` engine.
 
 ### [Ship a first-run trust loop](https://github.com/George-RD/openspine/issues/118)
 

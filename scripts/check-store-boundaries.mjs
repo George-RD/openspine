@@ -142,7 +142,7 @@ function transactionOffenses(path, { code, strings }) {
   const allowed = (transactionBoundaries[path] ?? []).flatMap(([name, api]) =>
     functionRanges(code, name).map((range) => ({ ...range, api })));
   // One audited exception: open_for_readiness opens SQLITE_OPEN_READ_ONLY,
-  // then retains exactly one Deferred snapshot for all readiness verification.
+  // then copies evidence in one Deferred snapshot, closing it before object I/O.
   // It never writes, migrates or acquires the runtime lifetime lock. No other
   // statement, function, file or second opener inherits this allowance.
   const readinessRanges = path === 'store/mod.rs'

@@ -14,30 +14,44 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
         .and_then(|_| configured_root.canonicalize().ok())
         .unwrap_or(configured_root);
     let db = root.join("kernel.db");
-    // A genuinely fresh bootstrap has no ledger yet. A missing db in an
-    // existing state root is not evidence of legacy mode.
-    if !root.exists() {
+    // The wizard may create the vault/data root without bootstrapping a kernel
+    // ledger. Only an absent database AND absent package namespace is fresh.
+    let absent = |path: &Path| matches!(std::fs::symlink_metadata(path), Err(error) if error.kind() == std::io::ErrorKind::NotFound);
+    if absent(&db) && absent(&root.join("packages")) {
         return vec![legacy(config, config_path).0];
     }
     let store = match Store::open_for_readiness(&db) {
         Ok(store) => store,
-        Err(error) => return vec![Check::fail(
-            "package", "agent package", error.to_string(),
-            "Stop the service and use normal runtime startup to migrate an older ledger; for damaged state, preserve the database and investigate its integrity. Readiness never repairs or selects a fallback.".into(),
-        )],
+        Err(error) => {
+            let remedy = if matches!(error, crate::store::ReadinessStoreError::Busy) {
+                "The database is busy, not known to be damaged. Retry readiness shortly."
+            } else {
+                "Stop the service and use normal runtime startup to migrate an older ledger; for damaged state, preserve the database and investigate its integrity. Readiness never repairs or selects a fallback."
+            };
+            return vec![Check::fail(
+                "package",
+                "agent package",
+                error.to_string(),
+                remedy.into(),
+            )];
+        }
     };
-    let selected = match store.selected() {
-        Ok(selected) => selected,
-        Err(_) => return vec![unavailable("selection-ledger-invalid", None)],
-    };
-    let resolved = store.resolve(&root);
+    let selected = store.selected.as_ref();
+    // The Store constructor has already closed its SQLite snapshot. Only
+    // copied, validated evidence participates in filesystem/loader work.
+    let resolved = selected
+        .map(|(_, receipt)| crate::package::managed_source::capture_selected(receipt, &root))
+        .transpose();
     let mut legacy_product = None;
     let mut checks = match resolved {
-        Ok(Some(base)) => vec![Check::pass(
-            "package", "agent package",
-            format!("committed selection generation={} {}; lyra_dir ignored; next startup uses these captured bytes (no hot reload)",
-                base.record.generation, identity(&base.receipt)),
-        )],
+        Ok(Some(_)) => {
+            let (record, receipt) = selected.expect("captured selection");
+            vec![Check::pass(
+                "package", "agent package",
+                format!("committed selection generation={} {}; lyra_dir ignored; next startup uses these captured bytes (no hot reload)",
+                    record.generation, identity(receipt)),
+            )]
+        }
         Ok(None) => {
             let (check, product) = legacy(config, config_path);
             legacy_product = product;
@@ -49,16 +63,13 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
                 ManagedBaseError::ObjectCorrupt => "selected-object-corrupt",
                 ManagedBaseError::Incompatible(_) => "selected-package-incompatible",
             };
-            vec![unavailable(code, selected.as_ref().map(|(_, receipt)| receipt))]
+            vec![unavailable(
+                code,
+                selected.as_ref().map(|(_, receipt)| receipt),
+            )]
         }
     };
-    let receipts = match store.installations() {
-        Ok(receipts) => receipts,
-        Err(_) => {
-            checks.push(unavailable("installation-ledger-invalid", None));
-            return checks;
-        }
-    };
+    let receipts = &store.installations;
     let selected_id = selected
         .as_ref()
         .map(|(_, receipt)| receipt.installation_id);

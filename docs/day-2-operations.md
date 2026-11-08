@@ -45,13 +45,20 @@ terminal 120 seconds, email drafter 180 seconds, kernel owner review and
 reconfirmation 300 seconds, notifications 60 seconds; custom limits can differ.
 Resolve work normally or wait; never delete it or clear its fence to force `use`.
 
-`setup --check` is the exception to maintenance locking: it reads a validated
-SQLite snapshot without the lifetime lock or migrations and can run alongside
-the service. It reports legacy base, installed-inactive candidates, committed
+The package check inside `setup --check` reads a short, validated SQLite snapshot
+without the lifetime lock or migrations, then closes it before object I/O.
+Database contention reports `database-busy`; retry instead of migrating or
+repairing it. The command's vault opener acquires the lifetime lock when free,
+but degrades to `Locked` when the service holds it, so reporting can continue
+alongside the service. It reports legacy base, inactive candidates, committed
 selection or an unavailable selected package with exact verified identity.
-An old ledger needing migration fails readiness instead of being silently fixed.
-Once managed, missing/conflicting `lyra_dir` does not change readiness or startup;
-missing, corrupt or now-incompatible selected bytes do. There is no fallback.
+An old ledger needing migration fails readiness rather than being silently fixed.
+
+Fresh interactive setup that declines seed consent can create a vault without
+`kernel.db`; absent both database and package namespace, this is a fresh legacy
+instance, not a damaged ledger. A package namespace without its database fails
+closed. Once managed, missing/conflicting `lyra_dir` does not affect readiness or
+startup; missing, corrupt or incompatible selected bytes do. There is no fallback.
 
 To return to an earlier revision, stop the service and review/select its retained
 receipt through the identical consent path:

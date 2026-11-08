@@ -97,9 +97,11 @@ external-effect fence to force a switch.
 
 Readiness reports the legacy configured base, installed-inactive candidates or
 the committed selection with exact identity and local provenance (not publisher
-authentication). It is a lock-free, read-only snapshot that can run alongside the
-service. A missing, corrupt or now-incompatible selected object fails closed;
-`lyra_dir` is ignored in managed mode even if the old source disappears.
+authentication). The package check copies a short read-only snapshot, closes it
+before object I/O and takes no lifetime lock. The command's vault opener takes the
+lock when free or degrades to `Locked` alongside the service. Database contention
+reports `database-busy`: retry. Missing, corrupt or incompatible selections fail
+closed; managed mode ignores `lyra_dir` even if the old source disappears.
 
 Selection trusts the account controlling owner-only local state, accepts only
 the same product and applies at next normal startup—no hot reload or separate

@@ -334,9 +334,14 @@ mod package_selection_resume_tests;
 #[cfg(test)]
 mod package_selection_tests;
 
-/// Diagnostic-only handle: no Store or mutation method can escape this wrapper.
+/// Validated point-in-time package evidence. No live connection or read lock
+/// escapes the capture, so retained-object I/O cannot stall runtime commits.
 pub(crate) struct ReadinessStore {
-    store: Store,
+    pub selected: Option<(
+        crate::package::selection_types::SelectionRecord,
+        crate::package::install_types::InstallReceipt,
+    )>,
+    pub installations: Vec<crate::package::install_types::InstallReceipt>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -347,35 +352,30 @@ pub(crate) enum ReadinessStoreError {
     Schema,
     #[error("selection-ledger-invalid: audit or package selection replay failed")]
     Integrity,
+    #[error("database-busy: the kernel database is busy; retry readiness shortly")]
+    Busy,
 }
 
-impl ReadinessStore {
-    pub(crate) fn resolve(
-        &self,
-        root: &Path,
-    ) -> Result<
-        Option<crate::package::managed_source::ManagedBase>,
-        crate::package::managed_source::ManagedBaseError,
-    > {
-        crate::package::managed_source::resolve(&self.store, root)
+impl ReadinessStoreError {
+    fn sqlite(error: rusqlite::Error, fallback: Self) -> Self {
+        match error {
+            rusqlite::Error::SqliteFailure(error, _)
+                if matches!(
+                    error.code,
+                    rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+                ) =>
+            {
+                Self::Busy
+            }
+            _ => fallback,
+        }
     }
 
-    pub(crate) fn installations(
-        &self,
-    ) -> Result<Vec<crate::package::install_types::InstallReceipt>, StoreError> {
-        self.store.installed_packages()
-    }
-
-    pub(crate) fn selected(
-        &self,
-    ) -> Result<
-        Option<(
-            crate::package::selection_types::SelectionRecord,
-            crate::package::install_types::InstallReceipt,
-        )>,
-        StoreError,
-    > {
-        self.store.selected_package()
+    fn store(error: StoreError, fallback: Self) -> Self {
+        match error {
+            StoreError::Sqlite(error) => Self::sqlite(error, fallback),
+            _ => fallback,
+        }
     }
 }
 
@@ -412,8 +412,8 @@ impl Store {
         Ok(store)
     }
 
-    /// One read-only SQLite snapshot; no lifetime lock, bootstrap, migration,
-    /// maintenance recovery or serving sweep. The wrapper exposes reads only.
+    /// Capture package evidence in one read-only snapshot, then close it before
+    /// returning. No lifetime lock, bootstrap, migration, recovery or sweep.
     pub(crate) fn open_for_readiness(path: &Path) -> Result<ReadinessStore, ReadinessStoreError> {
         use ReadinessStoreError as Error;
         let metadata = std::fs::symlink_metadata(path).map_err(|_| Error::Unavailable)?;
@@ -426,12 +426,13 @@ impl Store {
                 | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
                 | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
         )
-        .map_err(|_| Error::Unavailable)?;
+        .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
         conn.busy_timeout(std::time::Duration::from_secs(1))
-            .map_err(|_| Error::Unavailable)?;
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
         conn.execute_batch("BEGIN DEFERRED")
-            .map_err(|_| Error::Unavailable)?;
-        if migrations::read_user_version(&conn).map_err(|_| Error::Schema)?
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        if migrations::read_user_version(&conn)
+            .map_err(|error| Error::store(error, Error::Schema))?
             != migrations::latest_user_version()
         {
             return Err(Error::Schema);
@@ -446,15 +447,29 @@ impl Store {
             "SELECT seq, id, kind, event_json, prev_hash, hash, meta_json, aggregate_id, aggregate_seq FROM audit_log LIMIT 0",
             "SELECT key, value FROM boot_meta LIMIT 0",
         ] {
-            conn.prepare(sql).map_err(|_| Error::Schema)?;
+            conn.prepare(sql).map_err(|error| Error::sqlite(error, Error::Schema))?;
         }
         let store = Self::wrap_connection(conn);
         // Includes audit chain and event projection replay, installation
         // receipts, clock sanity and the sticky selection projection.
         store
             .validate_package_ledger()
-            .map_err(|_| Error::Integrity)?;
-        Ok(ReadinessStore { store })
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        let selected = store
+            .selected_package()
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        let installations = store
+            .installed_packages()
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        store
+            .conn
+            .lock()
+            .execute_batch("ROLLBACK")
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        Ok(ReadinessStore {
+            selected,
+            installations,
+        })
     }
 
     pub fn open_in_memory() -> Result<Self, StoreError> {
