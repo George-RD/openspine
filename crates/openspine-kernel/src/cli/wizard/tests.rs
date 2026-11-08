@@ -138,6 +138,22 @@ fn an_existing_kernel_database_is_detected() {
 }
 
 #[test]
+fn package_objects_prevent_replacing_a_missing_artifact_key() {
+    let root = tempfile::tempdir().unwrap();
+    let config_path = config_with_data_dir(root.path());
+    let namespace = root.path().join("data/packages");
+    std::fs::create_dir_all(namespace.join("objects/retained")).unwrap();
+    assert_eq!(encrypted_state_in(&config_path), Some(namespace));
+    let error = crate::cli::bootstrap::guard_orphan_artifact_key(
+        &config_path,
+        &["OPENSPINE_ARTIFACT_KEY".into()],
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("original key"));
+    assert!(!root.path().join("openspine.env").exists());
+}
+
+#[test]
 fn refresh_leaves_an_unavailable_vault_unavailable_without_a_configuration() {
     let mut vault = Vault::Unavailable;
 

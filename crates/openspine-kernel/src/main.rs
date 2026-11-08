@@ -348,6 +348,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     let pending_overlay_finalization = overlay_operations
         .process_pre_open(cli.rollback_pending_restore, jiff::Timestamp::now())
         .context("processing pre-open overlay export/restore")?;
+    managed_startup::require_package_ledger(&data_root)?;
     let artifacts = artifact_store::ArtifactStore::open(data_root.join("artifacts"), artifact_key)
         .context("opening artifact store")?;
     // AD-140: re-key any pre-AD-140 single-global-key blobs into the new

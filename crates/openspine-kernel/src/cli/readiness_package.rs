@@ -20,6 +20,22 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
     if absent(&db) && absent(&root.join("packages")) {
         return vec![legacy(config, config_path).0];
     }
+    if let Err(error) = crate::managed_startup::require_package_ledger(&root) {
+        let remedy = match &error {
+            crate::managed_startup::PackageLedgerError::Missing => {
+                "Preserve the remaining instance state for investigation. Use a separate empty data_dir only to initialize a deliberately new instance; do not replace the ledger with an older database."
+            }
+            crate::managed_startup::PackageLedgerError::Inspection(_) => {
+                "Preserve the instance state and inspect local filesystem access to the package namespace and ledger. Readiness never repairs or creates a database."
+            }
+        };
+        return vec![Check::fail(
+            "package",
+            "agent package",
+            error.to_string(),
+            remedy.into(),
+        )];
+    }
     let store = match Store::open_for_readiness(&db) {
         Ok(store) => store,
         Err(error) => {

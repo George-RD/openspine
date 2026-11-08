@@ -124,6 +124,7 @@ impl Context {
             return Err(Error::PendingOperation);
         }
         let root = lock.canonical_data_root();
+        crate::managed_startup::require_package_ledger(root)?;
         let store = crate::store::Store::open_for_package_management(&root.join("kernel.db"))
             .map_err(|_| Error::Ledger)?;
         // Managed history is sticky: the legacy directory is neither read nor

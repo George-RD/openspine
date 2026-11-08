@@ -23,6 +23,41 @@ fn artifacts(fixture: &Fixture) -> ArtifactStore {
 }
 
 #[test]
+fn package_ledger_preflight_preserves_fresh_and_legacy_startup() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    // A fresh root is not created just to inspect it.
+    super::require_package_ledger(&data).unwrap();
+    assert!(!data.exists());
+    fs::create_dir(&data).unwrap();
+    fs::write(data.join("legacy-state"), b"retained").unwrap();
+    super::require_package_ledger(&data).unwrap();
+    assert!(!data.join("kernel.db").exists());
+    // Existing ledgers continue through the normal store integrity checks.
+    let store = crate::store::Store::open(&data.join("kernel.db")).unwrap();
+    super::require_package_ledger(&data).unwrap();
+    fs::create_dir(data.join("packages")).unwrap();
+    super::require_package_ledger(&data).unwrap();
+    drop(store);
+}
+
+#[test]
+fn even_empty_damaged_or_linked_package_namespaces_cannot_replace_a_lost_ledger() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path();
+    let namespace = data.join("packages");
+    fs::create_dir(&namespace).unwrap();
+    assert!(super::require_package_ledger(data).is_err());
+    fs::remove_dir(&namespace).unwrap();
+    fs::write(&namespace, b"damaged").unwrap();
+    assert!(super::require_package_ledger(data).is_err());
+    fs::remove_file(&namespace).unwrap();
+    std::os::unix::fs::symlink(data.join("missing"), &namespace).unwrap();
+    assert!(super::require_package_ledger(data).is_err());
+    assert!(!data.join("kernel.db").exists());
+}
+
+#[test]
 fn legacy_mode_uses_the_configured_directory_while_no_selection_exists() {
     let fixture = Fixture::new();
     let path = lyra_dir();

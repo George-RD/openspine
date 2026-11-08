@@ -87,6 +87,8 @@ impl InstallationResult {
 pub(crate) enum InstallError {
     #[error(transparent)]
     Inspection(#[from] super::InspectionError),
+    #[error(transparent)]
+    PackageLedger(#[from] crate::managed_startup::PackageLedgerError),
     #[error("Cannot read existing operator configuration and keys. Installation does not initialize or replace them.")]
     Configuration,
     #[error("Cannot open the existing kernel store with its normal migrations and integrity checks. No alternate ledger was created.")]
@@ -116,6 +118,10 @@ impl InstallError {
     pub(crate) fn code(&self) -> &'static str {
         match self {
             Self::Inspection(error) => error.code(),
+            Self::PackageLedger(crate::managed_startup::PackageLedgerError::Missing) => {
+                "package-ledger-missing"
+            }
+            Self::PackageLedger(_) => "ledger-unavailable",
             Self::Configuration => "configuration-unavailable",
             Self::Ledger => "ledger-unavailable",
             Self::Locked => "data-directory-locked",

@@ -26,6 +26,8 @@ mod action_catalog {
 mod first_boot;
 #[path = "package_use/helpers.rs"]
 mod helpers;
+#[path = "package_use/ledger_loss.rs"]
+mod ledger_loss;
 #[path = "package_use/pty.rs"]
 mod pty;
 #[path = "package_use/readiness.rs"]
