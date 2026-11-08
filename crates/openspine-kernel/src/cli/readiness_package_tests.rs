@@ -56,6 +56,26 @@ fn readiness_cannot_migrate_an_older_schema_or_initialize_a_missing_database() {
 }
 
 #[test]
+fn readiness_reports_lost_package_ledger_without_migration_or_database_creation() {
+    let fixture = Fixture::new();
+    fixture.install(&variant(fixture.root.path(), 3));
+    let path = fixture.data.join("kernel.db");
+    fs::remove_file(&path).unwrap();
+    let report = checks(&config(&fixture), Path::new("openspine.yaml"));
+    assert_eq!(report[0].id, "package");
+    assert_eq!(report[0].state, super::super::CheckState::Fail);
+    assert!(
+        report[0].detail.contains("package-ledger-missing"),
+        "{report:?}"
+    );
+    let remedy = report[0].remedy.as_deref().unwrap();
+    assert!(remedy.contains("Preserve"), "{report:?}");
+    assert!(remedy.contains("separate empty data_dir"), "{report:?}");
+    assert!(!remedy.contains("migrate"), "{report:?}");
+    assert!(!path.exists());
+}
+
+#[test]
 fn current_runtime_drift_is_unavailable_with_exact_selected_identity() {
     let fixture = Fixture::new();
     let source = variant(fixture.root.path(), 3);

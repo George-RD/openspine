@@ -22,9 +22,10 @@ pub(crate) enum PackageLedgerError {
     Inspection(#[from] std::io::Error),
 }
 
-/// Run under the lifetime lock, after pending restore recovery and before any
-/// store is opened. The namespace alone is conservative evidence of package
-/// history: even emptied or damaged storage must not recreate a legacy ledger.
+/// Mutating callers hold the lifetime lock and run this after restore recovery,
+/// before opening stores. Read-only readiness may sample it without a lock.
+/// The namespace alone is conservative evidence of package history: even
+/// emptied or damaged storage must not recreate a legacy ledger.
 pub(crate) fn require_package_ledger(data_root: &Path) -> Result<(), PackageLedgerError> {
     match std::fs::symlink_metadata(data_root.join("packages")) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
