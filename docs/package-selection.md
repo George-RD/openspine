@@ -113,7 +113,12 @@ overwrites a receipt.
 
 - Linux and macOS only; other platforms refuse. Local administrator compromise is outside
   this boundary: there is no cryptographic human-presence claim.
-- The instance must be stopped and idle. A first runtime start opens reconfirmation
-  requests for the shipped seed workflows; they count as outstanding approvals and block
-  `use` until resolved through the normal owner lifecycle.
+- The instance must be stopped and idle. Active `task_grants` remain outstanding until
+  their TTL expires: shipped Lyra terminal grants last 120 seconds (2 minutes), bounded
+  by the agent and capability-pack runtime limits. Stop the runtime, wait for existing
+  grants to expire, then review again; selection never deletes or cancels them.
+- `init` explicitly accepts the four shipped seed workflows by embedded digest. An
+  ordinary first chat therefore creates no seed reconfirmation requests. Edited,
+  unaccepted or epoch-invalidated overlays still require the normal owner lifecycle;
+  package consent cannot accept them. Deleted seeds stay retired in managed mode too.
 - No live reload, remote package fetch, signed distribution or agent-authored selection.

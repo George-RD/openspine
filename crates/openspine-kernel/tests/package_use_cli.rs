@@ -8,6 +8,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+#[path = "package_use/first_boot.rs"]
+mod first_boot;
 #[path = "package_use/helpers.rs"]
 mod helpers;
 #[path = "package_use/pty.rs"]

@@ -39,8 +39,11 @@ enum UseError {
     Owner,
     #[error("The signed erasure ledger does not match the persisted erasure state; nothing was selected. Start the runtime once so it can reconcile, then review again.")]
     Erasure,
-    #[error("The review has blockers and cannot be accepted: {0}. Resolve them through the normal paths and review again.")]
-    Blocked(String),
+    #[error("The review has blockers and cannot be accepted: {blockers}.{grant_hint} Resolve them through the normal paths and review again.")]
+    Blocked {
+        blockers: String,
+        grant_hint: &'static str,
+    },
     #[error("Consent was not given; nothing was selected.")]
     Cancelled,
     #[error("The reviewed state changed after consent ({0}); nothing was selected. Review again.")]
@@ -94,7 +97,14 @@ fn execute(config: &Path, installation: &str) -> Result<String, UseError> {
         .map_err(|_| UseError::Store)?;
     if !first.report.offerable() {
         print!("{}", first.report.summary());
-        return Err(UseError::Blocked(first.report.blockers().join(", ")));
+        return Err(UseError::Blocked {
+            blockers: first.report.blockers().join(", "),
+            grant_hint: if first.active_task_grants {
+                " Active task_grants block selection. Wait for active task grants to expire after their TTL (120 seconds / 2 minutes for the shipped Lyra terminal agent; custom agent/pack runtime limits may differ)."
+            } else {
+                ""
+            },
+        });
     }
     let presented_at = jiff::Timestamp::now();
     let expires_at = presented_at + jiff::SignedDuration::from_mins(WINDOW_MINUTES);

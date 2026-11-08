@@ -42,6 +42,8 @@ pub(super) struct Assessment {
     pub reconfirmations: Vec<crate::package::selection_types::ReconfirmationKey>,
     /// Captured overlay/provenance fingerprint from the shared evaluator.
     pub overlay_fingerprint: openspine_schemas::digest::Digest,
+    /// The shared census still classifies at least one task grant as live.
+    pub active_task_grants: bool,
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -141,6 +143,10 @@ pub(super) fn assess(
         .store
         .package_outstanding_work_with_reviews(jiff::Timestamp::now(), &artifacts)
         .map_err(|_| Error::OutstandingWork)?;
+    let active_task_grants = work
+        .source(crate::store::package_install::outstanding_work::OutstandingWorkSource::TaskGrants)
+        .outstanding
+        > 0;
     let report = review_report::build(&current, &candidate, receipt.clone(), overlays, work);
     Ok(Assessment {
         report,
@@ -150,6 +156,7 @@ pub(super) fn assess(
         base_epoch_changed,
         reconfirmations,
         overlay_fingerprint,
+        active_task_grants,
     })
 }
 
