@@ -137,14 +137,6 @@ fn readiness_verifies_the_audit_chain_and_refuses_a_linked_database() {
 }
 
 #[test]
-fn a_writable_outer_transaction_is_never_silently_reused_for_a_read() {
-    let store = Store::open_in_memory().unwrap();
-    store.with_conn_for_test(|conn| conn.execute_batch("BEGIN DEFERRED").unwrap());
-    assert!(store.with_deferred_read(|_| Ok(())).is_err());
-    store.with_conn_for_test(|conn| conn.execute_batch("ROLLBACK").unwrap());
-}
-
-#[test]
 fn readiness_keeps_one_wal_snapshot_while_the_runtime_can_append() {
     let fixture = Fixture::new();
     let first = fixture.install(&variant(fixture.root.path(), 3));

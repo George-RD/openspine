@@ -79,6 +79,23 @@ for (const [path, name, method] of [
     assert.ok(result.output.includes(path), result.output);
   });
 }
+test('transaction guard permits the single read-only readiness snapshot opener', () => {
+  const result = run('check-store-encapsulation.sh', 'store/mod.rs',
+    'fn open_for_readiness() { conn.execute_batch("BEGIN DEFERRED"); }');
+  assert.equal(result.status, 0, result.output);
+});
+for (const [label, path, source] of [
+  ['another file', 'store/rogue.rs', 'fn open_for_readiness() { conn.execute_batch("BEGIN DEFERRED"); }'],
+  ['another function', 'store/mod.rs', 'fn open_for_readiness() {} fn rogue() { conn.execute_batch("BEGIN DEFERRED"); }'],
+  ['a write-lock transaction', 'store/mod.rs', 'fn open_for_readiness() { conn.execute_batch("BEGIN IMMEDIATE"); }'],
+  ['additional SQL', 'store/mod.rs', 'fn open_for_readiness() { conn.execute_batch("BEGIN DEFERRED; SELECT 1"); }'],
+  ['a second opener', 'store/mod.rs', 'fn open_for_readiness() { conn.execute_batch("BEGIN DEFERRED"); conn.execute_batch("BEGIN DEFERRED"); }'],
+]) {
+  test(`readiness snapshot allowance rejects ${label}`, () => {
+    const result = run('check-store-encapsulation.sh', path, source);
+    assert.equal(result.status, 1, result.output);
+  });
+}
 test('transaction guard ignores documentation and non-transaction SQL', () => {
   const result = run('check-store-encapsulation.sh', 'store/read.rs',
     '// conn.transaction() and BEGIN IMMEDIATE\nfn read() { conn.execute_batch("SELECT 1"); }');
