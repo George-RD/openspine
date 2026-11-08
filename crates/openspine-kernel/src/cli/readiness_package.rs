@@ -17,7 +17,7 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
     // A genuinely fresh bootstrap has no ledger yet. A missing db in an
     // existing state root is not evidence of legacy mode.
     if !root.exists() {
-        return vec![legacy(config, config_path)];
+        return vec![legacy(config, config_path).0];
     }
     let store = match Store::open_for_readiness(&db) {
         Ok(store) => store,
@@ -31,13 +31,18 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
         Err(_) => return vec![unavailable("selection-ledger-invalid", None)],
     };
     let resolved = store.resolve(&root);
+    let mut legacy_product = None;
     let mut checks = match resolved {
         Ok(Some(base)) => vec![Check::pass(
             "package", "agent package",
             format!("committed selection generation={} {}; lyra_dir ignored; next startup uses these captured bytes (no hot reload)",
                 base.record.generation, identity(&base.receipt)),
         )],
-        Ok(None) => vec![legacy(config, config_path)],
+        Ok(None) => {
+            let (check, product) = legacy(config, config_path);
+            legacy_product = product;
+            vec![check]
+        }
         Err(error) => {
             let code = match error {
                 ManagedBaseError::Ledger => "selection-ledger-invalid",
@@ -59,20 +64,20 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
         .map(|(_, receipt)| receipt.installation_id);
     let product = selected
         .as_ref()
-        .map(|(_, receipt)| receipt.package_id.clone())
-        .or_else(|| {
-            crate::package::inspect(&config.lyra_dir)
-                .ok()
-                .map(|snapshot| snapshot.identity().package_id)
-        });
+        .map(|(_, receipt)| receipt.package_id.as_str())
+        .or(legacy_product.as_deref());
     // Keep a bounded report even for a long-lived installation index. All exact
     // receipts remain available through the explicit package list command.
-    let inactive: Vec<_> = receipts
+    let mut inactive_count = 0;
+    for receipt in receipts
         .iter()
         .filter(|r| Some(r.installation_id) != selected_id)
-        .collect();
-    for receipt in inactive.iter().take(32) {
-        let restriction = if product.as_ref().is_some_and(|p| p != &receipt.package_id) {
+    {
+        inactive_count += 1;
+        if inactive_count > 32 {
+            continue;
+        }
+        let restriction = if product.is_some_and(|p| p != receipt.package_id) {
             "; different-product: cannot use in this instance"
         } else {
             "; not selected, compatibility and owner review still required"
@@ -83,13 +88,13 @@ pub(super) fn checks(config: &Config, config_path: &Path) -> Vec<Check> {
             format!("{}{restriction}", identity(receipt)),
         ));
     }
-    if inactive.len() > 32 {
+    if inactive_count > 32 {
         checks.push(Check::pass(
             "package.candidates",
             "installed-inactive candidates",
             format!(
                 "{} additional receipts; use `openspine package list --json` for exact identities",
-                inactive.len() - 32
+                inactive_count - 32
             ),
         ));
     }
@@ -108,15 +113,17 @@ fn unavailable(code: &str, receipt: Option<&InstallReceipt>) -> Check {
         "Preserve the database, receipts and retained objects. Resolve the named integrity or runtime compatibility failure through normal operator recovery; do not edit lyra_dir, restore an older database or clear durable-work fences. No fallback was used.".into())
 }
 
-fn legacy(config: &Config, config_path: &Path) -> Check {
+fn legacy(config: &Config, config_path: &Path) -> (Check, Option<String>) {
     let mut check = super::legacy_package_check(config, config_path);
-    let identity = crate::package::inspect(&config.lyra_dir).ok().map(|snapshot| {
-        let identity = snapshot.identity();
+    let captured_identity = crate::package::inspect(&config.lyra_dir)
+        .ok()
+        .map(|snapshot| snapshot.identity());
+    let identity = captured_identity.as_ref().map(|identity| {
         format!("product={} revision={} content={} manifest={} installation=none provenance=local-unverified (not publisher authentication)",
             serde_json::to_string(&identity.package_id).expect("string serialization"), identity.revision, identity.content_digest, identity.manifest_digest)
     }).unwrap_or_else(|| "exact declared identity unavailable; installation=none (legacy directory loading)".into());
     check.detail = format!("legacy configured base: {}; {identity}", check.detail);
-    check
+    (check, captured_identity.map(|identity| identity.package_id))
 }
 
 #[cfg(all(test, any(target_os = "linux", target_os = "macos")))]

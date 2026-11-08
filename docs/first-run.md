@@ -181,6 +181,8 @@ credentials, history, receipts and later revocations/pauses/erasures/consumption
 budget controls remain. See [operator flow and readiness](package-installation.md#operator-flow-and-readiness)
 and [selection restrictions](package-selection.md#rollout-restrictions).
 
+### Connect optional capabilities
+
 `init` reaches the local trust anchor without any network access. The
 capability rungs beyond it need their own credentials and are reported as next
 steps, not failures:
