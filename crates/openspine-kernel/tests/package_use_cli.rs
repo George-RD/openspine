@@ -64,8 +64,14 @@ fn deleted_package_ledger_refuses_startup_without_recreating_state() {
             String::from_utf8_lossy(&output.stderr)
         );
         assert!(!output.status.success(), "{transcript}");
-        assert!(transcript.contains("package-ledger-missing"), "{transcript}");
-        assert!(transcript.contains("separate empty data_dir"), "{transcript}");
+        assert!(
+            transcript.contains("package-ledger-missing"),
+            "{transcript}"
+        );
+        assert!(
+            transcript.contains("separate empty data_dir"),
+            "{transcript}"
+        );
         assert!(!data.join("kernel.db").exists(), "{transcript}");
         assert_eq!(files(&data), before);
     }
