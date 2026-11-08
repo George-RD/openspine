@@ -393,5 +393,7 @@ fn merges_bundle_baseline_and_rejects_missing_or_regressed_continuity() {
 mod control_parent;
 #[path = "control_tests/hardening.rs"]
 mod hardening;
+#[path = "control_tests/lifetime_lock.rs"]
+mod lifetime_lock;
 #[path = "control_tests/portability.rs"]
 mod portability;

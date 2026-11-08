@@ -149,6 +149,15 @@ Startup resolves relative `data_dir` values against the process working director
 
 The control directory owns `snapshots/`, pending-operation state, terminal-erasure state, and request-id staging/rollback paths. It is never replaced by restore.
 
+The lock descriptor is opened atomically with `O_CLOEXEC`. Forked worker
+processes can still share its `flock` until they exec: close-on-exec does not
+mean close-on-fork. Dropping the controller explicitly unlocks before closing
+the descriptor, including failed acquisition setup, so an unrelated child
+waiting to exec cannot delay the next acquisition. A live controller still
+excludes every other acquisition, including one in the same process. The
+terminal `/login` handoff drops all chat owners before reacquiring the lock
+for provider login; normal serving retains the controller through shutdown.
+
 ### Gated request and controlled restart
 
 `openspine.overlay.export` and `openspine.overlay.restore` are registered only in verified owner-control composition and catalogued non-delegable. Worker mint/commission rejects them. Handlers require a canonical sealed root grant (`parent_grant_id == None`, `root_grant_id == id`, exactly one parentless root chain step and no delegation hop), configured owner principal, and exact effective authority.

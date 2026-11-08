@@ -25,7 +25,7 @@ use acquire::resolve_root_identity_with;
 use acquire::{
     cleanup_temp_at, open_canonical_dir_nofollow, open_or_create_control_dir_relative,
     openat_file_nofollow, resolve_root_identity, secure_dir_fd, secure_or_create_sub_dir_at,
-    try_lock_exclusive, verify_entry_is_nofollow_dir,
+    try_lock_exclusive, verify_entry_is_nofollow_dir, LifetimeLock,
 };
 use fs::{atomic_write, remove_durable};
 use ledger::valid_transition;
@@ -69,7 +69,7 @@ pub(crate) struct OverlayControl {
     snapshots_root: PathBuf,
     master_key: Vec<u8>,
     _control_dir: File,
-    _lifetime_lock: File,
+    _lifetime_lock: LifetimeLock,
     state: Mutex<()>,
     #[cfg(test)]
     fail_before_first_boot_marker: std::sync::atomic::AtomicBool,
@@ -116,7 +116,7 @@ impl OverlayControl {
         let lock = openat_file_nofollow(control_dir.as_raw_fd(), "lifetime.lock", true)
             .map_err(|source| io(&identity.control_root.join("lifetime.lock"), source))?;
 
-        try_lock_exclusive(&lock, &identity.control_root.join("lifetime.lock"))?;
+        let lock = try_lock_exclusive(lock, &identity.control_root.join("lifetime.lock"))?;
 
         secure_dir_fd(&control_dir, &identity.control_root)?;
         let snapshots_root = identity.control_root.join("snapshots");
