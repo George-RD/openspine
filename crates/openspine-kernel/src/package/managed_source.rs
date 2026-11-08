@@ -2,7 +2,10 @@
 //!
 //! This never consults the legacy configured directory, the bundled package,
 //! an earlier revision or an unindexed object: any failure leaves the runtime
-//! unavailable. Callers hold the data-root lifetime lock.
+//! unavailable. Serving and selection callers hold the data-root lifetime lock.
+//! Diagnostic readiness may instead use the restricted ReadinessStore's single
+//! read-only SQLite snapshot: it never selects, writes, repairs or starts work,
+//! and its point-in-time result is not a startup authorization.
 use super::install_types::InstallReceipt;
 use super::object_store::PackageObjectReader;
 use super::selection_types::SelectionRecord;

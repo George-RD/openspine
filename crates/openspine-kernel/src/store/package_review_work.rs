@@ -37,7 +37,7 @@ struct ReviewProposal {
 }
 
 fn proposal_work_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     as_of: Timestamp,
     artifacts: Option<&ArtifactStore>,
 ) -> Result<(i64, i64, i64), StoreError> {
@@ -77,7 +77,7 @@ fn proposal_work_counts(
 }
 
 fn review_required_disposition(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     proposal: &ReviewProposal,
     as_of: Timestamp,
     artifacts: &ArtifactStore,
@@ -130,7 +130,7 @@ fn review_required_disposition(
 }
 
 fn matching_review_disposition(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     proposal: &ReviewProposal,
     as_of: Timestamp,
     artifacts: &ArtifactStore,

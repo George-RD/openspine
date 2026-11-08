@@ -76,9 +76,21 @@ Validation failures exit nonzero and produce `schema_version: 1`, `valid: false`
 `provenance: "local-unverified"` and an `error` with a stable `code` and bounded
 `message`. Invalid command-line syntax remains a normal CLI usage error.
 
-## Not shipped by inspection
+## From inspection to a running selected package
 
-Inactive installation and audit receipts are tracked separately in #275. Package
-selection/activation, remote fetch and publisher signature verification are not
-implemented by this command. The existing `lyra_dir` runtime path remains
-unchanged. Inspection alone does not complete installation epic #117.
+Inspection, [inactive installation](package-installation.md), and
+[owner-reviewed selection](package-selection.md) are separate operations.
+Use exact installation IDs from receipts, never `use lyra` or a revision alias.
+The supported runtime entry points remain `openspine chat` and the normal
+`openspine` service; there is no separate `run` command.
+
+`openspine setup --check` reports the legacy configured base, installed-inactive
+candidates, or the committed selection that startup will resolve. It validates
+the same selected bytes and ledger as startup without acquiring the lifetime
+lock or selecting anything. A missing or incompatible selection fails closed,
+even when a usable legacy source exists. Candidate installation is not consent.
+
+The local selection/recovery tranche of installation epic #117 is implemented;
+signed/version-pinned distribution, remote fetching, cross-product data migration
+and live Bell integration remain unfinished. Local provenance is not publisher
+authentication.

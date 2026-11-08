@@ -405,7 +405,7 @@ fn a_relative_data_dir_warns_without_blocking() {
         &path,
         text.replace(
             &format!("data_dir: {}", dir.join("data").display()),
-            "data_dir: ./data",
+            &format!("data_dir: ./readiness-uninitialized-{}", ulid::Ulid::new()),
         ),
     )
     .unwrap();

@@ -24,11 +24,11 @@ nothing: a configuration with no model answers nothing. Re-running `init
 --model <id>` on an existing configuration changes its model. Invoking `init`
 also explicitly accepts the four shipped seed workflows as described below.
 
-Everything `init` writes is location-independent: `data_dir` and `lyra_dir` are
-absolute paths, so the configuration selects the same state root and agent
-package from any working directory. If it cannot find a bundled Lyra package
-(a Nix install, or the checkout the binary was built from), the readiness report
-says so and names the `lyra_dir` to set.
+Everything `init` writes is location-independent: `data_dir` and the initial
+legacy `lyra_dir` are absolute paths. If it cannot find the bundled Lyra source,
+readiness names the legacy path to set. After an owner-reviewed package selection,
+readiness and startup instead validate the committed retained object; removing or
+changing the obsolete legacy source cannot override it.
 
 The command is non-interactive and idempotent: re-running it fills in anything
 missing without overwriting key material or the bound owner identity. Seed
@@ -149,6 +149,37 @@ owner request that runs through the full grant, gate, and audit path. See
 the first reply needs.
 
 ## After the first loop
+
+### Select or recover an installed revision
+
+Installation is not selection. Stop the service, install a candidate, inspect its
+receipt and review/use its exact installation ID:
+
+```sh
+openspine install lyra --json
+openspine setup --check
+openspine package review "$INSTALLATION_ID" --json
+openspine use "$INSTALLATION_ID"
+openspine setup --check
+```
+
+`setup --check` is a read-only snapshot and can run while the service is running;
+install/review/use require its exclusive lifetime lock. A completed first chat
+normally leaves a 120-second Lyra task grant: wait for its expiry before `use`.
+Other durable work, including unresolved external effects, also blocks switching.
+Do not clear fences or delete work to bypass a blocker.
+
+The first `use` explicitly adopts the configured declared base and supports only
+the same product. It assumes the local account controls owner-only state and
+keys, asks for the exact `select <installation-id>` phrase, and changes the next
+startup, not the running process. Compatibility-epoch changes require ordinary
+learned-artifact reconfirmation and standing-rule review.
+
+Recovery uses `openspine use "$EARLIER_INSTALLATION_ID"` and a normal restart;
+never restore an older database or edit `lyra_dir`. The existing owner,
+credentials, history, receipts and later revocations/pauses/erasures/consumption/
+budget controls remain. See [operator flow and readiness](package-installation.md#operator-flow-and-readiness)
+and [selection restrictions](package-selection.md#rollout-restrictions).
 
 `init` reaches the local trust anchor without any network access. The
 capability rungs beyond it need their own credentials and are reported as next

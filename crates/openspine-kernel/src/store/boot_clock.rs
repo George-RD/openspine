@@ -31,7 +31,7 @@ pub enum BootClockCheck {
 
 impl Store {
     fn classify_boot_clock_tx(
-        tx: &Transaction<'_>,
+        tx: &rusqlite::Connection,
         now_ms: i64,
     ) -> Result<BootClockCheck, StoreError> {
         let prev: Option<i64> = tx

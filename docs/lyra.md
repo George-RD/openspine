@@ -100,26 +100,52 @@ A `soul.md` can be a useful authoring surface, but it becomes dangerous when per
 
 A preference such as “keep replies brief” may become durable guidance. It may not become “send replies automatically.” Learning how the owner likes work done remains separate from permission to cause an effect.
 
-## Installation today and next
+## Installation and reviewed recovery
 
-Read-only inspection and native inactive installation are shipped. On Linux and macOS, use an existing initialized instance and stop its runtime before installation or package maintenance:
+On Linux and macOS, bootstrap with the existing `openspine init` or interactive
+`openspine setup` flow. `init` needs your real immutable owner ID, a configured
+model and the bundled Lyra source; it writes owner-only local keys and explicitly
+accepts only the four byte-exact shipped seed workflows. It is not unattended
+acceptance of edited or epoch-invalidated overlays.
+
+For an initialized, stopped, idle instance:
 
 ```sh
+openspine package inspect artifacts/lyra --json
 openspine install lyra --json
-openspine package list --json
-openspine package receipts --json
+openspine setup --check
+openspine package review "$INSTALLATION_ID" --json
+openspine use "$INSTALLATION_ID"
+openspine setup --check
+openspine chat --once "Hello"
 ```
 
-Installation retains an exact, validated package snapshot and a durable receipt. It does not change `lyra_dir`, activate artifacts, connect accounts, or grant permissions. See [inactive installation](package-installation.md) for configuration, retries, recovery and integrity checks.
+Take `INSTALLATION_ID` from the installation receipt; `use` prints the full plan
+and requires the exact terminal phrase `select <installation-id>`. Inspection and
+installation alone do not select, connect accounts or grant permissions.
+`setup --check` distinguishes the configured legacy base, inactive candidates and
+the committed selection with exact product/revision/installation identity and
+local provenance. Once selected, startup ignores `lyra_dir`, including after its
+old source disappears. There is no hot reload and no separate `run` engine.
 
-The intended complete product flow remains:
+Use assumes the OS account controls the owner-only instance and key file; a
+terminal is not cryptographic proof of human presence. Stop the service first:
+maintenance shares its exclusive lifetime lock. Outstanding durable work blocks
+switching; even a completed terminal turn leaves a task grant until its TTL
+expires (normally 120 seconds for Lyra chat). See
+[selection restrictions](package-selection.md#rollout-restrictions) for all TTLs.
+No command clears an unresolved external-effect fence to make selection pass.
 
-```text
-openspine install lyra
-openspine use lyra
-openspine run
-```
+Recovery is another reviewed `openspine use "$EARLIER_INSTALLATION_ID"` followed
+by a normal restart, not restoring an older database or editing `lyra_dir`.
+Database history, overlays, credentials, owner identity, receipts, erasure,
+revocations, pauses, consumed approvals and budget history remain in place.
+Only the same product can be selected; an incompatible earlier revision is
+unavailable. A changed base epoch requires ordinary reconfirmation and standing
+rule review, including when returning to an earlier revision. Package consent
+never restores revoked authority or accepts learned artifacts.
 
-Package selection (`use`), activation, the selected-package resolver and signed distribution are not shipped. [Issue #117](https://github.com/George-RD/openspine/issues/117) tracks the remaining lifecycle and review design. Installation success or a matching content digest is not activation approval.
-
-Until that work lands, the source package and `lyra_dir` configuration remain the runtime loading interface.
+See [operator installation and readiness](package-installation.md#operator-flow-and-readiness)
+and [selection](package-selection.md). Epic #117's local selection/recovery path
+is shipped; signed/version-pinned distribution, remote fetch, cross-product
+migration and Bell integration are not.

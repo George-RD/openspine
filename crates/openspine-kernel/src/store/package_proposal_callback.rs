@@ -4,7 +4,7 @@ use openspine_schemas::artifact::{ProposalApprovalEvidence, ProposalApprovalPath
 /// semantic review matched. Absence of a review is not itself evidence that
 /// fresh authority was impossible; use the kernel's original audit receipt.
 fn unmatched_proposal_disposition(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     proposal: &ReviewProposal,
 ) -> Result<WorkDisposition, StoreError> {
     let Ok(proposal_id) = proposal.id.parse::<ulid::Ulid>() else {

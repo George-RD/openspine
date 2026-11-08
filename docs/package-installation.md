@@ -74,3 +74,88 @@ Retained-object verification does not create a temporary loader tree. An unavail
 An index/audit mismatch or broken audit chain refuses package maintenance. Missing, empty, and unrelated database files are not initialized by a maintenance command. A pending export/restore is also refused: finish the normal runtime recovery procedure first, rather than applying it through a package-management shortcut.
 
 Package maintenance does not invoke the runtime standing-rule sweep. Normal runtime startup retains that safety behavior. Existing authority records, active-package configuration, credentials, and owner keys are outside these commands' mutation scope.
+
+## Operator flow and readiness
+
+Use the same `--config` for every command, and the same OS account that owns the
+instance. Local owner-only state and keys are the trust assumption; local source
+provenance does not authenticate a publisher or prove human presence.
+
+For a fresh native instance, use the existing bootstrap, not installation as an
+initializer:
+
+```sh
+openspine --config ./openspine.yaml init --owner 987654321 --name Owner \
+  --model hf.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF:Q4_K_M \
+  --base-url http://127.0.0.1:11434
+openspine --config ./openspine.yaml chat --once "Hello"
+openspine --config ./openspine.yaml install lyra --json
+openspine --config ./openspine.yaml setup --check
+openspine --config ./openspine.yaml package review "$INSTALLATION_ID" --json
+openspine --config ./openspine.yaml use "$INSTALLATION_ID"
+openspine --config ./openspine.yaml setup --check
+openspine --config ./openspine.yaml chat --once "Hello again"
+```
+
+Substitute your real owner ID and a model served by your endpoint. The bundled
+package must be available for bootstrap. `init` accepts only the four shipped
+seed workflows at their embedded digests; it does not accept arbitrary learned
+overlays. Installation and setup never silently select a candidate. Take
+`INSTALLATION_ID` from the receipt, review it, and type exactly
+`select <installation-id>` at the `use` terminal prompt.
+
+For an existing eligible deployment, keep its database, keys and owner binding,
+stop its service and use the inspect/install/review/use flow above without
+reinitializing it. An explicitly configured declared `lyra_dir` is adopted as the
+legacy source on first selection. Both source and target must name the same
+product. `use` cannot migrate another product into a populated instance.
+
+The runtime, init and package maintenance share one exclusive lifetime lock.
+Stop the service before install/review/use. Outstanding durable grants, approvals,
+workflow steps and timers, dispatched workers, tasks, review requests,
+notifications and unknown external-effect outcomes can still block an idle
+process. Wait or resolve them through their normal lifecycle, never delete their
+rows or clear fences. Lyra terminal task grants normally last 120 seconds,
+email-drafter grants 180 seconds, kernel owner-review/reconfirmation grants
+300 seconds and notification grants 60 seconds; custom package limits can
+differ. A stopped/completed chat does not immediately expire its grant.
+
+`setup --check` is deliberately different: **no lifetime lock**, no schema
+migration, installation recovery, owner creation, selection or reconfirmation.
+It reads one existing SQLite snapshot, verifies the audit chain and selection
+replay, then uses the same selected-object capture and current typed validation
+as startup. It can run while the service holds the lock. Its result is
+point-in-time diagnostics, not authorization to start or switch. SQLite may use
+its normal read-only WAL/SHM coordination for a WAL-mode ledger; no ledger rows,
+database contents or object bytes are changed. A closed rollback-journal ledger
+needs no WAL/SHM files.
+
+The package checks distinguish:
+
+- **legacy configured base**: exact declared product/revision/digests when
+  inspectable, with `installation=none`; undeclared legacy layouts explicitly
+  report that exact declared identity is unavailable;
+- **installed-inactive candidate**: exact installation/product/revision/digests
+  and original provenance, never implied to be selected or compatible;
+- **committed selection**: the ledger generation and exact retained identity;
+  `lyra_dir` is ignored, including a conflicting explicit value or removed source;
+- **unavailable selected package**: missing/corrupt retained bytes,
+  current-runtime incompatibility or invalid ledger replay; no legacy/bundled/
+  earlier-object fallback, no candidate text in errors;
+- **ledger-schema-unavailable**: readiness cannot migrate or verify an older
+  schema; stop the service and use normal runtime startup with the matching
+  runtime, then check again. Preserve damaged state rather than resetting it.
+
+Returning to an earlier installed receipt uses
+`openspine --config ./openspine.yaml use "$EARLIER_INSTALLATION_ID"`, followed
+by normal runtime/chat startup. Generations increase for every selection,
+including A → B → A. This is not a database restore and never an edit to
+`lyra_dir`. Preserve overlays, credentials, owner identity, installation and
+selection receipts, revoked/paused/erased state, consumed approvals and budget
+history. Compatibility changes require the ordinary learned-artifact
+reconfirmation and standing-rule review; returning to A cannot revive authority.
+There is no hot reload.
+
+This completes epic #117's local selection/readiness/recovery tranche, not
+signed/version-pinned distribution, remote package fetching, cross-product data
+migration or live Bell integration.

@@ -8,12 +8,30 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+// Reuse production descriptor data without compiling unrelated kernel unit tests.
+#[path = "../src/action_catalog_data.rs"]
+mod action_catalog_data;
+mod action_catalog {
+    pub(super) fn canonical_catalog() -> openspine_schemas::action::ActionCatalog {
+        let declarations = super::action_catalog_data::egress_declarations();
+        openspine_schemas::action::ActionCatalog::new(
+            declarations.iter().map(|(action, _)| action.clone()),
+        )
+        .with_egress_declarations(declarations)
+        .with_delegation_descriptors(super::action_catalog_data::delegation_descriptors())
+        .with_implementation_descriptors(super::action_catalog_data::implementation_descriptors())
+    }
+}
 #[path = "package_use/first_boot.rs"]
 mod first_boot;
 #[path = "package_use/helpers.rs"]
 mod helpers;
 #[path = "package_use/pty.rs"]
 mod pty;
+#[path = "package_use/readiness.rs"]
+mod readiness;
+#[path = "package_use/rollback.rs"]
+mod rollback;
 #[path = "package_review/support.rs"]
 mod support;
 use helpers::*;

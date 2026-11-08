@@ -10,11 +10,71 @@ The **NixOS module plus flake is the primary reference deployment.** Upgrade an 
 sudo nix flake update openspine --flake /etc/nixos && sudo nixos-rebuild switch --flake /etc/nixos#<host>
 ```
 
-`nixos-rebuild switch` replaces the **base** — the kernel binary and everything shipped with it. It does not touch the **overlay**: learned artifacts, standing rules, preferences, and the kernel database live under the module's `dataDir`, `/var/lib/openspine` by default (`nixos-module.nix:30-34`), which survives every rebuild. An upgrade is therefore a base swap plus the ordinary schema-migration lane described below, never an overlay migration.
+`nixos-rebuild switch` replaces the kernel binary and its bundled source package. It does not touch learned artifacts, standing rules, preferences or the kernel database under the module's `dataDir` (`/var/lib/openspine` by default). In legacy mode the configured source is still the base; in managed mode the retained ledger-selected installation stays authoritative across a rebuild. Install and review/use a new receipt explicitly to change that base. The new binary still applies ordinary schema migrations and can reject a previously compatible selected package.
 
 **Docker Compose is the portability path**, retained deliberately rather than deprecated. `compose.yaml`, `Dockerfile.kernel`, and `Dockerfile.shell` demonstrate that the runtime is not bound to one host distribution, and they are the substrate the containment claims inspect: `docs/threat-claims.md` CLAIM-06 rests on `compose.yaml`'s `openspine-internal` network being `internal: true`.
 
 Neither target is a security boundary. The NixOS module is packaging and supervision only — `services.openspine.docker.enable` optionally adds the service user to the `docker` group (`nixos-module.nix:69`), which is a host-equivalent control surface — and the socket-proxy hardening sketched at `compose.yaml:101-138` is still unfinished. Containment is `gate()` plus the shell sandbox, not the service manager.
+
+## Reviewed package upgrade and rollback
+
+Keep the same configuration, database, owner binding, keys and credentials.
+Run maintenance as the OS account that owns those protected files. Stop the
+service first: runtime and package maintenance use the same exclusive
+data-directory lifetime lock. A terminal consent phrase proves neither publisher
+identity nor cryptographic human presence.
+
+```sh
+openspine --config ./openspine.yaml install lyra --json
+openspine --config ./openspine.yaml package review "$INSTALLATION_ID" --json
+openspine --config ./openspine.yaml use "$INSTALLATION_ID"
+openspine --config ./openspine.yaml setup --check
+openspine --config ./openspine.yaml chat --once "Hello"
+```
+
+Only an exact committed installation ID is accepted. The first selection
+explicitly adopts the declared legacy base; source and target must be the same
+product. Selection affects the next normal runtime/chat startup, never hot
+reload. It cannot supply learned-artifact reconfirmation or standing-rule review
+after a base-compatibility change.
+
+Stopped does not mean quiescent: outstanding approvals/reviews, workflows,
+timers, tasks, worker dispatches, notifications and unresolved external-effect
+outcomes block switching. Active grants block until TTL expiry: shipped Lyra
+terminal 120 seconds, email drafter 180 seconds, kernel owner review and
+reconfirmation 300 seconds, notifications 60 seconds; custom limits can differ.
+Resolve work normally or wait; never delete it or clear its fence to force `use`.
+
+`setup --check` is the exception to maintenance locking: it reads a validated
+SQLite snapshot without the lifetime lock or migrations and can run alongside
+the service. It reports legacy base, installed-inactive candidates, committed
+selection or an unavailable selected package with exact verified identity.
+An old ledger needing migration fails readiness instead of being silently fixed.
+Once managed, missing/conflicting `lyra_dir` does not change readiness or startup;
+missing, corrupt or now-incompatible selected bytes do. There is no fallback.
+
+To return to an earlier revision, stop the service and review/select its retained
+receipt through the identical consent path:
+
+```sh
+openspine --config ./openspine.yaml package review "$EARLIER_INSTALLATION_ID" --json
+openspine --config ./openspine.yaml use "$EARLIER_INSTALLATION_ID"
+openspine --config ./openspine.yaml setup --check
+```
+
+Then restart normally. A → B → A advances generations; it never restores an
+older database or edits `lyra_dir`. Preserve overlays, credentials, owner
+identity, installation/selection receipts, revoked/paused/erased state, consumed
+approvals and budget history. Returning to an earlier epoch triggers fresh
+reconfirmation/review, not revival of authority. An earlier package incompatible
+with today's runtime cannot be selected.
+
+This package rollback is separate from the signed **pending overlay restore**
+rollback documented below. Do not use database restoration as a package switch.
+See [selection](package-selection.md) and
+[readiness](package-installation.md#operator-flow-and-readiness). Signed and
+version-pinned distribution, cross-product migration and Bell integration remain
+unfinished.
 
 ## First-run and restart sequence
 

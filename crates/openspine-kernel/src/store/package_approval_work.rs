@@ -44,7 +44,7 @@ fn count_disposition(
 }
 
 fn action_request_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     as_of: Timestamp,
 ) -> Result<(i64, i64, i64), StoreError> {
     let catalog = crate::action_catalog::canonical_catalog();
@@ -71,7 +71,7 @@ fn action_request_counts(
 }
 
 fn request_disposition(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     request: &ActionRequest,
     as_of: Timestamp,
 ) -> Result<WorkDisposition, StoreError> {
