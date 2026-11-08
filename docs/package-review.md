@@ -64,6 +64,9 @@ reconfirmation before reuse. This is a consequence of accepting the transition,
 not a demand to reconfirm against the old base first. Review performs neither
 operation. Its captured overlay fingerprint does not bind all live authority
 controls; acceptance must capture and check those additional controls itself.
+An epoch-changing selection also marks paused standing rules for full review
+before resume, while retaining their paused state. Resume routes marked rules
+to `needs_review`; it cannot reactivate them. Revoked rules remain revoked.
 
 Exit status zero means the assessment was produced, including its blockers.
 Inspect the completeness, blockers, overlay and outstanding-work fields rather

@@ -104,8 +104,28 @@ impl Store {
     }
 
     /// Resume an exactly versioned paused rule after caller-side revalidation.
+    /// A durable package-epoch invalidation requires full review, not resume.
     pub fn resume_standing_rule(&self, rule_id: &str, version: u32) -> Result<bool, StoreError> {
         self.with_immediate_tx(|tx| {
+            let needs_review = tx.execute(
+                "UPDATE standing_rules SET status = 'needs_review'
+                 WHERE rule_id = ?1 AND version = ?2 AND status = 'paused'
+                   AND needs_review_since IS NOT NULL",
+                params![rule_id, version as i64],
+            )?;
+            if needs_review == 1 {
+                Self::append_audit_conn(
+                    tx,
+                    "standing_rule.resume_requires_review",
+                    None,
+                    None,
+                    Some(rule_id),
+                    None,
+                    &[],
+                    &[],
+                )?;
+                return Ok(false);
+            }
             let changed = tx.execute(
                 "UPDATE standing_rules SET status = 'active' \
                  WHERE rule_id = ?1 AND version = ?2 AND status = 'paused'",

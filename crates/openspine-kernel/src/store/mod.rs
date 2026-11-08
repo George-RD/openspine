@@ -330,6 +330,8 @@ mod package_selection_ledger;
 #[cfg(test)]
 mod package_selection_ledger_tests;
 #[cfg(test)]
+mod package_selection_resume_tests;
+#[cfg(test)]
 mod package_selection_tests;
 
 impl Store {

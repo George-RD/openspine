@@ -295,15 +295,15 @@ impl Store {
             }
             // Runtime standing rules are the live reusable authority and are not
             // gated by registry membership, so a base-epoch change must also
-            // send every active one back to review (pending dark-window
-            // exceptions staled with it). Paused and revoked rules keep their
-            // more restrictive owner state.
+            // send every active one back to review. Paused rules retain the
+            // owner's pause but carry a durable review-on-resume marker.
+            // Revoked rules remain terminal; all affected exceptions go stale.
             let mut rules_needing_review = Vec::new();
             if confirmed.base_epoch_changed {
                 let now_nanos = i64::try_from(now.as_nanosecond())
                     .map_err(|_| StoreError::NumericRange)?;
                 rules_needing_review = tx
-                    .prepare("SELECT rule_id FROM standing_rules WHERE status = 'active' ORDER BY rule_id")?
+                    .prepare("SELECT rule_id FROM standing_rules WHERE status IN ('active', 'paused') ORDER BY rule_id")?
                     .query_map([], |row| row.get::<_, String>(0))?
                     .collect::<Result<Vec<_>, _>>()?;
                 for rule_id in &rules_needing_review {
@@ -311,8 +311,10 @@ impl Store {
                         tx, rule_id, None, now_nanos,
                     )?;
                     tx.execute(
-                        "UPDATE standing_rules SET status = 'needs_review', needs_review_since = ?2
-                         WHERE rule_id = ?1 AND status = 'active'",
+                        "UPDATE standing_rules SET
+                           status = CASE WHEN status = 'active' THEN 'needs_review' ELSE status END,
+                           needs_review_since = ?2
+                         WHERE rule_id = ?1 AND status IN ('active', 'paused')",
                         params![rule_id, now_nanos],
                     )?;
                 }
