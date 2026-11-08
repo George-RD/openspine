@@ -51,7 +51,13 @@ async fn operator_a_b_a_preserves_revocation_history_and_unknown_effect_fence() 
     }
     // Bootstrap accepts seeds against these already-declared package limits.
     assert_success(&fixture.run(&[
-        "init", "--owner", "987654321", "--name", "Tester", "--model", "fixture-model",
+        "init",
+        "--owner",
+        "987654321",
+        "--name",
+        "Tester",
+        "--model",
+        "fixture-model",
     ]));
     let server = super::readiness::provider(&fixture).await;
     let a = fixture.install();

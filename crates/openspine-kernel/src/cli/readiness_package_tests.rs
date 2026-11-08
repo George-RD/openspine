@@ -157,9 +157,26 @@ fn readiness_keeps_one_wal_snapshot_while_the_runtime_can_append() {
     let mtime = fs::metadata(&path).unwrap().modified().unwrap();
     let second = fixture.install(&variant(fixture.root.path(), 4));
     fixture.select(&second);
-    assert_eq!(reader.resolve(&fixture.data).unwrap().unwrap().receipt.installation_id, first.installation_id);
+    assert_eq!(
+        reader
+            .resolve(&fixture.data)
+            .unwrap()
+            .unwrap()
+            .receipt
+            .installation_id,
+        first.installation_id
+    );
     assert_eq!(reader.installations().unwrap().len(), 1);
     assert_eq!(fs::read(&path).unwrap(), before);
     assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), mtime);
-    assert_eq!(Store::open_for_readiness(&path).unwrap().resolve(&fixture.data).unwrap().unwrap().receipt.installation_id, second.installation_id);
+    assert_eq!(
+        Store::open_for_readiness(&path)
+            .unwrap()
+            .resolve(&fixture.data)
+            .unwrap()
+            .unwrap()
+            .receipt
+            .installation_id,
+        second.installation_id
+    );
 }

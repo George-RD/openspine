@@ -105,6 +105,7 @@ pub(super) fn assert_effect_still_requires_approval(fixture: &Fixture) {
     let now = Timestamp::now();
     // A new, correctly authenticated request, not a stale/expired grant denial.
     grant.id = Ulid::new();
+    grant.root_grant_id = grant.id;
     grant.issued_at = now;
     grant.expires_at = now + Duration::from_secs(60);
     let action = ActionId::new("email.create_draft");
