@@ -141,6 +141,13 @@ function sqlCode(sql) {
 function transactionOffenses(path, { code, strings }) {
   const allowed = (transactionBoundaries[path] ?? []).flatMap(([name, api]) =>
     functionRanges(code, name).map((range) => ({ ...range, api })));
+  // One audited exception: open_for_readiness opens SQLITE_OPEN_READ_ONLY,
+  // then copies evidence in one Deferred snapshot, closing it before object I/O.
+  // It never writes, migrates or acquires the runtime lifetime lock. No other
+  // statement, function, file or second opener inherits this allowance.
+  const readinessRanges = path === 'store/mod.rs'
+    ? functionRanges(code, 'open_for_readiness') : [];
+  let readinessSnapshotAvailable = true;
   const offenses = [];
   const APIs = /(?:\.|::)\s*(?:r#)?(transaction_with_behavior|unchecked_transaction|transaction|savepoint_with_name|savepoint|new_unchecked)\b/g;
   for (const match of code.matchAll(APIs)) {
@@ -167,6 +174,11 @@ function transactionOffenses(path, { code, strings }) {
     if (/\.\s*(?:expect|expect_err)\s*\(\s*$/.test(code.slice(0, literal.index))) continue;
     const sql = sqlCode(literal.value);
     if (/(?:^|;)\s*(?:BEGIN(?:\s+(?:DEFERRED|IMMEDIATE|EXCLUSIVE))?(?:\s+TRANSACTION)?\s*(?:;|$)|SAVEPOINT\s+\S)/i.test(sql)) {
+      if (readinessSnapshotAvailable && literal.value === 'BEGIN DEFERRED'
+        && readinessRanges.some(({ start, end }) => literal.index > start && literal.index < end)) {
+        readinessSnapshotAvailable = false;
+        continue;
+      }
       offenses.push({ index: literal.index, reason: 'literal SQL transaction opening' });
     }
   }

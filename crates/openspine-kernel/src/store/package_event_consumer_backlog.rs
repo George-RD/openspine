@@ -11,7 +11,7 @@ enum CheckpointState {
 }
 
 fn event_consumer_backlog_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
 ) -> Result<(i64, i64, i64), StoreError> {
     let static_consumers = [
         (
@@ -93,7 +93,7 @@ fn event_consumer_backlog_counts(
 }
 
 fn checkpoint_state(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     consumer_id: &str,
     expected_filter: &EventSubscriptionFilter,
     required: bool,
@@ -144,7 +144,7 @@ fn checkpoint_state(
 }
 
 fn matching_backlog(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     filter: &EventSubscriptionFilter,
     after: u64,
 ) -> Result<i64, StoreError> {

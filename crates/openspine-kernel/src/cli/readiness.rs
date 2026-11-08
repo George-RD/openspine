@@ -14,6 +14,9 @@ use crate::env_file;
 use crate::secret_store::SecretStore;
 use std::path::{Path, PathBuf};
 
+#[path = "readiness_package.rs"]
+mod package;
+
 /// Environment lookup, injected so tests never touch the ambient environment.
 pub type EnvLookup<'a> = &'a dyn Fn(&str) -> Option<String>;
 
@@ -174,7 +177,7 @@ pub fn assess(config_path: &Path, env: EnvLookup<'_>, vault: Option<&SecretStore
         return Readiness { checks };
     };
 
-    checks.push(package_check(&config, config_path));
+    checks.extend(package::checks(&config, config_path));
     checks.extend(data_dir_check(&config, config_path));
 
     if config.providers.is_empty() {
@@ -244,7 +247,7 @@ fn is_hex_key(value: &str) -> bool {
 /// produces when a configuration captured the previous install's location, and
 /// a relative path is what a configuration written from another directory
 /// produces: it resolves against whatever the current directory happens to be.
-fn package_check(config: &Config, config_path: &Path) -> Check {
+pub(super) fn legacy_package_check(config: &Config, config_path: &Path) -> Check {
     let resolved = absolute(&config.lyra_dir);
     if resolved.is_dir() {
         return Check::pass(
@@ -284,7 +287,7 @@ fn package_check(config: &Config, config_path: &Path) -> Check {
 /// without this a bad `lyra_dir` boots cleanly and then denies every message
 /// with no hint about why.
 pub fn require_package(config: &Config, config_path: &Path) -> anyhow::Result<()> {
-    let check = package_check(config, config_path);
+    let check = legacy_package_check(config, config_path);
     if check.state == CheckState::Fail {
         anyhow::bail!("cannot start without the agent package: {}", check.detail);
     }

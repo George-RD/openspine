@@ -2,7 +2,7 @@
 // Pending mined skills can become installed context after an owner decision;
 // installed competence is configuration, not unfinished promotion work.
 fn skill_promotion_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
 ) -> Result<(i64, i64, i64), StoreError> {
     use openspine_schemas::skill::{SkillProvenance, SkillState};
     let mut statement = tx.prepare("SELECT state, schema_version, provenance, version FROM skills")?;

@@ -203,7 +203,7 @@ impl Store {
     /// The committed selection projection, or `None` in legacy mode. Callers
     /// that start the runtime must have run `validate_package_selection`.
     pub(crate) fn package_selection(&self) -> Result<Option<SelectionRecord>, StoreError> {
-        self.with_deferred_read(|tx| selection_conn(tx))
+        self.with_deferred_read(selection_conn)
     }
 
     /// Managed startup never refreshes an acceptance epoch: an owner-accepted

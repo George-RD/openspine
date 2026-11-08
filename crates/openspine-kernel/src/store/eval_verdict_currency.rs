@@ -83,8 +83,7 @@ impl Store {
                 }
             }
         }
-        let managed =
-            self.with_deferred_read(|tx| super::package_selection::is_managed_conn(tx))?;
+        let managed = self.with_deferred_read(super::package_selection::is_managed_conn)?;
         push_unbound_axis(managed, &verdicts, &mut stale_axes);
         if stale_axes.is_empty() {
             return Ok(());

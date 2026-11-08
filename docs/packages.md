@@ -76,9 +76,25 @@ Validation failures exit nonzero and produce `schema_version: 1`, `valid: false`
 `provenance: "local-unverified"` and an `error` with a stable `code` and bounded
 `message`. Invalid command-line syntax remains a normal CLI usage error.
 
-## Not shipped by inspection
+## From inspection to a running selected package
 
-Inactive installation and audit receipts are tracked separately in #275. Package
-selection/activation, remote fetch and publisher signature verification are not
-implemented by this command. The existing `lyra_dir` runtime path remains
-unchanged. Inspection alone does not complete installation epic #117.
+Inspection, [inactive installation](package-installation.md), and
+[owner-reviewed selection](package-selection.md) are separate operations.
+Use exact installation IDs from receipts, never `use lyra` or a revision alias.
+The supported runtime entry points remain `openspine chat` and the normal
+`openspine` service; there is no separate `run` command.
+
+The supported flow is `openspine install lyra`, then
+`openspine use <installation-id>`, then normal `openspine chat` or service startup.
+`openspine setup --check` distinguishes legacy base, inactive candidates and
+committed selection. Its package check acquires no lifetime lock: it copies
+verified ledger evidence from a short read-only snapshot, closes it, then checks
+the same retained bytes and typed validation as startup. The command's separate
+vault opener takes the lifetime lock when free, or degrades to `Locked` while
+the service runs. Database contention is a retryable `database-busy` diagnosis.
+Missing/incompatible managed selections never fall back to a legacy source.
+
+The local selection/recovery tranche of installation epic #117 is implemented.
+Signed/version-pinned distribution, remote fetching, cross-product data migration
+and live Bell integration remain unfinished. Local provenance is not publisher
+authentication.

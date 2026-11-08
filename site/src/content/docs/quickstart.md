@@ -76,4 +76,43 @@ Send a direct message to your bot from the configured owner account:
 - `/draft <thread_id>` reads only the selected Gmail thread and prepares a reply. Telegram shows the exact text for approval before Gmail receives a draft. Email sending remains denied.
 - `/propose <kind>` followed by YAML proposes a new rule, route, or policy. It stays inactive until you approve the exact text.
 
-`openspine init` collapses local first-run into one command ([issue #118](https://github.com/George-RD/openspine/issues/118)); the remaining Docker/Telegram/Gmail setup and the intended package-level install and run flow are tracked in [issue #117](https://github.com/George-RD/openspine/issues/117).
+## Select the package used at next startup
+
+For an initialized instance, stop the service before package maintenance:
+
+```sh
+openspine install lyra --json
+openspine setup --check
+openspine package review "$INSTALLATION_ID" --json
+openspine use "$INSTALLATION_ID"
+openspine setup --check
+openspine chat --once "Hello again"
+```
+
+Use the exact installation ID in the receipt and type the displayed
+`select <installation-id>` phrase. Installation does not select or grant
+permissions. A completed chat grant normally lasts 120 seconds; wait for it and
+resolve other durable work normally before selecting. Never clear an unknown
+external-effect fence to force a switch.
+
+Readiness reports the legacy configured base, installed-inactive candidates or
+the committed selection with exact identity and local provenance (not publisher
+authentication). The package check copies a short read-only snapshot, closes it
+before object I/O and takes no lifetime lock. The command's vault opener takes the
+lock when free or degrades to `Locked` alongside the service. Database contention
+reports `database-busy`: retry. Missing, corrupt or incompatible selections fail
+closed; managed mode ignores `lyra_dir` even if the old source disappears.
+
+Selection trusts the account controlling owner-only local state, accepts only
+the same product and applies at next normal startup—no hot reload or separate
+`run` engine. An epoch change requires ordinary learned-artifact reconfirmation
+and standing-rule review. Reviewed recovery is `openspine use "$EARLIER_INSTALLATION_ID"`,
+never an older database restore or manual `lyra_dir` edit; later revocations,
+pauses, erasures, approvals and budget history remain.
+
+The local installation/selection/readiness path of
+[epic #117](https://github.com/George-RD/openspine/issues/117) is shipped.
+Signed/version-pinned distribution, remote fetch, cross-product migration and
+Bell integration remain unfinished. See the
+[operator guide](https://github.com/George-RD/openspine/blob/main/docs/package-installation.md#operator-flow-and-readiness)
+for bootstrap prerequisites, service locks, grant TTLs and recovery boundaries.

@@ -8,12 +8,30 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+// Reuse production descriptor data without compiling unrelated kernel unit tests.
+#[path = "../src/action_catalog_data.rs"]
+mod action_catalog_data;
+mod action_catalog {
+    pub(super) fn canonical_catalog() -> openspine_schemas::action::ActionCatalog {
+        let declarations = super::action_catalog_data::egress_declarations();
+        openspine_schemas::action::ActionCatalog::new(
+            declarations.iter().map(|(action, _)| action.clone()),
+        )
+        .with_egress_declarations(declarations)
+        .with_delegation_descriptors(super::action_catalog_data::delegation_descriptors())
+        .with_implementation_descriptors(super::action_catalog_data::implementation_descriptors())
+    }
+}
 #[path = "package_use/first_boot.rs"]
 mod first_boot;
 #[path = "package_use/helpers.rs"]
 mod helpers;
 #[path = "package_use/pty.rs"]
 mod pty;
+#[path = "package_use/readiness.rs"]
+mod readiness;
+#[path = "package_use/rollback.rs"]
+mod rollback;
 #[path = "package_review/support.rs"]
 mod support;
 use helpers::*;
@@ -239,18 +257,22 @@ fn a_state_change_after_consent_makes_the_review_stale() {
     let mut session = pty::Session::spawn(command);
     session.wait_for(PROMPT);
     session.send_line(&format!("select {target}"));
-    let ready = barrier.path().join("use-after-consent.ready");
-    while !ready.exists() {
-        std::thread::sleep(std::time::Duration::from_millis(20));
+    // Production builds ignore the pause hook; waiting for it there would
+    // hang the release fixture rather than prove that it cannot be enabled.
+    if cfg!(debug_assertions) {
+        let ready = barrier.path().join("use-after-consent.ready");
+        while !ready.exists() {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        // The owner state moves after the plan was displayed and consented to.
+        db(&fixture)
+            .execute(
+                "INSERT INTO kv_state (key, value) VALUES ('changed.after.consent', '1')",
+                [],
+            )
+            .unwrap();
+        fs::write(barrier.path().join("use-after-consent.release"), b"").unwrap();
     }
-    // The owner state moves after the plan was displayed and consented to.
-    db(&fixture)
-        .execute(
-            "INSERT INTO kv_state (key, value) VALUES ('changed.after.consent', '1')",
-            [],
-        )
-        .unwrap();
-    fs::write(barrier.path().join("use-after-consent.release"), b"").unwrap();
     let finished = session.finish();
     if cfg!(debug_assertions) {
         assert_ne!(finished.code, Some(0), "{}", finished.output);
@@ -267,6 +289,9 @@ fn a_state_change_after_consent_makes_the_review_stale() {
             ),
             0
         );
+    } else {
+        assert_eq!(finished.code, Some(0), "{}", finished.output);
+        assert_eq!(selection(&fixture).unwrap().0, 1);
     }
 }
 
@@ -306,14 +331,23 @@ fn crashes_on_either_side_of_the_commit_leave_the_old_selection_never_a_mixed_ba
             );
             // The ledger still validates and a clean retry commits generation 1.
             assert_success(&fixture.run(&["package", "list", "--json"]));
+            let retried = select(&fixture, &target);
+            assert_eq!(retried.code, Some(0), "{point}: {}", retried.output);
+            assert_eq!(selection(&fixture).unwrap().0, 1);
         } else {
             // Release builds never honor the debug fault hooks.
             assert_eq!(crashed.code, Some(0), "{point}: {}", crashed.output);
-        }
-        let retried = select(&fixture, &target);
-        if cfg!(debug_assertions) {
-            assert_eq!(retried.code, Some(0), "{point}: {}", retried.output);
             assert_eq!(selection(&fixture).unwrap().0, 1);
+            let rows = database_rows(&fixture);
+            let reselected = pty::Session::spawn(fixture.command(&["use", &target])).finish();
+            assert_ne!(reselected.code, Some(0), "{point}: {}", reselected.output);
+            assert!(
+                reselected.output.contains("candidate-already-selected"),
+                "{point}: {}",
+                reselected.output
+            );
+            assert!(!reselected.output.contains(PROMPT));
+            assert_eq!(database_rows(&fixture), rows);
         }
     }
 }

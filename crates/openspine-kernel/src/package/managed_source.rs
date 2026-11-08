@@ -2,7 +2,10 @@
 //!
 //! This never consults the legacy configured directory, the bundled package,
 //! an earlier revision or an unindexed object: any failure leaves the runtime
-//! unavailable. Callers hold the data-root lifetime lock.
+//! unavailable. Serving and selection callers hold the data-root lifetime lock.
+//! Readiness copies validated selection evidence in a short read-only SQLite
+//! snapshot, closes it, then uses the same object-capture validator below.
+//! Its point-in-time result is never a startup authorization.
 use super::install_types::InstallReceipt;
 use super::object_store::PackageObjectReader;
 use super::selection_types::SelectionRecord;
@@ -45,8 +48,20 @@ pub(crate) fn resolve(
     else {
         return Ok(None);
     };
-    // Opened only for a selection: legacy instances may have no package
-    // namespace, and a reader never creates one.
+    let snapshot = capture_selected(&receipt, data_root)?;
+    Ok(Some(ManagedBase {
+        record,
+        receipt,
+        snapshot,
+    }))
+}
+
+/// Validate the exact retained identity after ledger evidence has been captured.
+/// Serving callers hold the lifetime lock; diagnostics hold no database lock.
+pub(crate) fn capture_selected(
+    receipt: &InstallReceipt,
+    data_root: &Path,
+) -> Result<PackageSnapshot, ManagedBaseError> {
     let reader =
         PackageObjectReader::open(data_root).map_err(|_| ManagedBaseError::ObjectCorrupt)?;
     let captured = reader
@@ -58,11 +73,7 @@ pub(crate) fn resolve(
     if snapshot.identity() != receipt.identity() {
         return Err(ManagedBaseError::ObjectCorrupt);
     }
-    Ok(Some(ManagedBase {
-        record,
-        receipt,
-        snapshot,
-    }))
+    Ok(snapshot)
 }
 
 #[cfg(test)]

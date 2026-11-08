@@ -334,6 +334,51 @@ mod package_selection_resume_tests;
 #[cfg(test)]
 mod package_selection_tests;
 
+/// Validated point-in-time package evidence. No live connection or read lock
+/// escapes the capture, so retained-object I/O cannot stall runtime commits.
+pub(crate) struct ReadinessStore {
+    pub selected: Option<(
+        crate::package::selection_types::SelectionRecord,
+        crate::package::install_types::InstallReceipt,
+    )>,
+    pub installations: Vec<crate::package::install_types::InstallReceipt>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ReadinessStoreError {
+    #[error("ledger-unavailable: cannot verify the existing kernel ledger")]
+    Unavailable,
+    #[error("ledger-schema-unavailable: this ledger needs runtime schema migration or a matching runtime")]
+    Schema,
+    #[error("selection-ledger-invalid: audit or package selection replay failed")]
+    Integrity,
+    #[error("database-busy: the kernel database is busy; retry readiness shortly")]
+    Busy,
+}
+
+impl ReadinessStoreError {
+    fn sqlite(error: rusqlite::Error, fallback: Self) -> Self {
+        match error {
+            rusqlite::Error::SqliteFailure(error, _)
+                if matches!(
+                    error.code,
+                    rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+                ) =>
+            {
+                Self::Busy
+            }
+            _ => fallback,
+        }
+    }
+
+    fn store(error: StoreError, fallback: Self) -> Self {
+        match error {
+            StoreError::Sqlite(error) => Self::sqlite(error, fallback),
+            _ => fallback,
+        }
+    }
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         if let Some(parent) = path.parent() {
@@ -367,6 +412,66 @@ impl Store {
         Ok(store)
     }
 
+    /// Capture package evidence in one read-only snapshot, then close it before
+    /// returning. No lifetime lock, bootstrap, migration, recovery or sweep.
+    pub(crate) fn open_for_readiness(path: &Path) -> Result<ReadinessStore, ReadinessStoreError> {
+        use ReadinessStoreError as Error;
+        let metadata = std::fs::symlink_metadata(path).map_err(|_| Error::Unavailable)?;
+        if !metadata.is_file() || metadata.file_type().is_symlink() {
+            return Err(Error::Unavailable);
+        }
+        let conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+                | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+                | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )
+        .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        conn.busy_timeout(std::time::Duration::from_secs(1))
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        conn.execute_batch("BEGIN DEFERRED")
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        if migrations::read_user_version(&conn)
+            .map_err(|error| Error::store(error, Error::Schema))?
+            != migrations::latest_user_version()
+        {
+            return Err(Error::Schema);
+        }
+        // Additive schema changes can share a user_version. Preparing these
+        // reads detects an unmigrated schema without executing a write.
+        for sql in [
+            "SELECT generation, installation_id, invalidation_generation FROM package_selection LIMIT 0",
+            "SELECT generation, installation_id, invalidation_generation, decision_id, audit_seq FROM package_selection_history LIMIT 0",
+            "SELECT decision_id, expected_generation, payload_json, presented_audit_seq, state FROM package_selection_decisions LIMIT 0",
+            "SELECT package_id, revision, content_digest, installation_id, audit_seq FROM installed_packages LIMIT 0",
+            "SELECT seq, id, kind, event_json, prev_hash, hash, meta_json, aggregate_id, aggregate_seq FROM audit_log LIMIT 0",
+            "SELECT key, value FROM boot_meta LIMIT 0",
+        ] {
+            conn.prepare(sql).map_err(|error| Error::sqlite(error, Error::Schema))?;
+        }
+        let store = Self::wrap_connection(conn);
+        // Includes audit chain and event projection replay, installation
+        // receipts, clock sanity and the sticky selection projection.
+        store
+            .validate_package_ledger()
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        let selected = store
+            .selected_package()
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        let installations = store
+            .installed_packages()
+            .map_err(|error| Error::store(error, Error::Integrity))?;
+        store
+            .conn
+            .lock()
+            .execute_batch("ROLLBACK")
+            .map_err(|error| Error::sqlite(error, Error::Unavailable))?;
+        Ok(ReadinessStore {
+            selected,
+            installations,
+        })
+    }
+
     pub fn open_in_memory() -> Result<Self, StoreError> {
         Self::from_connection(Connection::open_in_memory()?)
     }
@@ -375,7 +480,11 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         migrations::apply_versioned_migrations(&mut conn)?;
         nerve_schema::ensure_schema(&conn)?;
-        Ok(Self {
+        Ok(Self::wrap_connection(conn))
+    }
+
+    fn wrap_connection(conn: Connection) -> Self {
+        Self {
             conn: Arc::new(Mutex::new(conn)),
             #[cfg(test)]
             activation_tx_failure: Arc::new(AtomicBool::new(false)),
@@ -387,7 +496,7 @@ impl Store {
             fail_next_standing_rule_remaining: Arc::new(AtomicBool::new(false)),
             fail_next_effective_allow_audit: Arc::new(AtomicBool::new(false)),
             fail_next_reservation_cancel: Arc::new(AtomicBool::new(false)),
-        })
+        }
     }
 
     /// Run `f` inside a single `BEGIN IMMEDIATE` write transaction, committing
@@ -444,9 +553,15 @@ impl Store {
     /// read writes nothing, so there is nothing to commit.
     pub(crate) fn with_deferred_read<T>(
         &self,
-        f: impl FnOnce(&Transaction) -> Result<T, StoreError>,
+        f: impl FnOnce(&Connection) -> Result<T, StoreError>,
     ) -> Result<T, StoreError> {
         let mut conn = self.conn.lock();
+        // Only SQLite's read-only diagnostic snapshot may be reused. A
+        // writable nested transaction still fails rather than weakening the
+        // ordinary transaction boundary.
+        if conn.is_readonly("main")? && !conn.is_autocommit() {
+            return f(&conn);
+        }
         let tx = conn.transaction_with_behavior(TransactionBehavior::Deferred)?;
         f(&tx)
     }

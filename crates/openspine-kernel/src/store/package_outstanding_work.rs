@@ -162,7 +162,7 @@ impl Store {
 }
 
 fn source_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     source: OutstandingWorkSource,
     as_of: Timestamp,
     as_of_nanos: i64,
@@ -317,7 +317,7 @@ fn source_counts(
 // Runtime lookups hydrate grant_json, not the expiry index. The same parser
 // protects both the grant census and approval expiry from inconsistent rows.
 fn task_grant_counts(
-    tx: &rusqlite::Transaction<'_>,
+    tx: &rusqlite::Connection,
     as_of: Timestamp,
 ) -> Result<(i64, i64, i64), StoreError> {
     let mut statement = tx.prepare("SELECT id, expires_at, grant_json FROM task_grants")?;
