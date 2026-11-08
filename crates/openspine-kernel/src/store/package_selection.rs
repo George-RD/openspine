@@ -217,13 +217,37 @@ impl Store {
         epoch: &str,
     ) -> Result<bool, StoreError> {
         self.with_immediate_tx(|tx| {
-            Ok(tx.execute(
+            let changed = tx.execute(
                 "UPDATE learned_artifacts SET compatibility = 'reconfirmation_required'
                  WHERE kind = ?1 AND artifact_id = ?2 AND version = ?3
                    AND compatibility = 'owner_accepted'
                    AND (accepted_base_epoch IS NULL OR accepted_base_epoch != ?4)",
                 params![kind, artifact_id, version, epoch],
-            )? == 1)
+            )? == 1;
+            if changed {
+                let record =
+                    selection_conn(tx)?.ok_or_else(|| refuse(SelectionRefusal::SourceChanged))?;
+                let payload = serde_json::to_string(&serde_json::json!({
+                    "kind": kind,
+                    "artifact_id": artifact_id,
+                    "version": version,
+                    "base_epoch": epoch,
+                    "invalidation_generation": record.invalidation_generation,
+                }))?;
+                Store::append_audit_conn_with_options(
+                    tx,
+                    "artifact.package_epoch_reconfirmation_required",
+                    None,
+                    None,
+                    Some("Managed package epoch requires ordinary owner reconfirmation."),
+                    None,
+                    &[],
+                    &[],
+                    None,
+                    Some(&payload),
+                )?;
+            }
+            Ok(changed)
         })
     }
 

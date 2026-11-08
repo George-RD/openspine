@@ -320,7 +320,6 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     }
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
-    cli::readiness::require_package(&cfg, &cli.config)?;
 
     let artifact_key = config::artifact_key_bytes()?;
     // Acquire the exclusive data-root lifetime lock and process any pending
@@ -385,7 +384,7 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // A committed package selection is authoritative. Resolve and validate it
     // here, before owner/overlay writes and long before any ingress, model,
     // worker or timer starts; failure never falls back to `lyra_dir`.
-    let base = managed_startup::startup_base(&store, &data_root, &cfg.lyra_dir)
+    let base = managed_startup::base_for_run(&store, &data_root, &cfg, &cli.config)
         .context("resolving the base package")?;
     // Bootstrap only after audit verification so a broken chain leaves the
     // database and audit trail untouched.

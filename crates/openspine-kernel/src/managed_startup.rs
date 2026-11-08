@@ -8,6 +8,20 @@ use anyhow::Context as _;
 use crate::overlay_startup::BaseSource;
 use crate::store::Store;
 
+/// The runtime entry's readiness gate and base capture share one mode decision.
+pub(crate) fn base_for_run<'a>(
+    store: &Store,
+    data_root: &Path,
+    config: &'a crate::config::Config,
+    config_path: &Path,
+) -> anyhow::Result<BaseSource<'a>> {
+    let base = startup_base(store, data_root, &config.lyra_dir)?;
+    if matches!(&base, BaseSource::Legacy(_)) {
+        crate::cli::readiness::require_package(config, config_path)?;
+    }
+    Ok(base)
+}
+
 /// Resolve the effective base. A corrupt, missing or incompatible managed
 /// selection is an error: never the legacy directory, the bundled package, an
 /// earlier revision or an unindexed object.

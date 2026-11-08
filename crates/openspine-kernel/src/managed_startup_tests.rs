@@ -215,3 +215,80 @@ fn managed_startup_never_refreshes_an_acceptance_epoch_past_the_base_it_binds() 
         .iter()
         .any(|route| route.id == "bound-here"));
 }
+
+#[test]
+fn run_readiness_uses_the_managed_base_after_legacy_directory_disappears() {
+    let fixture = Fixture::new();
+    let source = variant(fixture.root.path(), 3);
+    let receipt = fixture.install(&source);
+    fixture.select(&receipt);
+    fs::remove_dir_all(&source).unwrap();
+    let config_path = fixture.root.path().join("openspine.yaml");
+    let mut config = crate::cli::starter::StarterConfig::defaults(&config_path, 123).to_config();
+    config.lyra_dir = source;
+    let base = super::base_for_run(&fixture.store, &fixture.data, &config, &config_path).unwrap();
+    let startup =
+        load_with_base(base, &fixture.data, &fixture.store, &artifacts(&fixture)).unwrap();
+    assert!(startup.registry.templates["owner_terminal_template"]
+        .system_preamble
+        .starts_with(MARKER));
+}
+
+#[test]
+fn managed_epoch_demotions_are_audited_once_and_rollback_if_audit_fails() {
+    let fixture = Fixture::new();
+    let receipt = fixture.install(&variant(fixture.root.path(), 3));
+    let now = jiff::Timestamp::now();
+    let mut decision =
+        crate::store::package_selection_fixtures::decision(&fixture.store, &receipt, now);
+    decision.base_epoch_changed = true;
+    fixture
+        .store
+        .record_package_selection_decision(&decision, now)
+        .unwrap();
+    fixture
+        .store
+        .commit_package_selection(&decision, now)
+        .unwrap();
+    accepted(&fixture, "stale-audit", "older-epoch");
+    fixture.store.with_conn_for_test(|conn| {
+        conn.execute_batch(
+            "CREATE TRIGGER refuse_epoch_audit BEFORE INSERT ON audit_log
+         WHEN NEW.kind = 'artifact.package_epoch_reconfirmation_required'
+         BEGIN SELECT RAISE(ABORT, 'test audit failure'); END;",
+        )
+        .unwrap()
+    });
+    assert!(fixture
+        .store
+        .require_reconfirmation_for_stale_epoch("route", "stale-audit", 1, "current")
+        .is_err());
+    assert_eq!(
+        state(&fixture, "stale-audit").0,
+        CompatibilityStatus::OwnerAccepted
+    );
+    fixture.store.with_conn_for_test(|conn| {
+        conn.execute_batch("DROP TRIGGER refuse_epoch_audit")
+            .unwrap()
+    });
+    assert!(fixture
+        .store
+        .require_reconfirmation_for_stale_epoch("route", "stale-audit", 1, "current")
+        .unwrap());
+    assert!(!fixture
+        .store
+        .require_reconfirmation_for_stale_epoch("route", "stale-audit", 1, "current")
+        .unwrap());
+    let payload: String = fixture.store.with_deferred_read(|tx| Ok(tx.query_row(
+        "SELECT meta_json FROM audit_log WHERE kind = 'artifact.package_epoch_reconfirmation_required'", [],
+        |row| row.get(0),
+    )?)).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
+    let value: serde_json::Value =
+        serde_json::from_str(value["payload_json"].as_str().unwrap()).unwrap();
+    assert_eq!(value["kind"], "route");
+    assert_eq!(value["artifact_id"], "stale-audit");
+    assert_eq!(value["version"], 1);
+    assert_eq!(value["invalidation_generation"], 1);
+    assert!(fixture.store.verify_audit_chain().unwrap());
+}
