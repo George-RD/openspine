@@ -98,6 +98,12 @@ history. Review does not grant reconfirmation, materialize seeds, repair missing
 committed overlay files or recover interrupted installations. It also leaves
 pending key erasure/publication evidence untouched.
 
+In managed mode, runtime readiness and explicit `init` seed acceptance use the
+ledger-selected retained base, not the obsolete `lyra_dir`. A removed legacy
+directory does not block managed startup. Managed epoch demotions append
+`artifact.package_epoch_reconfirmation_required` in the same transaction as each
+changed learned row, recording its identity and selection invalidation generation.
+
 `package compare` remains a separate retained-integrity operation. It does not
 need loader staging and does not establish current compatibility. If temporary
 storage is unavailable, comparison can still succeed while review cannot finish.

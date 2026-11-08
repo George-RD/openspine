@@ -412,3 +412,44 @@ async fn accepted_customer_service_seed_cannot_compose_without_its_agent_and_pac
 
 #[path = "seed_workflows_deletion_tests.rs"]
 mod deletion_tests;
+
+#[test]
+fn init_under_selection_accepts_seeds_against_the_managed_epoch() {
+    use crate::package::managed_source::tests::{variant, Fixture as ManagedFixture};
+    let fixture = ManagedFixture::new();
+    let source = variant(fixture.root.path(), 3);
+    let receipt = fixture.install(&source);
+    fixture.select(&receipt);
+    std::fs::remove_dir_all(&source).unwrap();
+    let owner = crate::identity::bootstrap_owner_principal(&fixture.store, 123, "Owner").unwrap();
+    let artifacts = ArtifactStore::open(fixture.data.join("artifacts"), [3; 32]).unwrap();
+    assert_eq!(
+        accept_for_instance(
+            &fixture.store,
+            &artifacts,
+            &fixture.data,
+            &source,
+            owner.principal_id
+        )
+        .unwrap(),
+        4
+    );
+    let selected = crate::package::managed_source::resolve(&fixture.store, &fixture.data)
+        .unwrap()
+        .unwrap();
+    let registry = selected.snapshot.registry();
+    let epoch = crate::overlay_compat::compatibility_epoch(
+        registry,
+        &artifact_loader::artifact_identity_pairs(registry),
+    );
+    for row in fixture.store.list_learned_artifacts().unwrap() {
+        assert_eq!(row.accepted_base_epoch.as_deref(), Some(epoch.as_str()));
+    }
+    let base =
+        crate::managed_startup::startup_base(&fixture.store, &fixture.data, &source).unwrap();
+    let started =
+        crate::overlay_startup::load_with_base(base, &fixture.data, &fixture.store, &artifacts)
+            .unwrap();
+    assert!(started.pending_reconfirm_buttons.is_empty());
+    assert_eq!(fixture.store.count_action_requests().unwrap(), 0);
+}

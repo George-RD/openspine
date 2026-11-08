@@ -114,7 +114,10 @@ fn capture_uses_the_configured_nondefault_base_and_owns_its_typed_state() {
 
     let captured =
         CapturedCurrentState::capture(&base, "lyra", &data_root, &store, &artifacts).unwrap();
-    assert_eq!(captured.base.configured_path, base);
+    assert_eq!(
+        captured.base.origin,
+        super::BaseOrigin::LegacyConfigured(base.clone())
+    );
     assert_eq!(captured.base.identity.package_id, "lyra");
     assert!(captured
         .base

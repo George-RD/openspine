@@ -49,14 +49,33 @@ pub(crate) fn accept_from_init(config: &crate::config::Config) -> anyhow::Result
         config.owner.telegram_user_id,
         &config.owner.display_name,
     )?;
-    let base = artifact_loader::load_base_registry(&config.lyra_dir)?;
-    accept_embedded(
+    accept_for_instance(
         &store,
         &artifacts,
-        &root.join("artifacts.d"),
-        &base,
+        root,
+        &config.lyra_dir,
         owner.principal_id,
     )
+}
+
+/// Shared init acceptance after owner and ledger verification.
+fn accept_for_instance(
+    store: &Store,
+    artifacts: &ArtifactStore,
+    root: &Path,
+    lyra_dir: &Path,
+    owner: PrincipalId,
+) -> anyhow::Result<usize> {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let base = match crate::package::managed_source::resolve(store, root)
+        .context("resolving the committed package for init seed acceptance")?
+    {
+        Some(selected) => selected.snapshot.registry().clone(),
+        None => artifact_loader::load_base_registry(lyra_dir)?,
+    };
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    let base = artifact_loader::load_base_registry(lyra_dir)?;
+    accept_embedded(store, artifacts, &root.join("artifacts.d"), &base, owner)
 }
 
 pub(super) fn accept_embedded(
