@@ -318,11 +318,28 @@ pub(super) fn openat_file_nofollow(
     Ok(file)
 }
 
-pub(super) fn try_lock_exclusive(file: &File, path: &Path) -> Result<(), ControlError> {
+/// Owns the flock, not merely a reference to its open file description.
+pub(super) struct LifetimeLock(File);
+
+impl Drop for LifetimeLock {
+    fn drop(&mut self) {
+        // CLOEXEC only closes after exec. A concurrent fork can still hold a
+        // duplicate when this guard drops; closing our fd alone would leave
+        // that child's shared flock alive. Unlock while our fd is still valid.
+        // Retry EINTR only; any other failure remains fail-closed until close.
+        while unsafe { flock(self.0.as_raw_fd(), libc::LOCK_UN) } != 0 {
+            if io::Error::last_os_error().kind() != io::ErrorKind::Interrupted {
+                break;
+            }
+        }
+    }
+}
+
+pub(super) fn try_lock_exclusive(file: File, path: &Path) -> Result<LifetimeLock, ControlError> {
     let fd = file.as_raw_fd();
     let res = unsafe { flock(fd, LOCK_EX | LOCK_NB) };
     if res == 0 {
-        Ok(())
+        Ok(LifetimeLock(file))
     } else {
         let err = io::Error::last_os_error();
         if err.kind() == io::ErrorKind::WouldBlock
