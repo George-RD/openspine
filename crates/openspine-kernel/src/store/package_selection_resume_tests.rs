@@ -24,7 +24,10 @@ fn paused_rule_across_epoch_change_requires_full_review_before_resume() {
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?)).unwrap();
     assert_eq!(before, ("paused".into(), Some(now.as_nanosecond() as i64)));
-    assert!(!store.resume_standing_rule("paused-selection", 1).unwrap());
+    assert_eq!(
+        store.resume_standing_rule("paused-selection", 1).unwrap(),
+        super::ResumeStandingRuleOutcome::RequiresReview
+    );
     assert!(!store
         .standing_rule_is_current("paused-selection", 1)
         .unwrap());
@@ -81,7 +84,14 @@ fn revoked_and_expired_paused_rules_cannot_resume_after_selection() {
             .record_package_selection_decision(&changing, now)
             .unwrap();
         store.commit_package_selection(&changing, now).unwrap();
-        assert!(!store.resume_standing_rule("terminal-selection", 1).unwrap());
+        assert_eq!(
+            store.resume_standing_rule("terminal-selection", 1).unwrap(),
+            if revoked {
+                super::ResumeStandingRuleOutcome::NotPaused
+            } else {
+                super::ResumeStandingRuleOutcome::RequiresReview
+            }
+        );
         assert!(!store
             .standing_rule_is_current("terminal-selection", 1)
             .unwrap());

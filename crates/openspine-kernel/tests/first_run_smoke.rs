@@ -241,6 +241,50 @@ fn chat_with_a_missing_package_directory_fails_non_zero_and_names_it() {
     );
 }
 
+#[test]
+fn legacy_missing_package_refuses_before_creating_a_data_root_or_reading_keys() {
+    let dir = tempfile::tempdir().unwrap();
+    assert!(
+        run(dir.path(), &["init", "--owner", OWNER_ID, "--model", "m"])
+            .status
+            .success()
+    );
+    let config = dir.path().join("openspine.yaml");
+    let root = dir.path().join("untouched-data");
+    let text = std::fs::read_to_string(&config).unwrap();
+    let text = text
+        .lines()
+        .map(|line| {
+            if line.starts_with("lyra_dir:") {
+                format!("lyra_dir: {}", dir.path().join("missing-package").display())
+            } else if line.starts_with("data_dir:") {
+                format!("data_dir: {}", root.display())
+            } else {
+                line.to_owned()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::write(config, text).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_openspine"))
+        .current_dir(dir.path())
+        .env("OPENSPINE_ARTIFACT_KEY", "invalid")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success());
+    assert!(stderr.contains("agent package"), "{stderr}");
+    assert!(
+        stderr.contains("cannot start without the agent package"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("missing-package"), "{stderr}");
+    assert!(
+        !root.exists(),
+        "legacy refusal must not create the data root"
+    );
+}
+
 /// Bare `openspine` is the Telegram server. Its missing-token error must name
 /// the token and the token-free alternative, not point at `setup`, which never
 /// asks for one.

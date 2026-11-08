@@ -89,8 +89,8 @@ pub(crate) struct SelectionCommitted {
     pub generation: u64,
     pub invalidation_generation: u64,
     pub decision: SelectionDecision,
-    /// Runtime standing rules this transition moved from `active` to
-    /// `needs_review` (sorted); empty unless the base epoch changed.
+    /// Affected standing-rule IDs (sorted): active rules moved to `needs_review`
+    /// and paused rules marked for review on resume; empty unless the base epoch changed.
     pub rules_needing_review: Vec<String>,
 }
 

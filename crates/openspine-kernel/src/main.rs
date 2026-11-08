@@ -326,6 +326,15 @@ async fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     }
     let cfg = config::Config::load(&cli.config)
         .with_context(|| format!("loading {}", cli.config.display()))?;
+    // Only an absent namespace proves legacy mode without opening writable
+    // state. Existing entries defer to the authoritative managed resolver.
+    match std::fs::symlink_metadata(cfg.data_dir.join("packages")) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            cli::readiness::require_package(&cfg, &cli.config)?;
+        }
+        Ok(_) => {}
+        Err(error) => return Err(error).context("inspecting the package namespace"),
+    }
 
     let artifact_key = config::artifact_key_bytes()?;
     // Acquire the exclusive data-root lifetime lock and process any pending

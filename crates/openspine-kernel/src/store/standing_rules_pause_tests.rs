@@ -76,12 +76,18 @@ fn pause_removes_rule_from_live_consultation_and_resume_restores_it() {
         PauseStandingRuleOutcome::AlreadyPaused
     ));
     // Resume restores it.
-    assert!(store.resume_standing_rule("rule-pause-resume", 1).unwrap());
+    assert_eq!(
+        store.resume_standing_rule("rule-pause-resume", 1).unwrap(),
+        super::ResumeStandingRuleOutcome::Resumed
+    );
     assert!(store
         .standing_rule_is_current("rule-pause-resume", 1)
         .unwrap());
     // Resuming again is a safe no-op.
-    assert!(!store.resume_standing_rule("rule-pause-resume", 1).unwrap());
+    assert_eq!(
+        store.resume_standing_rule("rule-pause-resume", 1).unwrap(),
+        super::ResumeStandingRuleOutcome::NotPaused
+    );
 }
 
 #[test]

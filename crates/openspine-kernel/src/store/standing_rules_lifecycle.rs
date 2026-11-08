@@ -5,6 +5,13 @@ use rusqlite::{params, OptionalExtension};
 
 use super::{standing_rules::timestamp_to_epoch_nanos, Store, StoreError};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResumeStandingRuleOutcome {
+    Resumed,
+    RequiresReview,
+    NotPaused,
+}
+
 impl Store {
     /// Revoke a standing rule, making it invisible to gate consultation.
     /// Repeating the transition or naming an unknown rule returns `Ok(false)`.
@@ -105,7 +112,11 @@ impl Store {
 
     /// Resume an exactly versioned paused rule after caller-side revalidation.
     /// A durable package-epoch invalidation requires full review, not resume.
-    pub fn resume_standing_rule(&self, rule_id: &str, version: u32) -> Result<bool, StoreError> {
+    pub fn resume_standing_rule(
+        &self,
+        rule_id: &str,
+        version: u32,
+    ) -> Result<ResumeStandingRuleOutcome, StoreError> {
         self.with_immediate_tx(|tx| {
             let needs_review = tx.execute(
                 "UPDATE standing_rules SET status = 'needs_review'
@@ -124,7 +135,7 @@ impl Store {
                     &[],
                     &[],
                 )?;
-                return Ok(false);
+                return Ok(ResumeStandingRuleOutcome::RequiresReview);
             }
             let changed = tx.execute(
                 "UPDATE standing_rules SET status = 'active' \
@@ -143,7 +154,11 @@ impl Store {
                     &[],
                 )?;
             }
-            Ok(changed == 1)
+            Ok(if changed == 1 {
+                ResumeStandingRuleOutcome::Resumed
+            } else {
+                ResumeStandingRuleOutcome::NotPaused
+            })
         })
     }
 
