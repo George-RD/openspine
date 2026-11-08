@@ -25,6 +25,7 @@ use super::AppState;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ResumeRefusal {
     NotPaused,
+    RequiresReview,
     Expired,
     Superseded,
     ScopeDrift,
@@ -36,11 +37,19 @@ impl ResumeRefusal {
     pub(crate) fn audit_kind(self) -> &'static str {
         match self {
             ResumeRefusal::NotPaused => "standing_rule.resume_refused_not_paused",
+            ResumeRefusal::RequiresReview => "standing_rule.resume_requires_review",
             ResumeRefusal::Expired => "standing_rule.resume_refused_expired",
             ResumeRefusal::Superseded => "standing_rule.resume_refused_superseded",
             ResumeRefusal::ScopeDrift => "standing_rule.resume_refused_scope_drift",
             ResumeRefusal::Unavailable => "standing_rule.resume_refused_unavailable",
             ResumeRefusal::InvalidScope => "standing_rule.resume_refused_invalid_scope",
+        }
+    }
+
+    pub(crate) fn owner_detail(self) -> &'static str {
+        match self {
+            Self::RequiresReview => "standing rule requires full owner review after a package compatibility change; resume cannot reactivate it",
+            _ => self.audit_kind(),
         }
     }
 }
@@ -162,8 +171,15 @@ pub(crate) fn resume_standing_rule_revalidated(
     }
 
     // 8. All checks passed: atomically flip the status and write the audit.
-    if state.store.resume_standing_rule(rule_id, version)? {
-        return Ok(ResumeOutcome::Resumed);
+    match state.store.resume_standing_rule(rule_id, version)? {
+        crate::store::ResumeStandingRuleOutcome::Resumed => {
+            return Ok(ResumeOutcome::Resumed);
+        }
+        crate::store::ResumeStandingRuleOutcome::RequiresReview => {
+            // The store already paired this transition with its accurate audit.
+            return Ok(ResumeOutcome::Refused(ResumeRefusal::RequiresReview));
+        }
+        crate::store::ResumeStandingRuleOutcome::NotPaused => {}
     }
     if state.store.standing_rule_is_current(rule_id, version)? {
         return Ok(ResumeOutcome::AlreadyActive);

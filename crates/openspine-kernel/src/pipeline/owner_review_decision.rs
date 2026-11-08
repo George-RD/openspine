@@ -1054,7 +1054,7 @@ fn commit_lifecycle(
                 ResumeOutcome::AlreadyActive => true,
                 ResumeOutcome::Refused(reason) => {
                     return Err(OwnerReviewDecisionError::LifecycleRefused(
-                        reason.audit_kind().into(),
+                        reason.owner_detail().into(),
                     ));
                 }
             }

@@ -65,6 +65,11 @@ the ledger. A corrupt, missing, linked, tampered or now-incompatible selected ob
 a tampered selection ledger, stops startup. It never falls back to `lyra_dir`, the
 bundled package, an earlier revision or an unindexed object.
 
+Before a package namespace exists, a missing legacy `lyra_dir` is refused before
+reading the artifact key, taking the lifetime lock or writing the data root.
+Once the namespace exists, startup defers to the managed resolver instead of
+using the legacy path as a prerequisite.
+
 `package list` marks the selected installation (`selected: true`,
 `status: selected-at-next-start`); nothing is live-activated. `package review` and `use`
 treat a managed selection as the current source (`source.mode: managed`) without opening
@@ -95,6 +100,10 @@ moves to `needs_review`; paused rules retain their pause but are marked for full
 on resume. Their open exceptions go stale and affected rule IDs are recorded in the
 audit payload. Resume cannot clear that marker or reactivate a revoked rule. Consent
 here supplies none of that reconfirmation.
+When a marked paused rule reaches the resume transition, it moves to `needs_review`
+with one `standing_rule.resume_requires_review` audit event. The owner is told that
+full owner review is required after the package compatibility change; this is not
+a “not paused” refusal or a successful resume.
 
 ## Failure and refusal reference
 

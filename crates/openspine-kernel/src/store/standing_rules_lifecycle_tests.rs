@@ -48,9 +48,12 @@ fn new_version_supersedes_a_paused_rule() {
     let mut v2 = v1.clone();
     v2.version = 2;
     store.activate_standing_rule(&v2, None, now).unwrap();
-    assert!(!store
-        .resume_standing_rule("rule-supersede-paused", 1)
-        .unwrap());
+    assert_eq!(
+        store
+            .resume_standing_rule("rule-supersede-paused", 1)
+            .unwrap(),
+        super::ResumeStandingRuleOutcome::NotPaused
+    );
     assert!(store
         .standing_rule_is_current("rule-supersede-paused", 2)
         .unwrap());
@@ -100,7 +103,13 @@ fn concurrent_lifecycle_intents_write_one_transition_audit() {
             .resume_standing_rule("rule-concurrent-lifecycle", 1)
             .unwrap()
     });
-    assert_eq!(resumed.iter().filter(|changed| **changed).count(), 1);
+    assert_eq!(
+        resumed
+            .iter()
+            .filter(|outcome| **outcome == super::ResumeStandingRuleOutcome::Resumed)
+            .count(),
+        1
+    );
     assert_eq!(
         store
             .count_audit_events_of_kind("standing_rule.resumed")

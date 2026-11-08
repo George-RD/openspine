@@ -37,6 +37,7 @@ use openspine_schemas::grant::TaskGrant;
 use openspine_schemas::owner_surface::OwnerSurfaceRef;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
+pub use standing_rules_lifecycle::ResumeStandingRuleOutcome;
 use ulid::Ulid;
 
 pub(crate) const OWNER_APPROVAL_GATE_REASON: &str = "owner-approved request re-gated";

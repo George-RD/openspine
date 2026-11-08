@@ -111,6 +111,89 @@ async fn terminal_review_resume_refusal_is_truthful() {
 }
 
 #[tokio::test]
+async fn terminal_epoch_marked_resume_requires_review_with_one_truthful_audit() {
+    let mut state = test_state_with_gmail(GmailConnector::new(
+        "client-id".into(),
+        "client-secret".into(),
+        "refresh-token".into(),
+        "owner@example.com".into(),
+    ));
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    state.terminal_reply_tx = Some(tx);
+    let review = owner_review(
+        Ulid::new(),
+        state.owner.principal_id.as_ulid(),
+        "Epoch review".into(),
+    );
+    persist(&state, &review);
+    let token = token(&review);
+    handle_terminal_message(&state, format!("/review {} {} approve", review.id, token))
+        .await
+        .unwrap();
+    rx.recv().await.unwrap();
+    let (rule_id, version) = state
+        .store
+        .owner_review_standing_rule(review.id)
+        .unwrap()
+        .unwrap();
+    state
+        .store
+        .pause_standing_rule(&rule_id, Timestamp::now())
+        .unwrap();
+    state.store.with_conn_for_test(|conn| {
+        conn.execute(
+            "UPDATE standing_rules SET needs_review_since = 1 WHERE rule_id = ?1",
+            [&rule_id],
+        )
+        .unwrap();
+    });
+    let decisions = state
+        .store
+        .count_audit_events_of_kind("owner_review.decision")
+        .unwrap();
+    handle_terminal_message(&state, format!("/review {} {} resume", review.id, token))
+        .await
+        .unwrap();
+    let refusal = rx.recv().await.unwrap();
+    assert!(refusal.contains("requires full owner review"), "{refusal}");
+    assert!(
+        refusal.contains("package compatibility change"),
+        "{refusal}"
+    );
+    assert!(!state
+        .store
+        .standing_rule_is_current(&rule_id, version)
+        .unwrap());
+    assert!(state
+        .store
+        .paused_standing_rule(&rule_id, version)
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("standing_rule.resume_requires_review")
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("standing_rule.resume_refused_not_paused")
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        state
+            .store
+            .count_audit_events_of_kind("owner_review.decision")
+            .unwrap(),
+        decisions
+    );
+    assert!(state.store.verify_audit_chain().unwrap());
+}
+
+#[tokio::test]
 async fn terminal_review_pause_refusal_is_truthful() {
     let (state, mut reply_rx) = terminal_state();
     let review = owner_review(
